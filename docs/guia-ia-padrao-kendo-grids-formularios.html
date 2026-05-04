@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Guia para IA - Padrao Kendo de Grids e Formularios</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: #1f2937;
+      background: #ffffff;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 11.5pt;
+      line-height: 1.45;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin: 0;
+      color: #0f4f8f;
+      line-height: 1.2;
+    }
+
+    h1 {
+      font-size: 24pt;
+      margin-bottom: 6pt;
+    }
+
+    h2 {
+      margin-top: 18pt;
+      margin-bottom: 8pt;
+      padding-bottom: 4pt;
+      border-bottom: 1px solid #cfd8e3;
+      font-size: 16pt;
+    }
+
+    h3 {
+      margin-top: 12pt;
+      margin-bottom: 4pt;
+      font-size: 12.5pt;
+    }
+
+    p {
+      margin: 0 0 7pt;
+    }
+
+    ul,
+    ol {
+      margin: 0 0 8pt 18pt;
+      padding: 0;
+    }
+
+    li {
+      margin: 2pt 0;
+    }
+
+    code {
+      padding: 1pt 3pt;
+      border-radius: 3pt;
+      background: #f3f6f9;
+      color: #0f4f8f;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 10pt;
+    }
+
+    pre {
+      margin: 8pt 0;
+      padding: 9pt;
+      overflow-wrap: break-word;
+      white-space: pre-wrap;
+      border: 1px solid #d9dee7;
+      border-radius: 5pt;
+      background: #f8fafc;
+      color: #111827;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 9.3pt;
+      line-height: 1.35;
+    }
+
+    .cover {
+      min-height: 220pt;
+      padding: 18pt;
+      border: 1px solid #cfd8e3;
+      border-radius: 8pt;
+      background: #f8fafc;
+    }
+
+    .kicker {
+      margin: 0 0 8pt;
+      color: #0d6efd;
+      font-size: 9pt;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .subtitle {
+      max-width: 620pt;
+      color: #475467;
+      font-size: 12.5pt;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8pt;
+      margin-top: 18pt;
+    }
+
+    .meta div,
+    .callout {
+      padding: 9pt;
+      border: 1px solid #d9dee7;
+      border-radius: 5pt;
+      background: #ffffff;
+    }
+
+    .meta strong,
+    .callout strong {
+      display: block;
+      margin-bottom: 3pt;
+      color: #0f4f8f;
+    }
+
+    .callout {
+      margin: 10pt 0;
+      background: #eef6ff;
+      border-color: #bfdaf8;
+    }
+
+    .danger {
+      background: #fff5f5;
+      border-color: #f4c7c3;
+    }
+
+    .checklist li {
+      margin-bottom: 3pt;
+    }
+
+    .page-break {
+      page-break-before: always;
+    }
+
+    table {
+      width: 100%;
+      margin: 8pt 0 12pt;
+      border-collapse: collapse;
+      font-size: 9.8pt;
+    }
+
+    th,
+    td {
+      padding: 6pt;
+      border: 1px solid #d9dee7;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #0f4f8f;
+      background: #f3f6f9;
+    }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <p class="kicker">Instrucao para agentes de IA</p>
+    <h1>Padrao Kendo de grids e formularios</h1>
+    <p class="subtitle">Guia para adaptar telas existentes em um projeto Kendo UI + PHP + Symfony + API Platform ao mesmo padrao visual e comportamental usado no motor CRUD dinamico deste projeto.</p>
+    <div class="meta">
+      <div>
+        <strong>Escopo</strong>
+        Grids, filtros, formularios, acoes, mensagens e comportamento mobile.
+      </div>
+      <div>
+        <strong>Nesta etapa</strong>
+        Nao converter para motor JSON. Apenas padronizar as telas existentes.
+      </div>
+      <div>
+        <strong>Referencia</strong>
+        Usar Kendo UI local, cultura pt-BR, tema neutro com azul discreto.
+      </div>
+    </div>
+  </section>
+
+  <h2>1. Prompt base para colar no outro projeto</h2>
+  <pre>Voce esta trabalhando em um projeto PHP/Symfony/API Platform com frontend em Kendo UI.
+Sua tarefa e padronizar grids, filtros e formularios existentes para o mesmo comportamento descrito neste documento.
+
+Regras principais:
+- Nao reescreva a tela inteira sem necessidade.
+- Nao migre ainda para motor JSON/metadados.
+- Preserve controllers, rotas, entidades, DTOs e endpoints existentes.
+- Use componentes Kendo UI nativos sempre que possivel.
+- Use cultura e mensagens pt-BR.
+- Aplique o padrao visual neutro com azul discreto.
+- Substitua alerts/confirms nativos do browser por mensagens ou janelas Kendo.
+- Garanta comportamento mobile first.
+- Nao use eval, template livre vindo do backend ou injecao arbitraria de HTML.
+- Antes de finalizar, teste desktop e mobile.</pre>
+
+  <h2>2. Padrao geral de tela</h2>
+  <ul>
+    <li>A tela deve abrir diretamente na experiencia util, sem landing page ou explicacao decorativa.</li>
+    <li>O cabeçalho no desktop deve ocupar uma linha sempre que houver espaco suficiente.</li>
+    <li>O fundo deve ser neutro; o azul deve aparecer em titulos, links, badges, bordas leves e botoes primarios.</li>
+    <li>Quando houver tema escuro, ele deve alterar fundo, superficie, texto, bordas, botoes, inputs, grids e filtros aplicados.</li>
+    <li>Data/hora da ultima atualizacao deve aparecer em badge compacto, sem texto longo como "Atualizado em".</li>
+    <li>Ajuda, logs e tema devem usar botoes compactos com icones e tooltip.</li>
+    <li>Versao do programa so aparece se existir configuracao correspondente.</li>
+    <li>Ajuda e logs so aparecem se existirem conteudo, path, URL ou endpoint configurado.</li>
+  </ul>
+
+  <h2>3. Padrao de grid</h2>
+  <h3>3.1 Estrutura</h3>
+  <ul>
+    <li>Usar Kendo Grid real, nao tabela HTML simples.</li>
+    <li>Habilitar, quando aplicavel: paginacao, ordenacao, filtro nativo, redimensionamento, reordenacao, menu de coluna e agrupamento.</li>
+    <li>Aplicar textos, datas, numeros e mensagens em pt-BR.</li>
+    <li>A coluna de acoes deve ser a primeira coluna do grid.</li>
+    <li>As acoes de linha devem ficar em menu compacto, semelhante ao menu das colunas.</li>
+    <li>O clique duplo na linha deve abrir o formulario em modo consulta, sem ativar botao de incluir, alterar ou excluir.</li>
+  </ul>
+
+  <h3>3.2 Appbar do grid</h3>
+  <ul>
+    <li>Usar botoes Kendo com icones.</li>
+    <li>Botoes comuns: Incluir, Filtros, Atualizar, Ordenacao, Agrupamento, Leiaute, Imprimir e Acoes em massa.</li>
+    <li>O botao Atualizar deve usar icone equivalente a <code>arrow-rotate-cw</code>.</li>
+    <li>O botao de acoes em massa so deve aparecer quando existirem acoes em massa cadastradas.</li>
+    <li>O botao Imprimir so deve aparecer quando existirem opcoes de exportacao.</li>
+    <li>Em mobile, os botoes do grid devem ser icon-only sempre que necessario para caber em uma linha.</li>
+  </ul>
+
+  <h3>3.3 Filtros aplicados</h3>
+  <ul>
+    <li>Quando algum filtro estiver aplicado, exibir chips/labels informando os filtros ativos.</li>
+    <li>Deve ser possivel desativar a exibicao dos filtros aplicados por configuracao da tela.</li>
+    <li>Ao clicar em um chip de filtro aplicado, abrir uma janela para alterar apenas aquele filtro e, ao aplicar, atualizar o grid inteiro.</li>
+    <li>Deve existir botao para limpar todos os filtros.</li>
+  </ul>
+
+  <h3>3.4 Leiaute, ordenacao e agrupamento</h3>
+  <ul>
+    <li>Leiautes, ordenacoes e agrupamentos devem abrir em janelas Kendo, nao ocupar espaco permanente na appbar.</li>
+    <li>Deve ser possivel salvar varios leiautes, ordenacoes e agrupamentos, com nome e opcao de padrao.</li>
+    <li>Congelamento de colunas deve ser opcional, claro ao usuario como recurso apenas desktop.</li>
+    <li>As colunas devem iniciar descongeladas, exceto quando houver leiaute salvo explicitamente dizendo o contrario.</li>
+    <li>O cadeado fechado deve representar coluna congelada; cadeado aberto deve representar coluna nao congelada.</li>
+    <li>Ao clicar no cadeado, nao pode ordenar nem mover coluna. Deve apenas alternar congelamento daquela coluna.</li>
+    <li>Agrupamento deve permitir selecionar campos e tambem colunas a contar ou somar.</li>
+  </ul>
+
+  <h3>3.5 Exportacao</h3>
+  <ul>
+    <li>No grid, usar exportacoes nativas do Kendo sempre que possivel: Excel, PDF e CSV.</li>
+    <li>O botao de impressao/exportacao so aparece se houver opcoes disponiveis.</li>
+    <li>Nome do arquivo deve ser coerente com a tela e filtros aplicados quando possivel.</li>
+  </ul>
+
+  <h2>4. Padrao de filtros</h2>
+  <ul>
+    <li>O filtro deve ser uma janela Kendo que pode abrir automaticamente na entrada ou apenas quando o usuario clicar no botao Filtros.</li>
+    <li>Quando abrir automaticamente, pode existir configuracao para esperar o usuario clicar em Filtrar antes de carregar o grid.</li>
+    <li>Deve existir opcao de abrir o filtro maximizado tanto na entrada quanto na abertura manual.</li>
+    <li>A janela de filtro deve ter appbar no rodape, fixa, com botoes alinhados a esquerda.</li>
+    <li>Os campos devem ficar entre appbar superior e appbar inferior, com rolagem vertical quando necessario.</li>
+    <li>Labels devem ficar acima dos campos.</li>
+    <li>Campos de filtro devem ficar um abaixo do outro, exceto operador e range, que devem ficar na mesma linha do campo.</li>
+    <li>Deve ser possivel dividir filtros em abas.</li>
+    <li>Salvar filtro deve abrir janela pedindo nome e se sera padrao; nao usar prompt/alert nativo do browser.</li>
+    <li>O seletor de filtros salvos deve ocupar o minimo de espaco possivel e usar "Livre" quando nao houver filtro salvo selecionado.</li>
+  </ul>
+
+  <h3>4.1 Tipos de filtro</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>Tipo</th>
+        <th>Comportamento esperado</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Texto</td>
+        <td>Igual, inicia com, contem, nao contem, vazio, nulo, nao vazio, nao nulo, entre valores e lista separada por virgula.</td>
+      </tr>
+      <tr>
+        <td>Numero/decimal</td>
+        <td>Igual, maior, maior igual, menor, menor igual, range, esta contido em e nao esta contido em.</td>
+      </tr>
+      <tr>
+        <td>Data</td>
+        <td>DatePicker, DateRangePicker e data relativa: ontem, hoje, amanha, quantidade de dias, semanas, quinzenas, meses ou anos, com Antes/Depois.</td>
+      </tr>
+      <tr>
+        <td>Data/hora</td>
+        <td>DateTimePicker ou equivalente Kendo.</td>
+      </tr>
+      <tr>
+        <td>Logico</td>
+        <td>Sim, Nao e Todos.</td>
+      </tr>
+      <tr>
+        <td>Chave estrangeira</td>
+        <td>DropDownList, janela de busca, DropDownTree, checkbox ou checkbox group, conforme a necessidade.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2 class="page-break">5. Padrao de formulario</h2>
+  <h3>5.1 Janela e appbars</h3>
+  <ul>
+    <li>Formulario deve abrir em janela/popup Kendo, com opcao de maximizar.</li>
+    <li>Deve existir propriedade/comportamento para abrir maximizado por padrao.</li>
+    <li>Appbar de cabecalho: Incluir, Alterar, Excluir, Logs, Imprimir e Outras acoes, conforme permissao e configuracao.</li>
+    <li>Appbar de rodape: Confirmar e Cancelar sempre alinhados a esquerda.</li>
+    <li>O comportamento de fechar ou nao a janela ao salvar/cancelar deve ser configuravel.</li>
+    <li>Em mobile, o formulario deve ocupar corretamente a largura, sem sobra lateral direita.</li>
+  </ul>
+
+  <h3>5.2 Estados dos botoes</h3>
+  <ul>
+    <li>Ao entrar em Alterar, os botoes Incluir e Excluir devem ficar desabilitados.</li>
+    <li>Ao abrir por duplo clique no grid, o formulario entra em consulta: nenhum botao de acao de cabecalho fica ativo.</li>
+    <li>Em consulta por duplo clique, Confirmar e Cancelar ficam desabilitados.</li>
+    <li>Cancelar nao deve sair da pagina. Deve desativar a acao corrente, liberar botoes do cabecalho e desativar botoes do rodape.</li>
+    <li>Botoes Anterior e Proximo devem ser opcionais e usar apenas icones, sem texto.</li>
+  </ul>
+
+  <h3>5.3 Campos e abas</h3>
+  <ul>
+    <li>Formulario deve suportar multiplas abas.</li>
+    <li>A primeira aba deve mostrar conteudo imediatamente, sem exigir clique inicial.</li>
+    <li>Labels devem ficar acima dos campos.</li>
+    <li>Deve existir suporte a campo somente leitura e campo renderizado apenas como label.</li>
+    <li>IDs de campos devem ser unicos: usar <code>formId-campoId</code>. Se o campo nao tiver id, gerar com <code>formId-nomeDoCampo</code>.</li>
+    <li>Evitar IDs previsiveis para autorizacao. ID organizado nao substitui seguranca no backend.</li>
+  </ul>
+
+  <h3>5.4 Eventos e recarga de dados</h3>
+  <ul>
+    <li>Eventos de entrada, modificacao e saida podem chamar APIs, mas nao podem executar JavaScript livre vindo do backend.</li>
+    <li>Ao mudar um campo, deve ser possivel enviar todos os valores do formulario ou apenas campos especificos para a API.</li>
+    <li>A API pode retornar efeitos seguros: alterar valor, limpar valor, habilitar, desabilitar, tornar readonly, esconder, mostrar, exigir, remover obrigatoriedade, trocar opcoes e exibir mensagem.</li>
+    <li>Campos dependentes devem poder recarregar opcoes. Exemplo: ao alterar UF, recarregar Cidade usando o valor da UF como parametro.</li>
+    <li>Regra de negocio deve ficar no backend. O frontend apenas aplica o resultado seguro retornado pela API.</li>
+  </ul>
+
+  <h3>5.5 Situacao e etapas</h3>
+  <ul>
+    <li>Quando existir campo de situacao, exibir logo abaixo da appbar de cabecalho.</li>
+    <li>Exibir label pequeno acima do componente de situacao.</li>
+    <li>Se houver muitos passos, priorizar o passo atual e permitir rolagem horizontal.</li>
+    <li>Ao clicar em cada fase, abrir historico com data/hora e usuario que fez a alteracao.</li>
+    <li>Formulario por etapas deve permitir definir etapas, campos por etapa, obrigatorios para avancar e permissoes por etapa.</li>
+    <li>Cada etapa pode ter botao de log proprio, sem conflitar com rolagem vertical.</li>
+  </ul>
+
+  <h2>6. Mobile</h2>
+  <ul>
+    <li>Mobile first: nao deixar appbars com botoes quebrando de forma desorganizada.</li>
+    <li>No grid mobile, deve haver duas possibilidades: manter grid com colunas reduzidas ou usar card/template seguro.</li>
+    <li>Template mobile nao deve aceitar HTML livre do backend. O backend pode escolher um template conhecido e informar quais campos vao em cada area.</li>
+    <li>No card mobile, acoes como Incluir, Alterar, Excluir e Outras acoes podem aparecer no card; no formulario mobile, manter Confirmar, Cancelar e Navegacao.</li>
+    <li>Botoes de grid no mobile devem usar apenas icones quando necessario para caber em uma linha.</li>
+    <li>Data/hora, log e ajuda no cabecalho mobile devem ficar alinhados, sem embolar.</li>
+  </ul>
+
+  <h2>7. Mensagens, janelas e acessibilidade</h2>
+  <ul>
+    <li>Substituir <code>alert</code>, <code>confirm</code> e <code>prompt</code> nativos por Kendo Notification, Kendo Window ou Kendo Dialog.</li>
+    <li>Mensagens devem ter contraste neutro e nao misturar fundo verde forte com azul forte.</li>
+    <li>Evitar mensagens sobrepostas; esconder notificacao anterior antes de mostrar nova, quando fizer sentido.</li>
+    <li>Botoes icon-only precisam de <code>title</code> e <code>aria-label</code>.</li>
+    <li>Janelas devem ter botoes de confirmacao/cancelamento alinhados a esquerda.</li>
+    <li>Janelas de ajuda/novidades devem ficar acima da janela de filtro quando ambas existirem.</li>
+  </ul>
+
+  <h2>8. Seguranca e integracao com backend</h2>
+  <div class="callout danger">
+    <strong>Regra de seguranca</strong>
+    Nunca confiar no frontend para permissao, visibilidade, validacao critica, tenant, usuario ou autorizacao. O backend Symfony/API Platform deve validar tudo novamente.
+  </div>
+  <ul>
+    <li>Permissoes visuais no frontend servem apenas para experiencia do usuario.</li>
+    <li>Endpoints devem validar usuario, perfil, tenant, registro e transicao de estado.</li>
+    <li>Nao permitir que retorno da API injete script ou HTML arbitrario.</li>
+    <li>Templates permitidos devem ser uma lista fechada no frontend.</li>
+    <li>Eventos de formulario devem aceitar apenas acoes seguras conhecidas.</li>
+    <li>Logs e historicos devem vir do backend, nao do estado local do browser.</li>
+  </ul>
+
+  <h2>9. Checklist de entrega por tela</h2>
+  <ul class="checklist">
+    <li>Grid usa Kendo Grid real.</li>
+    <li>Cultura, mensagens, datas e numeros em pt-BR.</li>
+    <li>Cabecalho compacto no desktop e organizado no mobile.</li>
+    <li>Toolbar com icones e botoes condicionais.</li>
+    <li>Coluna de acoes como primeira coluna e em menu compacto.</li>
+    <li>Filtros em janela com rodape fixo e botoes a esquerda.</li>
+    <li>Filtros aplicados visiveis quando habilitado.</li>
+    <li>Salvar filtro/layout/ordenacao/agrupamento sem prompt nativo.</li>
+    <li>Formulario em janela Kendo com appbar superior e rodape fixo.</li>
+    <li>Estados de Incluir/Alterar/Excluir/Consulta corretos.</li>
+    <li>Primeira aba do formulario aparece sem clique adicional.</li>
+    <li>Mobile sem overflow lateral e com botoes compactos.</li>
+    <li>Alerts/confirms/prompts nativos removidos.</li>
+    <li>Permissoes e validacoes criticas confirmadas no backend.</li>
+  </ul>
+</body>
+</html>

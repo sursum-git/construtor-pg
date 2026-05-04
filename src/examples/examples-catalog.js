@@ -544,6 +544,79 @@
     }
   ];
 
+  const propertyOptions = [
+    option("Raiz", "schemaVersion", "\"1.0\"", "Obrigatorio", "Versao atual do contrato."),
+    option("Raiz", "pageType", "\"crud\"", "Obrigatorio", "Nesta versao o motor renderiza apenas paginas CRUD."),
+    option("Programa", "program.help.kind", "text | link | video", "text", "Define o conteudo principal da ajuda da tela."),
+    option("Programa", "program.help.items[].kind", "text | link | video", "text", "Itens adicionais exibidos na janela de ajuda/novidades."),
+    option("Programa", "program.logs.url", "URL relativa | http | https", "vazio", "Se vazio, o botao de log da tela nao aparece."),
+    option("Permissoes", "permissions.*", "true | false", "false se ausente", "Controla exibicao de botoes e acoes."),
+    option("Dados/API", "dataSource.api.*.method", "GET | POST | PUT | PATCH | DELETE", "GET", "Metodo usado pelo mock/backend."),
+    option("Dados/API", "dataModel.fields[].type", "string | text | integer | decimal | number | boolean | date | datetime | email | enum | lookup | hidden", "Obrigatorio", "Tipo base usado por grid, filtros e formulario."),
+    option("Dados/API", "dataModel.fields[].format", "currency | date | datetime | number", "por tipo", "Atalhos implementados para formatacao Kendo."),
+    option("Consulta", "crud.query.defaultSort[].dir", "asc | desc", "vazio", "Direcao da ordenacao inicial."),
+    option("Filtro", "crud.filter.type", "window", "window", "Renderizador de filtro implementado hoje."),
+    option("Filtro", "crud.filter.mode", "basic", "basic", "Modo interno atual do filtro."),
+    option("Filtro", "crud.filter.openOnLoad", "true | false", "false", "Abre a janela de filtros ao entrar na pagina."),
+    option("Filtro", "crud.filter.waitForSubmitOnLoad", "true | false", "true", "Quando o filtro abre na entrada, espera o usuario clicar em Filtrar."),
+    option("Filtro", "crud.filter.maximizeFilter", "true | false", "false", "Abre o filtro maximizado tanto na entrada quanto manualmente."),
+    option("Filtro", "crud.filter.showAppliedFilters", "true | false", "true", "Exibe ou oculta os chips dos filtros aplicados."),
+    option("Filtro", "crud.filter.tabs.enabled", "true | false", "false", "Divide os campos de filtro em abas."),
+    option("Filtro", "crud.filter.fields[].type", "search | text | enum | lookup | dateRange | date | datetime | time | number | integer | decimal | boolean", "por campo", "Tipo do filtro renderizado."),
+    option("Filtro", "crud.filter.fields[].editor", "dropdown | dropdownList | multiselect | dropdowntree | checkbox | checkboxgroup | searchWindow", "por tipo", "Editor opcional para filtros de opcoes/lookup."),
+    option("Filtro", "crud.filter.fields[].operator", "eq | neq | startsWith | contains | notContains | isEmpty | isNotEmpty | isNull | isNotNull | between | in | notIn | gt | gte | lt | lte | relative", "por tipo", "Operador inicial do filtro."),
+    option("Filtro", "crud.filter.fields[].operators[]", "eq | neq | startsWith | contains | notContains | isEmpty | isNotEmpty | isNull | isNotNull | between | in | notIn | gt | gte | lt | lte | relative", "por tipo", "Lista de operadores permitidos para o usuario."),
+    option("Filtro", "relativeDate.defaultPreset", "yesterday | today | tomorrow | days | weeks | fortnights | months | years", "today", "Opcoes de data relativa."),
+    option("Filtro", "relativeDate.defaultDirection", "previous | next", "previous", "Na UI aparece como Antes ou Depois."),
+    option("Grid", "crud.grid.pageable", "true | false", "true na demo", "Liga/desliga paginacao do Kendo Grid."),
+    option("Grid", "crud.grid.sortable", "true | false", "true na demo", "Liga/desliga ordenacao por coluna."),
+    option("Grid", "crud.grid.filterable", "true | false", "true na demo", "Liga/desliga filtro nativo do Kendo nas colunas."),
+    option("Grid", "crud.grid.groupable", "true | false", "false", "Liga area nativa de agrupamento do grid."),
+    option("Grid", "crud.grid.resizable", "true | false", "true na demo", "Permite redimensionar colunas."),
+    option("Grid", "crud.grid.reorderable", "true | false", "true na demo", "Permite reordenar colunas."),
+    option("Grid", "crud.grid.columnMenu", "true | false", "true na demo", "Liga menu da coluna."),
+    option("Grid", "crud.grid.columns[].align", "left | center | right", "left", "Alinhamento da coluna."),
+    option("Grid", "crud.grid.mobile.mode", "columns | template", "vazio", "columns mantem grid; template usa card mobile seguro."),
+    option("Grid", "crud.grid.mobile.cardActions", "true | false", "true", "Exibe acoes dentro do card mobile."),
+    option("Grid", "crud.grid.freezeColumns.enabled", "true | false", "false", "Recurso apenas desktop."),
+    option("Grid", "crud.grid.ai.enabled", "true | false", "false", "Exibe ou oculta SmartBox de IA do grid."),
+    option("Grid", "crud.grid.ai.provider", "mock | service", "mock", "mock interpreta localmente; service chama backend."),
+    option("Grid", "crud.grid.ai.tool", "smartbox", "smartbox", "Componente Kendo usado hoje."),
+    option("Grid", "crud.grid.ai.activeMode", "Search | AIAssistant", "AIAssistant", "Modo inicial do SmartBox."),
+    option("Grid", "crud.grid.print.options[]", "excel | pdf | csv", "vazio", "Sem opcoes, o botao Imprimir nao aparece."),
+    option("Grid", "crud.grid.toolbar[].action", "create | filters | refresh | sort | group | layout", "vazio", "A action precisa existir nos handlers do motor."),
+    option("Grid", "crud.grid.rowActions[].action", "view | edit | delete", "vazio", "Acoes padrao por linha."),
+    option("Formulario", "crud.form.mode", "popup", "popup", "Modo implementado hoje."),
+    option("Formulario", "crud.form.layout", "tabs | sections | single | steps", "tabs", "steps ativa formulario por etapas."),
+    option("Formulario", "crud.form.maximizeForm", "true | false", "false", "Abre o formulario maximizado."),
+    option("Formulario", "crud.form.behavior.closeOnSave", "true | false", "true", "Controla se fecha ao confirmar."),
+    option("Formulario", "crud.form.behavior.closeOnCancel", "true | false", "false", "Controla se fecha ao cancelar."),
+    option("Formulario", "crud.form.navigation.enabled", "true | false", "true", "Exibe botoes anterior/proximo."),
+    option("Formulario", "crud.form.mobile.showHeaderActions", "true | false", "false", "No mobile, controla botoes do cabecalho do formulario."),
+    option("Formulario", "crud.form.situation.display", "stepper | arrowstep | badge", "stepper", "arrowstep usa renderizacao propria em formato de etapas."),
+    option("Formulario", "crud.form.situation.orientation", "horizontal | vertical", "horizontal", "Propriedade catalogada no schema; a UI atual prioriza horizontal."),
+    option("Formulario", "crud.form.fields[].renderAs", "label | readonly", "vazio", "Renderiza campo como label/somente leitura."),
+    option("Formulario", "crud.form.fields[].display", "label | readonly", "vazio", "Alias aceito para renderAs."),
+    option("Formulario", "crud.form.fields[].mode", "label | readonly", "vazio", "Alias aceito para renderAs."),
+    option("Formulario", "crud.form.buttons[].placement", "header | footer", "footer", "Define appbar do botao configurado."),
+    option("Formulario", "crud.form.buttons[].visibleIn[]", "create | edit | view | delete", "todos", "Controla em quais modos o botao aparece."),
+    option("Formulario", "crud.form.buttons[].target/openAs", "request | window | newTab", "request", "Define como uma URL/API de botao sera acionada."),
+    option("Formulario", "crud.form.print.options[].format", "excel | pdf | csv", "vazio", "Formatos disponiveis no formulario."),
+    option("Formulario", "crud.form.print.options[].source", "browser | api", "api quando endpoint existe", "browser usa impressao/exportacao local quando configurado."),
+    option("Formulario", "crud.form.events[].event", "change | blur | focus | enter | open | afterLoad", "change", "Eventos seguros suportados pelo motor."),
+    option("Formulario", "crud.form.events[].effects[].action", "setValue | clearValue | readonly | enabled | disabled | visible | show | hide | required | setOptions | reloadOptions | showMessage", "vazio", "Efeitos seguros aplicados pelo motor, sem JavaScript livre."),
+    option("Formulario", "crud.form.events[].effects[].type", "success | error | info | warning", "info", "Tipo da mensagem quando action=showMessage."),
+    option("Formulario", "crud.form.events[].when.operator", "eq | neq | in | notIn | contains | isEmpty | isNotEmpty | isNull | isNotNull | truthy | falsy", "eq", "Operadores de condicao para eventos."),
+    option("Global", "config.theme.defaultMode", "light | dark", "light", "Modo inicial do tema global."),
+    option("Global", "config.theme.allowUserSwitch", "true | false", "true", "Permite alternar claro/escuro no cabecalho."),
+    option("Global", "config.theme.persistUserChoice", "true | false", "true", "Persiste escolha do usuario no localStorage."),
+    option("Global", "config.help.items[].kind", "text | link | video", "text", "Tipo de novidade global.")
+  ];
+
+  function option(category, path, values, defaultValue, note) {
+    return { category, path, values, defaultValue, note };
+  }
+
   function list() {
     return examples.map(function(example) {
       return {
@@ -588,6 +661,10 @@
   function getCode(id) {
     const example = get(id);
     return JSON.stringify(example && example.code ? example.code : {}, null, 2);
+  }
+
+  function getPropertyOptions() {
+    return propertyOptions.slice();
   }
 
   function applyCommonDefaults(definition, source, example) {
@@ -681,6 +758,7 @@
     get,
     buildDefinition,
     buildConfig,
-    getCode
+    getCode,
+    getPropertyOptions
   };
 })(window);
