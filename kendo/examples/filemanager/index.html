@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Overview</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+    <div id="filemanager"></div>
+
+    <script>
+        $("#filemanager").kendoFileManager({
+            dataSource: {
+                schema: kendo.data.schemas.filemanager,
+                transport: {
+                    read: {
+                        url: "https://demos.telerik.com/service/v2/core/FileManager/Read",
+                        method: "POST"
+                    },
+                    create: {
+                        url: "https://demos.telerik.com/service/v2/core/FileManager/Create",
+                        method: "POST"
+                    },
+                    update: {
+                        url: "https://demos.telerik.com/service/v2/core/FileManager/Update",
+                        method: "POST"
+                    },
+                    destroy: {
+                        url: "https://demos.telerik.com/service/v2/core/FileManager/Destroy",
+                        method: "POST"
+                    }
+                }
+            },
+            uploadUrl: "https://demos.telerik.com/service/v2/core/FileManager/Upload",
+            toolbar: {
+                items: [
+                    { name: "createFolder" },
+                    { name: "upload" },
+                    { name: "sortDirection" },
+                    { name: "sortField" },
+                    { name: "changeView" },
+                    { name: "spacer" },
+                    { name: "details" },
+                    { name: "search" }
+                ]
+            },
+            contextMenu: {
+                items: [
+                    { name: "rename" },
+                    { name: "delete" }
+                ]
+            },
+            draggable: true,
+            resizable: true
+        });
+
+        $(document).ready(function () {
+            var filemanager = $("#filemanager").getKendoFileManager();
+
+            filemanager.executeCommand({ command: "TogglePaneCommand", options: { type: "preview" } });
+            $("#details-toggle").getKendoSwitch().toggle();
+        })
+    </script>
+</div>
+
+</body>
+</html>

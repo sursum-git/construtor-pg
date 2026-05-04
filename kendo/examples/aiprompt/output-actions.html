@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Output Actions</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="k-d-flex k-justify-content-center" style="width: 600px; margin: auto;">
+    <div class="k-w-full">
+        <div id="aiprompt"></div>
+        <span id="popupNotification"></span>
+    </div>
+</div>
+
+<script>
+    var prompt = $("#aiprompt").kendoAIPrompt({
+        outputActions: [
+            "copy",
+            "retry",
+            "spacer",
+            { command: "export", text: "Export", icon: "file-pdf" },
+            { command: "share", text: "Share", icon: "share" }
+        ],
+        outputAction: function (e) {
+            if (e.command === "export") {
+
+                kendo.drawing.drawDOM(".k-w-full", {
+                    margin: "2px", // configure some of the PDF options.
+                }).then(function (group) {
+                    kendo.drawing.pdf.saveAs(group, "filename.pdf");
+                });
+
+            }
+            if (e.command === "share") {
+                // Handle share action
+                alert("Output to share: " + e.output)
+            }
+
+            if (e.command === "copy") {
+                popupNotification.show("Generated output coppied");
+            }
+        },
+        promptRequest: function (ev) {
+            var response = {
+                id: kendo.guid(),
+                output: 'For real prompt processing, please connect the component to a preferred AI service. You can use one of the items from the "Prompt Suggestions" section in the Prompt View to get a sample result.',
+                prompt: ev.prompt,
+            }
+            this.addPromptOutput(response);
+            this.activeView("output");
+        },
+        views: [
+            {
+                type: 'prompt',
+                name: "prompt",
+                promptSuggestions: [
+                    "Act as [actor] and write [format] about [subject] in [100 words]",
+                    "Suggest post about [subject] that will be used in [social media].",
+                ],
+            },
+            "output",
+            {
+                type: 'commands',
+                promptCommands: [
+
+                    { id: "1", text: "Simplify", icon: "min-width" },
+                    { id: "2", text: "Extend", icon: "arrows-left-right" },
+                ]
+            }
+        ]
+    }).data("kendoAIPrompt");
+
+    var popupNotification = $("#popupNotification").kendoNotification({
+        appendTo: "#demo-runner"
+    }).data("kendoNotification");
+</script>
+
+<style>
+    .k-d-flex {
+        border-radius: 4px 4px 0 0;
+        box-shadow: 0 0 12px 4px rgba(0, 0, 0, 0.08);
+    }
+</style>
+</body>
+</html>

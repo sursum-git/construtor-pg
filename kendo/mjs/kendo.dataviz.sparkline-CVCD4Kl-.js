@@ -1,0 +1,10 @@
+/**
+ * Kendo UI v2026.1.212 (http://www.telerik.com/kendo-ui)
+ * Copyright 2026 Progress Software Corporation and/or one of its subsidiaries or affiliates. All rights reserved.
+ *
+ * Kendo UI commercial licenses may be obtained at
+ * http://www.telerik.com/purchase/license-agreement/kendo-ui-complete
+ * If you do not own a commercial license, this file shall be governed by the trial license terms.
+ */
+import{yt as e}from"./kendo.dataviz.core-BEu3NzKG.js";import{x as t}from"./main-D8OJXddJ.js";const n={id:`dataviz.sparkline`,name:`Sparkline`,category:`dataviz`,description:`Sparkline widgets.`,depends:[`dataviz.chart`]};window.kendo.dataviz=window.kendo.dataviz||{};const r=window.kendo.jQuery;var i=kendo.dataviz,a=i.ui.Chart,o=r.extend,s=a.extend({init:function(e,n){var r=n;r instanceof kendo.data.ObservableArray&&(r={seriesDefaults:{data:r}}),a.fn.init.call(this,e,t.normalizeOptions(r))},_createChart:function(n,r){this._instance=new t(this.element[0],n,r,{observer:new e(this,{showTooltip:`_showTooltip`,hideTooltip:`_hideTooltip`,legendItemClick:`_onLegendItemClick`,render:`_onRender`,init:`_onInit`,drilldown:`_onDrilldown`}),sender:this,rtl:this._isRtl(),createSurface:kendo.drawing.Surface.create})},_createTooltip:function(){return new c(this.element,o({},this.options.tooltip,{rtl:this._isRtl()}))},options:{name:`Sparkline`,chartArea:{margin:2},axisDefaults:{visible:!1,majorGridLines:{visible:!1},valueAxis:{narrowRange:!0}},seriesDefaults:{type:`line`,area:{line:{width:.5}},bar:{stack:!0},padding:2,width:.5,overlay:{gradient:null},highlight:{visible:!1},border:{width:0},markers:{size:2,visible:!1}},tooltip:{visible:!0,shared:!0},categoryAxis:{crosshair:{visible:!0,tooltip:{visible:!1}}},legend:{visible:!1},transitions:!1,pointWidth:5,panes:[{clip:!1}]}});i.ui.plugin(s);var c=i.Tooltip.extend({options:{animation:{duration:0}},_hideElement:function(){this.element&&this.element.hide().remove()}});i.Sparkline=s,i.SparklineTooltip=c;var l=kendo;export{l as n,n as t};
+//# sourceMappingURL=kendo.dataviz.sparkline-CVCD4Kl-.js.map

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>DataSource Binding</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+
+<div id="tabstrip"></div>
+
+<script>
+    $(document).ready(function () {
+        var tabstrip = $("#tabstrip").kendoTabStrip({
+            dataSource: [
+                { text: "Home", content: "Welcome to the Home tab.", icon: "home", iconPosition: "before" }, 
+                { text: "Profile", content: "This is your Profile information.", icon: "user", iconPosition: "before" },
+                { text: "Settings", content: "Adjust your Settings here.", icon: "gear", iconPosition: "after", closable: true },
+                {
+                    text: "Tab with actions",
+                    content: "Check the browser console",
+                    actions: [
+                        {
+                            icon: "pencil",
+                            action: function(e) {
+                            console.log("Edit tab", e);
+                            }
+                        },
+                        {
+                            icon: "arrow-rotate-ccw",
+                            action: function(e) {
+                            console.log("Refresh tab", e);
+                            }
+                        }
+                    ]
+                }          
+            ],
+            dataTextField: "text",
+            dataContentField: "content",
+            dataIconField: "icon",
+            dataIconPositionField: "iconPosition",
+        }).data("kendoTabStrip");
+        tabstrip.select(0);
+    });
+</script>
+</body>
+</html>

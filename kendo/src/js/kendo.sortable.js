@@ -1,0 +1,753 @@
+/**
+ * Kendo UI v2026.1.212 (http://www.telerik.com/kendo-ui)
+ * Copyright 2026 Progress Software Corporation and/or one of its subsidiaries or affiliates. All rights reserved.
+ *
+ * Kendo UI commercial licenses may be obtained at
+ * http://www.telerik.com/purchase/license-agreement/kendo-ui-complete
+ * If you do not own a commercial license, this file shall be governed by the trial license terms.
+ */
+
+import "./kendo.draganddrop.js";
+
+export const __meta__ = {
+    id: "sortable",
+    name: "Sortable",
+    category: "framework",
+    depends: [ "draganddrop" ]
+};
+
+(function($, undefined) {
+    var kendo = window.kendo,
+        Widget = kendo.ui.Widget,
+        outerWidth = kendo._outerWidth,
+        outerHeight = kendo._outerHeight,
+        keys = kendo.keys,
+
+        NS = ".kendoSortable",
+
+        KEYDOWN = "keydown" + NS,
+        FOCUS = "focus" + NS,
+        BLUR = "blur" + NS,
+        REFSORTABLEITEM = "ref-sortable-item",
+        REFSORTABLEITEM_ATTR = "[" + REFSORTABLEITEM + "]",
+        START = "start",
+        BEFORE_MOVE = "beforeMove",
+        MOVE = "move",
+        END = "end",
+        CHANGE = "change",
+        NAVIGATE = "navigate",
+        CANCEL = "cancel",
+
+        ACTION_SORT = "sort",
+        ACTION_REMOVE = "remove",
+        ACTION_RECEIVE = "receive",
+
+        DEFAULT_FILTER = ">*",
+        MISSING_INDEX = -1;
+
+    function containsOrEqualTo(parent, child) {
+        try {
+            return $.contains(parent, child) || parent == child;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function defaultHint(element) {
+        return element.clone();
+    }
+
+    function defaultPlaceholder(element) {
+        return element.clone().removeAttr("id").css("visibility", "hidden");
+    }
+
+    var Sortable = Widget.extend({
+        init: function(element, options) {
+            var that = this;
+
+            Widget.fn.init.call(that, element, options);
+
+            if (!that.options.placeholder) {
+                that.options.placeholder = defaultPlaceholder;
+            }
+
+            if (!that.options.hint) {
+                that.options.hint = defaultHint;
+            }
+
+            that.draggable = that._createDraggable();
+            that._assignRefAttribute();
+            const items = that._items();
+
+            if (that.options.navigatable) {
+                items.filter(that.options.disabled).attr("aria-disabled", true);
+                items.not(that.options.disabled).attr("aria-disabled", false);
+
+                if (!that.element.attr("role")) {
+                    that.element.attr("role", "list");
+                };
+                items.each(function(index, item) {
+                    const itemRoleAttr = item.getAttribute("role");
+                    if (!itemRoleAttr) {
+                        item.setAttribute("role", "listitem");
+                    };
+                    item.setAttribute("aria-label", `${item.textContent.trim()}, ${item.getAttribute("aria-disabled") === "true" ? "disabled" : "enabled"}`);
+                });
+
+                that._attatchNavigatableHandlers();
+
+                const firstItem = items.first();
+                that._toggleTabIndex(firstItem);
+                items.find(":kendoFocusable").attr("tabindex", -1);
+            }
+        },
+
+        events: [
+            START,
+            BEFORE_MOVE,
+            MOVE,
+            END,
+            CHANGE,
+            NAVIGATE,
+            CANCEL
+        ],
+
+        options: {
+            name: "Sortable",
+            hint: null,
+            placeholder: null,
+            filter: DEFAULT_FILTER,
+            navigatable: false,
+            holdToDrag: false,
+            disabled: null,
+            container: null,
+            connectWith: null,
+            handler: null,
+            cursorOffset: null,
+            axis: null,
+            ignore: null,
+            autoScroll: false,
+            cursor: "auto",
+            moveOnDragEnter: false,
+            allowTouchActions: false,
+        },
+
+        _attatchNavigatableHandlers: function() {
+            const that = this;
+            that._keydownHandler = that._keydown.bind(that);
+            that._blurHandler = that._blur.bind(that);
+            that._focusHandler = that._focus.bind(that);
+            that.element.on(KEYDOWN, REFSORTABLEITEM_ATTR, that._keydownHandler)
+                .on(BLUR, REFSORTABLEITEM_ATTR, that._blurHandler)
+                .on(FOCUS, REFSORTABLEITEM_ATTR, that._focusHandler);
+        },
+
+        _focus: function(e) {
+            const that = this;
+            const target = $(e.target);
+            if (target.is(REFSORTABLEITEM_ATTR)) {
+                that._toggleFocus($(e.target));
+                if (!that._preventNavigate) {
+                    that.trigger(NAVIGATE, { item: $(e.target) });
+                }
+            }
+        },
+
+        _toggleTabIndex: function(target) {
+            const that = this;
+            const items = that._items();
+
+            if (items.length) {
+                items.attr("tabindex", -1);
+                target.attr("tabindex", 0);
+            }
+        },
+
+        _toggleFocus: function(target) {
+            const that = this;
+            const items = that._items();
+
+            if (items.length) {
+                items.removeClass("k-focus");
+                target.addClass("k-focus");
+            }
+        },
+
+        _swap: function(target, swapWith, direction) {
+            const that = this;
+
+            if (target.is(that.options.disabled)) {
+                return;
+            }
+
+            if (swapWith.length) {
+                swapWith[direction](target);
+                const oldIndex = direction === "after" ? that.indexOf(target) - 1 : that.indexOf(target) + 1;
+                const newIndex = that.indexOf(target);
+                that._toggleTabIndex(target);
+                target.trigger("focus");
+
+                this.trigger(CHANGE, { item: target , oldIndex: oldIndex , newIndex: newIndex, action: ACTION_SORT });
+            }
+        },
+
+        _navigate: function(direction, target) {
+            const that = this;
+            let item = target;
+
+            item = (direction === "next") ? item.next(REFSORTABLEITEM_ATTR) : item.prev(REFSORTABLEITEM_ATTR);
+
+            if (!item.length) {
+                return false;
+            }
+
+            that._toggleTabIndex(item);
+            item.trigger("focus");
+
+            return item;
+        },
+
+        _keydown: function(e) {
+            const that = this,
+                  key = e.keyCode,
+                  target = $(e.target),
+                  next = target.next(),
+                  prev = target.prev(),
+                  focusable = target.find(":kendoFocusable");
+            let handled = false;
+            let newTarget;
+
+            that._preventNavigate = false;
+
+            if (that._lastFocusedSortableItem) {
+                if (key === keys.LEFT || key === keys.UP || key === keys.RIGHT || key === keys.DOWN) {
+                    return;
+                }
+                if (key === keys.TAB) {
+                    const shiftKey = e.shiftKey;
+                    const container = that._lastFocusedSortableItem;
+                    const innerElements = container.find(":kendoFocusable");
+                    const firstInnerElement = innerElements.first();
+                    const lastInnerElement = innerElements.last();
+
+                    if (!innerElements.length) {
+                        return;
+                    };
+                    if (!shiftKey && target.is(lastInnerElement)) {
+                        firstInnerElement.focus();
+                        handled = true;
+                    };
+                    if (shiftKey && target.is(firstInnerElement)) {
+                        lastInnerElement.focus();
+                        handled = true;
+                    };
+                }
+            };
+            if (key == keys.RIGHT || key == keys.DOWN) {
+                if (e.ctrlKey) {
+                    that._preventNavigate = true;
+                    that._swap(target, next, "after");
+                    handled = true;
+                } else if (target.is(REFSORTABLEITEM_ATTR) && !target.is(that._items().last())) {
+                    newTarget = that._navigate("next", target);
+                    handled = newTarget;
+                }
+            }
+            if (key == keys.LEFT || key == keys.UP) {
+                if (e.ctrlKey) {
+                    that._preventNavigate = true;
+                    that._swap(target, prev, "before");
+                    handled = true;
+                } else if (target.is(REFSORTABLEITEM_ATTR) && !target.is(that._items().first())) {
+                    newTarget = that._navigate("prev", target);
+                    handled = newTarget;
+                }
+            }
+            if (key == keys.ENTER) {
+                if (target.is(that.options.disabled) || target.find('input').length === 0) {
+                    return;
+                }
+                that._lastFocusedSortableItem = target;
+                if (!focusable.length) {
+                    return;
+                }
+                target.find(":kendoFocusable").attr("tabindex", 0);
+                target.removeClass("k-focus");
+                target.attr("tabindex", -1);
+                focusable.first().trigger("focus");
+                handled = true;
+            }
+            if (key == keys.ESC) {
+                that._preventNavigate = true;
+                let closestSortableItem = that._lastFocusedSortableItem;
+
+                if (!closestSortableItem) {
+                    closestSortableItem = target.closest(REFSORTABLEITEM_ATTR);
+                }
+
+                if (!closestSortableItem.length) {
+                    return;
+                }
+
+                that.element.find(":kendoFocusable").attr("tabindex", -1);
+                that._toggleTabIndex(closestSortableItem);
+                closestSortableItem.trigger("focus");
+
+                if (that._lastFocusedSortableItem) {
+                    delete that._lastFocusedSortableItem;
+                }
+                handled = true;
+            }
+            if (handled) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        },
+
+        _blur: function(e) {
+            $(e.target).removeClass("k-focus");
+        },
+
+        _detatchNavigatableHandlers: function() {
+            const that = this;
+            if (that.options.navigatable) {
+                that.element.off(NS);
+                that._keydownHandler = null;
+                that._blurHandler = null;
+                that._focusHandler = null;
+            }
+        },
+
+        _assignRefAttribute: function() {
+            const that = this;
+            const items = that._items();
+
+            items.attr(REFSORTABLEITEM, "");
+        },
+
+        destroy: function() {
+            this._detatchNavigatableHandlers();
+            this.draggable.destroy();
+            Widget.fn.destroy.call(this);
+        },
+
+        _createDraggable: function() {
+            var that = this,
+                element = that.element,
+                options = that.options;
+
+            return new kendo.ui.Draggable(element, {
+                filter: options.filter,
+                hint: kendo.isFunction(options.hint) ? options.hint : $(options.hint),
+                holdToDrag: options.holdToDrag,
+                container: options.container ? $(options.container) : null,
+                cursorOffset: options.cursorOffset,
+                axis: options.axis,
+                ignore: options.ignore,
+                autoScroll: options.autoScroll,
+                dragstart: that._dragstart.bind(that),
+                dragcancel: that._dragcancel.bind(that),
+                drag: that._drag.bind(that),
+                dragend: that._dragend.bind(that),
+                allowTouchActions: options.allowTouchActions
+            });
+        },
+
+        _dragstart: function(e) {
+            var draggedElement = this.draggedElement = e.currentTarget,
+                disabled = this.options.disabled,
+                handler = this.options.handler,
+                _placeholder = this.options.placeholder,
+                placeholder = this.placeholder = kendo.isFunction(_placeholder) ? $(_placeholder.call(this, draggedElement)) : $(_placeholder);
+
+            if (disabled && draggedElement.is(disabled)) {
+                e.preventDefault();
+            } else if (handler && !$(e.initialTarget).is(handler)) {
+                e.preventDefault();
+            } else {
+
+                if (this.trigger(START, { item: draggedElement, draggableEvent: e })) {
+                    e.preventDefault();
+                } else {
+                    draggedElement.css("display", "none");
+                    draggedElement.before(placeholder);
+
+                    this._setCursor();
+                }
+
+            }
+        },
+
+        _dragcancel: function() {
+            this._cancel();
+            this.trigger(CANCEL, { item: this.draggedElement });
+
+            this._resetCursor();
+        },
+
+        _drag: function(e) {
+            var draggedElement = this.draggedElement,
+                target = this._findTarget(e),
+                targetCenter,
+                cursorOffset = { left: e.x.location, top: e.y.location },
+                offsetDelta,
+                axisDelta = { x: e.x.delta, y: e.y.delta },
+                direction,
+                sibling,
+                getSibling,
+                axis = this.options.axis,
+                moveOnDragEnter = this.options.moveOnDragEnter,
+                eventData = { item: draggedElement, list: this, draggableEvent: e };
+
+            if (axis === "x" || axis === "y") {
+                this._movementByAxis(axis, cursorOffset, axisDelta[axis], eventData);
+                return;
+            }
+
+            if (target) {
+                targetCenter = this._getElementCenter(target.element);
+
+                offsetDelta = {
+                    left: Math.round(cursorOffset.left - targetCenter.left),
+                    top: Math.round(cursorOffset.top - targetCenter.top)
+                };
+
+                $.extend(eventData, { target: target.element });
+
+                if (target.appendToBottom) {
+                    this._movePlaceholder(target, null, eventData);
+                    return;
+                }
+
+                if (target.appendAfterHidden) {
+                    this._movePlaceholder(target, "next", eventData);
+                }
+
+                if (this._isFloating(target.element)) { //horizontal
+                    if ((axisDelta.x < 0 && moveOnDragEnter) || (!moveOnDragEnter && offsetDelta.left < 0)) {
+                        direction = "prev";
+                    } else if ((axisDelta.x > 0 && moveOnDragEnter) || (!moveOnDragEnter && offsetDelta.left > 0)) {
+                        direction = "next";
+                    }
+                } else { //vertical
+                    if ((axisDelta.y < 0 && moveOnDragEnter) || (!moveOnDragEnter && offsetDelta.top < 0)) {
+                        direction = "prev";
+                    } else if ((axisDelta.y > 0 && moveOnDragEnter) || (!moveOnDragEnter && offsetDelta.top > 0)) {
+                        direction = "next";
+                    }
+                }
+
+                if (direction) {
+                    getSibling = (direction === "prev") ? jQuery.fn.prev : jQuery.fn.next;
+
+                    sibling = getSibling.call(target.element);
+
+                    //find the prev/next visible sibling
+                    while (sibling.length && !sibling.is(":visible")) {
+                        sibling = getSibling.call(sibling);
+                    }
+
+                    if (sibling[0] != this.placeholder[0]) {
+                        this._movePlaceholder(target, direction, eventData);
+                    }
+                }
+            }
+        },
+
+        _dragend: function(e) {
+            var placeholder = this.placeholder,
+                draggedElement = this.draggedElement,
+                draggedIndex = this.indexOf(draggedElement),
+                placeholderIndex = this.indexOf(placeholder),
+                connectWith = this.options.connectWith,
+                connectedList,
+                isDefaultPrevented,
+                eventData,
+                connectedListEventData;
+
+            this._resetCursor();
+
+            eventData = {
+                action: ACTION_SORT,
+                item: draggedElement,
+                oldIndex: draggedIndex,
+                newIndex: placeholderIndex,
+                draggableEvent: e
+            };
+
+            if (placeholderIndex >= 0) {
+                isDefaultPrevented = this.trigger(END, eventData);
+            } else {
+                connectedList = placeholder.parents(connectWith).getKendoSortable();
+
+                eventData.action = ACTION_REMOVE;
+                connectedListEventData = $.extend({}, eventData, {
+                    action: ACTION_RECEIVE,
+                    oldIndex: MISSING_INDEX,
+                    newIndex: connectedList.indexOf(placeholder)
+                });
+
+                isDefaultPrevented = !(!this.trigger(END, eventData) && !connectedList.trigger(END, connectedListEventData));
+            }
+
+            if (isDefaultPrevented || placeholderIndex === draggedIndex) {
+                this._cancel();
+                return;
+            }
+
+            placeholder.replaceWith(draggedElement);
+
+            draggedElement.show();
+            this.draggable.dropped = true;
+
+            eventData = {
+                action: this.indexOf(draggedElement) != MISSING_INDEX ? ACTION_SORT : ACTION_REMOVE,
+                item: draggedElement,
+                oldIndex: draggedIndex,
+                newIndex: this.indexOf(draggedElement),
+                draggableEvent: e
+            };
+
+            this.trigger(CHANGE, eventData);
+
+            if (connectedList) {
+                connectedListEventData = $.extend({}, eventData, {
+                    action: ACTION_RECEIVE,
+                    oldIndex: MISSING_INDEX,
+                    newIndex: connectedList.indexOf(draggedElement)
+                });
+
+                connectedList.trigger(CHANGE, connectedListEventData);
+            }
+
+        },
+
+        _findTarget: function(e) {
+            var element = this._findElementUnderCursor(e),
+                items,
+                connectWith = this.options.connectWith,
+                node;
+
+            if ($.contains(this.element[0], element)) { //the element is part of the sortable container
+                items = this.items();
+                node = items.filter(element)[0] || items.has(element)[0];
+
+                return node ? { element: $(node), sortable: this } : null;
+            } else if (this.element[0] == element && this._isEmpty()) {
+                return { element: this.element, sortable: this, appendToBottom: true };
+            } else if (this.element[0] == element && this._isLastHidden()) {
+                node = this.items().eq(0);
+                return { element: node , sortable: this, appendAfterHidden: true };
+            } else if (connectWith) { //connected lists are present
+                return this._searchConnectedTargets(element, e);
+            }
+        },
+
+        _findElementUnderCursor: function(e) {
+            var elementUnderCursor = kendo.elementUnderCursor(e),
+                draggable = e.sender;
+
+            if (containsOrEqualTo(draggable.hint[0], elementUnderCursor)) {
+                draggable.hint.hide();
+                elementUnderCursor = kendo.elementUnderCursor(e);
+                // IE8 does not return the element in iframe from first attempt
+                if (!elementUnderCursor) {
+                    elementUnderCursor = kendo.elementUnderCursor(e);
+                }
+                draggable.hint.show();
+            }
+
+            return elementUnderCursor;
+        },
+
+        _searchConnectedTargets: function(element, e) {
+            var connected = $(this.options.connectWith),
+                sortableInstance,
+                items,
+                node;
+
+            for (var i = 0; i < connected.length; i++) {
+                sortableInstance = connected.eq(i).getKendoSortable();
+
+                if ($.contains(connected[i], element)) {
+                    if (sortableInstance) {
+                        items = sortableInstance.items();
+                        node = items.filter(element)[0] || items.has(element)[0];
+
+                        if (node) {
+                            sortableInstance.placeholder = this.placeholder;
+                            return { element: $(node), sortable: sortableInstance };
+                        } else {
+                            return null;
+                        }
+                    }
+                } else if (connected[i] == element) {
+                    if (sortableInstance && sortableInstance._isEmpty()) {
+                        return { element: connected.eq(i), sortable: sortableInstance, appendToBottom: true };
+                    } else if (this._isCursorAfterLast(sortableInstance, e)) {
+                        node = sortableInstance.items().last();
+                        return { element: node, sortable: sortableInstance };
+                    }
+                }
+            }
+
+        },
+
+        _isCursorAfterLast: function(sortable, e) {
+            var lastItem = sortable.items().last(),
+                cursorOffset = { left: e.x.location, top: e.y.location },
+                lastItemOffset,
+                delta;
+
+            lastItemOffset = kendo.getOffset(lastItem);
+            lastItemOffset.top += outerHeight(lastItem);
+            lastItemOffset.left += outerWidth(lastItem);
+
+            if (this._isFloating(lastItem)) { //horizontal
+                delta = lastItemOffset.left - cursorOffset.left;
+            } else { //vertical
+                delta = lastItemOffset.top - cursorOffset.top;
+            }
+
+            return delta < 0 ? true : false;
+        },
+
+        _movementByAxis: function(axis, cursorOffset, delta, eventData) {
+            var cursorPosition = (axis === "x") ? cursorOffset.left : cursorOffset.top,
+                target = (delta < 0) ? this.placeholder.prev() : this.placeholder.next(),
+                items = this.items(),
+                targetCenter;
+
+            if (target.length && !target.is(":visible")) {
+                target = (delta < 0) ? target.prev() : target.next();
+            }
+
+            if (!items.filter(target).length) {
+                return;
+            }
+
+            $.extend(eventData, { target: target });
+            targetCenter = this._getElementCenter(target);
+
+            if (targetCenter) {
+                targetCenter = (axis === "x") ? targetCenter.left : targetCenter.top;
+            }
+
+            if (target.length && delta < 0 && cursorPosition - targetCenter < 0) { //prev
+                this._movePlaceholder({ element: target, sortable: this }, "prev", eventData);
+            } else if (target.length && delta > 0 && cursorPosition - targetCenter > 0) { //next
+                this._movePlaceholder({ element: target, sortable: this }, "next", eventData);
+            }
+        },
+
+        _movePlaceholder: function(target, direction, eventData) {
+            var placeholder = this.placeholder;
+
+            if (!target.sortable.trigger(BEFORE_MOVE, eventData)) {
+
+                if (!direction) {
+                    target.element.append(placeholder);
+                } else if (direction === "prev") {
+                    target.element.before(placeholder);
+                } else if (direction === "next") {
+                    target.element.after(placeholder);
+                }
+
+                target.sortable.trigger(MOVE, eventData);
+            }
+        },
+
+        _setCursor: function() {
+            var cursor = this.options.cursor,
+                body;
+
+            if (cursor && cursor !== "auto") {
+                body = $(document.body);
+
+                this._originalCursorType = body.css("cursor");
+                body.css({ "cursor": cursor });
+            }
+        },
+
+        _resetCursor: function() {
+            if (this._originalCursorType) {
+                $(document.body).css("cursor", this._originalCursorType);
+                this._originalCursorType = null;
+            }
+        },
+
+        _getElementCenter: function(element) {
+            var center = element.length ? kendo.getOffset(element) : null;
+            if (center) {
+                center.top += outerHeight(element) / 2;
+                center.left += outerWidth(element) / 2;
+            }
+
+            return center;
+        },
+
+        _isFloating: function(item) {
+            var isFloating = /left|right/.test(item.css('float'));
+            var isTable = /inline|table-cell/.test(item.css('display'));
+            var isHorizontalFlex = /flex/.test(item.parent().css('display')) && (/row|row-reverse/.test(item.parent().css('flex-direction')) || !item.parent().css('flex-direction'));
+            return isFloating || isTable || isHorizontalFlex;
+        },
+
+        _cancel: function() {
+            if (this.draggedElement) {
+                this.draggedElement.show();
+                this.placeholder.remove();
+                this.draggable.dropped = true;
+            }
+        },
+
+        _items: function() {
+            var filter = this.options.filter,
+                items;
+
+            if (filter) {
+                items = this.element.find(filter);
+            } else {
+                items = this.element.children();
+            }
+
+            return items;
+        },
+
+        indexOf: function(element) {
+            var items = this._items(),
+                placeholder = this.placeholder,
+                draggedElement = this.draggedElement;
+
+            if (placeholder && element[0] == placeholder[0]) {
+                return items.not(draggedElement).index(element);
+            } else {
+                return items.not(placeholder).index(element);
+            }
+        },
+
+        items: function() {
+            var placeholder = this.placeholder,
+                items = this._items();
+
+            if (placeholder) {
+                items = items.not(placeholder);
+            }
+
+            return items;
+        },
+
+        _isEmpty: function() {
+            return !this.items().length;
+        },
+
+        _isLastHidden: function() {
+            return this.items().length === 1 && this.items().is(":hidden");
+        }
+
+    });
+
+    kendo.ui.plugin(Sortable);
+})(window.kendo.jQuery);
+export default kendo;
+

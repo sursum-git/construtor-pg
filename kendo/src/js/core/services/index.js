@@ -1,0 +1,39 @@
+/**
+ * Kendo UI v2026.1.212 (http://www.telerik.com/kendo-ui)
+ * Copyright 2026 Progress Software Corporation and/or one of its subsidiaries or affiliates. All rights reserved.
+ *
+ * Kendo UI commercial licenses may be obtained at
+ * http://www.telerik.com/purchase/license-agreement/kendo-ui-complete
+ * If you do not own a commercial license, this file shall be governed by the trial license terms.
+ */
+
+export * from "./culture.service";
+export * from "./number-formatter.service";
+export * from "./date-formatter.service";
+export * from "./formatter.service";
+export * from "./number-parser.service";
+export * from "./date-parser.service";
+export * from "./kendo-culture-to-intl.service";
+export * from "./template.service";
+export * from "./html.service";
+export * from "./support.service";
+export * from "./date-utils.service";
+export * from "./dom-utils.service";
+export * from "./utils.service";
+export * from "./effects.service";
+export * from "./file-utils.service";
+export * from "./focus-utils.service";
+export * from "./property-access.service";
+export * from "./input.service";
+export * from "./color.service";
+export * from "./selector.service";
+export * from "./timezone.service";
+export * from "./css-properties.service";
+export * from "./type-utils.service";
+export * from "./mouse-event-normalizer.service";
+export * from "./event-map.service";
+export * from "./defaults.service";
+export * from "./kendo-jquery.service";
+export * from "./widget-registry.service";
+export * from "./widget-utils.service";
+export * from "./namespace.service";

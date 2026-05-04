@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Templates</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+
+<div class="demo-section wide">
+	<div id="propertyGrid"></div>
+</div>
+
+<script>
+	$(document).ready(function () {
+
+		var items = [
+			{ field: "text", group: "First Group", template: '<span style="color:red">#=value#</span>', encoded: false },
+			{
+				field: "color",
+				group: "First Group",
+				editor: "DropDownList",
+				template: '<i><span style="color:#=value#">#=value#</span></i>',
+				editorOptions: {
+					dataSource: ["red", "green", "blue", "purple", "orange"] },
+					description: 'Select a different color that will be applied in the template.'
+			},
+			{
+				field: "icon", group: "First Group", editor: "DropDownList", editorOptions: { dataSource: ["gear", "star", "folder", "user", "info-circle"] },
+				template: (data) => `${kendo.ui.icon(data.value)}`,
+				description: 'Defines a name of an existing icon in the Kendo UI theme sprite.'
+			},
+			{
+				field: "font",
+				group: "HTML",
+				template: function (e) {
+					return '<span class="fontFamily">' + e.value['font-family'].value + '</span> <span class="fontWeight">' + e.value['font-weight'].value + "</span>"
+				},
+				items: [
+					{
+						field: "font-weight",
+						editor: "NumericTextBox",
+						editorOptions: {
+							min: 100, max: 900, step: 100
+						},
+						validation: { required: true }
+					},
+					{
+						field: "font-family",
+						editor: "AutoComplete",
+						editorOptions: {
+							dataSource: ["Arial", "Roboto", "Georgia", "Calibri", "Cursive", "Monospace", "Fantasy"]
+						},
+						validation: { required: true }
+					}
+				],
+			}
+		];
+
+		var obj = {
+			text: 'Lorem ipsum...',
+			color: "red",
+			icon: "star",
+			font: {
+				"font-weight": 400,
+				"font-family": "Roboto"
+			}
+		};
+
+		$("#propertyGrid").kendoPropertyGrid({
+			model: obj,
+			items: items,
+			width: '70%',
+            height: 380,
+			columns: {
+				fieldColumn: { width: 200 },
+				valueColumn: { width: 250 },
+			},
+			resizable: true,
+			groupable: true,
+			contextMenu: true,
+			navigatable: true,
+			save: saveHandler
+		})
+
+		function saveHandler(e) {
+			var elem = $("#kendoIconTextButton");
+			var model = e.model;
+			var value = e.type ? model.value : e.values.value;
+
+			if (model.field == 'font-weight') {
+				$('.fontWeight').text(value)
+			} else if (model.field == 'font-family') {
+				$('.fontFamily').text(value)
+			}
+		}
+	})
+</script>
+<style>
+	#propertyGrid{
+		margin: auto;
+	}
+</style>
+</body>
+</html>

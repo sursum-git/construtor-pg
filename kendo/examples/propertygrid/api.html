@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>API</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="configurator">
+	<div class="header">Configurator</div>
+
+	<div class="box-col">
+		<h4>Toggle state</h4>
+		<ul class="options">
+			<li>
+				<button id="toggle-details">Toggle Details</button>
+			</li>
+		</ul>
+	</div>
+	<div class="box-col">
+		<h4>Model</h4>
+		<ul class="options">
+			<li>
+				<button id="getModel">Get Model</button>
+			</li>
+		</ul>
+	</div>
+	<div class="box-col">
+		<h4>Select/ Edit</h4>
+		<ul class="options">
+			<li>
+				<input type="text" id="newValue" value="2" placeholder="e.g. 5" />
+				<button id="select-property">Select Property</button>
+			</li>
+			<li>
+				<input type="text" id="edit-value" value="2" placeholder="e.g. 5" />
+				<button id="edit-property">Edit Property</button>
+			</li>
+		</ul>
+	</div>
+	<div class="box-col">
+		<h4>Expand/ Collapse</h4>
+		<ul class="options">
+			<li>
+				<button id="toggle-group">Expand/Collapse Group</button>
+			</li>
+			<li>
+				<button id="toggle-item">Expand/Collapse Item with Nested Properties</button>
+			</li>
+		</ul>
+	</div>
+</div>
+<div class="demo-section wide">
+	<div id="propertyGrid"></div>
+</div>
+
+<script>
+	$(document).ready(function () {
+
+		var items = [
+			{ field: "size", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["small", "medium", "large", "none"] }, description: 'Controls the overall physical size of a button. Default value is "medium".' },
+			{ field: "fillMode", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["solid", "outline", "flat", "link", "clear", "none"] }, description: 'Controls how the color is applied to the button. Default value is "solid".' },
+			{ field: "themeColor", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["base", "primary", "secondary", "tertiart", "info", "warning", "success", "error", "dark", "light", "inverse", "none"] }, description: 'Controls the main color applied to the button.' },
+			{ field: "rounded", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["small", "medium", "large", "full", "none"] }, description: 'Controls what border radius is applied to a button.' },
+			{
+				field: "icon", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["gear", "star", "folder", "user", "info-circle"] },
+				template: (data) => `${kendo.ui.icon(data.value)}`,
+				description: 'Defines a name of an existing icon in the Kendo UI theme sprite.'
+			},
+			{
+				field: "font",
+				group: "HTML",
+				template: "&nbsp;",
+				items: [
+					{
+						field: "font-weight",
+						editor: "NumericTextBox",
+						description: "Sets how thick or thin characters in text should be displayed.",
+						editorOptions: {
+							min: 100, max: 900, step: 100
+						}
+					},
+					{
+						field: "font-family",
+						description: "Specifies the font for an element.",
+						editor: "AutoComplete",
+						editorOptions: {
+							dataSource: ["Arial", "Roboto", "Georgia", "Calibri", "Cursive", "Monospace", "Fantasy"]
+						}
+					}
+				],
+			},
+			{
+				field: "alignment",
+				group: "HTML",
+				template: "&nbsp;",
+				items: [
+					{
+						field: "margin",
+						editor: "NumericTextBox",
+						description: "Create space around elements.",
+						editorOptions: {
+							min: 1, max: 900, step: 10
+						}
+					},
+					{
+						field: "padding",
+						description: "Create space around an element's content.",
+						editor: "NumericTextBox",
+						editorOptions: {
+							min: 1, max: 900, step: 10
+						}
+					}
+				],
+			}
+		];
+
+		var obj = {
+			size: "medium",
+			themeColor: "base",
+			fillMode: "solid",
+			rounded: "medium",
+			icon: "star",
+			font: {
+				"font-weight": 400,
+				"font-family": "Roboto"
+			},
+			alignment: {
+				margin: 20,
+				padding: 50
+			}
+		};
+
+		$("#propertyGrid").kendoPropertyGrid({
+			model: obj,
+			items: items,
+			width: '70%',
+			height: 450,
+			columns: {
+				fieldColumn: { width: 200 },
+				valueColumn: { width: 250 },
+			},
+			resizable: true,
+			groupable: true,
+			contextMenu: true,
+			navigatable: true
+		})
+
+		var component = $("#propertyGrid").data("kendoPropertyGrid");
+
+		$("#toggle-details").click(function () {
+			component.toggleDetails();
+		});
+
+		$("#toggle-group").click(function () {
+			var selectedGroup = $("#propertyGrid .k-table-group-row.k-selected")
+			if(selectedGroup.length > 0){
+				component.toggleGroup(selectedGroup);
+			}else{
+				kendo.alert("Please select a group")
+			}
+		});
+
+		$("#toggle-item").click(function () {
+			var selectedItem = $("#propertyGrid .k-treelist-group.k-selected")
+			if (selectedItem.length > 0) {
+				component.toggleItem(selectedItem);
+			} else {
+				kendo.alert("Please select an item with nested properties.")
+			}
+		});
+
+		$("#select-property").click(function () {
+			var value = $('#newValue').val();
+            var cell;
+
+            if(component.grouped){
+				cell = $('.k-table-row:not(".k-table-group-row")').eq(value).find('td:eq(2)')
+			}else{
+				cell = $("#propertyGrid tbody>tr:nth(" + value + ") td:nth-child(2)")
+
+			}
+			component.selectItem(cell);
+		});
+
+		$("#edit-property").click(function () {
+			var value = $('#edit-value').val()
+			var cell;
+
+			if(component.grouped){
+				cell = $('.k-table-row:not(".k-table-group-row")').eq(value).find('td:eq(2)')
+			}else{
+				cell = $("#propertyGrid tbody>tr:nth(" + value + ") td:nth-child(2)")
+
+			}
+			component.edit(cell);
+		});
+
+		$("#getModel").click(function () {
+			kendo.alert(JSON.stringify(component.model()))
+		});
+
+	})
+</script>
+<style>
+    #propertyGrid {
+        margin: auto;
+    }
+
+    @media (max-width: 1038px) {
+        #propertyGrid {
+            width: 100%;
+        }
+    }
+</style>
+</body>
+</html>

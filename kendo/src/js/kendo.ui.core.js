@@ -1,0 +1,68 @@
+/**
+ * Kendo UI v2026.1.212 (http://www.telerik.com/kendo-ui)
+ * Copyright 2026 Progress Software Corporation and/or one of its subsidiaries or affiliates. All rights reserved.
+ *
+ * Kendo UI commercial licenses may be obtained at
+ * http://www.telerik.com/purchase/license-agreement/kendo-ui-complete
+ * If you do not own a commercial license, this file shall be governed by the trial license terms.
+ */
+
+import "./kendo.core.js";
+import "./kendo.router.js";
+import "./kendo.touch.js";
+import "./kendo.view.js";
+import "./kendo.floatinglabel.js";
+import "./kendo.label.js";
+import "./kendo.fx.js";
+import "./kendo.data.odata.js";
+import "./kendo.data.xml.js";
+import "./kendo.data.js";
+import "./kendo.data.signalr.js";
+import "./kendo.binder.js";
+import "./kendo.validator.js";
+import "./kendo.userevents.js";
+import "./kendo.draganddrop.js";
+import "./kendo.mobile.scroller.js";
+import "./kendo.resizable.js";
+import "./kendo.sortable.js";
+import "./kendo.selectable.js";
+import "./kendo.badge.js";
+import "./kendo.button.js";
+import "./kendo.speechtotextbutton.js";
+import "./kendo.buttongroup.js";
+import "./kendo.bottomnavigation.js";
+import "./kendo.pager.js";
+import "./kendo.popup.js";
+import "./kendo.actionsheet.js";
+import "./kendo.notification.js";
+import "./kendo.tooltip.js";
+import "./kendo.splitbutton.js";
+import "./kendo.dropdownbutton.js";
+import "./kendo.toolbar.js";
+import "./kendo.list.js";
+import "./kendo.calendar.js";
+import "./kendo.autocomplete.js";
+import "./kendo.dropdownlist.js";
+import "./kendo.combobox.js";
+import "./kendo.multiselect.js";
+import "./kendo.colorpicker.js";
+import "./kendo.listbox.js";
+import "./kendo.loader.js";
+import "./kendo.textbox.js";
+import "./kendo.textarea.js";
+import "./kendo.numerictextbox.js";
+import "./kendo.maskedtextbox.js";
+import "./kendo.menu.js";
+import "./kendo.panelbar.js";
+import "./kendo.progressbar.js";
+import "./kendo.responsivepanel.js";
+import "./kendo.tabstrip.js";
+import "./kendo.slider.js";
+import "./kendo.splitter.js";
+import "./kendo.dialog.js";
+import "./kendo.window.js";
+import "./kendo.virtuallist.js";
+import "./kendo.togglebutton.js";
+import "./kendo.icons.js";
+    "bundle all";
+export default kendo;

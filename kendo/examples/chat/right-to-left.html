@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>RTL Support</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="k-d-flex k-justify-content-center">
+    <div id="chat"></div>
+</div>
+
+<script>
+    const currentUser = {
+        id: 123,
+        name: "John Doe",
+        iconUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/RICSU.jpg",
+        iconAltText: "John's profile picture"
+    };
+    var chat = $("#chat").kendoChat({
+        fileAttachment: { restrictions: { allowedExtensions: ['.jpg', '.pdf'] } },
+        dir: 'rtl',
+        allowMessageCollapse: true,
+        suggestedActionsScrollable: true,
+        suggestionsScrollable: true,
+        messageWidthMode: "standard",
+        height: 600,
+        headerItems: [{
+            type: "contentItem",
+            template: () => "<strong>John's chat</strong>"
+        }],
+        fileActions: [
+            { name: "download", text: "Download", icon: "download" },
+            { name: "delete", text: "Delete", icon: "trash" },
+            { name: "preview", text: "Preview", icon: "eye" }
+        ],
+        fileMenuAction: function(e) {
+            kendo.alert("File action executed: " + e.type);
+        },
+        suggestions: [
+            { text: "Learn more about the company" },
+            { text: "No need for further assistance" }
+        ],
+        authorId: 123,
+        dataSource: {
+            data: [
+                {
+                    id: 2,
+                    authorId: 2,
+                    authorName: "Peter Smith",
+                    authorImageUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/GOURL.jpg",
+                    authorImageAltText: "Peter's profile picture",
+                    text: "Hi there! Welcome to our Careers Portal. I see you're interested in the Designer position. Could you please upload your application documents (CV, portfolio and cover letter) so we can get started? Below you will also find a CV template file",
+                    timestamp: new Date(),
+                    isPinned: true,
+                    files: [{
+                        name: "CV.pdf",
+                        size: 5315153,
+                        extension: "pdf",
+                        url: "../content/chat/CV.pdf"
+                    }],
+                },
+            ]
+        },
+        sendMessage: function(e) {
+            e.message.authorId = currentUser.id;
+            e.message.authorName = currentUser.name;
+            e.message.authorImageUrl = currentUser.iconUrl;
+            e.message.authorImageAltText = currentUser.iconAltText;
+
+            let text = '';
+            let file = {};
+            if (e.message.files.length > 0) {
+                setTimeout(function() {
+                    e.sender.postMessage({
+                        authorId: 2,
+                        authorName: "Peter Smith",
+                        authorImageUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/GOURL.jpg",
+                        authorImageAltText: "Peter's profile picture",
+                        text: "Great! Your application has been successfully submitted. Our hiring team will review your files and get back to you within 5-7 business days. In the meantime, let me know what else would you like.",
+                        timestamp: new Date()
+                    });
+                }, 500)
+            } else {
+                if (e.message.text.toLowerCase().trim() === 'learn more about the company') {
+                    text = "Thank you for your interest! To learn more about our company and the services we offer, please visit the following links: https://www.youtube.com/watch?v=VX919tM3Zck https://www.progress.com/company";
+                } else if (e.message.text.toLowerCase().trim() === 'no need for further assistance') {
+                    text = "Understood. Good luck with your application. I'm here if you need anything else in the future.";
+                } else {
+                    text = "Please select a quick reply.";
+                }
+                setTimeout(function() {
+                    const messages = [];
+                    // Push main message
+                    messages.push({
+                        authorId: 2,
+                        authorName: "Peter Smith",
+                        authorImageUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/GOURL.jpg",
+                        authorImageAltText: "Peter's profile picture",
+                        text: text,
+                        timestamp: new Date()
+                    });
+                    // Push file message if exists
+                    if (file.hasOwnProperty('name')) {
+                        messages.push({
+                            authorId: 2,
+                            authorName: "Peter Smith",
+                            authorImageUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/GOURL.jpg",
+                            authorImageAltText: "Peter's profile picture",
+                            timestamp: new Date(),
+                            files: [file]
+                        });
+                    }
+                    sendMessagesSequentially(e.sender, messages);
+                }, 200)
+            }
+        }
+    }).data("kendoChat");
+
+    function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    async function sendMessagesSequentially(sender, messages) {
+        for (const msg of messages) {
+            sender.postMessage(msg);
+            await delay(300); // Adjust delay as needed
+        }
+    }
+</script>
+<style>
+    .k-chat{
+            max-width: 400px;
+        }
+</style>
+
+</body>
+</html>

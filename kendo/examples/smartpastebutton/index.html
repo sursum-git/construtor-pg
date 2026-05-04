@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Overview</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<link href="../content/smartpaste/smartpastebuttonstyles.css" rel="stylesheet" />
+
+<div id="example">
+    <div class="demo-section k-justify-content-center">
+        <h4 class="smartpaste-title">Recommendation Letter</h4>
+
+        <div class="smartpaste-container" id="smartPasteContainer">
+
+            <div class="editor-column">
+                <div class="editor">
+                    <div class="editor-toolbar">
+                        <div class="schematic-toolbar">
+                            <div class="button-group">
+                                <div class="skeleton-btn skeleton-btn-left"><span class="label"></span></div>
+                                <div class="skeleton-btn skeleton-btn-right"><span class="label"></span></div>
+                            </div>
+
+                            <div class="commands">
+                                <div class="split-button">
+                                    <div class="skeleton-btn skeleton-btn-split-main"><span class="label wide"></span></div>
+                                    <div class="skeleton-btn skeleton-btn-split-arrow">
+                                        <svg width="12" height="8" viewBox="0 0 12 8">
+                                            <path fill="#ffffff" d="M6 8L0 0h12L6 8z"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                <div class="skeleton-btn skeleton-btn-icon">
+                                    <svg width="4" height="16" viewBox="0 0 4 16">
+                                        <circle cx="2" cy="2" r="2" fill="#ffffff"></circle>
+                                        <circle cx="2" cy="8" r="2" fill="#ffffff"></circle>
+                                        <circle cx="2" cy="14" r="2" fill="#ffffff"></circle>
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="editor-text-area">
+                        <div class="content">
+                            <div class="editor-body">
+                                <div class="editor-body-title">Title</div>
+                                <div class="editor-body-text" id="editorContent">
+                                    Ashley Johnson is a UX Designer with 8 years of experience in Portland, Oregon.
+                                    She’s reliable, and great at making complex ideas simple.
+                                    Her approach ensures smooth teamwork and great results.
+                                    Reach her at (555) 248-9173.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="editor-actions">
+                    <button id="copyButton">Copy Text</button>
+                </div>
+            </div>
+
+            <div class="form-wrapper">
+                <div id="loader"></div>
+
+                <form id="form1">
+                    <input id="fullName" />
+                    <input id="city" />
+                    <input id="phone_number" placeholder="e.g. XXXXXXXX" />
+
+                    <div class="form-actions">
+                        <button id="clearForm" type="reset"></button>
+                        <button id="smartPaste"></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $("#copyButton").kendoButton({
+            themeColor: "dark",
+            fillMode: "flat",
+            click: onClick
+        });
+
+        $("#loader").kendoLoader({
+            size: "large",
+            type: "converging-spinner",
+            visible: false
+        });
+
+        $("#fullName").kendoTextBox({
+            label: "Full Name",
+            placeholder: "Full Name"
+        });
+
+        $("#city").kendoTextBox({
+            label: "City",
+            placeholder: "City"
+        });
+
+        $("#phone_number").kendoMaskedTextBox({
+            label: "Phone Number",
+            mask: "(000) 000-00-00",
+        });
+
+        $("#clearForm").kendoButton({
+            icon: "arrow-rotate-ccw",
+            fillMode: "flat",
+            click: onClear
+        });
+
+        $("#smartPaste").kendoSmartPasteButton({
+            text: "Smart Paste",
+            service: "https://demos.telerik.com/service/v2/ai/smartpaste/smartpaste",
+            requestStart: onRequestStart,
+            requestEnd: onRequestEnd
+        });
+    });
+
+    function onClick(e) {
+        const element = document.getElementById("editorContent");
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        navigator.clipboard.writeText(selection.toString());
+        $(e.sender.element).find(".k-button-text").text("Text Copied");
+    }
+    function onRequestStart() {
+        $("#loader").data("kendoLoader").show();
+        $("#copyButton").find(".k-button-text").text("Copy Text");
+        clearSelection();
+    }
+    function onRequestEnd() {
+        $("#loader").data("kendoLoader").hide();
+        $("input").addClass("k-valid");
+    }
+    function onClear() {
+        $("input").removeClass("k-valid");
+        clearSelection();
+        $("#copyButton").find(".k-button-text").text("Copy Text");
+    }
+    function clearSelection() {
+        var selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+            selection.removeAllRanges();
+        }
+    }
+</script>
+
+<style>
+    .smartpaste-container {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+    }
+
+    .editor-column {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        width: 284px;
+        flex-shrink: 0;
+    }
+
+    .editor-actions {
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .smartpaste-container form {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        height: 279px;
+        width: 284px;
+        flex-shrink: 0;
+    }
+
+        .smartpaste-container form > :not(.k-button) {
+            width: 100%;
+        }
+
+    .smartpaste-container .form-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+</style>
+</body>
+</html>

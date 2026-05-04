@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Overview</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="k-d-flex k-justify-content-center" style="height: 800px;">
+    <div class="k-w-full">
+        <div id="dockmanager"></div>
+    </div>
+</div>
+
+    <script>
+        $(document).ready(function () {
+            const average = array => array.reduce((a, b) => a + b) / array.length;
+            var data, selectedItem;
+
+            var biographyTemplate = (person) => `
+                <div class="content">
+                    <div class="div-2">
+                        <header class="header">
+                        <img class="member-photo" src="https://demos.telerik.com/kendo-ui/content/web/Employees/${person.EmployeeID}.jpg" />
+                        <div class="title">
+                            <div class="name">${person.FirstName} ${person.LastName}</div>
+                            <div class="position">${person.Title}</div>
+                        </div>
+                        </header>
+                        <p class="bio">
+                            ${person.Notes}
+                        </p>
+                    </div>
+                </div>`;
+
+            var montlySalesTemplate = (avg) => `
+            <div class="salesContainer">
+                <div class="average"> ${kendo.toString(avg,"C")}</div>
+                <div id="sparkline"></div>
+            </div>`;
+
+            var qtdSalesTemplate = (avg) => `
+            <div class="salesContainer">
+                <div class="average"> ${kendo.toString(avg,"C")}</div>
+                <div id="qtdSparkline"></div>
+            </div>`;
+
+            $("#dockmanager").kendoDockManager({
+                dock: updateContent,
+                innerDock: updateContent,
+                pin: updateContent,
+                unpin: updateContent,
+                close:updateContent,
+                rootPane: {
+                    type: "split",
+                    size:"100%",
+                    panes: [{
+                            id: "members",
+                            type: "content",
+                            title: "Members",
+                            content: "<div class='membersContainer'></div>",
+                            size: "20%"
+                        },{
+                            type: "split",
+                            id:"details",
+                            orientation:"vertical",
+                            size: "80%",
+                            panes: [{
+                                type: "content",
+                                title: "Bography",
+                                id: "bio",
+                                content: "<div class='biographyContainer'></div>",
+                                size:"20%"
+                            },
+                            {
+                                type: "content",
+                                title: "Representative sale vs Total sale",
+                                content: "<div class='sales'></div>",
+                            },
+                            {
+                                type: "tab",
+                                size:"20%",
+                                panes: [{
+                                    type: "content",
+                                    title: "Monthly Sales",
+                                    content:"<div class='monthlySales'></div>"
+                                },
+                                {
+                                    type: "content",
+                                    title: "QTD Sales",
+                                    content: "<div class='qtdSales'></div>"
+                                }]
+                            }],
+                        }],
+                }
+            });
+
+            createListbox();
+            var listbox = $(".membersContainer").last().data("kendoListBox");
+
+            listbox.one("dataBound", function(e){
+                var widget = e.sender;
+                $.get({
+                    url:"@Url.Content("~/content/web/dockmanager/employee-and-team-sales.json")",
+                    success:function(response){
+                        data = response;
+                        var itemElement = widget.items().first();
+                        var item = widget.dataItems()[0]
+                        widget.select(e.sender.items().first())
+                        selectedItem = item;
+                        renderContent(item);
+                    }
+                });
+            })
+
+            function createListbox(){
+                $(".membersContainer").last().kendoListBox({
+                    dataSource: {
+                        type: "odata-v4",
+                        transport: {
+                            read: "https://demos.telerik.com/service/v2/odata/Employees"
+                        },
+                        sort: { field:"FirstName", dir: "asc" },
+                        pageSize: 9
+                    },
+                    dataTextField: "FirstName",
+                    dataValueField: "EmployeeID",
+                    template: (data) => `${data.FirstName} ${data.LastName}`,
+                    change:function(e){
+                        var item = e.sender.dataItems()[e.sender.select().index()];
+                        selectedItem = item;
+                        renderContent(item);
+                    }
+                })
+            }
+
+            function updateContent(){
+
+                setTimeout(function(){
+
+                    createListbox();
+                    var listbox = $(".membersContainer").last().data("kendoListBox");
+                    listbox.one("dataBound", function (e) {
+                        let uid = e.sender.dataItems().filter(f => f.EmployeeID == selectedItem.EmployeeID)[0].uid;
+                        let item = e.sender.wrapper.find("[data-uid='" + uid + "']");
+                        e.sender.select(item);
+                    })
+
+                    renderContent(selectedItem);
+
+                }, 300)
+            };
+
+            function renderContent(dataItem){
+                var item = dataItem;
+
+                //create sales chart
+                var sales = data.filter(x=> x.EmployeeID == item.EmployeeID)[0].Sales.filter(x=> new Date(x.Date).getFullYear() == "1997")
+                createChart(sales);
+
+                //render bio
+
+                var template = kendo.template(biographyTemplate);
+                var result = template(item);
+                $(".biographyContainer").last().html(result);
+
+                //create sales sparkline
+                var salesTemplate = kendo.template(montlySalesTemplate);
+                var avgSales = average(sales.map(x => x.EmployeeSales));
+                var salesResult = salesTemplate(avgSales);
+                $(".monthlySales").last().html(salesResult);
+                $("#sparkline").kendoSparkline({
+                    chartArea: {
+                        width: 200
+                    },
+                    data: sales.map(x => x.EmployeeSales)
+                });
+
+                //create qtd sales sparkline
+                var quarterSalesTemplate = kendo.template(qtdSalesTemplate);
+                var qtdAvgSales = average(sales.splice(-3).map(x => x.EmployeeSales));
+                var qtdSalesResult = quarterSalesTemplate(qtdAvgSales);
+                $(".qtdSales").last().html(qtdSalesResult);
+                $("#qtdSparkline").kendoSparkline({
+                    chartArea: {
+                        width: 200,
+                    },
+                    type: "bullet",
+                    data: [qtdAvgSales, 10000]
+                });
+
+            };
+
+            function createChart(data){
+              $(".sales").last().kendoChart({
+                theme:"sass",
+                chartArea: {
+                    height: 250
+                },
+                dataSource: {
+                  data:data
+                },
+                legend: {
+                  position: "top"
+                },
+                seriesDefaults: {
+                  type: "column"
+                },
+                series:
+                [{
+                  field: "EmployeeSales",
+                  name: "EmployeeSales",
+                  categoryField: "Date"
+                }, {
+                  field: "TotalSales",
+                  name: "Team Sales",
+                  categoryField: "Date"
+                }],
+                categoryAxis: {
+                  labels: {
+                    template: "#= kendo.toString(new Date(value),'MMM') #"
+                  },
+                  majorGridLines: {
+                    visible: false
+                  }
+                },
+                valueAxis:{
+                    visible: false
+                },
+                tooltip: {
+                  visible: true,
+                  format: "N0"
+                }
+              });
+            }
+        });
+    </script>
+<style>
+    #example {
+        min-height: 350px;
+    }
+    .biographyContainer{
+        display:flex;
+    }
+    .sparkline, .qtdSparkline {
+        width:80%;
+        height: 40px;;
+    }
+    .k-listbox {
+        width: 100%;
+        height: 100%;
+    }
+    .k-listbox .k-list-scroller {
+        border-color: transparent;
+    }
+    .content {
+        display: flex;
+        align-items: flex-start;
+        padding: 4px;
+        flex: 1;
+        align-self: stretch;
+        width: 100%;
+        flex-grow: 1;
+        }
+
+    .div-2 {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        position: relative;
+        margin-bottom: -3px;
+        }
+
+    .header {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        position: relative;
+        align-self: stretch;
+        width: 100%;
+        flex: 0 0 auto;
+        background-color: transparent;
+        }
+
+    .member-photo {
+        position: relative;
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: 50%;
+    }
+
+    .title, .average {
+        font-size: large;
+        font-weight: 600;
+        }
+
+    .name {
+        position: relative;
+        flex: 1;
+        align-self: stretch;
+        margin-top: -1px;
+        white-space: nowrap;
+        }
+
+    .position {
+        position: relative;
+        flex: 1;
+        align-self: stretch;
+        font-family: "Roboto", Helvetica;
+        font-weight: 500;
+        font-size: 14px;
+        letter-spacing: 0.25px;
+        line-height: 20px;
+        }
+
+    .bio {
+        position: relative;
+        flex: 1;
+        align-self: stretch;
+        }
+</style>
+</body>
+</html>

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>API</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+
+    <div class="configurator">
+        <div class="header">Configurator</div>
+        <div class="box-col">
+            <h4>Set / Get Value</h4>
+            <ul class="options">
+                <li>
+                    <input id="value" value="10/10/2000 12:00 AM" style="float:none; width:150px" />
+                    <button id="set">Set value</button>
+                </li>
+                <li style="text-align: right;">
+                    <button id="get">Get value</button>
+                </li>
+            </ul>
+        </div>
+        <div class="box-col">
+            <div class="classic-interval">
+                <h4>Set Interval</h4>
+                <input id="classicInterval" style="float:none" />
+                <br /><br />
+            </div>
+            <div class="modern-interval k-hidden">
+                <h4>Set Seconds</h4>
+                <input id="seconds" style="float:none" />
+                <h4>Set Minutes</h4>
+                <input id="minutes" style="float:none" />
+                <h4>Set Hours</h4>
+                <input id="hours" style="float:none" />
+            </div>
+            <button id="setInterval">Set Interval</button>
+        </div>
+        <div class="box-col">
+            <h4>Set Component Type</h4>
+            <ul class="options">
+                <li>
+                    <input id="dropDownList" />
+                </li>
+            </ul>
+        </div>
+        <div class="box-col">
+            <h4>Open / Close</h4>
+            <ul class="options">
+                <li>
+                    <button id="openDateView">Open date view</button>
+                    <button id="closeDateView">Close date view</button>
+                </li>
+                <li>
+                    <button id="openTimeView">Open time view</button>
+                    <button id="closeTimeView">Close time view</button>
+                </li>
+            </ul>
+        </div>
+        <div class="box-col">
+            <h4>Enable / Disable</h4>
+            <ul class="options">
+                <li>
+                    <button id="enable">Enable</button>
+                    <button id="disable">Disable</button>
+                    <button id="readonly">Readonly</button>
+                </li>
+            </ul>
+        </div>
+        <div class="box-col">
+            <h4>Set Validation</h4>
+            <ul class="options">
+                <li>
+                    <button id="min">Set Min Date</button>
+                    <button id="max">Set Max Date</button>
+                    <button id="autoAdjust">Toggle AutoAdjust</button>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+	<div class="k-d-flex k-justify-content-center" style="padding-top: 54px;">
+		<div class="k-w-300">       
+			<label for="datetimepicker">Select date/time</label>
+			<input id="datetimepicker"/>
+		 </div>
+	</div>
+
+    <script>
+        $(document).ready(function () {
+                $("#datetimepicker").kendoDateTimePicker({
+                    dateInput:true
+                })
+                .closest(".k-widget")
+                .attr("id", "datetimepicker_wrapper");
+
+            
+            var datetimepicker = $("#datetimepicker").data("kendoDateTimePicker");
+
+            $("#classicInterval, #seconds, #minutes, #hours").kendoNumericTextBox({
+                format:"0",
+                min: 1
+            });
+
+            $("#dropDownList").kendoDropDownList({
+                dataSource: ["modern", "classic"],
+                value: "classic",
+                change: function (e) {
+                    $("#classicInterval").getKendoNumericTextBox().value("");
+                    $("#seconds").getKendoNumericTextBox().value("");
+                    $("#minutes").getKendoNumericTextBox().value("");
+                    $("#hours").getKendoNumericTextBox().value("");
+
+                    $(".classic-interval").toggleClass("k-hidden");
+                    $(".modern-interval").toggleClass("k-hidden");
+
+                    var type = this.value();
+                    var value = datetimepicker.value();
+
+                    datetimepicker.setOptions({
+                        interval: type == "modern" ? 0 : 30, 
+                        componentType: type,
+                        value:value
+                    });
+                }
+            });
+
+            var setValue = function () {
+                datetimepicker.value($("#value").val());
+            };
+
+            $("#setInterval").click(function () {
+                var interval = $("#classicInterval").val();
+
+                if ($(".classic-interval").is(":visible")) {
+                    datetimepicker.setOptions({
+                        interval: interval
+                    })
+                }
+                else{
+
+                    var seconds = $("#seconds").getKendoNumericTextBox().value();
+                    var minutes = $("#minutes").getKendoNumericTextBox().value();
+                    var hours = $("#hours").getKendoNumericTextBox().value();
+
+                    datetimepicker.setOptions({
+                        interval: {
+                            second: seconds,
+                            hour: hours,
+                            minute: minutes
+
+                        }
+                    })
+                }
+            })
+
+            $("#enable").click(function () {
+                datetimepicker.enable();
+            });
+
+            $("#disable").click(function () {
+                datetimepicker.enable(false);
+            });
+
+            $("#readonly").click(function () {
+                datetimepicker.readonly();
+            });
+
+            $("#openDateView").click(function () {
+                datetimepicker.open("date");
+            });
+
+            $("#openTimeView").click(function () {
+                datetimepicker.open("time");
+            });
+
+            $("#closeDateView").click(function () {
+                datetimepicker.close("date");
+            });
+
+            $("#closeTimeView").click(function () {
+                datetimepicker.close("time");
+            });
+
+            $("#value").kendoDateTimePicker();
+
+            $("#set").click(setValue);
+
+            $("#get").click(function () {
+                alert(datetimepicker.value());
+            });
+
+            $("#min").click(function () {
+                datetimepicker.min(new Date("01/01/2024"));
+            });
+
+            $("#max").click(function () {
+                datetimepicker.max(new Date("12/31/2024"));
+            });
+
+            $("#autoAdjust").click(function () {
+                datetimepicker.setOptions({
+                    autoAdjust: datetimepicker.options.autoAdjust ? false : true
+                });
+            });
+        });
+    </script>
+
+    <style>
+        .box .k-textbox {
+            width: 80px;
+        }
+
+        .box .k-button {
+            min-width: 80px;
+        }
+    </style>
+</body>
+</html>

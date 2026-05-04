@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Overview</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+    <div class="demo-section">
+        <form id="exampleform"></form>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            var form = $("#exampleform").kendoForm({
+                layout: "grid",
+                buttonsTemplate: "<button id='login'>Login</button><button id='reset'>Reset</button>",
+                formData: {
+                    Interests: ["Music", "Technology & Gadgets"],
+                },
+                items: [
+                    {
+                        type: "group",
+                        label: "Your Account",
+                        layout: "grid",
+                        colSpan: 2,
+                        grid: {
+                            cols: 2,
+                        },
+                        items: [
+                            {
+                                field: "Avatar",
+                                label: "",
+                                colSpan: 2,
+                                editor: function(container, options) {
+                                    $(
+                                        '<div id="avatar-text" class="avatar-margin-right-5"></div>',
+                                    )
+                                        .appendTo(container)
+                                        .kendoAvatar({
+                                            size: "large",
+                                            type: "text",
+                                            text: "JS",
+                                        });
+                                },
+                            },
+                            {
+                                field: "Picture",
+                                label: { text: "Upload picture", optional: true },
+                                editor: "Upload",
+                                colSpan: 2,
+                                editorOptions: {
+                                    multiple: false,
+                                },
+                            },
+                            {
+                                field: "FirstName",
+                                label: "First name",
+                                validation: { required: true },
+                                colSpan: [
+                                    { maxWidth: 500, value: 2 },
+                                    { minWidth: 501, value: 1 },
+                                ],
+                            },
+                            {
+                                field: "LastName",
+                                label: "Last name",
+                                validation: { required: true },
+                                colSpan: [
+                                    { maxWidth: 500, value: 2 },
+                                    { minWidth: 501, value: 1 },
+                                ],
+                            },
+                            {
+                                field: "Password",
+                                label: "Password",
+                                colSpan: [
+                                    { maxWidth: 500, value: 2 },
+                                    { minWidth: 501, value: 1 },
+                                ],
+                                validation: { required: true },
+                                hint: "Password must be at least 8 characters.",
+                                editor: function(container, options) {
+                                    $(
+                                        '<input type="password" id="Password" name="' +
+                                        options.field +
+                                        '" title="Password" required="required" autocomplete="off" aria-labelledby="Password-form-label" data-bind="value: Password" aria-describedby="Password-form-hint"/>',
+                                    )
+                                        .appendTo(container)
+                                        .kendoTextBox({
+                                            suffixOptions: {
+                                                icon: "eye-slash"
+                                            }
+                                        });
+                                },
+                            },
+                            {
+                                field: "ConfirmPassword",
+                                label: "Confirm password",
+                                colSpan: [
+                                    { maxWidth: 500, value: 2 },
+                                    { minWidth: 501, value: 1 },
+                                ],
+                                validation: { required: true },
+                                hint: "Must be the same as Password.",
+                                editor: function(container, options) {
+                                    $(
+                                        '<input type="password" id="ConfirmPassword" name="' +
+                                        options.field +
+                                        '" title="Confirm Password" required="required" autocomplete="off" aria-labelledby="ConfirmPassword-form-label" data-bind="value: ConfirmPassword" aria-describedby="ConfirmPassword-form-hint"/>',
+                                    )
+                                        .appendTo(container)
+                                        .kendoTextBox({
+                                            suffixOptions: {
+                                                icon: "eye-slash"
+                                            }
+                                        });
+                                },
+                            },
+                            {
+                                field: "Email",
+                                label: "Email",
+                                validation: { required: true, email: true },
+                                colSpan: [
+                                    { maxWidth: 500, value: 2 },
+                                ],
+                                attributes: { class: "emailWidth" },
+                                editorOptions: { placeholder: "your@email.com" },
+                            },
+                            {
+                                field: "Interests",
+                                label: { text: "Interests", optional: true },
+                                colSpan: 2,
+                                editor: "MultiSelect",
+                                editorOptions: {
+                                    dataSource: [
+                                        "Music",
+                                        "Technology & Gadgets",
+                                        "Outdoor Activities",
+                                        "Reading",
+                                    ],
+                                },
+                            },
+                        ],
+                    },
+                ],
+            }).data("kendoForm");
+
+            $(".k-svg-i-eye-slash").mousedown(function() {
+                var input = $(this).parent().siblings("input");
+                kendo.ui.icon($(this), "eye");
+                $(input).attr("type", "text");
+            });
+
+            $(".k-svg-i-eye-slash").mouseup(function() {
+                var input = $(this).parent().siblings("input");
+                kendo.ui.icon($(this), "eye-slash");
+                $(input).attr("type", "password");
+            });
+
+            $("#login").kendoButton({
+                themeColor: "primary"
+            })
+
+            $("#reset").kendoButton({
+                click: function() {
+                    form.clear()
+                }
+            })
+        });
+    </script>
+</div>
+</body>
+</html>

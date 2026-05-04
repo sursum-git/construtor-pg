@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>API</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+    <div class="configurator">
+        <div class="header">Configurator</div>
+        <div class="box-col">
+            <h4>API Functions</h4>
+            <ul class="options">
+                <li class="li-inline-flex">
+                    <input id="value" value="10:30 AM" style="float:none; width:150px" />
+                    <button id="set">Set value</button>
+                </li>
+                <li style="text-align: right;">
+                    <button id="get">Get value</button>
+                </li>
+            </ul>
+        </div>
+
+        <div class="box-col">
+            <div class="classic-interval">
+                <h4>Set Interval</h4>
+                <input id="classicInterval" style="float:none" />
+                <br /><br />
+            </div>
+            <div class="modern-interval k-hidden">
+                <h4>Set Seconds</h4>
+                <input id="seconds" style="float:none" />
+                <h4>Set Minutes</h4>
+                <input id="minutes" style="float:none" />
+                <h4>Set Hours</h4>
+                <input id="hours" style="float:none" />
+            </div>
+            <button id="setInterval">Set Interval</button>
+        </div>
+
+        <div class="box-col">
+            <h4>Set Component Type</h4>
+            <ul class="options">
+                <li>
+                    <input id="dropDownList" />
+                </li>
+            </ul>
+        </div>
+
+        <div class="box-col">
+            <h4>Calendar Open / Close</h4>
+            <ul class="options">
+                <li>
+                    <button id="open">Open</button>
+                    <button id="close">Close</button>
+
+                </li>
+            </ul>
+        </div>
+
+
+        <div class="box-col">
+            <h4>Enable / Disable</h4>
+            <ul class="options">
+                <li>
+                    <button id="enable">Enable</button>
+                    <button id="disable">Disable</button>
+
+                </li>
+                <li>
+                    <button id="readonly">Readonly</button>
+                </li>
+            </ul>
+        </div>
+        <div class="box-col">
+            <h4>Set Validation</h4>
+            <ul class="options">
+                <li>
+                    <button id="min">Set Min Date</button>
+                    <button id="max">Set Max Date</button>
+                    <button id="autoAdjust">Toggle AutoAdjust</button>
+                </li>
+            </ul>
+        </div>
+    </div>    
+
+	<div class="k-d-flex k-justify-content-center" style="padding-top: 54px;">
+		<div class="k-w-300">       
+			<label for="timepicker">Select time</label>
+			<input id="timepicker"/>
+		 </div>
+	</div>
+
+    <script>
+        $(document).ready(function () {
+            $("#timepicker").kendoTimePicker({
+                dateInput:true
+            })
+                .closest(".k-widget")
+                .attr("id", "timepicker_wrapper");
+
+            
+            var timepicker = $("#timepicker").data("kendoTimePicker");
+
+            $("#classicInterval, #seconds, #minutes, #hours").kendoNumericTextBox({
+                format:"0",
+                min: 1
+            });
+
+            $("#dropDownList").kendoDropDownList({
+                dataSource: ["modern", "classic"],
+                value: "classic",
+                change: function (e) {
+                    $("#classicInterval").getKendoNumericTextBox().value("");
+                    $("#seconds").getKendoNumericTextBox().value("");
+                    $("#minutes").getKendoNumericTextBox().value("");
+                    $("#hours").getKendoNumericTextBox().value("");
+
+                    $(".classic-interval").toggleClass("k-hidden");
+                    $(".modern-interval").toggleClass("k-hidden");
+
+                    var type = this.value();
+                    var value = timepicker.value();
+
+                    timepicker.setOptions({
+                        interval: type == "modern" ? 0 : 30, 
+                        componentType: type,
+                        value:value
+                    });
+                }
+            });
+
+            var setValue = function () {
+                timepicker.value($("#value").val());
+            };
+
+            $("#setInterval").click(function () {
+                var interval = $("#classicInterval").val();
+
+                if ($(".classic-interval").is(":visible")) {
+                    timepicker.setOptions({
+                        interval: interval
+                    })
+                }
+                else{
+
+                    var seconds = $("#seconds").getKendoNumericTextBox().value();
+                    var minutes = $("#minutes").getKendoNumericTextBox().value();
+                    var hours = $("#hours").getKendoNumericTextBox().value();
+
+                    timepicker.setOptions({
+                        interval: {
+                            second: seconds,
+                            hour: hours,
+                            minute: minutes
+
+                        }
+                    })
+                }
+            })
+
+            $("#enable").click(function () {
+                timepicker.enable();
+            });
+
+            $("#disable").click(function () {
+                timepicker.enable(false);
+            });
+
+            $("#readonly").click(function () {
+                timepicker.readonly();
+            });
+
+            $("#open").click(function () {
+                timepicker.open();
+            });
+
+            $("#close").click(function () {
+                timepicker.close();
+            });
+
+            $("#value").kendoTimePicker();
+
+            $("#set").click(setValue);
+
+            $("#get").click(function () {
+                alert(timepicker.value());
+            });
+
+            $("#min").click(function () {
+                timepicker.min(new Date(2024, 0, 1, 8, 0, 0));
+            });
+
+            $("#max").click(function () {
+                timepicker.max(new Date(2024, 0, 1, 22, 0, 0));
+            });
+
+            $("#autoAdjust").click(function () {
+                timepicker.setOptions({
+                    autoAdjust: timepicker.options.autoAdjust ? false : true
+                });
+            });
+        });
+    </script>
+    <style>
+        .li-inline-flex {
+            display: inline-flex;
+        }
+    </style>
+</body>
+</html>

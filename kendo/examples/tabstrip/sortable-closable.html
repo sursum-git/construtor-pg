@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Sortable Closable tabs</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+    <div class="demo-section wide">
+        <div id="tabstrip"></div>
+        <p class="button-container">
+            <button id="resetButton" type="button">Reset TabStrip</button>
+        </p>
+    </div>
+
+    <script>
+        var tabstrip;
+        var createTabStrip = function () {
+                tabstrip = $("#tabstrip").kendoTabStrip({
+                    animation: false,
+                    dataTextField: "text",
+                    sortable:true,
+                    closable:true,
+                    dataContentField: "content",
+                    dataSource: [
+                        {
+                            text: "Baseball",
+                            content: "Baseball is a bat-and-ball sport played between two teams of nine players each. The aim is to score runs by hitting a thrown ball with a bat and touching a series of four bases arranged at the corners of a ninety-foot diamond. Players on the batting team take turns hitting against the pitcher of the fielding team, which tries to stop them from scoring runs by getting hitters out in any of several ways. A player on the batting team can stop at any of the bases and later advance via a teammate's hit or other means. The teams switch between batting and fielding whenever the fielding team records three outs. One turn at bat for each team constitutes an inning, and nine innings make up a professional game. The team with the most runs at the end of the game wins.",
+                            closable:false,
+                        },
+                        {
+                            text: "Golf",
+                            content: "Golf is a precision club-and-ball sport in which competing players (or golfers) use various types of clubs to hit balls into a series of holes on a golf course, aiming to use the fewest number of strokes. It is one of the few ball games that does not require a standardized playing area. Instead, the game is played on golf courses, each featuring a unique design, although courses typically consist of either nine or eighteen holes. Golf is defined in the rules of golf as playing a ball with a club from the teeing ground into the hole by a stroke or successive strokes in accordance with the Rules.",
+                            closable:false
+                        },
+                        {
+                            text: "Swimming",
+                            content: "Swimming has been recorded since prehistoric times; the earliest recording of swimming dates back to Stone Age paintings from around 7,000 years ago. Written references date from 2000 BC. Some of the earliest references to swimming include the Gilgamesh, the Iliad, the Odyssey, the Bible, Beowulf, and other sagas. In 1578, Nikolaus Wynmann, a German professor of languages, wrote the first swimming book, The Swimmer or A Dialogue on the Art of Swimming (Der Schwimmer oder ein Zwiegespräch über die Schwimmkunst). Competitive swimming in Europe started around 1800, mostly using breaststroke.",
+                            closable:true
+                        },
+                        {
+                            text: "Snowboarding",
+                            content: "Snowboarding is a sport that involves descending a snow-covered slope on a snowboard attached to the rider's feet using special boots mounted onto bindings. The development of snowboarding was inspired by skateboarding, sledding, surfing, and skiing. It was developed in the U.S.A. during the 1960s and 1970s and became a Winter Olympic sport in 1998.",
+                            closable:true
+                        }
+                    ]
+            }).data("kendoTabStrip");
+        }
+
+        $("#resetButton").kendoButton({
+            themeColor: "primary",
+            click: function (e) {
+                tabstrip.destroy();
+                $("#tabstrip").empty();
+                createTabStrip();
+                tabstrip.select(0);
+            }
+        });
+
+        createTabStrip();
+        tabstrip.select(0);
+    </script>
+
+    <style>
+        .button-container {
+            padding-top: 1em;
+            text-align: right;
+        }
+
+        .k-tabstrip .k-tabstrip-items li .k-link {
+            padding-right: 0.46em;
+        }
+
+            .k-tabstrip .k-tabstrip-items li .k-link[data-type='remove'] {
+                padding-left: 0.46em;
+            }
+
+            .k-tabstrip .k-tabstrip-items li .k-link .k-svg-icon {
+                margin: 0;
+            }
+
+                .k-tabstrip .k-tabstrip-items li .k-link .k-icon:hover {
+                    color: red;
+                }
+
+        .k-tabstrip .demo-section {
+            padding-top: 10px;
+            padding-bottom: 10px;
+        }
+
+        #hint {
+            border: none;
+        }
+
+            #hint .k-tabstrip-items {
+                padding: 0;
+            }
+    </style>
+</div>
+
+</body>
+</html>

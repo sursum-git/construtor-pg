@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Events</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="demo-section" style="text-align: center; margin-top:100px;">
+    <div>
+        <span>Enter the code sent to your phone</span>
+        <input id="otp" />
+    </div>
+</div>
+<style>
+    .demo-section {
+        display: flex;
+        justify-content: center;
+    }
+</style>
+
+<script>
+    $(document).ready(function () {
+        var otp = $("#otp").kendoOTPInput({
+            items: [
+                {
+                    groupLength: 3
+                },
+                {
+                    groupLength: 2
+                }, {
+                    groupLength: 3
+                }
+            ],
+            change: onChange
+        }).getKendoOTPInput();
+
+        function onChange() {
+            kendoConsole.log("Change event: " + this.value());
+        }
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Multiple Selection</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="demo-section wide">
+	<div id="splitter">
+		<div id="container">
+			<div class="demo-instructions">Use <b>Ctrl/Command + click</b> to select and deselect the Button and TextBox components. The PropertyGrid displays the properties of the selected component. When both components are selected, the PropertyGrid will load only their common properties. Edit the property values in the PropertyGrid, and the appearance of the currently selected component will update accordingly.</div>
+			<div class="first-pane-container button-item">
+				<button id="kendoIconTextButton">Button</button>
+			</div>
+			<div class="first-pane-container textbox-item">
+				<input type="text" id="textbox" />
+			</div>
+		</div>
+		<div><div id="propertyGrid"></div></div>
+	</div>
+</div>
+
+<style>
+	.k-pane:nth-child(1) {
+        text-align: center;
+        margin-top: 1%;
+        gap: 10px;
+    }
+
+    #splitter {
+        min-height: 500px
+    }
+
+    #container {
+        gap: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    #container .demo-instructions {
+        padding-block: 4px;
+        padding-inline: 8px;
+        font-style: italic;
+    }
+
+    #kendoIconTextButton, #textbox {
+        font-family: "Roboto";
+        font-weight: 400;
+    }
+
+    .marked {
+        padding: 4px;
+        border-radius: 4px;
+        border: 2px solid #AA33FF;
+        margin: 5px;
+    }
+</style>
+
+<script>
+	$(document).ready(function () {
+		$("#splitter").kendoSplitter({
+			panes: [{ size: "30%" }, {}],
+			orientation: "horizontal"
+		});
+
+		var buttonItems = [
+			{ field: "size", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["small", "medium", "large", "none"] }, description: 'Controls the overall physical size of a button. Default value is "medium".' },
+			{ field: "fillMode", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["solid", "outline", "flat", "link", "clear", "none"] }, description: 'Controls how the color is applied to the button. Default value is "solid".' },
+			{ field: "themeColor", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["base", "primary", "secondary", "tertiart", "info", "warning", "success", "error", "dark", "light", "inverse", "none"] }, description: 'Controls the main color applied to the button.' },
+			{ field: "rounded", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["small", "medium", "large", "full", "none"] }, description: 'Controls what border radius is applied to a button.' },
+			{
+				field: "icon", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["gear", "star", "folder", "user", "info-circle"] },
+				template: (data) => `${kendo.ui.icon(data.value)}`,
+				description: 'Defines a name of an existing icon in the Kendo UI theme sprite.'
+			},
+			{ field: "enable", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ['true', 'false'], optionLabel: '...' }, description: 'enable or disable the control.' },
+			{
+				field: "font",
+				group: "HTML",
+				template: function (e) {
+					var propertyGridModel = $("#propertyGrid").data('kendoPropertyGrid').model();
+                    return `<span class="fontWeight">${propertyGridModel.font["font-weight"]}</span> <span class="fontFamily">${propertyGridModel.font["font-family"]}</span>`;
+				},
+				items: [
+					{
+						field: "font-weight",
+						editor: "NumericTextBox",
+						editorOptions: {
+							min: 100, max: 900, step: 100
+						},
+						validation: { required: true }
+					},
+					{
+						field: "font-family",
+						editor: "AutoComplete",
+						editorOptions: {
+							dataSource: ["Arial", "Roboto", "Georgia", "Calibri", "Cursive", "Monospace", "Fantasy"]
+						},
+						validation: { required: true }
+					}
+				],
+			}
+		];
+
+		var buttonModel = {
+			size: "medium",
+			themeColor: "base",
+			fillMode: "solid",
+			rounded: "medium",
+			icon: "star",
+			enable: true,
+			font: {
+				"font-weight": 400,
+				"font-family": "Roboto"
+			}
+		};
+
+		var textboxItems = [
+
+			{ field: "size", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["small", "medium", "large", "none"] }, optionLabel: "...", description: 'Controls the overall physical size of a button. Default value is "medium".' },
+			{ field: "fillMode", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["solid", "outline", "flat", "link", "clear", "none"] }, optionLabel: "...", description: 'Controls how the color is applied to the button. Default value is "solid".' },
+			{ field: "rounded", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["small", "medium", "large", "full", "none"] }, optionLabel: "...", description: 'Controls what border radius is applied to a button.' },
+			{ field: "enable", group: "Kendo UI/Telerik", description: 'enable or disable the control.' },
+			{
+				field: "font",
+				group: "HTML",
+				template: function (e) {
+					var propertyGridModel = $("#propertyGrid").data('kendoPropertyGrid').model();
+                    return `<span class="fontWeight">${propertyGridModel.font["font-weight"]}</span> <span class="fontFamily">${propertyGridModel.font["font-family"]}</span>`;
+				},
+				items: [
+					{
+						field: "font-weight",
+						editor: "NumericTextBox",
+						editorOptions: {
+							min: 100, max: 900, step: 100
+						},
+						validation: { required: true }
+					},
+					{
+						field: "font-family",
+						editor: "AutoComplete",
+						editorOptions: {
+							placeholder: "...",
+							dataSource: ["Arial", "Roboto", "Georgia", "Calibri", "Cursive", "Monospace", "Fantasy"]
+						},
+						validation: { required: true }
+					}
+				],
+			}
+		];
+
+		var textboxModel = {
+			size: "large",
+			fillMode: "solid",
+			rounded: "medium",
+			enable: true,
+			font: {
+				"font-weight": 400,
+				"font-family": "Roboto"
+			}
+		};
+
+		$("#kendoIconTextButton").kendoButton({
+			icon: "star"
+		});
+
+		$("#textbox").kendoTextBox({
+			placeholder: "my placeholder"
+		});
+
+		$("#propertyGrid").kendoPropertyGrid({
+			model: buttonModel,
+			items: buttonItems,
+			columns: {
+				fieldColumn: { width: 200 },
+				valueColumn: { width: 250 },
+			},
+			resizable: true,
+			groupable: true,
+			contextMenu: true,
+			navigatable: true,
+			save: saveHandler,
+			cancel: saveHandler
+		})
+
+		setTimeout(function () {
+			$('#kendoIconTextButton').addClass('k-focus').css('font-family', 'Roboto')
+			$('#textbox').css('font-family', 'Roboto')
+			$('#kendoIconTextButton').trigger($.Event("click", { ctrlKey: true }));
+		})
+
+		let model;
+
+		function saveHandler(e) {
+			var textboxElem = $("#textbox");
+			var textbox = textboxElem.getKendoTextBox();
+			var textboxOptions = textbox.options;
+			var buttonElem = $("#kendoIconTextButton");
+			var button = buttonElem.getKendoButton();
+			var buttonOptions = button.options;
+			var model = e.model;
+            var value = e.values ? e.values.value : model.value;
+
+			if (model.field == 'enable') {
+				value = value === 'true' ? true : false;
+			}
+
+			// check if TextBox is selected
+			if ($('.textbox-item').hasClass('marked')) {
+				if (model.field == 'font-weight') {
+					$('.fontWeight').text(value)
+				} else if (model.field == 'font-family') {
+					$('.fontFamily').text(value)
+				}
+
+				if (model.group == "Kendo UI/Telerik") {
+					textboxOptions[model.field] = value;
+					textbox.setOptions(textboxOptions)
+				} else {
+					textbox.element.css(model.field, value);
+				}
+			}
+
+			//check if Button is selected
+			if ($('.button-item').hasClass('marked')) {
+				if (model.field == 'font-weight') {
+					$('.fontWeight').text(value)
+				} else if (model.field == 'font-family') {
+					$('.fontFamily').text(value)
+				}
+
+				if (model.field == 'font-weight') {
+					$('.fontWeight').text(value)
+				} else if (model.field == 'font-family') {
+					$('.fontFamily').text(value)
+				}
+
+
+				if (model.group == "Kendo UI/Telerik") {
+					buttonOptions[model.field] = value;
+					button.destroy()
+					buttonElem.kendoButton(buttonOptions);
+
+					if (model.field == 'enable') {
+						button.enable(value)
+					}
+				} else {
+					button.element.css(model.field, value);
+				}
+			}
+
+		}
+
+		// handle Ctrl + click to select/deselect TextBox and/or Button components
+		$('.first-pane-container').on("click", function (evt) {
+			if (evt.ctrlKey) {
+				$(this).toggleClass("marked");
+
+				let marked = $('.marked');
+				let updated = [...$('.k-dirty').closest('tr').find('td:eq(0)')];
+				let currentModel = $("#propertyGrid").data('kendoPropertyGrid').model()
+
+				let selected = marked.map((index, item) => {
+					if ($(item).hasClass('button-item')) return 'button';
+					if ($(item).hasClass('textbox-item')) return 'textbox';
+				})
+
+				let currentButtonModel = $("#kendoIconTextButton").data('kendoButton').options;
+				let currentTextBoxModel = $("#textbox").data('kendoTextBox').options;
+				let buttonFontFamily = $("#kendoIconTextButton").data('kendoButton').element.css("font-family")
+				buttonFontFamily = buttonFontFamily.charAt(0).toUpperCase() + buttonFontFamily.slice(1)
+                let buttonFontWeight = $("#kendoIconTextButton").data('kendoButton').element.css("font-weight")
+
+				let textboxFontFamily = $("#textbox").data('kendoTextBox').element.css("font-family")
+				textboxFontFamily = textboxFontFamily.charAt(0).toUpperCase() + textboxFontFamily.slice(1)
+
+                let textboxFontWeight = $("#textbox").data('kendoTextBox').element.css("font-weight");
+
+				let newBtnModel = {
+					size: currentButtonModel.size,
+					themeColor: currentButtonModel.themeColor,
+					fillMode: currentButtonModel.fillMode,
+					rounded: currentButtonModel.rounded,
+					icon: currentButtonModel.icon,
+					enable: !$('.k-button').hasClass('k-disabled'),
+					font: {
+						"font-weight": parseInt(buttonFontWeight),
+						"font-family": buttonFontFamily,
+					}
+				}
+
+				let newTextBoxModel = {
+					size: currentTextBoxModel.size,
+					fillMode: currentTextBoxModel.fillMode,
+					rounded: currentTextBoxModel.rounded,
+					enable: currentTextBoxModel.enable,
+					font: {
+						"font-weight": parseInt(textboxFontWeight),
+						"font-family": textboxFontFamily,
+					}
+				}
+
+				textboxModel = newTextBoxModel;
+				buttonModel = newBtnModel;
+
+
+				if (selected.length == 1 && selected[0] === 'button') {
+					//if the Button is selected set the buttonModel in the propertyGrid
+					model = buttonModel;
+					$('#kendoIconTextButton').addClass('k-focus')
+				} else if (selected.length == 1 && selected[0] === 'textbox') {
+					//if the TextBox is selected set the textboxModel in the propertyGrid
+					model = textboxModel;
+					$('#textbox').addClass('k-focus')
+				} else if (selected.length == 2) {
+
+					//if both TextBox and Button are selected merge both models
+					let joined = {
+						...newBtnModel,
+						...newTextBoxModel
+					}
+
+					//set ... to properties with different values
+					for (const [key, value] of Object.entries(joined)) {
+						let hasKey = textboxModel.hasOwnProperty(key)
+
+						if (hasKey && (textboxModel[key] !== value || buttonModel[key] !== value) && typeof (value) != 'object') {
+							joined[key] = '...'
+						} else if (hasKey && typeof (value) == 'object') {
+
+							for (const [key2, value2] of Object.entries(joined[key])) {
+								if (joined[key][key2] === textboxModel[key][key2] && joined[key][key2] === currentModel[key][key2] && buttonModel[key][key2] == joined[key][key2]) {
+									joined[key][key2] == textboxModel[key][key2]
+								} else {
+									joined[key][key2] = '...'
+								}
+							}
+						} else if (!hasKey) {
+							delete joined[key]
+						}
+					}
+
+					for (const [key, value] of Object.entries(joined)) {
+						let hasKey = buttonModel.hasOwnProperty(key)
+						if (!hasKey) {
+							delete joined[key]
+						}
+					}
+					model = joined;
+				}
+
+				$("#propertyGrid").data('kendoPropertyGrid').model(model)
+			}
+		});
+	})
+</script>
+</body>
+</html>

@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Person To Bot</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="k-d-flex k-justify-content-center">
+    <div id="chat"></div>
+</div>
+
+<div class="note">
+    <p>
+        By accessing and using the Telerik AI service integration on the Progress website, you acknowledge and agree to be bound by the following <a href="https://www.telerik.com/purchase/license-agreement/demo-chatbots-terms-of-use" title="Terms of Use">Terms of Use</a>.
+    </p>
+</div>
+
+        <script>
+            const author = {
+                id: 1,
+                authorId: 1,
+                name: "John Doe",
+                iconUrl: "../content/web/Customers/RICSU.jpg",
+                iconAltText: "John's profile picture"
+            };
+
+            const assistant = {
+                authorId: "job-assistant",
+                authorName: "Job Assistant",
+                authorImageUrl: "../content/chat/corgi.jpg",
+                authorImageAltText: "Job Assistant's profile picture"
+            };
+
+            let messages = [];
+            let isInitial = true;
+
+            async function createBlobFromFileUrl(fileUrl) {
+                const response = await fetch(fileUrl);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+                }
+
+                const blob = await response.blob();
+                return blob;
+            }
+
+            const chat = $("#chat").kendoChat({
+                fileAttachment: { restrictions: { allowedExtensions: ['.jpg', '.pdf'] } },
+                authorId: author.id,
+                suggestedActionsScrollable: false,
+                suggestionsScrollable: true,
+                messageWidthMode: "standard",
+                height: 680,
+                dataSource: [
+                    {
+                        id: kendo.guid(),
+                        authorId: assistant.authorId,
+                        authorName: assistant.authorName,
+                        authorImageUrl: assistant.authorImageUrl,
+                        authorImageAltText: assistant.authorImageAltText,
+                        text: "Hi there! Welcome to our Careers Portal. I see you're interested in the Designer position. Could you please upload your application documents (CV, portfolio and cover letter) so we can get started?",
+                        timestamp: new Date()
+                    },
+                    {
+                        id: kendo.guid(),
+                        authorId: author.id,
+                        authorName: author.name,
+                        authorImageUrl: author.iconUrl,
+                        files: [{
+                            name: "CV.pdf",
+                            size: 5315153,
+                            extension: "pdf",
+                            url: "../content/chat/CV.pdf"
+                        }],
+                        timestamp: new Date()
+                    },
+                    {
+                        id: kendo.guid(),
+                        authorId: assistant.authorId,
+                        authorName: assistant.authorName,
+                        authorImageUrl: assistant.authorImageUrl,
+                        authorImageAltText: assistant.authorImageAltText,
+                        text: "Great! Your application has been successfully submitted. Our hiring team will review your files and get back to you within 5-7 business days. In the meantime, let me know what else would you like.",
+                        timestamp: new Date()
+                    },
+                ],
+                download: function(e) {
+                    e.files.forEach(function(file) {
+                        createBlobFromFileUrl(file.url)
+                            .then(blob => {
+                                kendo.saveAs({
+                                    dataURI: blob,
+                                    fileName: file.name
+                                });
+                            })
+                            .catch(err => {
+                                console.error(err);
+                            });
+                    });
+                },
+                sendMessage: function(e) {
+                    if (e.generating) {
+                        e.sender.toggleSendButtonGenerating(false);
+                        return;
+                    }
+                    e.message.authorId = author.id;
+                    e.message.authorName = author.name;
+                    e.message.authorImageUrl = author.iconUrl;
+                    e.message.authorImageAltText = author.iconAltText;
+
+                    let serviceEndpoint = `https://demos.telerik.com/service/v2/ai/completion`;
+
+                    if(isInitial){
+                        messages.push({
+                            role: "assistant",
+                            contents: [{
+                                $type: "text",
+                                text: e.message.text
+                            }]
+                        });
+                        isInitial = false;
+                    }
+
+                    messages.push({
+                        role: "user",
+                        contents: [{
+                            $type: "text",
+                            text: e.message.text
+                        }]
+                    });
+
+
+                    $.ajax({
+                        url: serviceEndpoint,
+                        method: "POST",
+                        contentType: "application/json",
+                        data: JSON.stringify(messages),
+                        success: function(response) {
+                            e.sender.toggleSendButtonGenerating(false);
+                            messages.push(response.messages[0]);
+                            const botResponse = response.messages[0].contents[0].text;
+                            const arrayStart = botResponse.indexOf('[');
+
+                            // Separate the text and the array string
+                            const regularText = botResponse.substring(0, arrayStart).trim();
+                            const arrayText = botResponse.substring(arrayStart).trim();
+
+                            // Parse the array string to a JavaScript array
+                            let optionsArray = [];
+                            try {
+                                optionsArray = JSON.parse(arrayText);
+                            } catch (e) {
+                                console.error("Failed to parse options array:", e);
+                            }
+
+                            const message = {
+                                authorId: assistant.authorId,
+                                authorName: assistant.authorName,
+                                authorImageUrl: assistant.authorImageUrl,
+                                text: regularText,
+                                suggestedActions: optionsArray.map(option => ({
+                                    text: option.text
+                                })),
+                                timestamp: new Date()
+                            };
+
+                            sendMessagesSequentially(e.sender, [message]);
+                        },
+                        error: function(xhr, status, error) {
+                            console.error("Error sending message:", error);
+                            e.sender.toggleSendButtonGenerating(false);
+                        }
+                    });
+                }
+            }).data("kendoChat");
+
+
+            function delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            async function sendMessagesSequentially(sender, messages) {
+                for (const msg of messages) {
+                    sender.postMessage(msg);
+                    await delay(300); // Adjust delay as needed
+                    sender.scrollToBottom();
+                }
+            }
+
+            // Send initial request to AI service silently
+            const initialPrompt = `You are a Chat Bot assisting users with career applications and job interviews for Progress Software. For every user input, always respond in this exact format:
+
+1. A human-like message relevant to the user's previous input (e.g., "Here are some options to choose from").
+2. Immediately after, output a valid JSON array of objects, like this: [{"text":"Option 1"},{"text":"Option 2"}]
+3. The JSON array must start with [ and end with ]. No extra characters, whitespace, or formatting before or after the array.
+4. Do not use markdown, code blocks, or any other formatting.
+5. The array must be valid JSON. Do not use single quotes, comments, or trailing commas.
+6. Always provide exactly 3 suggestions in the array, each related to the user's previous input.
+7. Always follow this format for every response.
+
+For the first response, start with: "Would you like to explore some options to help you prepare for your interview?" and provide options such as [{"text":"Learn more about the company"}, {"text":"Get tips on preparing for the interview"}, {"text":"Interview Guidelines"}]. For each next response, do not use a the initial predefined question: "Would you like to explore some options to help you prepare for your interview?`;
+
+            // Prepare initial message for the AI
+            messages.push({
+                role: "user",
+                contents: [{
+                    $type: "text",
+                    text: initialPrompt
+                }]
+            });
+
+            // Send AJAX request to AI service
+            $.ajax({
+                url: "https://demos.telerik.com/service/v2/ai/completion",
+                method: "POST",
+                contentType: "application/json",
+                data: JSON.stringify(messages),
+                success: function(response) {
+                    const botResponse = response.messages[0].contents[0].text;
+
+                    const arrayStart = botResponse.indexOf('[');
+
+                    // Separate the text and the array string
+                    const regularText = botResponse.substring(0, arrayStart).trim();
+                    const arrayText = botResponse.substring(arrayStart).trim();
+
+                    // Parse the array string to a JavaScript array
+                    let optionsArray = [];
+                    try {
+                        optionsArray = JSON.parse(arrayText);
+                    } catch (e) {
+                        console.error("Failed to parse options array:", e);
+                    }
+
+                    chat.postMessage({
+                        authorId: assistant.authorId,
+                        authorName: assistant.authorName,
+                        authorImageUrl: assistant.authorImageUrl,
+                        text: regularText,
+                        suggestedActions: optionsArray.map(option => ({ text: option.text })),
+                        timestamp: new Date()
+                    });
+                    chat.scrollToBottom();
+                },
+                error: function(xhr, status, error) {
+                    console.error("Error sending initial message:", error);
+                }
+            });
+        </script>
+
+        <style>
+              .note {
+                font: normal 18px "Metric";
+                border-radius: 2px;
+                margin: 20px auto 40px auto;
+                padding: 20px;
+                border-left: 4px solid;
+                border-left-color: #5392e4;
+                background: rgba(83, 146, 228, 0.1);
+                text-align: center;
+              }
+
+
+        .k-chat{
+            max-width: 600px;
+        }
+
+        @media all and (max-width: 600px) {
+            .k-chat{
+                max-width: 400px;
+            }
+        }
+        </style>
+</body>
+</html>

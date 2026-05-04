@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Error Handling</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<link href="../content/smartpaste/smartpastebuttonstyles.css" rel="stylesheet" />
+@{
+    var fontIconsUrl = "https://unpkg.com/@progress/kendo-font-icons/dist/index.css";
+}
+<link rel="stylesheet" href="@fontIconsUrl" />
+
+<div id="example">
+    <div class="k-d-flex k-justify-content-center" style="padding-top: 54px;">
+        <div class="smartpaste-container" id="smartPasteContainer">
+
+            <div class="events-chat">
+                <div class="chat-card">
+
+                    <div class="chat-header">
+                        <div class="chat-bot-message chat-bot-disabled">Placeholder Message</div>
+                        <span class="avatar"></span>
+                    </div>
+
+                    <div class="chat-date">Friday, June 28, 2026</div>
+
+                    <div class="chat-message" id="chat-message">
+                        Ashley Johnson, Portland
+                    </div>
+
+                    <button id="copyButton" class="chat-copy">Copy</button>
+
+                    <div class="chat-input chat-input-disabled">
+                        <input type="text" placeholder="Type a message" disabled />
+                        <span class="k-icon k-font-icon k-i-paperclip-alt chat-icon"></span>
+                        <span class="k-icon k-font-icon k-i-microphone-outline chat-icon"></span>
+                        <span class="k-icon k-font-icon k-i-arrow-up-outline chat-icon"></span>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="form-wrapper">
+                <div id="loader"></div>
+                <form id="responsiveForm"></form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+
+        $("#copyButton").kendoButton({
+            fillMode: "clear",
+            click: onClick
+        });
+
+        $("#loader").kendoLoader({
+            size: "large",
+            type: "converging-spinner",
+            visible: false
+        });
+
+        $("#responsiveForm").kendoForm({
+            orientation: "vertical",
+            validatable: {
+                validationSummary: false,
+            },
+            buttonsTemplate:
+                            "<button id='clearButton' type='reset' onclick='onClear()' " +
+                                "data-role='button' class='k-button k-button-md k-rounded-md k-button-flat k-button-flat-base' " +
+                                "role='button' aria-disabled='false' tabindex='0'>" +
+                                "<span class='k-icon k-font-icon k-i-arrow-rotate-ccw'></span>" +
+                            "</button>",
+            items: [
+                {
+                    field: "FullName",
+                    label: "Full Name",
+                    editor: "TextBox",
+                    editorOptions: {
+                        placeholder: "e.g. John Doe"
+                    }
+                },
+                {
+                    field: "City",
+                    label: "City",
+                    editor: "TextBox",
+                    editorOptions: {
+                        placeholder: "e.g. London"
+                    }
+                },
+                {
+                    field: "Phone",
+                    label: "Phone Number",
+                    editor: "MaskedTextBox",
+                    validation: { required: true },
+                    editorOptions: {
+                        mask: "(000) 000-00-00"
+                    },
+                    attributes: {
+                        placeholder: "e.g. XXXXXXXX"
+                    }
+                }
+            ],
+            smartPaste: {
+                text: "Smart Paste",
+                service: "https://demos.telerik.com/service/v2/ai/smartpaste/smartpaste",
+                requestStart: onRequestStart,
+                requestEnd: onRequestEnd
+            }
+        });
+
+    });
+
+    function onClick(e) {
+        const element = document.getElementById("chat-message");
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        navigator.clipboard.writeText(element.innerText);
+        $(e.sender.element).find(".k-button-text").text("Text Copied");
+        $(e.sender.element).blur();
+    }
+
+    function onRequestStart() {
+        $("#loader").data("kendoLoader").show();
+        $("#copyButton").find(".k-button-text").text("Copy");
+        clearSelection();
+    }
+
+    function onClear() {
+            $(".k-form-field").removeClass("k-form-field-error");
+            $(".k-input").removeClass("k-invalid");
+            $(".k-invalid-msg").remove();
+
+            $("#copyButton").find(".k-button-text").text("Copy");
+
+            clearSelection();
+
+            $(".k-input").removeClass("k-valid");
+    }
+
+    function onRequestEnd() {
+        $("#loader").data("kendoLoader").hide();
+        $("#Phone").blur();
+    }
+
+    function clearSelection() {
+        var selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+            selection.removeAllRanges();
+        }
+    }
+</script>
+
+<style>
+    .events-chat {
+        background-color: #F8F9FA;
+        width: 300px;
+        border-radius: 16px;
+    }
+
+    .chat-card {
+        border: 1px solid rgba(0,0,0,.08);
+        border-radius: 16px;
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+    }
+
+        .chat-card > * {
+            margin-bottom: 12px;
+        }
+
+            .chat-card > *:last-child {
+                margin-bottom: 0;
+            }
+
+    .chat-header {
+        display: flex;
+        justify-content: right;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .chat-bot-message {
+        background: #bdbdbd;
+        border-radius: 20px;
+        padding: 8px 16px;
+        font-size: 13px;
+        color: #4a4a4a;
+    }
+
+    .chat-bot-disabled {
+        opacity: .75;
+    }
+
+    .chat-date {
+        text-align: center;
+        font-size: 12px;
+        color: #8a8a8a;
+    }
+
+    .chat-message {
+        background: #efefef;
+        border-radius: 16px;
+        padding: 10px 14px;
+        font-size: 14px;
+        width: fit-content;
+        margin-bottom: 0px;
+    }
+
+    .chat-copy {
+        font-size: 14px;
+        font-style: italic;
+        padding-left: 65px;
+    }
+
+    .chat-input {
+        position: relative;
+        margin-top: auto;
+        border-radius: 12px;
+        background: #fff;
+        height: 90px;
+    }
+
+        .chat-input input {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            right: 12px;
+            border: none;
+            outline: none;
+            font-size: 14px;
+            background: transparent;
+            color: #a0a0a0;
+        }
+
+    .chat-icon {
+        position: absolute;
+        bottom: 12px;
+        font-size: 16px;
+        color: #9a9a9a;
+    }
+
+        .chat-icon.k-i-paperclip-alt {
+            left: 12px;
+            bottom: 5px;
+            height: 26px
+        }
+
+        .chat-icon.k-i-microphone-outline {
+            right: 50px;
+            bottom: 5px;
+            height: 26px
+        }
+
+        .chat-icon.k-i-arrow-up-outline {
+            right: 12px;
+            bottom: 5px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background-color: #f1f1f1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+    .avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-image: url("../../content/smartPaste/avatar.png");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+    }
+</style>
+</body>
+</html>

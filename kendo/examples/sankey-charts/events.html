@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Events</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+
+<div class="demo-section wide">
+	<div id="sankey"></div>
+</div>
+
+<style>
+	#sankey {
+		margin: 0 auto;
+	}
+</style>
+
+<script>
+	$(document).ready(function () {
+		var data = {
+			nodes: [
+				{
+					id: "female",
+					label: {
+						text: "Female (58%)",
+					},
+				},
+				{
+					id: "male",
+					color: 'yellow',
+					label: {
+						text: "Male (42%)",
+					},
+				},
+				{
+					id: "tablet",
+					label: {
+						text: "Tablet (12%)",
+					},
+				},
+				{
+					id: "mobile",
+					label: {
+						text: "Mobile (40%)",
+					},
+				},
+				{
+					id: "desktop",
+					label: {
+						text: "Desktop (48%)",
+					},
+				},
+				{
+					id: "< 18",
+					label: {
+						text: "< 18 years (8%)",
+					},
+				},
+				{
+					id: "18-26",
+					label: {
+						text: "18-26 years (35%)",
+					},
+				},
+				{
+					id: "27-40",
+					label: {
+						text: "27-40 years (38%)",
+					},
+				},
+				{
+					id: "> 40",
+					label: {
+						text: "> 40 years (19%)",
+					},
+				},
+			],
+			links: [
+				{
+					sourceId: "female",
+					targetId: "tablet",
+					value: 12,
+				},
+				{
+					sourceId: "female",
+					targetId: "mobile",
+					value: 14,
+				},
+				{
+					sourceId: "female",
+					targetId: "desktop",
+					value: 32,
+				},
+				{
+					sourceId: "male",
+					targetId: "mobile",
+					value: 26,
+				},
+				{
+					sourceId: "male",
+					targetId: "desktop",
+					value: 16,
+				},
+				{
+					sourceId: "tablet",
+					targetId: "< 18",
+					value: 4,
+				},
+				{
+					sourceId: "tablet",
+					targetId: "> 40",
+					value: 8,
+				},
+				{
+					sourceId: "mobile",
+					targetId: "< 18",
+					value: 4,
+				},
+				{
+					sourceId: "mobile",
+					targetId: "18-26",
+					value: 24,
+				},
+				{
+					sourceId: "mobile",
+					targetId: "27-40",
+					value: 10,
+				},
+				{
+					sourceId: "mobile",
+					targetId: "> 40",
+					value: 2,
+				},
+				{
+					sourceId: "desktop",
+					targetId: "18-26",
+					value: 11,
+				},
+				{
+					sourceId: "desktop",
+					targetId: "27-40",
+					value: 18,
+				},
+				{
+					sourceId: "desktop",
+					targetId: "> 40",
+					value: 19,
+				},
+			],
+		};
+		const element = $("#sankey").css({ width: 900, height: 600 }).kendoSankey({
+			theme: 'sass',
+			title: {
+				text: 'Sankey Diagram'
+			},
+			legend: {
+				position: 'bottom'
+			},
+			links: { colorType: 'source' },
+			data: data,
+			nodeClick: onNodeClick,
+			linkClick: onLinkClick,
+			nodeEnter: onNodeEnter,
+			linkEnter: onLinkEnter,
+			nodeLeave: onNodeLeave,
+			linkLeave: onLinkLeave
+		});
+
+		function onNodeClick(e){
+			kendoConsole.log("NodeClick event fired  on " + e.dataItem.id);
+		}
+
+		function onLinkClick(e) {
+			kendoConsole.log("LinkClick event fired --> source " + e.dataItem.source.id + " -- target --> " + e.dataItem.target.id);
+		}
+
+		function onNodeEnter(e) {
+			kendoConsole.log("onNodeEnter event fired on " + e.dataItem.id);
+		}
+
+		function onLinkEnter(e){
+			kendoConsole.log("onLinkEnter event fired on --> source " + e.dataItem.source.id + " -- target --> " + e.dataItem.target.id);
+		}
+
+		function onNodeLeave(e) {
+			kendoConsole.log("onNodeLeave event fired on " + e.dataItem.id);
+		}
+
+		function onLinkLeave(e) {
+			kendoConsole.log("onLinkLeave event fired on --> source " + e.dataItem.source.id + " -- target --> " + e.dataItem.target.id);
+		}
+
+	});</script>
+</body>
+</html>

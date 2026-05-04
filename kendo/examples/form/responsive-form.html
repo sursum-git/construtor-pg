@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Responsive Form</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class='note' style="text-align: center;">
+    <p>
+        Resize the browser window to see Form's responsive behavior.
+    </p>
+</div>
+<div class="demo-section wide">
+    <form id="exampleform"></form>
+</div>
+<script>
+    $(document).ready(function() {
+        var countries = [
+            'United States',
+            'Canada',
+            'United Kingdom',
+            'Australia',
+            'Germany',
+            'France',
+            'Japan',
+            'Brazil',
+            'Bulgaria',
+            'South Africa',
+        ];
+        $("#exampleform").kendoForm({
+            clearButton: false,
+            layout: "grid",
+            grid: {
+                cols: [
+                    {
+                        maxWidth: 500,
+                        value: 3
+                    }, {
+                        minWidth: 501,
+                        maxWidth: 768,
+                        value: 6
+                    },
+                    {
+                        minWidth: 769,
+                        value: 12
+                    }
+                ],
+            },
+            items: [
+                {
+                    type: "group",
+                    label: "Personal Information",
+                    layout: "grid",
+                    colSpan: 6,
+                    grid: {
+                        cols: [{
+                            maxWidth: 500,
+                            value: 3
+                        }, {
+                            minWidth: 501,
+                            value: 6
+                        },
+                        ],
+                    },
+                    items: [
+                        {
+                            field: "Title", label: { text: "Title" }, editor: "DropDownList", colSpan: [{ maxWidth: 500, value: 3 }, { minWidth: 501, value: 2 }], editorOptions: {
+                                dataSource: ["None", "Mr.", "Mrs.", "Ms.", "Miss", "Mx.", "Sir", "Madam"],
+                                adaptiveMode: "auto"
+                            }
+                        },
+                        {
+                            field: "Fullname",
+                            label: "Full name",
+                            validation: { required: true },
+                            colSpan: [
+                                { maxWidth: 500, value: 3 }, { minWidth: 501, value: 4 }
+                            ]
+                        },
+                        { field: "Phone", label: "Phone", editor: "MaskedTextBox", validation: { required: true }, colSpan: 3, attributes: { placeholder: "(___)___-__-__-__" }, editorOptions: { mask: "(000) 000-00-00-00" } },
+                        { field: "Email", label: "Email", validation: { required: true, email: true }, colSpan: 3, editorOptions: { placeholder: "your@email.com" } },
+                        {
+                            field: "BirthDate",
+                            label: "Birth date",
+                            colSpan: 2,
+                            validation: { required: true },
+                            editor: "DatePicker",
+                            attributes: {
+                                class: "dateWidth",
+                                placeholder: "dd/mm/yyyy"
+                            }
+                        },
+                    ]
+                },
+                {
+                    type: "group",
+                    label: "Shipping Address",
+                    layout: "grid",
+                    colSpan: 6,
+                    grid: {
+                        cols: [{
+                            maxWidth: 500,
+                            value: 3
+                        }, {
+                            minWidth: 501,
+                            value: 6
+                        },
+                        ],
+                    },
+                    items: [
+                        { field: "Country", label: "Country", editor: "ComboBox", colSpan: 3, editorOptions: { placeholder: "EU Country", dataSource: countries } },
+                        { field: "City", label: "City", colSpan: 3 },
+                        {
+                            field: "StreetAddress", label: "Street address", colSpan: [{
+                                maxWidth: 500,
+                                value: 3
+                            }, {
+                                minWidth: 501,
+                                value: 6
+                            },
+                            ]
+                        },
+                        {
+                            field: "StreetAddressTwo", label: "Street address line 2", colSpan: [{
+                                maxWidth: 500,
+                                value: 3
+                            }, {
+                                minWidth: 501,
+                                value: 6
+                            },
+                            ]
+                        },
+                    ]
+                }
+            ]
+        });
+    });
+</script>
+<style>
+    .k-datepicker.dateWidth {
+        min-width: 160px;
+        max-width: 240px;
+    }
+
+    .note {
+        font: normal 18px "Metric";
+        border-radius: 2px;
+        margin: 20px auto 40px auto;
+        padding: 20px;
+        border-left: 4px solid;
+        border-left-color: #5392e4;
+        background: rgba(83,146,228,0.1);
+        text-align: center;
+    }
+</style>
+</body>
+</html>

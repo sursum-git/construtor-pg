@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Overview</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+    <style>
+        .k-dialog-content {
+            display: flex;
+            justify-content: space-between;
+        }
+        .icon-attachment {
+            width: 38px;
+            height: 38px;
+        }
+
+        .k-chat-bubble-text{
+            overflow-wrap: break-word !important;
+            word-break: normal !important;
+        }
+
+        .k-notification {
+            position: absolute;
+            z-index: 9999;
+            top: 82%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #chat {
+            position: relative;
+            max-width: 400px;
+        }
+    </style>
+    <script id="template-dialog" type="text/x-kendo-template">
+      <span class="icon-attachment" id="facebook"></span>
+      <span class="icon-attachment" id="email"></span>
+      <span class="icon-attachment" id="x-social"></span>
+      <span class="icon-attachment" id="linkedin"></span>
+      <span class="icon-attachment" id="gmail"></span>
+      <span class="icon-attachment" id="instagram"></span>
+      <span class="icon-attachment" id="whatsapp"></span>
+    </script>
+
+     <div id="container" class="k-d-flex k-justify-content-center">
+
+        <div id="dialog"></div>
+        <span id="notification"></span>
+        <div id="chat">
+        </div>
+
+    </div>
+
+    <script>
+    $(document).ready(function() {
+        // Configuration
+        const CONFIG = {
+            currentUser: {
+                id: 1,
+                name: "",
+                iconUrl: "../content/chat/corgi.jpg",
+                iconAltText: "Anthony's profile picture"
+            },
+            chat: {
+                height: 600
+            },
+            allowedFileTypes: ['.jpg', '.pdf', '.xlsx', '.docx'],
+            responses: {
+                attachment: {
+                    text: "Cool. I'll send them now. Thanks",
+                    files: [
+                        { name: "Portfolio.pdf", size: 5315153, extension: "pdf", url: "../content/chat/Portfolio.pdf" },
+                        { name: "Cover_Letter.pdf", size: 5315153, extension: "pdf", url: "../content/chat/Cover_Letter.pdf" },
+                        { name: "Application-Photo.jpg", size: 5315153, extension: "jpg", url: "../content/chat/corgi.jpg" }
+                    ]
+                },
+                cvFile: {
+                    text: "Sorry, I forgot to upload my CV.",
+                    files: [{ name: "CV.pdf", size: 5315153, extension: "pdf", url: "../content/chat/CV.pdf" }]
+                },
+                link: {
+                    text: "Here you go, mate https://demos.telerik.com/kendo-ui/content/chat/Portfolio.pdf \n Let me know if you have any problem opening it."
+                },
+                default: {
+                    text: "Please choose whether to send you the files or a link"
+                }
+            }
+        };
+
+        // Initialize components
+        const notificationWidget = initializeNotification();
+        const dialog = initializeDialog();
+        const chat = initializeChat(CONFIG, notificationWidget);
+        initializeIcons();
+
+        // Helper Functions
+        function initializeNotification() {
+            return $("#notification").kendoNotification({
+                templates: [{
+                    type: "fileNote",
+                    template: '<span class="download-icon"></span> File downloaded',
+                },{
+                    type: "filesNote",
+                    template: '<span class="download-icon"></span> Files downloaded',
+                }, {
+                    type: "copyNotification",
+                    template: '<span class="copy-icon"></span> Message copied to clipboard.',
+                }],
+                width: 160,
+                height: 54,
+                appendTo: "#container"
+            }).data("kendoNotification");
+        }
+
+        function initializeDialog() {
+            return $("#dialog").kendoDialog({
+                width: 246,
+                title: "Share attachment",
+                content: kendo.template($("#template-dialog").html()),
+                visible: false
+            });
+        }
+
+        function initializeIcons() {
+            const iconMappings = [
+                { id: "#facebook", icon: "facebook" },
+                { id: "#email", icon: "envelope" },
+                { id: "#x-social", icon: "x-logo" },
+                { id: "#linkedin", icon: "linkedin" },
+                { id: "#gmail", icon: "google" },
+                { id: "#instagram", icon: "instagram" },
+                { id: "#whatsapp", icon: "whatsapp" }
+            ];
+
+            iconMappings.forEach(mapping => {
+                kendo.ui.icon($(mapping.id), { icon: mapping.icon, size: 'small' });
+            });
+        }
+
+        function initializeChat(config, notificationWidget) {
+            return $("#chat").kendoChat({
+                fileAttachment: { restrictions: { allowedExtensions: ['.jpg', '.pdf'] } },
+                messageWidthMode: "standard",
+                width: config.chat.width,
+                height: config.chat.height,
+                messages: {
+                    placeholder: "Type 'link' or 'files' in your message"
+                },
+                authorId: config.currentUser.id,
+                dataSource: {
+                    data: getInitialMessages()
+                },
+                fileMenuAction: (e) => handleFileMenuAction(e),
+                download: (e) => handleFileDownload(e, notificationWidget),
+                messageActions: getMessageActions(),
+                fileActions: getFileActions(),
+                toolbar: getToolbarConfig(),
+                sendMessage: (e) => handleSendMessage(e, config),
+                contextMenuAction: (e) => handleContextMenuAction(e, notificationWidget)
+            }).data("kendoChat");
+        }
+
+        function getInitialMessages() {
+            return [
+                {
+                    id: 1,
+                    authorId: 2,
+                    authorName: "",
+                    authorImageUrl: "../content/chat/corgi.jpg",
+                    authorImageAltText: "John's profile picture",
+                    text: "Hey Jamie, do you have a minute? \n I've been working on my job application documents and could use a second opinion. \nMind taking a look and telling me what you think?",
+                    timestamp: new Date()
+                },
+                {
+                    id: 2,
+                    authorId: 2,
+                    authorName: "",
+                    authorImageUrl: "../content/chat/corgi.jpg",
+                    authorImageAltText: "John's profile picture",
+                    text: "I can send you the files or a link - which one works best for you?",
+                    timestamp: new Date()
+                }
+            ];
+        }
+
+        function getMessageActions() {
+            return [
+                { name: "reply", text: "Reply", icon: "undo" },
+                { name: "copy", text: "Copy", icon: "copy" },
+                { name: "pin", text: "Pin", icon: "pin" },
+                { name: "delete", text: "Delete", icon: "trash" }
+            ];
+        }
+
+        function getFileActions() {
+            return [
+                { name: "download", text: "Download", icon: "download" },
+                { name: "share", text: "Share", icon: "share" }
+            ];
+        }
+
+        function getToolbarConfig() {
+            return {
+                toggleable: true,
+                buttons: [
+                    { name: "sendimage", icon: "image" },
+                    { name: "upload", icon: "arrow-up" }
+                ]
+            };
+        }
+
+        async function createBlobFromFileUrl(fileUrl) {
+            const response = await fetch(fileUrl);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+            }
+            return await response.blob();
+        }
+
+        function handleFileMenuAction(e) {
+            if (e.type === "share") {
+                $("#dialog").data("kendoDialog").open();
+            }
+        }
+
+        function handleFileDownload(e, notificationWidget) {
+            var fileCount = e.files.length;
+            e.files.forEach(function(file) {
+                createBlobFromFileUrl(file.url)
+                    .then(blob => {
+                        kendo.saveAs({
+                            dataURI: blob,
+                            fileName: file.name
+                        });
+
+                        notificationWidget.setOptions({ width: 190 });
+                        if (fileCount === 1) {
+                                notificationWidget.show("File downloaded", "fileNote", "info");
+                            } else {
+                                notificationWidget.show("Files downloaded", "filesNote", "info");
+                            }
+
+                        kendo.ui.icon($(".download-icon"), { icon: 'download' });
+                    })
+                    .catch(err => console.error(err));
+            });
+        }
+
+        function handleSendMessage(e, config) {
+            e.message.authorName = config.currentUser.name;
+            const messageText = e.message.text.toLowerCase();
+
+            if (messageText.includes("attachment") || messageText.includes("file")) {
+                sendAttachmentResponse(e, config);
+            } else if (messageText.includes("link")) {
+                sendLinkResponse(e, config);
+            } else {
+                sendDefaultResponse(e, config);
+            }
+        }
+
+        function sendAttachmentResponse(e, config) {
+            // Send main attachment response
+            setTimeout(() => {
+                e.sender.postMessage(createBotMessage(config.responses.attachment));
+            }, 10);
+
+            // Send CV file after delay
+            setTimeout(() => {
+                e.sender.postMessage(createBotMessage(config.responses.cvFile));
+            }, 500);
+        }
+
+        function sendLinkResponse(e, config) {
+            setTimeout(() => {
+                e.sender.postMessage(createBotMessage(config.responses.link));
+            }, 500);
+        }
+
+        function sendDefaultResponse(e, config) {
+            setTimeout(() => {
+                e.sender.postMessage(createBotMessage(config.responses.default));
+            }, 500);
+        }
+
+        function createBotMessage(responseConfig) {
+            return {
+                authorId: 2,
+                authorName: "",
+                authorImageUrl: "../content/chat/corgi.jpg",
+                authorImageAltText: "John's profile picture",
+                text: responseConfig.text,
+                timestamp: new Date(),
+                files: responseConfig.files || []
+            };
+        }
+
+        function handleContextMenuAction(e, notificationWidget) {
+            if (e.type === 'copy') {
+                notificationWidget.setOptions({ width: 300 });
+                notificationWidget.show("Message copied to clipboard.", "copyNotification");
+                kendo.ui.icon($(".copy-icon"), { icon: 'copy' });
+            }
+        }
+    });
+    </script>
+</body>
+</html>

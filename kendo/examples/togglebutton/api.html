@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>API</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="configurator">
+    <div class="header">Configurator</div>
+    <div class="box-col">
+        <h4>ToggleButton API Functions</h4>
+        <ul class="options">
+            <li>
+                <button id="toggleState" type="button">Toggle</button>
+                <button id="untoggleState" type="button">Untoggle</button>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="demo-section">
+    <button id="togglebutton">
+        Toggle Button
+    </button>
+</div>
+
+<script>
+    $(document).on("kendoReady", function () {
+        var toggleButton = $("#togglebutton").kendoToggleButton({}).data("kendoToggleButton");
+
+        $("#toggleState").click(function () {
+            toggleButton.toggle(true);
+        });
+        $("#untoggleState").click(function () {
+            toggleButton.toggle(false);
+        });
+    });
+</script>
+
+<style>
+    .demo-section {
+        text-align: center;
+    }
+</style>
+</body>
+</html>

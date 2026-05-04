@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Events</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="k-d-flex k-justify-content-center" style="height: 500px;">
+    <div class="k-w-full">
+        <div id="dockmanager"></div>
+    </div>
+</div>
+<script>
+    $(document).ready(function () {
+         function onDragStart(e) {
+            kendoConsole.log("event :: dragStart");
+        }
+
+        function onDrag(e) {
+            kendoConsole.log("event :: drag");
+        }
+
+        function onDragEnd(e) {
+            kendoConsole.log("event :: dragEnd");
+        }
+
+        function onPin(e) {
+            kendoConsole.log("event :: pin");
+        }
+
+        function onClose(e) {
+            kendoConsole.log("event :: close");
+        }
+        function onUnpin(e) {
+            kendoConsole.log("action :: unpin");
+        }
+
+        function onDock(e) {
+            kendoConsole.log("action :: dock");
+        }
+
+        function onInnerDock(e) {
+            kendoConsole.log("action :: innerDock");
+        }
+
+        function onResize(e) {
+            kendoConsole.log("action :: resize");
+        }
+
+        $("#dockmanager").kendoDockManager({
+            dragStart: onDragStart,
+            dragEnd: onDragEnd,
+            drag: onDrag,
+            pin: onPin,
+            unpin: onUnpin,
+            close: onClose,
+            dock: onDock,
+            innerDock: onInnerDock,
+            resize: onResize,
+            rootPane: {
+                id: "myRootPane",
+                type: "split",
+                orientation: "vertical",
+                panes: [{
+                    type: "split",
+                    panes: [{
+                        id:"tools",
+                        type: "content",
+                        title: "Tools",
+                        content: "Some tools.",
+                        size: "20%"
+                    }, {
+                        id: "files",
+                        type: "tab",
+                        panes: [{
+                            id: "file1",
+                            type: "content",
+                            title: "File 1",
+                            id: "myFile",
+                            content: "Lorem ipsum dolor sit amet consectetur adipisicing elit. Commodi suscipit porro optio veritatis obcaecati nostrum molestias dolor maxime! Molestias ducimus placeat quia possimus esse atque odio, a recusandae iste exercitationem. Sapiente fugit assumenda at explicabo quos consequuntur dicta cumque ex aspernatur, nesciunt itaque doloremque exercitationem eaque iusto. Iste non officia consequatur quis veritatis magni, quo autem dolores numquam dignissimos nemo."
+                        }, {
+                            id: "file2",
+                            type: "content",
+                            title: "File 2",
+                            content: "Etiam neque dui, rutrum vitae ullamcorper id, gravida vel leo. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Sed sit amet massa turpis. Proin mattis dui tempor tincidunt tincidunt. Proin elementum ornare elit et imperdiet. Donec nunc ipsum, molestie vitae neque sed, lacinia mollis lacus. Donec viverra egestas enim nec vestibulum. Sed ac condimentum felis. Aenean luctus sed enim sed faucibus. Donec gravida, dui sit amet fringilla dignissim, metus elit varius nisl, a interdum justo ligula nec leo. Nunc et ultricies felis. Nulla facilisi. Sed sed lacus eu neque aliquet placerat"
+                        }, {
+                            id: "file2",
+                            type: "content",
+                            title: "File 3",
+                            content: "Cras hendrerit mattis semper. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Curabitur nec dapibus quam. Duis sollicitudin nisl et purus venenatis, ut interdum massa tincidunt. Vestibulum sit amet nulla at dolor ullamcorper iaculis. Morbi gravida tincidunt lectus dapibus suscipit. Integer aliquet ligula enim, quis varius sapien dapibus in. Donec pulvinar ex et sapien rutrum venenatis. Quisque pulvinar, dui vitae pretium auctor, nunc mauris interdum est, vitae ullamcorper mi mauris sit amet felis. Phasellus non justo gravida, placerat risus quis, facilisis lacus. Suspendisse potenti. Praesent bibendum, lectus et fermentum varius, mi magna egestas nulla, ut interdum augue purus vitae leo.",
+                            unpinnable: {
+                                unpinned: true
+                            }
+                        }],
+                        size: "40%"
+                    }, {
+                        id: "options",
+                        type: "split",
+                        orientation: "vertical",
+                        title: "container pane",
+                        panes: [{
+                            type: "tab",
+                            panes: [{
+                                id: "properties",
+                                type: "content",
+                                title: "Properties",
+                                content: "Properties content"
+                            },
+                            {
+                                id: "history",
+                                type: "content",
+                                title: "History",
+                                content: "History content"
+                            }]
+                        }, {
+                            id: "layers",
+                            type: "content",
+                            title: "Layers",
+                            content: "Layers content"
+                        }],
+                        size: "40%"
+                    }],
+                    size: "80%"
+                }, {
+                    id: "console",
+                    type: "content",
+                    header: "Console",
+                    content: "Console content",
+                    size: "20%"
+                }]
+            }
+        })
+    });
+</script>
+<style>
+    #example {
+        min-height: 350px;
+    }
+</style>
+
+</body>
+</html>

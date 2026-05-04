@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Globalization</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="configurator">
+    <div class="header">Configurator</div>
+    <div class="box-col">
+        <label for="language" class="config-label">Choose language:</label>
+        <input id="language" value="en-US" />
+    </div>
+</div>
+
+<div id="container">
+    <div id="chartwizard"></div>
+</div>
+
+
+
+<script>
+    $(document).ready(function () {
+
+
+        function changeLanguage() {
+
+            kendo.ui.progress($("#chartwizard"), true);
+            language= this.value();
+
+            var baseUrlMessages = '@Url.Script("messages/kendo.messages.", false)';
+            var baseUrlCultures = '@Url.Script("cultures/kendo.culture.", false)';
+
+            $.getScript(baseUrlMessages + language + ".min.js", function () {
+                 $.getScript(baseUrlCultures + language + ".min.js", function () {
+                    kendo.culture(language);
+                    kendo.ui.progress($("#chartwizard"), false);
+                    createChartWizard();
+                  });
+            });
+        }
+
+        $("#language").kendoDropDownList({
+            change: changeLanguage,
+            dataTextField: "text",
+            dataValueField: "value",
+            dataSource: [
+                {text: "bg-BG"},
+                {text: "en-US"},
+            ]
+        });
+
+        $("#language").data("kendoDropDownList").trigger("change");
+ });
+
+ function createChartWizard(){
+    var element = $("#chartwizard");
+
+    if (element.data("kendoChartWizard")) {
+        element.data("kendoChartWizard").destroy();
+        element = $("#chartwizard");
+    }
+
+    if (!element.length) {
+        $("#container").append("<div id='chartwizard'></div>");
+    }
+
+    var chartWizard = $("#chartwizard").kendoChartWizard({
+            dataSource: [
+                [
+                    { field: 'Product Name', value: 'Calzone' },
+                    { field: 'Quantity', value: 1 },
+                    { field: 'Price', value: 12.39 },
+                    { field: 'Tax', value: 2.48 },
+                    { field: 'Total', value: 14.87 }
+                ],
+                [
+                    { field: 'Product Name', value: 'Margarita' },
+                    { field: 'Quantity', value: 2 },
+                    { field: 'Price', value: 8.79 },
+                    { field: 'Tax', value: 3.52 },
+                    { field: 'Total', value: 21.1 }
+                ],
+                [
+                    { field: 'Product Name', value: 'Pollo Formaggio' },
+                    { field: 'Quantity', value: 1 },
+                    { field: 'Price', value: 13.99 },
+                    { field: 'Tax', value: 2.8 },
+                    { field: 'Total', value: 16.79 }
+                ]
+            ],
+            defaultState: {
+                seriesType: 'column',
+            },
+            window: {
+                modal: false,
+                draggable: {
+                    containment: "#container"
+                },
+            },
+            close: function(e){
+                e.preventDefault()
+            }
+        });
+
+    chartWizard.data("kendoChartWizard").window.wrapper.focus();
+ }
+</script>
+
+<style>
+    #container {
+        min-height: 700px;
+        width: 100%;
+        position: relative;
+    }
+</style>
+</body>
+</html>

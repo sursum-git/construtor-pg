@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Scrollable</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+    <div class="configurator">
+        <div class="header">Configurator</div>
+        <div class="box-col">
+            <h4>Set Scroll Buttons Position</h4>
+            <ul class="options">
+                <li>
+                    <input id="buttonPosition" />
+                </li>               
+            </ul>
+        </div>
+        
+    </div>
+    <div class="demo-section">
+        <h4 id='horizontal'>Horizontal</h4>
+        <ul id="horizontalMenu">
+            <li>
+                Mens
+                <ul>
+                    <li>Jackets and Coats</li>
+                    <li>Jeans</li>
+                    <li>Knitwear</li>
+                    <li>Shirts</li>
+                    <li>Belts</li>
+                    <li>Socks</li>
+                    <li>Fan Zone</li>
+                </ul>
+            </li>
+            <li>
+                Ladies
+                <ul>
+                    <li>Jackets and Coats</li>
+                    <li>Jeans</li>
+                    <li>Knitwear</li>
+                    <li>Shirts</li>
+                    <li>Belts</li>
+                    <li>Socks</li>
+                    <li>Fan Zone</li>
+                </ul>
+            </li>
+            <li>
+                Kids
+                <ul>
+                    <li>Jackets and Coats</li>
+                    <li>Jeans</li>
+                    <li>Knitwear</li>
+                    <li>Shirts</li>
+                    <li>Belts</li>
+                    <li>Socks</li>
+                    <li>Fan Zone</li>
+                </ul>
+            </li>
+            <li>Sports</li>
+            <li>Brands</li>
+            <li>Accessories</li>
+            <li>Promotions</li>
+            <li>Contacts</li>
+            <li>About us</li>
+        </ul>
+
+        <h4 id="vertical" style="padding-top:2em; margin-top:30px">Vertical</h4>
+
+        <ul id="verticalMenu" style="width:150px; height:150px;">
+            <li>
+                Mens
+                <ul>
+                    <li>Jackets and Coats</li>
+                    <li>Jeans</li>
+                    <li>Knitwear</li>
+                    <li>Shirts</li>
+                    <li>Belts</li>
+                    <li>Socks</li>
+                    <li>Fan Zone</li>
+                </ul>
+            </li>
+            <li>
+                Ladies
+                <ul>
+                    <li>Jackets and Coats</li>
+                    <li>Jeans</li>
+                    <li>Knitwear</li>
+                    <li>Shirts</li>
+                    <li>Belts</li>
+                    <li>Socks</li>
+                    <li>Fan Zone</li>
+                </ul>
+            </li>
+            <li>
+                Kids
+                <ul>
+                    <li>Jackets and Coats</li>
+                    <li>Jeans</li>
+                    <li>Knitwear</li>
+                    <li>Shirts</li>
+                    <li>Belts</li>
+                    <li>Socks</li>
+                    <li>Fan Zone</li>
+                </ul>
+            </li>
+            <li>Sports</li>
+            <li>Brands</li>
+            <li>News</li>
+            <li>About us</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        var horMenu = $("#horizontalMenu").kendoMenu({
+             scrollable: true
+        }).data("kendoMenu");
+
+        var verMenu = $("#verticalMenu").kendoMenu({
+            scrollable: true,
+            orientation: "vertical"
+        }).data("kendoMenu");
+
+        $("#buttonPosition").kendoDropDownList({
+            dataTextField: "text",
+            dataValueField: "value",
+            dataSource:[
+                {text: "split", value: 1},
+                {text: "start", value: 2},
+                {text: "end", value: 3}
+            ],
+            change:function(e){ 
+                horMenu.setOptions({
+                    scrollable: {
+                        scrollButtonsPosition: e.sender.text()
+                    }
+                })
+                verMenu.setOptions({
+                    scrollable: {
+                        scrollButtonsPosition: e.sender.text()
+                    }
+                })
+                var horMenuOptions = horMenu.options,
+                    verMenuOptions = verMenu.options,
+                    horMenuElement = horMenu.element,
+                    verMenuElement = verMenu.element;
+
+                initMenu(horMenuOptions, verMenuOptions, horMenuElement, verMenuElement)
+            }
+        })
+
+        function initMenu(horMenuOptions, verMenuOptions, horMenuElement, verMenuElement){
+ 
+            horMenu.destroy(); 
+            verMenu.destroy();
+            $('.k-menu-scroll-wrapper').remove()
+            $(horMenuElement).insertAfter($("#horizontal"));
+            $(verMenuElement).insertAfter($("#vertical")); 
+            $("#horizontalMenu").kendoMenu(horMenuOptions);
+            $("#verticalMenu").kendoMenu(verMenuOptions);
+
+        }
+    });
+</script>
+
+<style>
+    .k-menu-scroll-wrapper.horizontal li.k-item.k-last {
+        border-right-width: 0;
+    }
+</style>
+</body>
+</html>

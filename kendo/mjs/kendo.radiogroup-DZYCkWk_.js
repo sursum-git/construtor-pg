@@ -1,0 +1,10 @@
+/**
+ * Kendo UI v2026.1.212 (http://www.telerik.com/kendo-ui)
+ * Copyright 2026 Progress Software Corporation and/or one of its subsidiaries or affiliates. All rights reserved.
+ *
+ * Kendo UI commercial licenses may be obtained at
+ * http://www.telerik.com/purchase/license-agreement/kendo-ui-complete
+ * If you do not own a commercial license, this file shall be governed by the trial license terms.
+ */
+const e={id:`radiogroup`,name:`RadioGroup`,category:`web`,description:`The RadioGroup component.`,depends:[`core`,`inputgroupbase`,`radiobutton`]};(function(e,t){var n=window.kendo.ui,r=n.InputGroupBase,i=`change`,a=`.`,o=`checked`,s=`vertical`,c=`after`,l=`role`,u=`none`,d=`radiogroup`,f=r.extend({options:{name:`RadioGroup`,inputName:``,inputSize:t,enabled:!0,labelPosition:c,layout:s,items:[]},ITEM_TEMPLATE:`<li class="k-radio-list-item"><input type="radio" class="k-radio" ><label class="k-radio-label" ></label></li>`,NS:`.kendoRadioGroup`,COMPONENT:`kendoRadioButton`,groupStyles:{item:`k-radio-list-item`,input:`k-radio`,label:`k-radio-label`,list:`k-radio-list`,vertical:`k-list-vertical`,horizontal:`k-list-horizontal`,disabled:`k-disabled`},item:function(t){var n=this.wrapper.find(`input:checked`);if(this._indexIsPresent(t))return e(this.items().get(t));if(n.length)return n},value:function(e){var n=this,r=n.element.find(`[value='`+e+`']`);if(e===t)return n._value;e===null&&(n._value=null,n.element.find(a+n.groupStyles.input).prop(o,!1)),r.length>0&&(n._value=e,n.element.find(a+n.groupStyles.input).prop(o,!1),r.prop(o,!0))},_changeHandler:function(t){var n=e(t.target),r=this._value;if(this._targetForPreventedChange===t.target){this._targetForPreventedChange=null;return}this._value=n.val(),this.trigger(i,{oldValue:r,newValue:this._value,target:n})},_dataValRequired:function(e){e[`data-val-required`]=this.wrapper.attr(`data-val-required`)},_wrapper:function(){r.fn._wrapper.call(this),this.wrapper.find(a+this.groupStyles.item).attr(l,u),this.wrapper.attr(l,d)}});n.plugin(f)})(window.kendo.jQuery);var t=kendo;export{t as n,e as t};
+//# sourceMappingURL=kendo.radiogroup-DZYCkWk_.js.map

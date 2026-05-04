@@ -1,0 +1,16 @@
+<svg width="124" height="73" viewBox="0 0 124 73" fill="none" xmlns="http://www.w3.org/2000/svg">
+<line x1="0.875" y1="1.375" x2="123.875" y2="1.375" stroke="#C2D1EB" stroke-width="0.25"/>
+<line x1="0.875" y1="11.375" x2="123.875" y2="11.375" stroke="#C2D1EB" stroke-width="0.25"/>
+<line x1="0.875" y1="21.375" x2="123.875" y2="21.375" stroke="#C2D1EB" stroke-width="0.25"/>
+<line x1="0.875" y1="31.375" x2="123.875" y2="31.375" stroke="#C2D1EB" stroke-width="0.25"/>
+<line x1="0.875" y1="41.375" x2="123.875" y2="41.375" stroke="#C2D1EB" stroke-width="0.25"/>
+<line x1="0.875" y1="51.375" x2="123.875" y2="51.375" stroke="#C2D1EB" stroke-width="0.25"/>
+<line x1="0.875" y1="61.375" x2="123.875" y2="61.375" stroke="#C2D1EB" stroke-width="0.25"/>
+<line x1="0.875" y1="71.375" x2="123.875" y2="71.375" stroke="#C2D1EB" stroke-width="0.25"/>
+<path d="M26.125 6H38.5816V71H26.125V6Z" fill="#5473C8"/>
+<path d="M41.0703 32.25H53.2778V71H41.0703V32.25Z" fill="#90ABDA"/>
+<path d="M55.7734 13.75H68.23V71H55.7734V13.75Z" fill="#3958AC"/>
+<path d="M55.7734 13.75H68.23V71H55.7734V13.75Z" fill="white" fill-opacity="0.35"/>
+<path d="M70.7188 46H83.1753V71H70.7188V46Z" fill="#2A417E"/>
+<path d="M85.6719 20H97.8793V71H85.6719V20Z" fill="#90ABDA"/>
+</svg>

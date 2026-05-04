@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Tools</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="configurator">
+    <div class="header">Configurator</div>
+    <div class="box-col">
+        <h4>Tools</h4>
+        <ul class="options">
+            <li>
+                <input type="checkbox" id="fileSelectButton" class="k-checkbox k-checkbox-md k-rounded-md" checked />
+                <label class="k-checkbox-label" for="fileSelectButton">Show File Select Button</label>
+            </li>
+            <li>
+                <input type="checkbox" id="speechToTextButton" class="k-checkbox k-checkbox-md k-rounded-md" checked />
+                <label class="k-checkbox-label" for="speechToTextButton">Enable Speech to Text Button</label>
+            </li>
+        </ul>
+    </div>
+    <div class="box-col">
+        <ul class="options">
+            <li>
+                <h4>Action Button Icon</h4>
+                <input id="actionButtonIcon" name="actionButtonIcon" />
+            </li>
+        </ul>
+    </div>
+    <div class="box-col">
+        <ul class="options">
+            <li>
+                <h4>Size</h4>
+                <input id="size" name="size" />
+            </li>
+        </ul>
+    </div>
+    <div class="box-col">
+        <ul class="options">
+            <li>
+                <h4>Fill Mode</h4>
+                <input id="fillMode" name="fillMode" />
+            </li>
+        </ul>
+    </div>
+    <div class="box-col">
+        <ul class="options">
+            <li>
+                <h4>Border Radius</h4>
+                <input id="rounded" name="rounded" />
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="k-d-flex k-justify-content-center">
+    <div class="promptbox-container">
+        <input id="promptbox" />
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $("#size").kendoDropDownList({
+            dataTextField: "text",
+            dataValueField: "value",
+            value: "medium",
+            change: onAppearanceChange,
+            dataSource: [
+                { text: "Small", value: "small" },
+                { text: "Medium", value: "medium" },
+                { text: "Large", value: "large" },
+                { text: "None", value: "none" }
+            ]
+        });
+
+        $("#rounded").kendoDropDownList({
+            dataTextField: "text",
+            dataValueField: "value",
+            value: "medium",
+            change: onAppearanceChange,
+            dataSource: [
+                { text: "Small", value: "small" },
+                { text: "Medium", value: "medium" },
+                { text: "Large", value: "large" },
+                { text: "Full", value: "full" },
+                { text: "None", value: "none" }
+            ]
+        });
+
+        $("#fillMode").kendoDropDownList({
+            dataTextField: "text",
+            dataValueField: "value",
+            value: "flat",
+            change: onAppearanceChange,
+            dataSource: [
+                { text: "Solid", value: "solid" },
+                { text: "Flat", value: "flat" },
+                { text: "Outline", value: "outline" },
+                { text: "None", value: "none" }
+            ]
+        });
+
+        $("#actionButtonIcon").kendoDropDownList({
+            dataTextField: "text",
+            dataValueField: "value",
+            value: "send",
+            change: onActionButtonIconChange,
+            dataSource: [
+                { text: "Send", value: "arrow-up-outline" },
+                { text: "Arrow Right", value: "arrow-right" },
+                { text: "Check", value: "check" },
+                { text: "Paper Plane", value: "paper-plane" },
+                { text: "Pencil", value: "pencil" },
+                { text: "Play", value: "play" },
+                { text: "Chevron Right", value: "chevron-right" }
+            ]
+        });
+
+        function onAppearanceChange() {
+            var promptBox = $("#promptbox").data("kendoPromptBox");
+            var size = $("#size").data("kendoDropDownList").value();
+            var rounded = $("#rounded").data("kendoDropDownList").value();
+            var fillMode = $("#fillMode").data("kendoDropDownList").value();
+
+            promptBox.setOptions({
+                fileSelectButton: {
+                    size: size,
+                    rounded: rounded,
+                    fillMode: fillMode
+                },
+                speechToTextButton: {
+                    size: size,
+                    rounded: rounded,
+                    fillMode: fillMode
+                },
+                actionButton: {
+                    size: size,
+                    rounded: rounded,
+                    fillMode: fillMode
+                }
+            });
+        }
+
+        function onActionButtonIconChange() {
+            var promptBox = $("#promptbox").data("kendoPromptBox");
+            var icon = $("#actionButtonIcon").data("kendoDropDownList").value();
+
+            promptBox.setOptions({
+                actionButton: {
+                    icon: icon
+                }
+            });
+        }
+
+        $("#promptbox").kendoPromptBox({
+            placeholder: "Type a message...",
+            mode: "auto",
+            fileSelectButton: true,
+            maxTextAreaHeight: 110,
+        });
+
+        var promptBox = $("#promptbox").data("kendoPromptBox");
+
+        $("#fileSelectButton").on("change", function () {
+            promptBox.setOptions({
+                fileSelectButton: $(this).is(":checked")
+            });
+        });
+
+        $("#speechToTextButton").on("change", function () {
+            promptBox.setOptions({
+                speechToTextButton: $(this).is(":checked") ? { enable: true } : { enable: false }
+            });
+        });
+    });
+</script>
+
+<style>
+    .k-picker.k-dropdownlist {
+        width: 140px;
+    }
+
+    .promptbox-container {
+        padding-bottom: 40px;
+        padding-top: 160px;
+        padding-left: 35px;
+        padding-right: 35px;
+        width: 540px;
+        min-height: 244px;
+        box-shadow: 0 0 12px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    .demo-section {
+        padding: 0 !important;
+    }
+</style>
+
+</body>
+</html>

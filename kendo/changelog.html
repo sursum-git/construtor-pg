@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Changelog for Kendo UI Professional v2026.1.212 (Thu Feb 12 2026)</title>
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font: .75em/1.5 Tahoma, sans-serif;
+        }
+
+        h1 {
+            font-size: 2.2em;
+            font-size: normal;
+        }
+
+        h2 {
+            font-size: 2em;
+            font-weight: normal;
+            margin: 1.2em 0 .3em;
+            padding-bottom: .2em;
+        }
+
+        .breaking {
+            background-color: #e10c01;
+            color: #fff;
+            border-radius: 3px;
+            padding: 3px 4px;
+            display: inline-block;
+            font-size: 11px;
+            line-height: 1;
+            font-weight: bold;
+        }
+
+        #page {
+            width: 50em;
+            margin: 0 auto 2em;
+            border-radius: 0 0 1em 1em;
+            box-shadow: 0 0 10px #ccc;
+            padding: 1em 2em 2em;
+        }
+
+        .poBoxIcon {
+            float: left;
+            font-size: 2em;
+            margin: 1.2em .5em 0 0;
+        }
+
+        .poTopLine {
+            border-top: 2px solid #e1e1e1;
+            margin: 17px 0 40px 0;
+        }
+    </style>
+    <base href="https://www.telerik.com/support/whats-new/kendo-ui-web/release-history">
+</head>
+
+<body>
+    <div id="page">
+        <h1 class="title">Release notes</h1>
+        <div class="tClear poTopLine"></div>
+        <h1>Common</h1>
+        <div class="tClear poTopLine">
+            <div class="poBoxIconText">
+                <p><strong>What's changed</strong></p>
+                <ul>
+                    <li><span class="breaking">Breaking</span> Set default appearance to components</li>
+                </ul>
+                <p><strong>Dependencies</strong></p>
+                <ul>
+                    <li>Fluent Theme Package <a href="https://github.com/telerik/kendo-themes/blob/master/packages/fluent/CHANGELOG.md#1300-2026-02-09"> (v.13.0.0) </a></li>
+                    <li>Classic Theme Package <a href="https://github.com/telerik/kendo-themes/blob/master/packages/classic/CHANGELOG.md#1300-2026-02-09"> (v.13.0.0) </a></li>
+                    <li>Bootstrap Theme Package <a href="https://github.com/telerik/kendo-themes/blob/master/packages/bootstrap/CHANGELOG.md#1300-2026-02-09"> (v.13.0.0) </a></li>
+                    <li>Default Theme Package <a href="https://github.com/telerik/kendo-themes/blob/master/packages/default/CHANGELOG.md#1300-2026-02-09"> (v.13.0.0) </a></li>
+                    <li>Material Theme Package <a href="https://github.com/telerik/kendo-themes/blob/master/packages/material/CHANGELOG.md#1300-2026-02-09"> (v.13.0.0) </a></li>
+                </ul>
+            </div>
+        </div>
+        <h1>New components</h1>
+        <div class="tClear poTopLine">
+            <div class="poBoxIconText">
+                <h2>PromptBox Component</h2>
+            </div>
+        </div>
+        <div class="tClear poTopLine">
+            <div class="poBoxIconText">
+                <h2>AI Smart Paste Component</h2>
+            </div>
+        </div>
+        <h1>Features and Updates</h1>
+        <div class="tClear poTopLine">
+            <h2>ButtonGroup</h2>
+            <p><strong>What's changed</strong></p>
+            <ul>
+                <li><span class="breaking">Breaking</span> Change default badge themeColor for ButtonGroup</li>
+            </ul>
+        </div>
+        <div class="tClear poTopLine">
+            <h2>Chat</h2>
+            <p><strong>What's changed</strong></p>
+            <ul>
+                <li><span class="breaking">Breaking</span> Enhanced Chat Component capabilities</li>
+            </ul>
+        </div>
+        <div class="tClear poTopLine">
+            <h2>Diagram</h2>
+            <p><strong>What's changed</strong></p>
+            <ul>
+                <li><span class="breaking">Breaking</span> Diagram Tooltips and Connection improvements</li>
+            </ul>
+        </div>
+        <div class="tClear poTopLine">
+            <h2>Grid</h2>
+            <p><strong>What's new</strong></p>
+            <ul>
+                <li>SmartBox tool</li>
+            </ul>
+            <p><strong>What's fixed</strong></p>
+            <ul>
+                <li>The Save changes and Cancel changes buttons do not appear on Grid <a href="https://github.com/telerik/kendo-ui-core/issues/8424">(#8424)</a></li>
+                <li>The Save changes and Cancel changes buttons do not appear on Grids when clicking on a cell where edit is disabled <a href="https://github.com/telerik/kendo-ui-core/issues/8423">(#8423)</a></li>
+            </ul>
+        </div>
+        <div class="tClear poTopLine">
+            <h2>MediaPlayer</h2>
+            <p><strong>What's fixed</strong></p>
+            <ul>
+                <li>Inaccurate MediaPlayer timeline on changing source via media method <a href="https://github.com/telerik/kendo-ui-core/issues/7060">(#7060)</a></li>
+            </ul>
+        </div>
+        <div class="tClear poTopLine">
+            <h2>MultiSelect</h2>
+            <p><strong>What's fixed</strong></p>
+            <ul>
+                <li>MultiSelect with autoClose true does not clear search value when an item is selected <a href="https://github.com/telerik/kendo-ui-core/issues/8429">(#8429)</a></li>
+            </ul>
+        </div>
+        <div class="tClear poTopLine">
+            <h2>Notification</h2>
+            <p><strong>What's new</strong></p>
+            <ul>
+                <li>Add closeButton support to Notification show and showText methods <a href="https://github.com/telerik/kendo-ui-core/issues/8256">(#8256)</a></li>
+            </ul>
+            <p><strong>What's changed</strong></p>
+            <ul>
+                <li><span class="breaking">Breaking</span> Change default type of notification in show method</li>
+            </ul>
+        </div>
+        <div class="tClear poTopLine">
+            <h2>Scheduler</h2>
+            <p><strong>What's fixed</strong></p>
+            <ul>
+                <li>Virtual Scheduler returns wrong resources in slotTemplate <a href="https://github.com/telerik/kendo-ui-core/issues/8381">(#8381)</a></li>
+            </ul>
+        </div>
+        <div class="tClear poTopLine">
+            <h2>TabStrip</h2>
+            <p><strong>What's changed</strong></p>
+            <ul>
+                <li><span class="breaking">Breaking</span> Remove k-item class from from k-tabstrip-item element</li>
+            </ul>
+        </div>
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Binding to OData service</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+
+			<div class="k-d-flex k-justify-content-center" style="padding-top: 54px;">
+				<div class="k-w-300">
+					<input id="dropdowntree"/>
+				</div>
+			</div>
+
+            <script>
+                $(document).ready(function() {
+                    // TreeView bound to Categories > Products > OrderDetails
+
+                    var OrderDetails = {
+                        type: "odata-v4",
+                        transport: {
+                            read: {
+                                url: function(options) {
+                                    return kendo.format("https://demos.telerik.com/service/v2/odata/Products({0})/Order_Details?$expand=Order", options.ProductID);
+                                }
+                            }
+                        },
+                        schema: {
+                            model: {
+                                hasChildren: function() {
+                                    return false;
+                                }
+                            }
+                        }
+                    };
+
+                    var Products = {
+                        type: "odata-v4",
+                        schema: {
+                            model: {
+                                id: "ProductID",
+                                hasChildren: "OrderDetails",
+                                children: OrderDetails
+                            }
+                        },
+                        transport: {
+                            read: {
+                                url: function(options) {
+                                    return kendo.format("https://demos.telerik.com/service/v2/odata/Categories({0})/Products", options.CategoryID);
+                                }
+                            }
+                        }
+                    };
+
+                    var Categories = new kendo.data.HierarchicalDataSource({
+                        type: "odata-v4",
+                        transport: {
+                            read: {
+                                url: "https://demos.telerik.com/service/v2/odata/Categories?$expand=Products"
+                            }
+                        },
+                        schema: {
+                            model: {
+                                hasChildren: "Products",
+                                id: "CategoryID",
+                                children: Products
+                            }
+                        }
+                    });
+
+                    $("#dropdowntree").kendoDropDownTree({
+                        placeholder: "Select ...",
+                        height: 350,
+                        dataSource: Categories,
+                        dataTextField: ["CategoryName", "ProductName", "OrderID"]
+                    });
+                });
+            </script>
+
+</body>
+</html>

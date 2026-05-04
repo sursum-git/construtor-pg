@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Keyboard Navigation</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<link href="../content/smartpaste/smartpastebuttonstyles.css" rel="stylesheet" />
+@{
+    var fontIconsUrl = "https://unpkg.com/@progress/kendo-font-icons/dist/index.css";
+}
+<link rel="stylesheet" href="@fontIconsUrl" />
+
+<div id="example">
+    <div class="k-d-flex k-justify-content-center" style="padding-top:54px;">
+        <div class="smartpaste-container">
+
+            <h4 class="smartpaste-title">Birthday Card</h4>
+
+            <div class="editor" id="presentWrapper">
+                <div class="editor-body">
+                    <img src="../content/smartPaste/present.jpg" style="border-radius:8px;" />
+                    <div id="editorContent">
+                        To: Nancy Wheeler<br />
+                        Address: 1470 Cedar Lane<br />
+                        Birth Date: 03/14/1997
+                    </div>
+                </div>
+
+                <div class="content-footer">
+                    <button id="copyButton" class="present-copy">Copy</button>
+                </div>
+            </div>
+
+            <div class="form-wrapper">
+                <div id="loader"></div>
+                <form id="responsiveForm"></form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+
+        $("#copyButton").kendoButton({
+            fillMode: "clear",
+            click: onClick
+        });
+
+        $("#loader").kendoLoader({
+            size: "large",
+            type: "converging-spinner",
+            visible: false
+        });
+
+        $("#responsiveForm").kendoForm({
+            orientation: "vertical",
+            validatable: {
+                validationSummary: false
+            },
+            buttonsTemplate:
+                "<button id='clearButton' type='reset' onclick='onClear()' " +
+                    "data-role='button' class='k-button k-button-md k-rounded-md k-button-flat k-button-flat-base' " +
+                    "role='button' aria-disabled='false' tabindex='0'>" +
+                    "<span class='k-icon k-font-icon k-i-arrow-rotate-ccw'></span>" +
+                "</button>",
+            items: [
+                {
+                    field: "FullName",
+                    label: "Full Name",
+                    editor: "TextBox",
+                    editorOptions: {
+                        placeholder: "e.g. John Doe"
+                    }
+                },
+                {
+                    field: "StreetAddress",
+                    label: "Address",
+                    editor: "TextBox",
+                    editorOptions: {
+                        placeholder: "e.g. London"
+                    }
+                },
+                {
+                    field: "BirthDate",
+                    label: "Birth Date",
+                    editor: "DatePicker",
+                    attributes: {
+                        placeholder: "e.g. XX/XX/XX"
+                    }
+                }
+            ],
+            smartPaste: {
+                text: "Smart Paste",
+                service: "https://demos.telerik.com/service/v2/ai/smartpaste/smartpaste",
+                requestStart: onRequestStart,
+                requestEnd: onRequestEnd
+            }
+        });
+
+        $(document).keydown(function (e) {
+            if (e.altKey && e.keyCode === 87) {
+                $(".k-smart-paste-button").focus();
+            }
+        });
+
+    });
+
+    function onClick(e) {
+        const element = document.getElementById("editorContent");
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        navigator.clipboard.writeText(selection.toString());
+        $(e.sender.element).find(".k-button-text").text("Text Copied");
+    }
+
+    function onRequestStart() {
+        kendoConsole.log("Request Start");
+        $("#loader").data("kendoLoader").show();
+        $("#copyButton").find(".k-button-text").text("Copy");
+        clearSelection();
+    }
+
+    function onRequestEnd() {
+        kendoConsole.log("Request End");
+        $("#loader").data("kendoLoader").hide();
+        $("input").addClass("k-valid");
+    }
+
+    function onClear() {
+        $(".k-input").removeClass("k-valid");
+        clearSelection();
+        $("#copyButton").find(".k-button-text").text("Copy");
+        $("input").removeClass("k-valid");
+    }
+
+    function clearSelection() {
+        var selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+            selection.removeAllRanges();
+        }
+    }
+</script>
+
+<style>
+    img {
+        width: 255px;
+        height: 165px;
+    }
+
+    .content-footer {
+        position: relative;
+        top: 30px;
+        right: 20px;
+    }
+
+    #presentWrapper {
+        width: 300px;
+    }
+
+    .editor-body {
+        padding: 16px;
+    }
+
+    .smartpaste-container {
+        position: relative;
+    }
+
+    .smartpaste-title {
+        position: absolute;
+        top: -38px;
+        font-weight: 600;
+        font-size: 22px;
+        color: #d7d7d7;
+        margin: 0;
+    }
+
+    .present-copy {
+        font-size: 14px;
+        font-style: italic;
+        padding-top: 0;
+        padding-left: 65px;
+    }
+
+    .k-button-clear:after {
+        content: none;
+    }
+</style>
+
+</body>
+</html>

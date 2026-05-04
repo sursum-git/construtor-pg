@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Prefix and Suffix</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="k-d-flex k-justify-content-center" style="padding-top: 100px;">
+    <div class="k-w-300">
+       <input id="card" title="Card Number" />
+    </div>
+</div>
+<script>
+    $(document).ready(function() {
+        var maskedtextbox = $("#card").kendoMaskedTextBox({
+            mask: "0000-0000-0000-0000",
+            size: "large",
+            placeholder: "Card Number",
+            prefixOptions: {
+                template: () => "<input id='card-types' style='width: 100px; height: 40px'/>"
+            },
+            suffixOptions: {
+                icon: "lock"
+            }
+        }).data('kendoMaskedTextBox');
+
+        $("#card-types").kendoDropDownList({
+            dataSource: ['Visa', 'MasterCard', 'PayPal'],
+            size: "small",
+            fillMode: "flat",
+            rounded: "none",
+            valueTemplate: (value) => `<span class="card ${value.toLowerCase()}"></span>`,
+            template: (value) => `<span class="dropdown-card ${value.toLowerCase()}"></span>`,
+        });
+    });
+</script>
+
+<style>
+    .card {
+        position: absolute;
+        cursor: pointer;
+        background-size: 55px;
+        background-repeat: no-repeat;
+        background-position: center;
+        width: 55px;
+        display: inline-table;
+        height: 33px;
+        top: 4px;
+    }
+
+    .dropdown-card {
+        display: inline-block;
+        height: 50px;
+        width: 100px;
+        margin-top: 5px;
+        background-size: 70px;
+        background-repeat: no-repeat;
+        background-position-y: center;
+    }
+
+    .visa {
+        background-image: url(https://cdn-icons-png.flaticon.com/128/196/196578.png);
+    }
+
+    .mastercard {
+        background-image: url(https://cdn-icons-png.flaticon.com/128/196/196561.png);
+    }
+
+    .paypal {
+        background-image: url(https://cdn-icons-png.flaticon.com/128/196/196565.png);
+    }
+</style>
+
+
+</body>
+</html>

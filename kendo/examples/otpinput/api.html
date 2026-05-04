@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>API</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+    <div class="configurator">
+        <div class="header">Configurator</div>
+
+        <div class="box-col">
+            <h4>Get value</h4>
+            <ul class="options">
+                <li>
+                    <button id="get">Get Value</button>
+                </li>
+            </ul>
+        </div>
+
+        <div class="box-col">
+            <h4>Clear value</h4>
+            <ul class="options">
+                <li>
+                    <button id="clear">Clear Value</button>
+                </li>
+            </ul>
+        </div>
+
+        <div class="box-col">
+            <h4>Enable / Disable</h4>
+            <ul class="options">
+                <li>
+                    <button id="enableBtn" type="button">Enable</button>
+                    <button id="disableBtn" type="button">Disable</button>
+                </li>
+                <li>
+                    <button id="readonlyBtn">Readonly</button>
+                </li>
+            </ul>
+        </div>
+
+
+
+        <div class="box-col">
+            <h4>Focus</h4>
+            <ul class="options">
+                <li>
+                    <button type="button" id="focusBtn">Focus</button>
+                </li>
+            </ul>
+        </div>
+
+        <div class="box-col">
+            <h4>Set Separator</h4>
+            <ul class="options">
+                <li>
+                    <input id="separator" type="text" />
+                </li>
+            </ul>
+        </div>
+    </div>
+    <div class="demo-section" style="margin-top:100px;">
+         <input id="otp" />
+    </div>
+    <script>
+        $(document).ready(function() {
+            let otp = $("#otp").kendoOTPInput({
+              items: [
+                  {
+                      groupLength: 3
+                  },
+                  {
+                      groupLength: 2
+                  }, {
+                      groupLength: 3
+                  }
+              ],
+              fillMode: "outline",
+              separator: () => {return kendo.ui.icon({icon: "minus", type:"svg" }) },
+              space: false,
+              type: "number"
+          }).getKendoOTPInput();
+
+
+          var separator = $("#separator").kendoDropDownList({
+                dataTextField: "value",
+                dataValueField: "value",
+                change: function () {
+                    otp.setOptions({
+                        separator: () => { return kendo.ui.icon({icon: separator.value(), type:"svg" }) }
+                    })
+                },
+                valueTemplate: iconTemplateHandler,
+                template: iconTemplateHandler,
+                dataSource: [
+                    { text: "minus", value: "minus" },
+                    { text: "star", value: "star" },
+                    { text: "arrows-left-right", value: "arrows-left-right" },
+                    { text: "code", value: "code" }
+                ]
+            }).data("kendoDropDownList");
+
+
+          function iconTemplateHandler(data){
+              return kendo.ui.icon({icon: `${data.value}`, type: "svg"});
+          }
+
+          $("#get").click(function() {
+                kendo.alert(otp.value());
+          });
+
+          $("#clear").click(function() {
+                otp.value(null);
+                otp.trigger("change");
+          });
+
+          $("#enableBtn").click(function(){
+              otp.enable(true);
+          });
+          
+          $("#disableBtn").click(function () {
+              otp.enable(false);
+          });
+
+          $("#readonlyBtn").click(function () {
+              otp.readonly(true);
+          });
+          
+          $("#focusBtn").click(function () {
+              otp.focus();
+          });
+        });
+    </script>
+</div>
+
+<style>
+    .demo-section {
+        display: flex;
+        justify-content: center;
+    }
+</style>
+</body>
+</html>

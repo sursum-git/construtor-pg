@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Keyboard Navigation</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+
+<div class="demo-section wide">
+    <div id="chart"></div>
+</div>
+
+<script>
+    function createChart() {
+        $("#chart").kendoChart({
+            title: {
+                text: "Electricity Generation",
+                description: "A chart displaying a breakdown of the electricity generation by source"
+            },
+            legend: {
+                position: "bottom"
+            },
+            series: [{
+                type: "donut",
+                field: "share",
+                categoryField: "kind",
+                labels: {
+                    template: (e) => e.category,
+                    ariaTemplate: (e) => `${e.value}% is produced by ${e.category}`,
+                    color: "#fff",
+                    background: "none",
+                    visible: true
+                },
+                data: [
+                    {
+                        kind: 'Hydroelectric',
+                        share: 0.175,
+                    },
+                    {
+                        kind: 'Nuclear',
+                        share: 0.238,
+                    },
+                    {
+                        kind: 'Coal',
+                        share: 0.118,
+                    },
+                    {
+                        kind: 'Solar',
+                        share: 0.052,
+                    },
+                    {
+                        kind: 'Wind',
+                        share: 0.225,
+                    },
+                    {
+                        kind: 'Other',
+                        share: 0.192,
+                    },
+                ]
+            }]
+        });
+    }
+
+    $(document).ready(createChart);
+    $(document).bind("kendo:skinChange", createChart);
+
+</script>
+
+</body>
+</html>

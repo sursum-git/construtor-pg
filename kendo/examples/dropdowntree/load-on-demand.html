@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Load on Demand</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="k-d-flex k-justify-content-center" style="padding-top: 54px;">
+    <div class="k-w-300">
+        <input id="dropdowntree" />
+    </div>
+</div>
+
+<script>
+    var serviceRoot = "https://demos.telerik.com/service/v2/core";
+
+    $("#dropdowntree").kendoDropDownTree({
+      placeholder: "Select ...",
+      value: [4, 2], // Pre-selected values that will be resolved via valueMapper
+      dataTextField: "FullName",
+      dataValueField: "EmployeeId",
+      dataSource: {
+        transport: {
+          read: {
+            url: serviceRoot + "/Employees"
+          }
+        },
+        schema: {
+          model: {
+            id: "EmployeeId",
+            hasChildren: "HasEmployees"
+          }
+        }
+      },
+      loadOnDemand: {
+        valueMapper: function (options) {
+          $.ajax({
+              url: `${serviceRoot}/Employees/ValueMapper`,
+              type: "GET",
+              data: convertValues(options.value),
+              success: function (data) {
+                  options.success(data);
+              }
+          })
+        }
+      }
+    });
+
+    function convertValues(value) {
+        console.log("value", value)
+        var data = {};
+
+        value = Array.isArray(value) ? value : [value];
+
+        for (var idx = 0; idx < value.length; idx++) {
+            data["values[" + idx + "]"] = value[idx];
+        }
+
+        return data;
+    }
+</script>
+
+
+</body>
+</html>

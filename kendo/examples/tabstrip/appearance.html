@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Appearance</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+
+<div class="configurator">
+<div class="header">Configurator</div>
+<div class="box-col">
+    <h4>Size:</h4>
+    <input id="tabSize" />
+</div>
+<div class="box-col">
+    <h4>Tabs Alignment:</h4>
+    <input id="alignment" />
+</div>
+</div>
+
+<div id="example">
+    <div id="tabstrip"></div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $("#tabstrip").kendoTabStrip({
+            dataTextField: "Name",
+            dataContentField: "Content",
+            dataSource: [
+                { Name: "Tennis", Content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer felis libero, lobortis ac rutrum quis, varius a velit." },
+                { Name: "Football", Content: "Donec lacus erat, cursus sed porta quis, adipiscing et ligula. Duis volutpat, sem pharetra accumsan pharetra, mi ligula cursus felis, ac aliquet leo diam eget risus." },
+                { Name: "Volleyball", Content: "Integer facilisis, justo cursus venenatis vehicula, massa nisl tempor sem, in ullamcorper neque mauris in orci." },
+                { Name: "Swimming", Content: "Ut orci ligula, varius ac consequat in, rhoncus in dolor. Mauris pulvinar molestie accumsan. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae." }
+            ],
+            size: "small",
+            tabAlignment: "start"
+        });
+
+        function onChange(){
+            var tabstrip = $("#tabstrip").data('kendoTabStrip');
+
+            if(tabstrip){
+                tabstrip.destroy();
+                $("#tabstrip").empty();
+
+                $("#tabstrip").kendoTabStrip({
+                    dataTextField: "Name",
+                    dataContentField: "Content",
+                    dataSource: [
+                        { Name: "Tennis", Content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer felis libero, lobortis ac rutrum quis, varius a velit." },
+                        { Name: "Football", Content: "Donec lacus erat, cursus sed porta quis, adipiscing et ligula. Duis volutpat, sem pharetra accumsan pharetra, mi ligula cursus felis, ac aliquet leo diam eget risus." },
+                        { Name: "Volleyball", Content: "Integer facilisis, justo cursus venenatis vehicula, massa nisl tempor sem, in ullamcorper neque mauris in orci." },
+                        { Name: "Swimming", Content: "Ut orci ligula, varius ac consequat in, rhoncus in dolor. Mauris pulvinar molestie accumsan. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae." }
+                    ],
+                    size: $('#tabSize').data('kendoDropDownList').value(),
+                    tabAlignment: $('#alignment').data('kendoDropDownList').value()
+
+                }).data('kendoTabStrip');
+            }
+        }
+
+        $('#tabSize').kendoDropDownList({
+            dataSource: ["small", "medium", "large"],
+            change: onChange
+        })
+
+        $('#alignment').kendoDropDownList({
+            dataSource: ["start", "end", "center", "stretched", "justify"],
+            change: onChange
+        })
+    });
+</script>
+</div>
+
+</body>
+</html>

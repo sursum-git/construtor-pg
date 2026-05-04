@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>API</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="configurator">
+    <div class="header">Configurator</div>
+    <div class="box-col">
+        <h4>Set View</h4>
+        <ul id="radiogroup"></ul>
+    </div>
+    <div class="box-col">
+        <h4>Get View</h4>
+        <ul class="options">
+            <li>
+                <button id="getView">Get View</button>
+            </li>
+        </ul>
+    </div>
+    <div class="box-col">
+        <h4>Add Output</h4>
+        <ul class="options">
+            <li>
+                <input id="outPut" />
+                <button id="addOutput">Add Output</button>
+            </li>
+        </ul>
+    </div>
+    <div class="box-col">
+        <h4>Get Views</h4>
+        <ul class="options">
+            <li>
+                <button id="getViews">Get Views</button>
+            </li>
+        </ul>
+    </div>
+</div>
+<div class="k-d-flex k-justify-content-center" style="width: 600px; margin: auto;">
+    <div class="k-w-full">
+        <div id="aiprompt"></div>
+    </div>
+</div>
+
+<script>
+    var prompt = $("#aiprompt").kendoAIPrompt({
+        promptRequest: function (ev) {
+            var response = {
+                id: kendo.guid(),
+                output: 'For real prompt processing, please connect the component to a preferred AI service. You can use one of the items from the "Prompt Suggestions" section in the Prompt View to get a sample result.',
+                prompt: ev.prompt,
+            }
+            this.addPromptOutput(response);
+            this.activeView("output");
+        },
+        views: [
+            {
+                type: 'prompt',
+                name:"prompt",
+                promptSuggestions: [
+                    "Act as [actor] and write [format] about [subject] in [100 words]",
+                    "Suggest post about [subject] that will be used in [social media]."
+                ]
+            },
+            "output",
+            {
+                type: 'commands',
+                promptCommands: [
+
+                    { id: "1", text: "Simplify", icon: "min-width" },
+                    { id: "2", text: "Extend", icon: "arrows-left-right" }
+                ]
+            }
+        ]
+    }).data("kendoAIPrompt");
+
+    $("#getViews").click(function () {
+        kendo.alert(JSON.stringify(prompt.getViews()));
+    })
+
+    $("#addOutput").click(function () {
+        var output = {
+            id: kendo.guid(),
+            output: $("#outPut").val(),
+            prompt: "Dynamically added prompt"
+
+        };
+        prompt.addPromptOutput(output);
+        prompt.activeView(1);
+    })
+
+    $("#getView").click(function () {
+        let currentView = prompt.activeView();
+        kendo.alert("Active view index: " + currentView);
+    })
+
+    $("#radiogroup").kendoRadioGroup({
+        items: ["prompt", "output", "commands"],
+        layout: "horizontal",
+        value: "prompt",
+        change: function (e) {
+            prompt.activeView($(e.target[0]).val())
+        }
+    });
+</script>
+
+<style>
+    .k-d-flex{
+        border-radius: 4px 4px 0 0;
+        box-shadow: 0 0 12px 4px rgba(0, 0, 0, 0.08);
+    }
+</style>
+</body>
+</html>

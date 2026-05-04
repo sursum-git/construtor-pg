@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Items</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+    <div class="demo-section">
+        <div id="validation-success"></div>
+
+        <form id="exampleform"></form>
+    </div>
+
+    <script>$(document).ready(function () {
+            var validationSuccess = $("#validation-success");
+
+            $("#exampleform").kendoForm({
+                orientation: "horizontal",
+                formData: {
+                    TextBox: "John Doe",
+                    TextArea: "Multiline\nInput",
+                    NumericTextBox: 2,
+                    MaskedTextBox: 21313,
+                    DatePicker: new Date(),
+                    DateTimePicker: new Date(),
+                    Switch: true,
+                    RadioGroup: "Admin",
+                    CheckBoxGroup: ["Spanish"],
+                    ComboBox: 1,
+                    DropDownList: 2
+                },
+                items: [
+                    {
+                        field: "TextBox",
+                        label: "TextBox:",
+                        validation: { required: true },
+                        editor: "TextBox",
+                        editorOptions: {
+                            placeholder: "TextBox"
+                        }
+                    },
+                    {
+                        field: "TextArea",
+                        label: "TextArea:",
+                        editor: "TextArea",
+                        editorOptions: {
+                            placeholder: "Multiline value",
+                            rows: 2
+                        }
+                    },
+                    {
+                        field: "NumericTextBox",
+                        editor: "NumericTextBox",
+                        label: "NumericTextBox:",
+                        validation: { required: true }
+                    },
+                    {
+                        field: "MaskedTextBox",
+                        editor: "MaskedTextBox",
+                        label: "MaskedTextBox:",
+                        validation: { required: true }
+                    },
+                    {
+                        field: "DatePicker",
+                        editor: "DatePicker",
+                        label: "DatePicker:",
+                        validation: { required: true }
+                    },
+                    {
+                        field: "DateTimePicker",
+                        editor: "DateTimePicker",
+                        label: "DateTimePicker:",
+                        validation: { required: true }
+                    },
+                    {
+                        field: "RadioGroup",
+                        editor: "RadioGroup",
+                        label: "RadioGroup:",
+                        validation: { required: true },
+                        editorOptions: {
+                            items: ["Admin", "Manager", "Employee"],
+                            layout: "horizontal",
+                            labelPosition: "before"
+                        }
+                    },
+                    {
+                        field: "CheckBoxGroup",
+                        editor: "CheckBoxGroup",
+                        label: "CheckBoxGroup:",
+                        validation: { required: false },
+                        editorOptions: {
+                            items: ["English", "Russian", "Spanish"],
+                            layout: "horizontal",
+                            labelPosition: "before"
+                        }
+                    },
+                    {
+                        field: "Switch",
+                        editor: "Switch",
+                        label: "Switch:",
+                        validation: { required: true }
+                    },
+                    {
+                        field: "ComboBox", editor: "ComboBox", label: "ComboBox:", validation: { required: true },
+                        editorOptions: {
+                            placeholder: "Select product",
+                            dataTextField: "ProductName",
+                            dataValueField: "ProductID",
+                            filter: "contains",
+                            dataSource: {
+                                type: "odata-v4",
+                                serverFiltering: true,
+                                transport: {
+                                    read: {
+                                        url: "https://demos.telerik.com/service/v2/odata/Products",
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        field: "DropDownList", editor: "DropDownList", label: "DropDownList:", validation: { required: true },
+                        editorOptions: {
+                            placeholder: "Select product",
+                            dataTextField: "ProductName",
+                            dataValueField: "ProductID",
+                            filter: "contains",
+                            dataSource: {
+                                type: "odata-v4",
+                                serverFiltering: true,
+                                transport: {
+                                    read: {
+                                        url: "https://demos.telerik.com/service/v2/odata/Products",
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    {
+                        field: "FileName",
+                        label: "Upload a file:",
+                        hint: "Accepted file formats: .txt, .docx, .pdf",
+                        editor: "Upload",
+                        validation: { required: true },
+                        editorOptions: {
+                            multiple: false,
+                            validation: {
+                                required: true,
+                                allowedExtensions: [".txt", ".docx", ".pdf"]
+                            }
+                        }
+                    }
+                ],
+                validateField: function(e) {
+                    validationSuccess.html("");
+                },
+                submit: function (e) {
+                    e.preventDefault();
+                    let uploadFile = e.sender.element.find(".k-upload input").data("kendoUpload").getFiles()[0].rawFile;
+                    var formData = new FormData();
+
+                    // Add form fields that match FormUploadItemsViewModel properties
+                    formData.append("TextBox", e.model.TextBox);
+                    formData.append("TextArea", e.model.TextArea);
+                    formData.append("NumericTextBox", e.model.NumericTextBox);
+                    formData.append("MaskedTextBox", e.model.MaskedTextBox);
+                    formData.append("DatePicker", e.model.DatePicker);
+                    formData.append("DateTimePicker", e.model.DateTimePicker);
+                    formData.append("RadioGroup", e.model.RadioGroup);
+
+                    // For the CheckBoxGroup which is a List<string>
+                    if (e.model.CheckBoxGroup && e.model.CheckBoxGroup.length) {
+                        for (let i = 0; i < e.model.CheckBoxGroup.length; i++) {
+                            formData.append("CheckBoxGroup", e.model.CheckBoxGroup[i]);
+                        }
+                    }
+
+                    formData.append("Switch", e.model.Switch);
+                    formData.append("ComboBox", e.model.ComboBox);
+                    formData.append("DropDownList", e.model.DropDownList);
+                    formData.append("FileName", uploadFile);  // The file field is named "FileName" in your model
+
+                    $.ajax({
+                        url: "https://demos.telerik.com/service/v2/core/formupload/uploadformitems",
+                        type: "POST",
+                        data: formData,
+                        contentType: false,  // Required for FormData
+                        processData: false,  // Required for FormData
+                        success: function (response) {
+                            validationSuccess.html("<div class='k-messagebox k-messagebox-success'>Form data is valid!</div>");
+                            console.log("Upload successful:", response);
+                        },
+                        error: function (xhr, status, error) {
+                            console.error("Upload failed:", error);
+                        }
+                    });
+                },
+                clear: function(ev) {
+                    validationSuccess.html("");
+                }
+            });
+        });</script>
+    <style>
+        .k-list-horizontal{
+            margin-top: 5px;
+        }
+    </style>
+</div>
+</body>
+</html>

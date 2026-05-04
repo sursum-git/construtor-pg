@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Keyboard Navigation</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="container" class="k-d-flex k-justify-content-center">
+    <span id="notification"></span>
+    <div id="chat"></div>
+</div>
+
+<script>
+      var notificationWidget = $("#notification").kendoNotification({
+                width: 300,
+                height: 54,
+                appendTo: "#container"
+            }).data("kendoNotification");
+
+    var chat = $("#chat").kendoChat({
+        fileAttachment: { restrictions: { allowedExtensions: ['.jpg', '.pdf'] } },
+        height: 600,
+        fileActions: [{
+            name: "download",
+            text: "Download",
+            icon: "download"
+        }, {
+            name: "share",
+            text: "Share",
+            icon: "share"
+        }],
+        fileMenuAction: function(e) {
+            notificationWidget.show("File menu action selected. " + e.type);
+        },
+        download: function(e) {
+            notificationWidget.show("File download action selected");
+        },
+        authorId: 1,
+        authorName: "John Doe",
+        dataSource: {
+            data: [
+                  {
+                            id: 1,
+                            authorId: 1,
+                            authorName: "Lora",
+                            authorImageUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/ANATR.jpg",
+                            authorImageAltText: "Lora's profile picture",
+                            text: "Hey Emma! I just booked my trip to Japan for next month! I'm so excited but also a bit nervous since it's my first time there. Any tips?",
+                            timestamp: new Date(2025, 7, 20, 14, 30),
+                            isPinned: true
+                        },
+                        {
+                            id: 4,
+                            authorId: 2,
+                            authorName: "Emma",
+                            authorImageUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/DUMON.jpg",
+                            authorImageAltText: "Emma's profile picture",
+                            text: "Don't miss the cherry blossoms if they're still blooming! And try the street food in Osaka - it's the best!",
+                            timestamp: new Date(2025, 7, 20, 14, 42),
+                        },
+                        {
+                            id: 5,
+                            authorId: 1,
+                            authorName: "Lora",
+                            authorImageUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/ANATR.jpg",
+                            authorImageAltText: "Lora's profile picture",
+                            text: "Perfect! I'm definitely going during cherry blossom season. Should I book accommodations in advance, or can I find places as I go?",
+                            timestamp: new Date(2025, 7, 20, 14, 45),
+                        },
+                        {
+                            id: 6,
+                            authorId: 2,
+                            authorName: "Emma",
+                            authorImageUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/DUMON.jpg",
+                            authorImageAltText: "Emma's profile picture",
+                            text: "Definitely book in advance, especially during cherry blossom season! It gets super busy. I recommend staying in a ryokan in Kyoto for the traditional experience. Here you will find the scheduler we have used when we were there.",
+                            timestamp: new Date(2025, 7, 20, 14, 48),
+                            files: [
+                                { name: "Sightseeing_schedule.pdf", size: 245760, extension: "pdf" },
+                                { name: "Favourite_place.jpg", size: 156000, extension: "jpg" }
+                            ],
+                        },
+                        {
+                            id: 7,
+                            authorId: 1,
+                            authorName: "Lora",
+                            authorImageUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/ANATR.jpg",
+                            authorImageAltText: "Lora's profile picture",
+                            text: "Thanks for all the advice, Emma. I'll definitely send you photos!",
+                            timestamp: new Date(2025, 7, 20, 14, 52),
+                        },
+            ]
+        },
+        sendMessage: function(e) {
+            e.message.authorId = 1;
+            e.message.authorName = "Lora";
+            e.message.authorImageUrl = "https://demos.telerik.com/kendo-ui/content/web/Customers/ANATR.jpg";
+            e.message.authorImageAltText = "Lora's profile picture";
+        }
+    }).data("kendoChat");
+
+    $(document.body).keydown(function(e) {
+        if (e.altKey && e.keyCode === 87 /* w */) {
+            $("textarea")[0].focus();
+        }
+    });
+</script>
+
+<style>
+    .k-notification {
+        position: absolute;
+        z-index: 9999;
+        top: 82%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+    }
+    .k-chat{
+            max-width: 400px;
+        }
+</style>
+</body>
+</html>

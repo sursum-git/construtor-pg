@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Panels</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+    <div>
+      <ul id="panels">
+        <li>
+          <div class="k-block">Block</div>
+        </li>
+        <li>
+          <div class="k-block k-shadow">Block with shadow</div>
+        </li>
+        <li>
+          <div class="k-block k-inset">Block inset</div>
+        </li>
+        <li>
+          <div class="k-block">
+            <div class="k-header">Header</div>
+            Block with header
+          </div>
+        </li>
+        <li>
+          <div class="k-block"><div class="k-header k-shadow">Header</div>Block with shadowed header</div>
+        </li>
+        <li>
+          <div class="k-block"><div class="k-header k-inset">Header</div>Block with inset header</div>
+        </li>
+        <li>
+          <div class="k-block !k-color-info">Info Block</div>
+        </li>
+        <li>
+          <div class="k-block !k-color-success">Success Block</div>
+        </li>
+        <li>
+          <div class="k-block !k-color-error">Error Block</div>
+        </li>
+      </ul>
+      <style>
+        #panels
+        {
+          margin-left: 20px;
+          text-align: center;
+        }
+
+        #panels li
+        {
+          margin-right: 10px;
+          margin-bottom: 10px;
+          list-style: none;
+          float: left;
+        }
+
+        .k-block{
+          padding: 4px 8px;
+        }
+
+        .k-block>.k-header{
+          background-color: #fafafa;
+          margin: -4px -8px 4px;
+          padding: 8px 8px;
+        }
+
+        .k-shadow{
+          box-shadow: 0 2px 4px 0 rgba(0, 0, 0, .03), 0 4px 5px 0 rgba(0, 0, 0, .04) !important;
+        }
+
+        .k-inset {
+          box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, .03), inset 0 4px 5px 0 rgba(0, 0, 0, .04);
+        }
+        
+        .k-color-info {
+          background-color: #f0f9ff !important;
+        }
+      </style>
+
+
+    </div> 
+
+</div>
+
+</body>
+</html>

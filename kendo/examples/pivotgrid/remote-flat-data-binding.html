@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Remote Binding</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+
+    <div class="k-pivotgrid-wrapper">
+        <div id="configurator" class="hidden-on-narrow"></div>
+        <div id="pivotgrid" class="hidden-on-narrow"></div>
+    </div>
+
+    <div class="responsive-message"></div>
+
+</div>
+
+<script>
+    $(document).ready(function () {
+        var pivotgrid = $("#pivotgrid").kendoPivotGrid({
+            filterable: true,
+            columnWidth: 120,
+            height: 570,
+            dataSource: {
+                transport: {
+                    read: "https://demos.telerik.com/service/v2/core/Customers"
+                },
+                schema: {
+                    model: {
+                        id: "CustomerID",
+                        fields: {
+                            ContactName: { type: "string" },
+                            CompanyName: { type: "string" },
+                            Country: { type: "string" },
+                            ContactTitle: { type: "string" }
+                        }
+                    },
+                    cube: {
+                        dimensions: {
+                            ContactName: { caption: "All Contacts" },
+                            CompanyName: { caption: "All Companies" },
+                            Country: { caption: "All Countries" },
+                            ContactTitle: { caption: "All Titles" }
+                        },
+                        measures: {
+                            "Contacts Count": { field: "CustomerID", aggregate: "count" }
+                        }
+                    }
+                },
+                columns: [{ name: "Country", expand: true }, { name: "CompanyName" } ],
+                rows: [{ name: "ContactTitle", expand: true }],
+                measures: ["Contacts Count"]
+            }
+        }).data("kendoPivotGrid");
+
+        $("#configurator").kendoPivotConfigurator({
+            dataSource: pivotgrid.dataSource,
+            filterable: true,
+            height: 570
+        });
+    });
+</script>
+</body>
+</html>

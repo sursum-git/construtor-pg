@@ -1,0 +1,1544 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "crud-definition-v1.schema.json",
+  "title": "Page Definition v1",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "pageType",
+    "program",
+    "permissions",
+    "dataSource",
+    "dataModel",
+    "crud"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string"
+    },
+    "pageType": {
+      "type": "string",
+      "const": "crud"
+    },
+    "program": {
+      "type": "object",
+      "required": ["id", "module", "entity", "title"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "module": {
+          "type": "string"
+        },
+        "entity": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "subtitle": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "subtitleTooltip": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "help": {
+          "$ref": "#/$defs/help"
+        },
+        "logs": {
+          "$ref": "#/$defs/logs"
+        }
+      }
+    },
+    "permissions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
+    "security": {
+      "type": "object",
+      "properties": {
+        "userGroups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "currentUser": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "dataSource": {
+      "type": "object",
+      "required": ["api"],
+      "properties": {
+        "api": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/endpoint"
+          }
+        }
+      }
+    },
+    "dataModel": {
+      "type": "object",
+      "required": ["primaryKey", "fields"],
+      "properties": {
+        "primaryKey": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/field"
+          }
+        }
+      }
+    },
+    "crud": {
+      "type": "object",
+      "required": ["grid", "form"],
+      "properties": {
+        "features": {
+          "type": "object",
+          "properties": {
+            "filterPanel": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "query": {
+          "$ref": "#/$defs/query"
+        },
+        "filter": {
+          "$ref": "#/$defs/filter"
+        },
+        "grid": {
+          "$ref": "#/$defs/grid"
+        },
+        "form": {
+          "$ref": "#/$defs/form"
+        },
+        "userLayout": {
+          "type": "object"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "endpoint": {
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+        }
+      }
+    },
+    "printConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "label": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "fileName": {
+          "type": "string"
+        },
+        "requiresRecord": {
+          "type": "boolean",
+          "default": true
+        },
+        "formats": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["excel", "pdf", "csv"]
+          }
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string",
+                "enum": ["excel", "pdf", "csv"]
+              },
+              {
+                "$ref": "#/$defs/printOption"
+              }
+            ]
+          }
+        },
+        "excel": {
+          "type": "object"
+        },
+        "pdf": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "printOption": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string",
+          "enum": ["excel", "pdf", "csv"]
+        },
+        "type": {
+          "type": "string",
+          "enum": ["excel", "pdf", "csv"]
+        },
+        "label": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "fileName": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["browser", "api"]
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["browser", "api"]
+        },
+        "action": {
+          "type": "string"
+        },
+        "browser": {
+          "type": "boolean"
+        },
+        "endpointId": {
+          "type": "string"
+        },
+        "endpoint": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "api": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "url": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+        },
+        "target": {
+          "type": "string",
+          "enum": ["request", "window", "newTab"]
+        },
+        "openAs": {
+          "type": "string",
+          "enum": ["request", "window", "newTab"]
+        },
+        "successMessage": {
+          "type": "string"
+        },
+        "errorMessage": {
+          "type": "string"
+        },
+        "confirm": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "help": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "title": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["text", "link", "video"]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "linkUrl": {
+          "type": "string"
+        },
+        "linkText": {
+          "type": "string"
+        },
+        "videoUrl": {
+          "type": "string"
+        },
+        "readEndpoint": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/helpItem"
+          }
+        }
+      }
+    },
+    "helpItem": {
+      "type": "object",
+      "required": ["id", "title"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["text", "link", "video"]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "body": {
+          "type": "string"
+        },
+        "linkUrl": {
+          "type": "string"
+        },
+        "linkText": {
+          "type": "string"
+        },
+        "videoUrl": {
+          "type": "string"
+        }
+      }
+    },
+    "logs": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "title": {
+          "type": "string",
+          "default": "Logs"
+        },
+        "url": {
+          "type": "string"
+        },
+        "linkText": {
+          "type": "string",
+          "default": "Abrir logs em nova aba"
+        }
+      },
+      "additionalProperties": false
+    },
+    "field": {
+      "type": "object",
+      "required": ["type", "label"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "string",
+            "text",
+            "integer",
+            "decimal",
+            "number",
+            "boolean",
+            "date",
+            "datetime",
+            "email",
+            "enum",
+            "lookup",
+            "hidden"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "editable": {
+          "type": "boolean"
+        },
+        "nullable": {
+          "type": "boolean"
+        },
+        "format": {
+          "type": "string"
+        },
+        "editor": {
+          "type": "string"
+        },
+        "validation": {
+          "type": "object"
+        },
+        "options": {
+          "type": "array"
+        }
+      }
+    },
+    "query": {
+      "type": "object",
+      "properties": {
+        "defaultPageSize": {
+          "type": "integer"
+        },
+        "pageSizes": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "defaultSort": {
+          "type": "array"
+        }
+      }
+    },
+    "filter": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["window"]
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["basic"]
+        },
+        "title": {
+          "type": "string"
+        },
+        "openOnLoad": {
+          "type": "boolean",
+          "default": false
+        },
+        "maximizeFilter": {
+          "type": "boolean",
+          "default": false
+        },
+        "waitForSubmitOnLoad": {
+          "type": "boolean",
+          "default": true
+        },
+        "showAppliedFilters": {
+          "type": "boolean",
+          "default": true
+        },
+        "showAppliedSummary": {
+          "type": "boolean",
+          "default": true
+        },
+        "tabs": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "otherTitle": {
+              "type": "string",
+              "default": "Outros"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "title", "fields"],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "grid": {
+      "type": "object",
+      "required": ["columns"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "freezeColumns": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "fields": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Campos que podem ser congelados. Vazio permite todas as colunas visiveis.",
+              "default": []
+            }
+          },
+          "additionalProperties": false
+        },
+        "mobile": {
+          "$ref": "#/$defs/mobileGrid"
+        },
+        "ai": {
+          "$ref": "#/$defs/gridAi"
+        },
+        "print": {
+          "$ref": "#/$defs/printConfig"
+        },
+        "groupable": {
+          "type": "boolean"
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gridColumn"
+          }
+        },
+        "toolbar": {
+          "type": "array"
+        },
+        "bulkActions": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "label": {
+              "type": "string"
+            },
+            "icon": {
+              "type": "string"
+            },
+            "selectable": {
+              "type": "string"
+            },
+            "actions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "label", "action"],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "icon": {
+                    "type": "string"
+                  },
+                  "action": {
+                    "type": "string"
+                  },
+                  "endpointId": {
+                    "type": "string"
+                  },
+                  "endpoint": {
+                    "$ref": "#/$defs/endpoint"
+                  },
+                  "permission": {
+                    "type": "string"
+                  },
+                  "value": {},
+                  "data": {
+                    "type": "object"
+                  },
+                  "confirm": {
+                    "type": "object"
+                  },
+                  "successMessage": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "rowActions": {
+          "type": "array"
+        }
+      }
+    },
+    "gridAi": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "provider": {
+          "type": "string",
+          "enum": ["mock", "service"],
+          "default": "mock"
+        },
+        "tool": {
+          "type": "string",
+          "enum": ["smartbox"],
+          "default": "smartbox"
+        },
+        "activeMode": {
+          "type": "string",
+          "enum": ["Search", "AIAssistant"]
+        },
+        "placeholder": {
+          "type": "string"
+        },
+        "searchPlaceholder": {
+          "type": "string"
+        },
+        "searchEnabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "searchFields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "promptSuggestions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "serviceUrl": {
+          "type": "string"
+        },
+        "service": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "gridColumn": {
+      "type": "object",
+      "required": ["field", "title"],
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "width": {
+          "type": ["integer", "string"]
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "filterable": {
+          "type": "boolean"
+        },
+        "sortable": {
+          "type": "boolean"
+        },
+        "groupable": {
+          "type": "boolean"
+        },
+        "format": {
+          "type": "string"
+        },
+        "align": {
+          "type": "string",
+          "enum": ["left", "center", "right"]
+        }
+      }
+    },
+    "mobileGrid": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "breakpoint": {
+          "type": "integer",
+          "default": 720
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["columns", "template"]
+        },
+        "columns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "title": {
+          "type": "string"
+        },
+        "cardActions": {
+          "type": "boolean",
+          "default": true
+        },
+        "template": {
+          "$ref": "#/$defs/mobileGridTemplate"
+        }
+      },
+      "additionalProperties": false
+    },
+    "mobileGridTemplate": {
+      "type": "object",
+      "properties": {
+        "titleField": {
+          "type": "string"
+        },
+        "subtitleField": {
+          "type": "string"
+        },
+        "badges": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tabs": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "title", "fields"],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "fields": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "form": {
+      "type": "object",
+      "required": ["id", "mode", "layout"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["popup"]
+        },
+        "layout": {
+          "type": "string",
+          "enum": ["tabs", "sections", "single", "steps"]
+        },
+        "width": {
+          "type": "integer"
+        },
+        "maximizeForm": {
+          "type": "boolean",
+          "default": false
+        },
+        "maximizeOnOpen": {
+          "type": "boolean",
+          "default": false,
+          "description": "Alias de maximizeForm."
+        },
+        "behavior": {
+          "type": "object",
+          "properties": {
+            "closeOnSave": {
+              "type": "boolean",
+              "default": true
+            },
+            "closeOnCancel": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "navigation": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          "additionalProperties": false
+        },
+        "mobile": {
+          "type": "object",
+          "properties": {
+            "breakpoint": {
+              "type": "integer",
+              "default": 720
+            },
+            "showHeaderActions": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "logs": {
+          "$ref": "#/$defs/logs"
+        },
+        "print": {
+          "$ref": "#/$defs/printConfig"
+        },
+        "otherActions": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/formOtherActions"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/formButton"
+              }
+            }
+          ]
+        },
+        "situation": {
+          "$ref": "#/$defs/formSituation"
+        },
+        "statusFlow": {
+          "$ref": "#/$defs/formSituation"
+        },
+        "title": {
+          "type": "object"
+        },
+        "tabs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/formTab"
+          }
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/formSection"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/formStep"
+          }
+        },
+        "buttons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/formButton"
+          }
+        },
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/formEvent"
+          }
+        }
+      }
+    },
+    "formSituation": {
+      "type": "object",
+      "required": ["field"],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "field": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "display": {
+          "type": "string",
+          "enum": ["stepper", "arrowstep", "badge"],
+          "default": "stepper"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["stepper", "arrowstep", "badge"]
+        },
+        "orientation": {
+          "type": "string",
+          "enum": ["horizontal", "vertical"],
+          "default": "horizontal"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["value", "text"],
+            "properties": {
+              "value": {},
+              "text": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "historyTitle": {
+          "type": "string"
+        },
+        "historyWidth": {
+          "type": "integer"
+        },
+        "historyEndpointId": {
+          "type": "string"
+        },
+        "endpointId": {
+          "type": "string"
+        },
+        "historyEndpoint": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "endpoint": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "api": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "url": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "formTab": {
+      "type": "object",
+      "required": ["id", "title", "sections"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/formSection"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "formSection": {
+      "type": "object",
+      "required": ["id", "title", "fields"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "columns": {
+          "type": "integer"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/formField"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "formField": {
+      "type": "object",
+      "required": ["field"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "colSpan": {
+          "type": "integer"
+        },
+        "readonly": {
+          "type": "boolean"
+        },
+        "renderAs": {
+          "type": "string",
+          "enum": ["label", "readonly"]
+        },
+        "display": {
+          "type": "string",
+          "enum": ["label", "readonly"]
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["label", "readonly"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "formOtherActions": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "label": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/formButton"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "formStep": {
+      "type": "object",
+      "required": ["id", "title"],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "visible": {
+          "type": "boolean",
+          "default": true
+        },
+        "readonly": {
+          "type": "boolean"
+        },
+        "editable": {
+          "type": "boolean"
+        },
+        "permission": {
+          "type": "string"
+        },
+        "editableGroups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "readonlyGroups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requiredFields": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "object",
+                "required": ["field"],
+                "properties": {
+                  "field": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "columns": {
+          "type": "integer"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/formField"
+              }
+            ]
+          }
+        },
+        "sections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/formSection"
+          }
+        },
+        "logs": {
+          "$ref": "#/$defs/formStepLog"
+        },
+        "log": {
+          "$ref": "#/$defs/formStepLog"
+        },
+        "history": {
+          "$ref": "#/$defs/formStepLog"
+        }
+      },
+      "additionalProperties": false
+    },
+    "formStepLog": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "label": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "endpointId": {
+          "type": "string"
+        },
+        "endpoint": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "api": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "url": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+        },
+        "requiresRecord": {
+          "type": "boolean",
+          "default": true
+        },
+        "width": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "formButton": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "placement": {
+          "type": "string",
+          "enum": ["header", "footer"]
+        },
+        "permission": {
+          "type": "string"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "disabled": {
+          "type": "boolean"
+        },
+        "visibleIn": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["create", "edit", "view", "delete"]
+          }
+        },
+        "requiresRecord": {
+          "type": "boolean",
+          "default": true
+        },
+        "endpointId": {
+          "type": "string"
+        },
+        "endpoint": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "api": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "url": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+        },
+        "target": {
+          "type": "string",
+          "enum": ["request", "window", "newTab"]
+        },
+        "openAs": {
+          "type": "string",
+          "enum": ["request", "window", "newTab"]
+        },
+        "endpoints": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/formButtonEndpoint"
+          }
+        },
+        "endpointByMode": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/formButtonEndpoint"
+          }
+        },
+        "data": {
+          "type": "object"
+        },
+        "confirm": {
+          "type": "object"
+        },
+        "successMessage": {
+          "type": "string"
+        },
+        "errorMessage": {
+          "type": "string"
+        },
+        "refreshGrid": {
+          "type": "boolean",
+          "default": false
+        },
+        "linkText": {
+          "type": "string"
+        },
+        "width": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
+    },
+    "formButtonEndpoint": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "endpointId": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "method": {
+              "type": "string",
+              "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "formEvent": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "event": {
+          "type": "string",
+          "enum": ["change", "blur", "focus", "enter", "open", "afterLoad"]
+        },
+        "endpointId": {
+          "type": "string"
+        },
+        "endpoint": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "api": {
+          "$ref": "#/$defs/endpoint"
+        },
+        "url": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+        },
+        "request": {
+          "type": "object"
+        },
+        "data": {
+          "type": "object"
+        },
+        "when": {
+          "$ref": "#/$defs/formCondition"
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/formEffect"
+          }
+        },
+        "response": {
+          "type": "object",
+          "properties": {
+            "effects": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/formEffect"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "errorMessage": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "formEffect": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "target": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "action": {
+          "type": "string",
+          "enum": ["setValue", "clearValue", "readonly", "enabled", "disabled", "visible", "show", "hide", "required", "setOptions", "reloadOptions", "showMessage"]
+        },
+        "value": {},
+        "options": {
+          "type": "array"
+        },
+        "optionsFrom": {
+          "type": "string"
+        },
+        "valueFrom": {
+          "type": "string"
+        },
+        "selectedValue": {},
+        "selectedValueFrom": {
+          "type": "string"
+        },
+        "clearInvalidValue": {
+          "type": "boolean",
+          "default": true
+        },
+        "disableWhenEmpty": {
+          "type": "boolean",
+          "default": false
+        },
+        "valueWhen": {
+          "$ref": "#/$defs/formCondition"
+        },
+        "fieldValue": {
+          "type": "string"
+        },
+        "responseField": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["success", "error", "info", "warning"]
+        },
+        "when": {
+          "$ref": "#/$defs/formCondition"
+        }
+      },
+      "additionalProperties": false
+    },
+    "formCondition": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "responseField": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["eq", "neq", "in", "notIn", "contains", "isEmpty", "isNotEmpty", "isNull", "isNotNull", "truthy", "falsy"]
+        },
+        "value": {},
+        "all": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/formCondition"
+          }
+        },
+        "any": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/formCondition"
+          }
+        },
+        "not": {
+          "$ref": "#/$defs/formCondition"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

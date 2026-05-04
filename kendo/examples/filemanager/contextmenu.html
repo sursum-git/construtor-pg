@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>ContextMenu</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+    <div id="filemanager"></div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $("#filemanager").kendoFileManager({
+            dataSource: {
+                schema: kendo.data.schemas.filemanager,
+                transport: {
+                    read: {
+                        url: "https://demos.telerik.com/service/v2/core/FileManager/Read",
+                        method: "POST"
+                    },
+                    create: {
+                        url: "https://demos.telerik.com/service/v2/core/FileManager/Create",
+                        method: "POST"
+                    },
+                    update: {
+                        url: "https://demos.telerik.com/service/v2/core/FileManager/Update",
+                        method: "POST"
+                    },
+                    destroy: {
+                        url: "https://demos.telerik.com/service/v2/core/FileManager/Destroy",
+                        method: "POST"
+                    }
+                }
+            },
+            uploadUrl: "https://demos.telerik.com/service/v2/core/FileManager/Upload",
+            contextMenu: {
+                items: [
+                    { name: "rename" },
+                    { name: "delete", text: "Delete", command: "DeleteCommand", icon: "x" },
+                    { name: "custom", text: "Selected Files/Folders", command: "CustomCommand", icon: "info-circle" }
+                ]
+            },
+            draggable: true
+        });
+
+        var filemanager = $("#filemanager").getKendoFileManager();
+
+        var filemanagerNS = kendo.ui.filemanager;
+
+        filemanagerNS.commands.CustomCommand = filemanagerNS.FileManagerCommand.extend({
+            exec: function (e) {
+                var fileManager = $("#filemanager").getKendoFileManager(),
+                    selectedFiles = fileManager.getSelected(),
+                    treeView = $(fileManager.treeView.element).getKendoTreeView();
+
+                selectedFiles = selectedFiles == undefined ? treeView._current : selectedFiles;
+                alert("Selected Files/Folders: " + selectedFiles.length);
+            }
+        });
+    })
+</script>
+</body>
+</html>

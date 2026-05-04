@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Icons</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="demo-section">
+    <h4>Menu with Icons</h4>
+    <ul id="myMenu"></ul>
+</div>
+<script>
+    $(document).ready(function () {
+        $("#myMenu").kendoMenu({
+            iconPosition: "after",
+            dataSource: [
+                {
+                    text: "File",
+                    items: [
+                        { text: "New", icon: "plus" },
+                        { text: "Open", icon: "folder-open" },
+                        { text: "Save", icon: "save" }
+                    ]
+                },
+                {
+                    text: "Edit",
+                    items: [
+                        { text: "Cut", icon: "cut" },
+                        { text: "Copy", icon: "copy" },
+                        { text: "Paste", icon: "file" }
+                    ]
+                },
+                {
+                    text: "View",
+                    items: [
+                        { text: "Zoom In", icon: "zoom-in" },
+                        { text: "Zoom Out", icon: "zoom-out" }
+                    ]
+                }
+            ]
+        }); 
+    });
+</script>
+<style>
+    .demo-section {
+        text-align: center;
+    }
+
+    #myMenu{
+        justify-content:center
+    }
+</style> 
+</body>
+</html>

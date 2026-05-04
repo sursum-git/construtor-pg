@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Keyboard Navigation</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="sortable-grid">
+    <div class="sortable-item"><img alt="Kendo UI for jQuery Sortable" src="../content/web/sortable/security-check-outline.png" /> <input placeholder='Security' class='textbox' /></div>
+    <div class="sortable-item"><img alt="Kendo UI for jQuery Sortable" src="../content/web/sortable/star-outline.png" /> <input placeholder='Favourites' class='textbox' /></div>
+    <div class="sortable-item"><img alt="Kendo UI for jQuery Sortable" src="../content/web/sortable/user-outline.png" /> <input placeholder='User' class='textbox' /></div>
+    <div class="sortable-item"><img alt="Kendo UI for jQuery Sortable" src="../content/web/sortable/plan.png" />  <input placeholder='Archive' class='textbox'/></div>
+    <div class="sortable-item"><img alt="Kendo UI for jQuery Sortable" src="../content/web/sortable/calendar.png" /> <input placeholder='Calendar' class='textbox'/></div>
+    <div class="sortable-item"><img alt="Kendo UI for jQuery Sortable" src="../content/web/sortable/folder.png" /> <input placeholder='Folders' class='textbox'/></div>
+    <div class="sortable-item"><img alt="Kendo UI for jQuery Sortable" src="../content/web/sortable/html.png" /> <input placeholder='Code' class='textbox'/></div>
+    <div class="sortable-item"><img alt="Kendo UI for jQuery Sortable" src="../content/web/sortable/comment.png" /> <input placeholder='Comments' class='textbox'/></div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $("#sortable-grid").kendoSortable({
+            navigatable: true,
+            cursor: "move",         
+            hint: function (element) {
+                return element.clone().addClass("sortable-hint");
+            }
+        });     
+
+        $(".textbox").kendoTextBox();  
+        $(".sortable-item").first().focus()       
+    });
+</script>
+
+<style> 
+    #sortable-grid { 
+        display: grid;
+        grid-template-columns: repeat(4, 1fr); 
+        padding: 20px;
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        margin: 20px auto;
+        max-width: 836px;
+        gap: 10px;
+    }
+
+    .sortable-item {
+        width: 194px;
+        height: 128px;
+        background-color: rgba(250, 250, 250, 1); 
+        padding: 20px 10px 10px 10px;
+        text-align: center;
+        border-radius: 8px;
+        cursor: move;
+    }
+
+    .sortable-item:hover {
+        background-color: rgba(0, 0, 0, 0.04); 
+    }
+
+    .sortable-item.selected {
+        background-color: #3a9de8;
+        color: white;
+        box-shadow: 0 0 10px rgba(58, 157, 232, 0.5);
+    }
+
+    .sortable-item.selected:hover {
+        background-color: #2a8dd8;
+    }
+
+    /* Responsive design for smaller screens */
+    @media (max-width: 1024px) {
+        #sortable-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media (max-width: 768px) {
+        #sortable-grid {
+            grid-template-columns: repeat(2, 1fr);
+            column-gap: 5px;
+        }
+        
+        .sortable-item {
+            width: 100%;
+            max-width: 180px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        #sortable-grid {
+            grid-template-columns: 1fr;
+            column-gap: 0;
+            row-gap: 15px;
+        }
+        
+        .sortable-item {
+            width: 100%;
+            max-width: none;
+            margin: 0 auto;
+        }
+    }
+    .sortable-item .k-input {
+       margin-top:15px;
+    }
+</style>
+</body>
+</html>

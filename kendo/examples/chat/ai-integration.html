@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>AI Integration</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+            <div class="note">
+                <p>
+                    To run the code offline, please follow the <a target="_blank" href="https://docs.telerik.com/kendo-ui/controls/chat/ai-integration">AI Integration Documentation guideline.</a>
+                    For a runnable example with an established OpenAI backend integration, visit our <a target="_blank"  href="https://github.com/telerik/ui-for-aspnet-core-examples">GitHub Core Examples repository.</a>
+                </p>
+            </div>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.0/styles/default.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/16.2.0/lib/marked.umd.min.js"
+    integrity="sha512-iFFK3wF8x/wQX/7dko0SsJeEgxUorBdYHFGRpGhnOsfnuewBBQ9a80cn0q1xjNB3kkBjA15NaRHFT7gQoG+V1g=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked-highlight/2.2.2/index.umd.min.js"
+    integrity="sha512-T5TNAGHd65imlc6xoRDq9hARHowETqOlOGMJ443E+PohphJHbzPpwQNBtcpmcjmHmQKLctZ/W3H2cY/T8EGDPA=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"
+    integrity="sha512-EBLzUL8XLl+va/zAsmXwS7Z2B1F9HUHkZwyS/VKwh3S7T/U0nF4BaU29EP/ZSf6zgiIxYAnKLu6bJ8dqpmX5uw=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+<script src="../content/shared/js/streaming.js"></script>
+
+    <style>
+        .k-chat-header {
+            margin: auto;
+        }
+
+    .note {
+        font: normal 18px "Metric";
+        border-radius: 2px;
+        margin: 20px auto 40px auto;
+        padding: 20px;
+        border-left: 4px solid;
+        border-left-color: #5392e4;
+        background: rgba(83, 146, 228, 0.1);
+        text-align: center;
+        }
+
+        .k-dialog-content {
+            display: flex;
+            justify-content: space-between;
+        }
+        .icon-attachment {
+            width: 38px;
+            height: 38px;
+        }
+
+        .k-chat-bubble-text{
+            overflow-wrap: break-word !important;
+            word-break: normal !important;
+        }
+
+        .k-notification {
+            position: absolute;
+            z-index: 9999;
+            top: 68%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .k-chat{
+            max-width: 600px;
+        }
+    </style>
+
+    <div id="container" class="k-d-flex k-justify-content-center">
+        <span id="notification"></span>
+        <div id="chat"></div>
+    </div>
+
+<div class="note">
+    <p>
+        By accessing and using the Telerik AI service integration on the Progress website, you acknowledge and agree to
+        be bound by the following <a
+            href="https://www.telerik.com/purchase/license-agreement/demo-chatbots-terms-of-use"
+            title="Terms of Use">Terms of Use</a>.
+    </p>
+</div>
+
+<script>
+    const chats = [];
+    $(document).ready(async function() {
+        // Configuration and constants
+        const CONFIG = {
+            author: {
+                id: "123",
+                name: "John Smith"
+            },
+            chat: {
+                height: 680
+            },
+            aiServiceUrl: "https://demos.telerik.com/service/v2/ai",
+            fileUrls: {
+                cvTemplate: "../content/chat/CV_Template.pdf",
+                coverLetter: "../content/chat/Cover_Letter.pdf"
+            }
+        };
+
+        // Initialize services and dependencies
+        const streamingService = new StreamingService(CONFIG.aiServiceUrl);
+        const markedInstance = await initializeMarkdown();
+        const notificationWidget = initializeNotification();
+
+        // Initialize chat session
+        const { chatSession, currentChatId, initialData } = await initializeChatSession(streamingService, CONFIG.author, markedInstance);
+
+        // Initialize and configure chat
+        const chat = initializeChat(CONFIG, initialData, streamingService, notificationWidget, markedInstance, currentChatId);
+
+        // Initialize export functionality
+        initializeExportButton(streamingService, CONFIG.author);
+
+        initializeAvatar();
+
+        // Helper Functions
+        async function initializeMarkdown() {
+            // Wait for marked to be available
+            while (typeof marked === 'undefined' || typeof markedHighlight === 'undefined') {
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+
+            return new marked.Marked(markedHighlight.markedHighlight({
+                highlight: function(code, lang) {
+                    const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+                    return hljs.highlight(code, { language }).value;
+                },
+                langPrefix: 'hljs language-'
+            }));
+        }
+
+        function initializeNotification() {
+            return $("#notification").kendoNotification({
+                templates: [{
+                    type: "fileNote",
+                    template: '<span class="download-icon"></span> File downloaded',
+                }, {
+                    type: "copyNotification",
+                    template: '<span class="copy-icon"></span> Message copied to clipboard.',
+                }],
+                width: 190,
+                height: 54,
+                appendTo: "#container"
+            }).data("kendoNotification");
+        }
+
+        function handleSuggestionClick(e) {
+            if(e.text.toLowerCase() === 'describe my photo') {
+                kendo.alert('Please upload a photo to describe before sending.');
+            }
+        }
+
+        async function initializeChatSession(streamingService, author, markedInstance) {
+            const chatSession = await streamingService.loadChatSession();
+            chats.push(...chatSession.chats);
+
+            if (chats.length === 0) {
+                try {
+                    const chatRoom = await streamingService.createNewChat();
+                    chats.push({ id: chatRoom.chatId });
+                } catch (error) {
+                    console.error("Error creating chatroom:", error);
+                }
+            }
+
+            $("#input").text(`Input Tokens: ${chatSession.inputTokens}`);
+            $("#output").text(`Output Tokens: ${chatSession.outputTokens}`);
+
+            const currentChatId = chats[chats.length - 1].id;
+            const currentChatHistory = await streamingService.loadChatInfo(currentChatId);
+
+            const initialData = currentChatHistory.map((message) => ({
+                authorId: message.role === "user" ? author.id : "ai-assistant",
+                authorName: message.role === "user" ? author.name : "AI Assistant",
+                text: markedInstance.parse(message.text),
+                id: kendo.guid(),
+                timestamp: new Date(message.timestamp)
+            }));
+
+            return { chatSession, currentChatId, initialData };
+        }
+
+        function initializeChat(config, initialData, streamingService, notificationWidget, markedInstance) {
+            return $("#chat").kendoChat({
+                fileAttachment: { restrictions: { allowedExtensions: ['.jpg', '.pdf'] } },
+                skipSanitization: true,
+                dataSource: initialData,
+                authorId: config.author.id,
+                allowMessageCollapse: true,
+                messageWidthMode: "full",
+                width: config.chat.width,
+                height: config.chat.height,
+                headerItems: [{
+                    type: "contentItem",
+                    template: () => "<div class='header-avatar'></div>"
+                },{
+                    type: "spacer"
+                },{
+                    type: "contentItem",
+                    template: "Model and name version"
+                }, {
+                    type: "spacer"
+                }, {
+                    type: "contentItem",
+                    template: () => "<button id='export-history'></button>"
+                }],
+                suggestions: [
+                    { id: 'describe_photo', text: 'Describe my photo' },
+                    { id: 'cv_template', text: 'Provide CV template' },
+                    { id: 'cover_letter', text: 'Generate a cover letter' },
+                ],
+                fileActions: [{
+                    name: "download",
+                    text: "Download",
+                    icon: "download"
+                }, {
+                    name: "delete",
+                    text: "Delete",
+                    icon: "trash"
+                }],
+                messageToolbarActions: [
+                    { name: "copy", icon: "copy" },
+                    { name: "refresh", icon: "arrow-rotate-cw" },
+                    { name: "download", icon: "download" }
+                ],
+                toolbarAction: handleToolBarAction,
+                suggestionClick: handleSuggestionClick,
+                download: (e) => handleFileDownload(e, notificationWidget),
+                fileMenuAction: (e) => handleFileMenuAction(e),
+                sendMessage: (e) => handleSendMessage(e, config, streamingService, markedInstance)
+            }).data("kendoChat");
+        }
+
+        function initializeAvatar() {
+            const avatarElement = $('.header-avatar');
+            if (avatarElement) {
+                 avatarElement.kendoAvatar({
+                    type: "icon",
+                    icon: "user"
+                });
+            }
+        }
+
+        async function createBlobFromFileUrl(fileUrl) {
+            const response = await fetch(fileUrl);
+            if (!response.ok) {
+                throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+            }
+            return await response.blob();
+        }
+
+        function handleToolBarAction(e) {
+            if (e.type === "copy") {
+                // Create a temporary element to strip HTML and get plain text
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = e.message.text;
+                const plainText = tempDiv.textContent || tempDiv.innerText || '';
+
+                navigator.clipboard.writeText(plainText).then(() => {
+                    const notificationWidget = $("#notification").data("kendoNotification");
+                    notificationWidget.setOptions({ width: 300 });
+                    notificationWidget.show("Message copied to clipboard.", "copyNotification");
+                    kendo.ui.icon($(".copy-icon"), { icon: 'copy' });
+                });
+            } else if (e.type === "refresh") {
+                const chat = $("#chat").data("kendoChat");
+                handleAIResponse({ sender: chat, message: e.message, generating: false }, streamingService, markedInstance, chats[chats.length - 1].id);
+            } else if (e.type === "download") {
+                 downloadConversation(e.message);
+            }
+        }
+
+        function handleFileDownload(e, notificationWidget) {
+            if (e.message.authorId === "ai-assistant") {
+                e.files.forEach(function(file) {
+                    createBlobFromFileUrl(file.url)
+                        .then(blob => {
+                            kendo.saveAs({
+                                dataURI: blob,
+                                fileName: file.name
+                            });
+
+                            notificationWidget.setOptions({ width: 190 });
+                            notificationWidget.show("File downloaded", "fileNote");
+                            kendo.ui.icon($(".download-icon"), { icon: 'download' });
+                        })
+                        .catch(err => console.error(err));
+                });
+            } else {
+                kendo.alert("The file can not be downloaded.");
+            }
+        }
+
+        function handleFileMenuAction(e) {
+            if (e.type === "delete") {
+                const fileIndex = [...e.message.files].findIndex((file) => file.uid === e.file.uid);
+
+                if (fileIndex !== -1) {
+                    e.message.files.splice(fileIndex, 1);
+
+                    if (e.message.text === '' && e.message.files.length === 0) {
+                        e.sender.removeMessage(e.message);
+                    } else {
+                        e.sender.updateMessage(e.message, {
+                            files: e.message.files
+                        });
+                    }
+                }
+            }
+        }
+
+        function handleSendMessage(e, config, streamingService, markedInstance) {
+            if (e.generating) {
+                streamingService.abortRequest();
+                e.sender.toggleSendButtonGenerating(false);
+                return;
+            }
+
+            e.message.authorName = config.author.name;
+            const messageText = e.message.text.toLowerCase().trim();
+
+            // Handle predefined responses
+            if (messageText === 'provide cv template') {
+                handlePredefinedResponse(e, 'cv', config.fileUrls.cvTemplate);
+            } else if (messageText === 'generate a cover letter') {
+                handlePredefinedResponse(e, 'cover', config.fileUrls.coverLetter);
+            }else if (messageText === 'describe my photo' && e.message.files.length == 0) {
+                kendo.alert('Please upload a photo to describe.');
+            } else {
+                handleAIResponse(e, streamingService, markedInstance, chats[chats.length - 1].id);
+            }
+        }
+
+        function handlePredefinedResponse(e, type, fileUrl) {
+            const responses = {
+                cv: {
+                    text: 'Sure. Here is a CV template file in PDF format. Can I help you with something else? *',
+                    fileName: "CV_Template.pdf"
+                },
+                cover: {
+                    text: 'Here is a cover letter template. You can customize it as needed. *',
+                    fileName: "Cover_Letter_Template.pdf"
+                }
+            };
+
+            const response = responses[type];
+            setTimeout(() => {
+                e.sender.postMessage({
+                    authorId: 'ai-assistant',
+                    authorName: "AI Assistant",
+                    text: response.text,
+                    timestamp: new Date(),
+                    files: [{
+                        name: response.fileName,
+                        size: 5315153,
+                        extension: "pdf",
+                        url: fileUrl
+                    }]
+                });
+            }, 200);
+        }
+
+        function handleAIResponse(e, streamingService, markedInstance, currentChatId) {
+            let rawResponse = '';
+            let currentAIMessage = null;
+
+            streamingService.streamAIResponse(currentChatId, e.message.text, e.message.files, {
+                onStart: (data) => {
+                    currentAIMessage = e.sender.postMessage({
+                        authorId: 'ai-assistant',
+                        authorName: "AI Assistant",
+                        text: ''
+                    });
+                    e.sender.toggleSendButtonGenerating(true);
+                },
+                onStreaming: (data) => {
+                    const newText = currentAIMessage.text + data.message;
+                    rawResponse += data.message;
+                    e.sender.updateMessage(currentAIMessage, {
+                        text: kendo.htmlEncode(newText, true)
+                    });
+                    chat.scrollToBottom();
+                },
+                onComplete: (data) => {
+                    completeStream(currentAIMessage, rawResponse, markedInstance);
+                    updateTokenDisplay(data.message);
+                },
+                onError: (error) => {
+                    currentAIMessage = null;
+                    e.sender.toggleSendButtonGenerating(false);
+                },
+                onAbort: () => {
+                    completeStream(currentAIMessage, rawResponse, markedInstance);
+                }
+            });
+        }
+
+        function completeStream(currentAIMessage, rawResponse, markedInstance) {
+            const markdown = markedInstance.parse(rawResponse);
+            $("#chat").data("kendoChat").updateMessage(currentAIMessage, { text: markdown });
+            $("#chat").data("kendoChat").toggleSendButtonGenerating(false);
+        }
+
+        function updateTokenDisplay(messageData) {
+            $("#input").text(`Input Tokens: ${messageData.inputTokens}`);
+            $("#output").text(`Output Tokens: ${messageData.outputTokens}`);
+        }
+
+        function initializeExportButton(streamingService, author) {
+            $('#export-history').kendoDropDownButton({
+                fillMode: "flat",
+                icon: 'more-vertical',
+                items: [{
+                    name: 'download',
+                    text: 'Download conversation',
+                    icon: 'download',
+                    click: downloadConversation
+                }, {
+                    name: 'clear',
+                    text: 'Clear conversation',
+                    icon: 'trash',
+                    click: () => clearConversation(streamingService, author)
+                }]
+            });
+        }
+
+        function downloadConversation(currentMessage) {
+            const chat = $("#chat").data("kendoChat");
+            const messages = currentMessage && currentMessage.text ? [currentMessage] : chat.dataSource.view();
+
+            const formattedMessages = messages
+                .map((msg) => {
+                    // Strip HTML from message text to get plain text
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = msg.text;
+                    const plainText = tempDiv.textContent || tempDiv.innerText || '';
+
+                    let messageText = `${msg.authorName}: ${plainText}`;
+                    if (msg.files && msg.files.length > 0) {
+                        const fileNames = msg.files.map((file) => file.name).join(', ');
+                        messageText += `\n[Note: This message contains file(s): ${fileNames}]`;
+                    }
+                    return messageText;
+                })
+                .join('\n');
+
+            const blob = new Blob([formattedMessages], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'conversation.txt';
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        async function clearConversation(streamingService, author) {
+            const chat = $("#chat").data("kendoChat");
+            try {
+                const newChat = await streamingService.createNewChat();
+                const currentChatHistory = await streamingService.loadChatInfo(newChat.chatId);
+                chats.push({ id: newChat.chatId });
+                chat.setDataSource({
+                    data: currentChatHistory.map((message) => ({
+                        authorId: message.role === "user" ? author.id : "ai-assistant",
+                        authorName: message.role === "user" ? author.name : "AI Assistant",
+                        ...message
+                    }))
+                });
+            } catch (error) {
+                console.error("Error creating new chat:", error);
+            }
+        }
+    });
+</script>
+</body>
+</html>

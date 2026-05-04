@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Resizing</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+        <div id="example">
+             <span id="undo" style="display:none" class="k-button">Click here to open the window.</span>
+
+            <div id="window">
+                <div id="toolbar"></div>
+                <div id="content">
+                    <div class="demo-section">
+                        <ul>
+                            <li>
+                                <label>To:</label>
+                                <span class="k-textbox k-input" style="width: 80%;">
+                                    <input id="to" type="text" class="k-input-inner" />
+                                </span>
+                            </li>
+                            <li>
+                                <label>Title:</label>
+                                <span class="k-textbox k-input" style="width: 80%;">
+                                    <input id="title" type="text" class="k-input-inner" />
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <script>
+                $(document).ready(function() {
+                    $("#window").kendoWindow({
+                        resizable: true,
+                        width: 890,
+                        height: 300,
+                        minHeight: 280,
+                        minWidth: 430,
+                        maxWidth: 1200,
+                        title: {
+                          text: "<input id='mode' style='width: 150px' />",
+                          encoded: false
+                        },
+                        close: function() {
+                            $("#undo").show();
+                        }
+                    });
+
+                    $("#undo").bind("click", function() {
+                        $("#window").data("kendoWindow").open();
+                        $("#undo").hide();
+                    });
+
+                    let toolbar = $("#toolbar").kendoToolBar({
+                        items: [
+                            {
+                                template: "<img alt='Kendo UI for jQuery ToolBar User' src='../content/web/toolbar/user.png' class='user-image' />",
+                                overflow: "never"
+                            },
+                            { type: "button", text: "Send", overflow: "never" },
+                            { type: "button", text: "Discard", overflow: "never" },
+
+                            {
+                                type: "splitButton",
+                                imageUrl: "../content/web/toolbar/save.png",
+                                text: "Save",
+                                menuButtons: [
+                                    { imageUrl: "../content/web/toolbar/save.png", text: "Save as" },
+                                    { imageUrl: "../content/web/toolbar/upload.png", text: "Upload to drive" }
+                                ]
+                            },
+                            {
+                                type: "splitButton",
+                                imageUrl: "../content/web/toolbar/reply.png",
+                                text: "Reply",
+                                menuButtons: [
+                                    { imageUrl: "../content/web/toolbar/save.png",  text: "Reply All" },
+                                    { imageUrl: "../content/web/toolbar/forward.png", text: "Forward" },
+                                    { imageUrl: "../content/web/toolbar/reply.png", text: "Reply & Delete" }
+                                ]
+                            },
+                            {
+                                template: "<span><input id='contacts' style='width: 150px;' /></span>",
+                                overflow: "never"
+                            },
+                            {
+                                type: "buttonGroup",
+                                buttons: [
+                                    { imageUrl: "../content/web/toolbar/done.png", text: "Done", togglable: true, group: "category" },
+                                    { imageUrl: "../content/web/toolbar/todo.png", text: "To Do", togglable: true, group: "category" },
+                                    { imageUrl: "../content/web/toolbar/important.png", text: "Important", togglable: true, group: "category" }
+                                ]
+                            }
+                        ],
+                        overflow: {
+                            mode: "menu",
+                        }
+                    }).data("kendoToolBar");
+                    initializeToolbarDropdown();
+
+                    $('#mode').kendoDropDownList({
+                        optionLabel: "Select mode...",
+                        dataSource: ["menu", "scroll", "section"],
+                        change: onChange
+                    });
+
+                    function onChange(e) {
+                        if (toolbar) {
+                            let toolbarOptions = toolbar.options;
+                            toolbar.destroy();
+                            $("#toolbar").empty().removeClass();
+
+                            toolbarOptions.overflow.mode = e.sender.value();
+                            $("#toolbar").kendoToolBar(toolbarOptions);
+                            initializeToolbarDropdown();
+                        }
+                    }
+
+                    function initializeToolbarDropdown() {
+                        $("#contacts").kendoDropDownList({
+                            optionLabel: "Choose a contact...",
+                            dataTextField: "text",
+                            dataValueField: "value",
+                            value: 1,
+                            dataSource: [
+                                { text: "Ana Trujillo", value: 1 },
+                                { text: "Antonio Moreno", value: 2 },
+                                { text: "Christina Berglund", value: 3 },
+                                { text: "Felipe Izquierdo", value: 4 }
+                            ]
+                        });
+                    }
+                });
+            </script>
+
+            <style>
+                div.k-window-content {
+                    padding: 0;
+                }
+
+                #toolbar {
+                    border-width: 0 0 1px;
+                }
+                .user-image {
+                    margin: 0 .5em;
+                }
+                #example {
+                    height: 500px;
+                }
+                #example .box p {
+                    padding-bottom: 5px;
+                }
+                #content .demo-section {
+                    margin: 0;
+                    padding: 10px;
+                    border-width: 0 0 1px 0;
+                }
+                #content .demo-section label {
+                    display: inline-block;
+                    width: 40px;
+                    text-align: right;
+                    line-height: 2.5em;
+                    vertical-align: middle;
+                }
+                #content .demo-section input {
+                    width: 80%;
+                }
+            </style>
+
+        </div>
+
+</body>
+</html>

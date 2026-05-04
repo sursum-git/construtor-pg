@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Images</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="demo-section">
+
+     <button id="spriteIconButton">
+         Sprite Icon
+     </button>
+
+     <button id="svgIconButton">
+         Kendo UI SVG Icon
+     </button>
+
+     <button id="imageButton">
+         Image icon
+     </button>
+
+</div>
+
+<script>
+    $(document).ready(function () {
+
+        $("#spriteIconButton").kendoToggleButton({
+            group: "icons",
+            spriteCssClass: "k-icon netherlandsFlag"
+        })
+
+        $("#svgIconButton").kendoToggleButton({
+            group: "icons",
+            icon: "filter"
+        });
+
+        $("#imageButton").kendoToggleButton({
+            group:"icons",
+            imageUrl: "@Url.Content("../content/shared/icons/sports/snowboarding.png")"
+        });
+    })
+</script>
+<style>
+    .demo-section {
+        line-height: 4em;
+    }
+
+    .demo-section .k-button {
+        margin-right: 10px;
+    }
+
+    .k-button .k-image {
+        height: 16px;
+    }
+
+    .netherlandsFlag {
+        background-image: url('@Url.Content("~/content/shared/styles/flags.png")');
+        background-position: 0 -64px;
+    }
+</style>
+</body>
+</html>

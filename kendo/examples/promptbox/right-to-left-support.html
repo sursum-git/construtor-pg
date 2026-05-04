@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>RTL Support</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="k-d-flex k-justify-content-center" style="padding-top: 54px;">
+    <div class="k-rtl promptbox-container">
+        <input id="promptbox" />
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $("#promptbox").kendoPromptBox({
+            placeholder: "Type text...",
+            mode: "auto",
+            fileSelectButton: true
+        });
+    });
+</script>
+
+<style>
+    .promptbox-container {
+        padding-bottom: 40px;
+        padding-top: 160px;
+        padding-left: 35px;
+        padding-right: 35px;
+        width: 540px;
+        min-height: 244px;
+        box-shadow: 0 0 12px 4px rgba(0, 0, 0, 0.08);
+    }
+</style>
+
+</body>
+</html>

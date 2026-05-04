@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Remote Binding</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+
+	<div class="k-pivotgrid-wrapper">
+		<div id="configurator" class="hidden-on-narrow"></div>
+		<div id="pivotgrid" class="hidden-on-narrow"></div>
+	</div>
+
+</div>
+
+<script>
+	$(document).ready(function () {
+		var pivotgrid = $("#pivotgrid").kendoPivotGridV2({
+			filterable: true,
+			columnWidth: 120,
+			height: 570,
+			dataSource: {
+                type: "odata-v4",
+                transport: {
+                  read: {
+                    url: function () {
+                      return "https://demos.telerik.com/service/v2/odata/Products";
+                    },
+                  },
+                },
+				schema: {
+					model: {
+						fields: {
+							ProductID: { type: "number" },
+							ProductName: { type: "string" },
+							UnitPrice: { type: "number" }
+						}
+					},
+					cube: {
+						dimensions: {
+							ProductID: { caption: "All Products" },
+							ProductName: { caption: "All Names" },
+							UnitPrice: { caption: "Total Price" }
+						},
+						measures: {
+							"Price Sum": { field: "UnitPrice", aggregate: "sum" }
+						}
+					}
+				},
+				columns: [{ name: "ProductName", expand: true }],
+				rows: [{ name: "ProductID", expand: true }],
+				measures: ["Price Sum"]
+			}
+		}).data("kendoPivotGridV2");
+
+		$("#configurator").kendoPivotConfiguratorV2({
+			dataSource: pivotgrid.dataSource,
+			filterable: true,
+			height: 570
+		});
+	});
+</script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Virtualization</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+    <div class="demo-section wide">
+        <div id="stock-chart"></div>
+    </div>
+    <script>
+        var stockDataSchema = {
+            model: {
+                fields: {
+                    Date: {
+                        type: "date"
+                    }
+                }
+            }
+        };
+
+        function createChart() {
+            $("#stock-chart").kendoStockChart({
+                dataSource: {
+                    serverFiltering: true,
+                    transport: {
+                        read: {
+                            url: "https://demos.telerik.com/service/v2/core/StockData",
+                            contentType: "application/json"
+                        },
+                        parameterMap: function(data) {
+                            return JSON.stringify(data.filter);
+                        }
+                    },
+                    schema: stockDataSchema
+                },
+                title: {
+                    text: "The ACME Company"
+                },
+                valueAxis: {
+                    min: 10,
+                    max: 70
+                },
+                dateField: "Date",
+                series: [{
+                    type: "candlestick",
+                    openField: "Open",
+                    highField: "High",
+                    lowField: "Low",
+                    closeField: "Close"
+                }],
+                navigator: {
+                    series: {
+                        type: "area",
+                        field: "High"
+                    },
+                    select: {
+                        from: "2021/01/01",
+                        to: "2025/10/07"
+                    }
+                }
+            });
+        }
+
+        $(document).ready(createChart);
+        $(document).bind("kendo:skinChange", createChart);
+    </script>
+</div>
+
+</body>
+</html>

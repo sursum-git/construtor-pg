@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Scrollable tabs</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+
+<div class="configurator">
+<div class="header">Configurator</div>
+<div class="box-col">
+    <h4>Buttons Positon:</h4>
+    <input id="position" />
+</div>
+<div class="box-col">
+    <h4>Buttons visibility:</h4>
+    <input id="visibility" />
+</div>
+</div>
+
+<div id="example">
+    <div class='note' style="text-align: center;">
+        <p>
+            Resize the browser to see how the TabStrip adapts to different resolutions.
+        </p>
+    </div>
+
+    <div id="tabstrip"></div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        $("#tabstrip").kendoTabStrip({
+            dataTextField: "Name",
+            dataContentField: "Content",
+            dataSource: [
+                { Name: "Tab 1 with long text", Content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer felis libero, lobortis ac rutrum quis, varius a velit." },
+                { Name: "Tab 2 with long text", Content: "Donec lacus erat, cursus sed porta quis, adipiscing et ligula. Duis volutpat, sem pharetra accumsan pharetra, mi ligula cursus felis, ac aliquet leo diam eget risus." },
+                { Name: "Tab 3 with long text", Content: "Integer facilisis, justo cursus venenatis vehicula, massa nisl tempor sem, in ullamcorper neque mauris in orci." },
+                { Name: "Tab 4 with long text", Content: "Ut orci ligula, varius ac consequat in, rhoncus in dolor. Mauris pulvinar molestie accumsan. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae." }
+            ],
+            scrollable: {
+                scrollButtonsPosition: "start",
+                scrollButtons: "auto"
+            }
+        });
+
+        function onChange(){
+            var tabstrip = $("#tabstrip").data('kendoTabStrip');
+
+            if(tabstrip){
+                tabstrip.destroy();
+                $("#tabstrip").empty()
+
+                $("#tabstrip").kendoTabStrip({
+                    dataTextField: "Name",
+                    dataContentField: "Content",
+                    dataSource: [
+                        { Name: "Tab 1 with long text", Content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer felis libero, lobortis ac rutrum quis, varius a velit." },
+                        { Name: "Tab 2 with long text", Content: "Donec lacus erat, cursus sed porta quis, adipiscing et ligula. Duis volutpat, sem pharetra accumsan pharetra, mi ligula cursus felis, ac aliquet leo diam eget risus." },
+                        { Name: "Tab 3 with long text", Content: "Integer facilisis, justo cursus venenatis vehicula, massa nisl tempor sem, in ullamcorper neque mauris in orci." },
+                        { Name: "Tab 4 with long text", Content: "Ut orci ligula, varius ac consequat in, rhoncus in dolor. Mauris pulvinar molestie accumsan. Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae." }
+                    ],
+                    scrollable: {
+                        scrollButtonsPosition: $('#position').data('kendoDropDownList').value(),
+                        scrollButtons: $('#visibility').data('kendoDropDownList').value(),
+
+                    }
+                }).data('kendoTabStrip');
+            }
+        }
+
+        $('#position').kendoDropDownList({
+            dataSource: ["start", "split", "end"],
+            change: onChange
+        })
+
+        $('#visibility').kendoDropDownList({
+            dataSource: ["auto", "visible", "hidden"],
+            change: onChange
+        })
+
+
+    });
+</script>
+</div>
+<style>
+.demo-section .tabstrip-container {
+    width: 500px;
+}
+</style>
+
+</body>
+</html>

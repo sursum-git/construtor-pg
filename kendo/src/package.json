@@ -1,0 +1,39 @@
+{
+  "name": "kendo",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/telerik/kendo-ui-core.git"
+  },
+  "version": "1.0.0",
+  "dependencies": {
+    "@progress/kendo-charts": "^2.11.0",
+    "@progress/kendo-dateinputs-common": "^0.4.9",
+    "@progress/kendo-diagram-common": "^2.3.2",
+    "@progress/kendo-draggable": "^3.1.0",
+    "@progress/kendo-drawing": "^1.24.0",
+    "@progress/kendo-font-icons": "^4.8.0",
+    "@progress/kendo-licensing": "^1.10.1",
+    "@progress/kendo-ooxml": "^1.9.4",
+    "@progress/kendo-pdfviewer-common": "^0.6.3",
+    "@progress/kendo-smartpaste-common": "1.0.0",
+    "@progress/kendo-pivotgrid-common": "0.6.3",
+    "@progress/kendo-ripple": "^1.0.2",
+    "@progress/kendo-spreadsheet-common": "^1.2.9",
+    "@progress/kendo-svg-icons": "^4.8.0",
+    "@progress/kendo-webspeech-common": "1.0.1",
+    "jquery": "1.10.0 - 4.0.0",
+    "pdfjs-dist": "4.6.82"
+  },
+  "devDependencies": {
+    "inquirer": "^13.1.0",
+    "rolldown": "^1.0.0-rc.2"
+  },
+  "scripts": {
+    "clean": "rm -rf dist/",
+    "build": "npx rolldown -c rolldown.config.mjs",
+    "build:dev": "npx rolldown -c rolldown.config.dev.mjs",
+    "build:dev:watch": "npx rolldown -c rolldown.config.dev.mjs --watch",
+    "build:custom": "node build-custom.mjs",
+    "build:custom:full": "SKIP_PROMPT=true node build-custom.mjs"
+  }
+}

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Form Integration</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+    <div class="demo-section">
+        <div id="validation-success"></div>
+        <form id="exampleform"></form>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+           var validationSuccess = $("#validation-success");
+
+           $("#exampleform").kendoForm({
+               orientation: "vertical",
+               validatable: {
+                   validationSummary: true,
+                   validateOnBlur: true,
+               },
+               formData: {
+                  Username: "johny",
+                  Email: "john.doe@email.com",
+                  Password: "SECRETPASS"
+               },
+               items: [{
+                   type: "group",
+                   label: "Registration Form",
+                   items: [
+                       { field: "Username", label: "Username:", validation: { required: true } },
+                       { field: "Email", label: "Email:", validation: { required: true, email: true } },
+                       {
+                           field: "Password",
+                           label: "Password:",
+                           validation:
+                           {
+                               capitalletter: function (input) {
+                                       if (input.is("[name='Password']") && input.val() != "") {
+                                           var capitalLettersOnly = /^[A-Z]+$/
+
+                                            input.attr("data-capitalletter-msg", "Input should be with capital letters");
+
+                                           return capitalLettersOnly.test(input.val());
+                                       }
+
+                                       return true;
+                               }
+
+                           },
+                           editor: "OTPInput",
+                           editorOptions: {
+                               type: "password",
+                               separator: '-',
+                               space: false,
+                               items: [
+                                   {
+                                       groupLength: 3
+                                   },
+                                   {
+                                       groupLength: 2
+                                   },
+                                   {
+                                       groupLength: 5
+                                   }
+                               ]
+                           }
+                       }
+                    ]
+               }],
+               validateField: function(e) {
+                   validationSuccess.html("");
+               },
+               submit: function (e) {
+                   e.preventDefault();
+                   validationSuccess.html("<div class='k-messagebox k-messagebox-success'>Form data is valid!</div>");
+               },
+               clear: function(ev) {
+                   validationSuccess.html("");
+               }
+           })
+       });
+</script>
+</body>
+</html>

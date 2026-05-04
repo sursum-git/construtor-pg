@@ -1,0 +1,637 @@
+{
+  "kendo.grid.js": [
+    {
+      "name": "Editing",
+      "description": "Support for record editing",
+      "enabled": true,
+      "files": [
+        "kendo.editable.js",
+        "kendo.window.js",
+        "kendo.textbox.js",
+        "kendo.form.js"
+      ]
+    },
+    {
+      "name": "Filtering",
+      "description": "Support for record filtering",
+      "enabled": true,
+      "files": [
+        "kendo.filtermenu.js"
+      ]
+    },
+    {
+      "name": "Column menu",
+      "description": "Support for header column menu",
+      "enabled": true,
+      "files": [
+        "kendo.columnmenu.js"
+      ]
+    },
+    {
+      "name": "Grouping",
+      "description": "Support for grid grouping",
+      "enabled": true,
+      "files": [
+        "kendo.groupable.js"
+      ]
+    },
+    {
+      "name": "Row filter",
+      "description": "Support for grid header filtering",
+      "enabled": true,
+      "files": [
+        "kendo.filtercell.js"
+      ]
+    },
+    {
+      "name": "Paging",
+      "description": "Support for grid paging",
+      "enabled": true,
+      "files": [
+        "kendo.pager.js"
+      ]
+    },
+    {
+      "name": "Selection",
+      "description": "Support for row selection",
+      "enabled": true,
+      "files": [
+        "kendo.selectable.js"
+      ]
+    },
+    {
+      "name": "Column reordering",
+      "description": "Support for column reordering",
+      "enabled": true,
+      "files": [
+        "kendo.reorderable.js"
+      ]
+    },
+    {
+      "name": "Column resizing",
+      "description": "Support for column resizing",
+      "enabled": true,
+      "files": [
+        "kendo.resizable.js"
+      ]
+    },
+    {
+      "name": "Grid adaptive rendering",
+      "description": "Support for adaptive rendering",
+      "enabled": true,
+      "files": [
+        "kendo.dialog.js",
+        "kendo.pane.js",
+        "kendo.switch.js"
+      ]
+    },
+    {
+      "name": "Excel export",
+      "description": "Export grid data as Excel spreadsheet",
+      "enabled": true,
+      "files": [
+        "kendo.excel.js"
+      ]
+    },
+    {
+      "name": "PDF export",
+      "description": "Export grid data as PDF",
+      "enabled": true,
+      "files": [
+        "kendo.pdf.js",
+        "kendo.drawing.js"
+      ]
+    }
+  ],
+  "kendo.scheduler.js": [
+    {
+      "name": "Scheduler Day View",
+      "description": "Scheduler Day View",
+      "enabled": true,
+      "files": [
+        "kendo.scheduler.dayview.js"
+      ]
+    },
+    {
+      "name": "Scheduler Agenda View",
+      "description": "Scheduler Agenda View",
+      "enabled": true,
+      "files": [
+        "kendo.scheduler.agendaview.js"
+      ]
+    },
+    {
+      "name": "Scheduler Month View",
+      "description": "Scheduler Month View",
+      "enabled": true,
+      "files": [
+        "kendo.scheduler.monthview.js"
+      ]
+    },
+    {
+      "name": "Scheduler Timeline View",
+      "description": "Scheduler Timeline View",
+      "enabled": true,
+      "files": [
+        "kendo.scheduler.timelineview.js"
+      ]
+    },
+    {
+      "name": "Scheduler Year View",
+      "description": "Scheduler Year View",
+      "enabled": true,
+      "files": [
+        "kendo.scheduler.yearview.js"
+      ]
+    },
+    {
+      "name": "Scheduler adaptive rendering",
+      "description": "Support for adaptive rendering",
+      "enabled": true,
+      "files": [
+        "kendo.dialog.js",
+        "kendo.pane.js",
+        "kendo.switch.js"
+      ]
+    },
+    {
+      "name": "PDF export",
+      "description": "Export the scheduler events as PDF",
+      "enabled": true,
+      "files": [
+        "kendo.pdf.js",
+        "kendo.drawing.js"
+      ]
+    },
+    {
+      "name": "Timezones",
+      "description": "Allow selecting timezones different than Etc/UTC",
+      "enabled": true,
+      "files": [
+        "kendo.timezones.js"
+      ]
+    }
+  ],
+  "kendo.editor.js": [
+    {
+      "name": "Image Browser",
+      "description": "Support for image browsing",
+      "enabled": true,
+      "files": [
+        "kendo.imagebrowser.js"
+      ]
+    },
+    {
+      "name": "AI Prompt",
+      "description": "Support for AI prompt",
+      "enabled": true,
+      "files": [
+        "kendo.aiprompt.js",
+        "kendo.inlineaiprompt.js",
+        "kendo.buttongroup.js",
+        "kendo.splitter.js",
+        "kendo.html.input.js"
+      ]
+    }
+  ],
+  "kendo.treelist.js": [
+    {
+      "name": "Sorting",
+      "description": "Support for column sorting",
+      "enabled": true,
+      "files": [
+        "kendo.columnsorter.js"
+      ]
+    },
+    {
+      "name": "Filtering",
+      "description": "Support for record filtering",
+      "enabled": true,
+      "files": [
+        "kendo.filtermenu.js"
+      ]
+    },
+    {
+      "name": "Column menu",
+      "description": "Support for header column menu",
+      "enabled": true,
+      "files": [
+        "kendo.columnmenu.js"
+      ]
+    },
+    {
+      "name": "Editing",
+      "description": "Support for record editing",
+      "enabled": true,
+      "files": [
+        "kendo.editable.js",
+        "kendo.window.js",
+        "kendo.textbox.js",
+        "kendo.form.js"
+      ]
+    },
+    {
+      "name": "Selection",
+      "description": "Support for row selection",
+      "enabled": true,
+      "files": [
+        "kendo.selectable.js"
+      ]
+    },
+    {
+      "name": "Column resizing",
+      "description": "Support for column resizing",
+      "enabled": true,
+      "files": [
+        "kendo.resizable.js"
+      ]
+    },
+    {
+      "name": "Drag & Drop",
+      "description": "Support for drag and drop",
+      "enabled": true,
+      "files": [
+        "kendo.treeview.draganddrop.js"
+      ]
+    },
+    {
+      "name": "Excel export",
+      "description": "Export data as Excel spreadsheet",
+      "enabled": true,
+      "files": [
+        "kendo.excel.js"
+      ]
+    },
+    {
+      "name": "PDF export",
+      "description": "Export data as PDF",
+      "enabled": true,
+      "files": [
+        "kendo.pdf.js",
+        "kendo.drawing.js",
+        "kendo.progressbar.js"
+      ]
+    },
+    {
+      "name": "Paging",
+      "description": "Support for treelist paging",
+      "enabled": true,
+      "files": [
+        "kendo.pager.js"
+      ]
+    }
+  ],
+  "kendo.listview.js": [
+    {
+      "name": "Editing",
+      "description": "Support for record editing",
+      "enabled": true,
+      "files": [
+        "kendo.editable.js"
+      ]
+    },
+    {
+      "name": "Selection",
+      "description": "Support for row selection",
+      "enabled": true,
+      "files": [
+        "kendo.selectable.js"
+      ]
+    },
+    {
+      "name": "Paging",
+      "description": "Support for listview paging",
+      "enabled": true,
+      "files": [
+        "kendo.pager.js"
+      ]
+    }
+  ],
+  "kendo.pivotgrid.js": [
+    {
+      "name": "Configurator",
+      "description": "Support for pivot configurator",
+      "enabled": true,
+      "files": [
+        "kendo.pivot.configurator.js"
+      ]
+    },
+    {
+      "name": "Filtering",
+      "description": "Support for record filtering",
+      "enabled": true,
+      "files": [
+        "kendo.pivot.fieldmenu.js"
+      ]
+    },
+    {
+      "name": "Excel export",
+      "description": "Export data as Excel spreadsheet",
+      "enabled": true,
+      "files": [
+        "kendo.ooxml.js"
+      ]
+    },
+    {
+      "name": "PDF export",
+      "description": "Export data as PDF",
+      "enabled": true,
+      "files": [
+        "kendo.pdf.js",
+        "kendo.drawing.js"
+      ]
+    },
+    {
+      "name": "Mobile scroller",
+      "description": "Support for mobile scroller",
+      "enabled": true,
+      "files": [
+        "kendo.mobile.scroller.js"
+      ]
+    }
+  ],
+  "kendo.autocomplete.js": [
+    {
+      "name": "Mobile scroller",
+      "description": "Support for mobile scroller",
+      "enabled": true,
+      "files": [
+        "kendo.mobile.scroller.js"
+      ]
+    },
+    {
+      "name": "VirtualList",
+      "description": "Support for virtual list",
+      "enabled": true,
+      "files": [
+        "kendo.virtuallist.js"
+      ]
+    }
+  ],
+  "kendo.combobox.js": [
+    {
+      "name": "Mobile scroller",
+      "description": "Support for mobile scroller",
+      "enabled": true,
+      "files": [
+        "kendo.mobile.scroller.js"
+      ]
+    },
+    {
+      "name": "VirtualList",
+      "description": "Support for virtual list",
+      "enabled": true,
+      "files": [
+        "kendo.virtuallist.js"
+      ]
+    }
+  ],
+  "kendo.dropdownlist.js": [
+    {
+      "name": "Mobile scroller",
+      "description": "Support for mobile scroller",
+      "enabled": true,
+      "files": [
+        "kendo.mobile.scroller.js"
+      ]
+    },
+    {
+      "name": "VirtualList",
+      "description": "Support for virtual list",
+      "enabled": true,
+      "files": [
+        "kendo.virtuallist.js"
+      ]
+    }
+  ],
+  "kendo.multiselect.js": [
+    {
+      "name": "Mobile scroller",
+      "description": "Support for mobile scroller",
+      "enabled": true,
+      "files": [
+        "kendo.mobile.scroller.js"
+      ]
+    },
+    {
+      "name": "VirtualList",
+      "description": "Support for virtual list",
+      "enabled": true,
+      "files": [
+        "kendo.virtuallist.js"
+      ]
+    }
+  ],
+  "kendo.multicolumncombobox.js": [
+    {
+      "name": "Mobile scroller",
+      "description": "Support for mobile scroller",
+      "enabled": true,
+      "files": [
+        "kendo.mobile.scroller.js"
+      ]
+    },
+    {
+      "name": "VirtualList",
+      "description": "Support for virtual list",
+      "enabled": true,
+      "files": [
+        "kendo.virtuallist.js"
+      ]
+    }
+  ],
+  "kendo.window.js": [
+    {
+      "name": "Animation",
+      "description": "Support for animation",
+      "enabled": true,
+      "files": [
+        "kendo.fx.js"
+      ]
+    }
+  ],
+  "kendo.tabstrip.js": [
+    {
+      "name": "Animation",
+      "description": "Support for animation",
+      "enabled": true,
+      "files": [
+        "kendo.fx.js"
+      ]
+    }
+  ],
+  "kendo.tooltip.js": [
+    {
+      "name": "Animation",
+      "description": "Support for animation",
+      "enabled": true,
+      "files": [
+        "kendo.fx.js"
+      ]
+    }
+  ],
+  "kendo.popover.js": [
+    {
+      "name": "Animation",
+      "description": "Support for animation",
+      "enabled": true,
+      "files": [
+        "kendo.fx.js"
+      ]
+    }
+  ],
+  "kendo.notification.js": [
+    {
+      "name": "Animation",
+      "description": "Support for animation",
+      "enabled": true,
+      "files": [
+        "kendo.fx.js"
+      ]
+    }
+  ],
+  "kendo.tilelayout.js": [
+    {
+      "name": "Resizable",
+      "description": "Support for resizable tiles",
+      "enabled": true,
+      "files": [
+        "kendo.resizable.js"
+      ]
+    },
+    {
+      "name": "Reorderable",
+      "description": "Support for reorderable tiles",
+      "enabled": true,
+      "files": [
+        "kendo.draganddrop.js"
+      ]
+    }
+  ],
+  "kendo.treeview.js": [
+    {
+      "name": "Drag & Drop",
+      "description": "Support for drag and drop",
+      "enabled": true,
+      "files": [
+        "kendo.treeview.draganddrop.js"
+      ]
+    }
+  ],
+  "kendo.form.js": [
+    {
+      "name": "DropDowns",
+      "description": "Support for dropdown editors",
+      "enabled": true,
+      "files": [
+        "kendo.autocomplete.js",
+        "kendo.combobox.js",
+        "kendo.multiselect.js",
+        "kendo.dropdowntree.js",
+        "kendo.multicolumncombobox.js"
+      ]
+    },
+    {
+      "name": "DatePickers",
+      "description": "Support for date picker editors",
+      "enabled": true,
+      "files": [
+        "kendo.dateinput.js",
+        "kendo.datepicker.js",
+        "kendo.datetimepicker.js",
+        "kendo.timepicker.js"
+      ]
+    },
+    {
+      "name": "Inputs",
+      "description": "Support for input editors",
+      "enabled": true,
+      "files": [
+        "kendo.numerictextbox.js",
+        "kendo.maskedtextbox.js",
+        "kendo.switch.js",
+        "kendo.rating.js",
+        "kendo.slider.js",
+        "kendo.colorpicker.js",
+        "kendo.radiogroup.js",
+        "kendo.checkboxgroup.js",
+        "kendo.textbox.js",
+        "kendo.textarea.js",
+        "kendo.checkbox.js",
+        "kendo.otpinput.js"
+      ]
+    },
+    {
+      "name": "Upload",
+      "description": "Support for upload editor",
+      "enabled": true,
+      "files": [
+        "kendo.upload.js"
+      ]
+    },
+    {
+      "name": "Editor",
+      "description": "Support for editor",
+      "enabled": true,
+      "files": [
+        "kendo.editor.js"
+      ]
+    }
+  ],
+  "kendo.wizard.js": [
+    {
+      "name": "DropDowns",
+      "description": "Support for dropdown editors",
+      "enabled": true,
+      "files": [
+        "kendo.autocomplete.js",
+        "kendo.combobox.js",
+        "kendo.multiselect.js",
+        "kendo.dropdowntree.js",
+        "kendo.multicolumncombobox.js"
+      ]
+    },
+    {
+      "name": "DatePickers",
+      "description": "Support for date picker editors",
+      "enabled": true,
+      "files": [
+        "kendo.dateinput.js",
+        "kendo.datepicker.js",
+        "kendo.datetimepicker.js",
+        "kendo.timepicker.js"
+      ]
+    },
+    {
+      "name": "Inputs",
+      "description": "Support for input editors",
+      "enabled": true,
+      "files": [
+        "kendo.numerictextbox.js",
+        "kendo.maskedtextbox.js",
+        "kendo.switch.js",
+        "kendo.rating.js",
+        "kendo.slider.js",
+        "kendo.colorpicker.js"
+      ]
+    },
+    {
+      "name": "Editor",
+      "description": "Support for editor",
+      "enabled": true,
+      "files": [
+        "kendo.editor.js"
+      ]
+    }
+  ],
+  "kendo.filemanager.js": [
+    {
+      "name": "GridView",
+      "description": "Support for grid view",
+      "enabled": true,
+      "files": [
+        "kendo.grid.js"
+      ]
+    }
+  ]
+}

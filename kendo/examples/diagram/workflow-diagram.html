@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Workflow Diagram</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+  <div class="k-d-flex k-justify-content-center">
+    <div id="diagram"></div>
+  </div>
+  <script>
+    $(document).ready(function () {
+        const shapeWidth = 150;
+        const shapeHeight = 100;
+        const shapes = [
+            {
+                id: '1',
+                type: "Terminator",
+                content: { text: 'Start' },
+                fill: { color: '#CFE2FF' },
+                stroke: { color: '#9EC5FE', width: 4 },
+                x: 218,
+                y: 50,
+                width: 300,
+                height: 100,
+            },
+            {
+                id: '2',
+                type: "Process",
+                content: { text: 'Define Requirements', textWrap: 'wrap' },
+                fill: { color: '#E2D9F3' },
+                stroke: { color: '#C5B3E6', width: 4 },
+                width: shapeWidth,
+                height: shapeHeight,
+                x: 268,
+                y: 218,
+            },
+            {
+                id: '3',
+                type: "Document",
+                content: { text: 'Specification' },
+                fill: { color: '#fff' },
+                stroke: { color: '#C1F0E2', width: 4 },
+                width: shapeWidth,
+                height: shapeHeight,
+                x: 268,
+                y: 386,
+            },
+            {
+                id: '4',
+                type: "Decision",
+                content: { text: 'Approved?' },
+                stroke: { color: '#FFE69C', width: 4 },
+                fill: { color: '#fff' },
+                width: shapeWidth,
+                height: shapeHeight,
+                x: 268,
+                y: 541,
+            },
+            {
+                id: '5',
+                type: "Process",
+                content: { text: 'Develop' },
+                fill: { color: '#E2D9F3' },
+                stroke: { color: '#C5B3E6', width: 4 },
+                width: shapeWidth,
+                height: shapeHeight,
+                x: 268,
+                y: 709,
+            },
+            {
+                id: '6',
+                type: "Process",
+                content: { text: 'Quality Assurance', textWrap: 'wrap', relativePadding: 0.1 },
+                fill: { color: '#E2D9F3' },
+                stroke: { color: '#C5B3E6', width: 4 },
+                width: shapeWidth,
+                height: shapeHeight,
+                x: 268,
+                y: 903,
+            },
+            {
+                id: '7',
+                type: "Decision",
+                content: { text: 'Bugs Found?' },
+                stroke: { color: '#FFE69C', width: 4 },
+                fill: { color: '#fff' },
+                width: shapeWidth,
+                height: shapeHeight,
+                x: 268,
+                y: 1045,
+            },
+            {
+                id: '8',
+                type: "Process",
+                content: { text: 'Bug Fixing' },
+                fill: { color: '#E2D9F3' },
+                stroke: { color: '#C5B3E6', width: 4 },
+                width: shapeWidth,
+                height: shapeHeight,
+                x: 50,
+                y: 1045,
+            },
+            {
+                id: '9',
+                type: "Process",
+                content: { text: 'Release' },
+                fill: { color: '#E2D9F3' },
+                stroke: { color: '#C5B3E6', width: 4 },
+                width: shapeWidth,
+                height: shapeHeight,
+                x: 486,
+                y: 1045,
+            },
+            {
+                id: '10',
+                type: "Terminator",
+                content: { text: 'Done' },
+                fill: { color: '#CFE2FF' },
+                stroke: { color: '#9EC5FE', width: 4 },
+                x: 704,
+                y: 1045,
+                width: 300,
+                height: 100,
+            },
+        ];
+
+        const connections = [
+            {
+                from: '1',
+                to: '2',
+            },
+            {
+                from: '2',
+                to: '3',
+            },
+            {
+                from: '3',
+                to: '4',
+            },
+            {
+                from: '4',
+                to: '2',
+                content: { text: 'No', fontWeight: "bold" },
+                fromConnector: 'right'
+            },
+            {
+                from: '4',
+                to: '5',
+                content: { text: 'Yes', fontWeight: "bold" },
+            },
+            {
+                from: '5',
+                to: '6',
+            },
+            {
+                from: '6',
+                to: '7',
+            },
+            {
+                from: '7',
+                to: '8',
+                content: { text: 'Yes', fontWeight: "bold" },
+            },
+            {
+                from: '8',
+                fromConnector: 'top',
+                to: '6',
+            },
+            {
+                from: '7',
+                to: '9',
+                content: { text: 'No', fontWeight: "bold" },
+            },
+            {
+                from: '9',
+                to: '10',
+            },
+        ];
+
+        const connectionDefaults = {
+            endCap: {
+                type: "ArrowEnd",
+                path: 'M 0 0 L 8 7 L 0 14',
+                anchor: {
+                    x: 8,
+                    y: 7,
+                },
+                fill: null,
+                stroke: {
+                    color: '#000',
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                    width: 1,
+                },
+            },
+            stroke: {
+                color: '#4E4E4E',
+                width: 2,
+            },
+            content: {
+                color: '#212529',
+                fontSize: 16,
+            },
+        };
+
+        const shapeDefaults = {
+            stroke: {
+                color: '#000',
+                width: 1,
+            },
+            cornerRadius: 8,
+            content: {
+                fontSize: 16,
+                fontWeight: '600',
+                color: '#212529',
+            },
+        };
+        
+        $("#diagram").kendoDiagram({
+            shapeDefaults: shapeDefaults,
+            connectionDefaults: connectionDefaults,
+            shapes: shapes,
+            zoom: 0.5,
+            connections: connections,
+            height: 1200
+        });
+    });
+    </script>
+</div>
+
+</body>
+</html>

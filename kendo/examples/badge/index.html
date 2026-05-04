@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Overview</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+
+<div id="example">
+    <div class="demo-section">
+        <div id="toolbar"></div>
+    </div>
+</div>
+
+<script>
+    $("#toolbar").kendoToolBar({
+        items: [
+			{ template: '<a role="button" class="k-button" href="#">' + kendo.ui.icon({ icon: 'user' }) + '<span id="badge-overlay">2</span></a>' },
+			{ template: '<a role="button" class="k-button" href="#">' + kendo.ui.icon({ icon: 'envelop' }) + ' <span id="badge-inbox">5</span></a>' },
+            { template: '<a role="button" class="k-button" href="#">See later <span id="badge-sent">15</span></a>' },
+            { template: '<a role="button" class="k-button" href="#">News <span id="badge-missed">99+</span></a>' }
+        ]
+    });
+
+    $('#badge-overlay').kendoBadge({
+        themeColor: 'primary',
+        rounded: 'small'
+    });
+
+    $('#badge-inbox').kendoBadge({
+        themeColor: 'info',
+        rounded: 'medium'
+    });
+
+    $('#badge-sent').kendoBadge({
+        themeColor: 'success',
+        rounded: 'full'
+    });
+
+    $('#badge-missed').kendoBadge({
+        themeColor: 'warning',
+        rounded: 'large'
+    });
+</script>
+
+</body>
+</html>

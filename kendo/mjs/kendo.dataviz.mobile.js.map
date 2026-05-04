@@ -1,0 +1,1 @@
+{"version":3,"file":"kendo.dataviz.mobile.js","names":[],"sources":["../../src/kendo.dataviz.mobile.js"],"sourcesContent":["import \"./kendo.dataviz.js\";\nimport \"./kendo.mobile.js\";\n    \"bundle all\";\nexport default kendo;\n"],"mappings":";g7FAGA,IAAA,EAAe"}

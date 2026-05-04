@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Action Buttons</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="configurator">
+  <div class="header">Configurator</div>
+  <div class="box-col">
+    <ul class="options">
+      <li>
+        <h4>Orientation</h4>
+        <input id="orientation" name="orientation" />
+      </li>
+    </ul>
+  </div>
+   <div class="box-col">
+    <ul class="options">
+      <li>
+        <h4>Alignment</h4>
+        <input id="alignment" name="alignment" />
+      </li>
+    </ul>
+  </div>
+</div>
+<div class='note' style="text-align: center;">
+    <p>
+        The <code>actionButtonsAlignment</code> is supported only when the <code>actionButtonsOrientation</code> is set to <code>horizontal</code>.
+    </p>
+  </div>
+<div class="demo-section wide">
+  <div class="demo-app" style="position: relative">
+    <div id="city" class="demo-view" style="position: absolute">
+      <div class="cards-container">
+        <div class="k-card">
+          <div class="k-card-header">
+            <h5 class="k-card-title">San Francisco</h5>
+            <h6 class="k-card-subtitle">City in California</h6>
+          </div>
+          <img
+            alt="Kendo UI for jQuery ActionSheet Golden Gate Bridge and the strait"
+            class="k-card-media"
+            src="../content/web/cards/sanfran.jpg"
+          />
+          <div class="k-card-body">
+            <p>
+              San Francisco, officially City and County of San Francisco and
+              colloquially known as SF, San Fran or "The City", is the cultural,
+              commercial, and financial center of Northern California.
+            </p>
+          </div>
+        </div>
+      </div>
+      <button id="openActionSheetBttn">OPEN ACTION SHEET</button>
+      <div id="actionsheet"></div>
+    </div>
+  </div>
+</div>
+<script>
+  $(document).ready(function () {
+    var actionsheet = $("#actionsheet")
+      .kendoActionSheet({
+        title: "Select item",
+        actionButtonsOrientation: "horizontal",
+        actionButtonsAlignment: "start",
+        startButton: {
+            icon: "chevron-left",
+            click: function(e) {
+                kendo.alert("Start button clicked");
+            }
+        },
+        closeButton: {
+            icon: "chevron-right",
+            click: function(e) {
+                kendo.alert("End button clicked");
+            }
+        },
+        items: [
+          {
+            text: "Edit Item",
+            iconClass: "k-i-pencil",
+            click: onClick,
+          },
+          {
+            text: "Add to Favorites",
+            iconClass: "k-i-heart",
+            click: onClick,
+          },
+        ],
+        actionButtons: [
+          {
+            icon: "check",
+            fillMode: "solid",
+            themeColor: "primary",
+            rounded: "full",
+            size: "large",
+            text: "Confirm",
+          },
+          {
+            icon: "cancel",
+            fillMode: "outline",
+            themeColor: "info",
+            rounded: "full",
+            size: "large",
+            text: "Cancel",
+          },
+        ],
+      })
+      .data("kendoActionSheet");
+
+
+    $("#openActionSheetBttn").kendoButton({
+      themeColor: "primary",
+      click: function () {
+        actionsheet.open();
+      },
+    });
+
+    function onClick(e) {
+      e.preventDefault();
+      actionsheet.close();
+    }
+
+    var alignment = $("#alignment")
+      .kendoDropDownList({
+        dataTextField: "text",
+        dataValueField: "value",
+        value: "medium",
+        change: onChange,
+        dataSource: [
+            { text: "Start", value: "start" },
+            { text: "End", value: "end" },
+            { text: "Center", value: "center" },
+            { text: "Stretched", value: "stretched" },
+            { text: "Justify", value: "justify" }
+        ],
+      })
+      .data("kendoDropDownList");
+
+    var orientation = $("#orientation")
+      .kendoDropDownList({
+        dataTextField: "text",
+        dataValueField: "value",
+        value: "medium",
+        change: onChange,
+        dataSource: [
+          { text: "Vertical", value: "vertical" },
+          { text: "Horizontal", value: "horizontal" },
+        ],
+      })
+      .data("kendoDropDownList");
+
+    function onChange(e) {
+      var orientation = $("#orientation").data("kendoDropDownList").value();
+      var alignment = $("#alignment").data("kendoDropDownList").value();
+      actionsheet.setOptions({
+        actionButtonsOrientation: orientation,
+        actionButtonsAlignment: alignment,
+      });
+    }
+  });
+</script>
+
+<style>
+     .demo-view {
+            transform: scale(1);
+            overflow: hidden;
+        }
+
+        .k-actionsheet-container {
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+
+        .k-actionsheet-container > .k-overlay {
+            border-bottom-left-radius: 30px;
+            border-bottom-right-radius: 30px;
+        }
+
+        .cards-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 35px;
+        }
+
+        .k-card {
+            width: 285px;
+            margin: 5%;
+        }
+
+        #openActionSheetBttn {
+            margin: 0 auto;
+            display: block;
+        }
+
+        .demo-app {
+            margin: auto;
+            width: 380px;
+            height: 600px;
+            background: #FFFFFF;
+            box-shadow: 0px 10px 20px #00000016;
+            border-radius: 30px;
+            font-family: 'Roboto', sans-serif;
+            font-size: 14px;
+        }
+
+        #city {
+            background: #F9F9F9;
+            height: inherit;
+            width: inherit;
+            border-radius: 30px;
+            border: 10px solid white;
+            box-sizing: border-box;
+        }
+
+        .demo-app h3 {
+            padding-top: 24px;
+            text-align: center;
+            font-size: 28px;
+            letter-spacing: 0.28px;
+            color: #3D57D8;
+            font-weight: 400;
+        }
+
+        .k-picker.k-dropdownlist {
+		    width: 140px;
+	    }
+
+        .note {
+            font: normal 18px "Metric";
+            border-radius: 2px;
+            margin: 20px auto 40px auto;
+            padding: 20px;
+            border-left: 4px solid;
+            border-left-color: #5392e4;
+            background: rgba(83,146,228,0.1);
+            text-align: center;
+        }
+</style>
+
+</body>
+</html>

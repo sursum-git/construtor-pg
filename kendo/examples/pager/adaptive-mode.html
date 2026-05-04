@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Adaptive Mode</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class='note' style="text-align: center;">
+    <p>
+        Resize the browser to see how the Pager elements adapts to different resolutions.
+    </p>
+</div>
+
+<div class="demo-section auto">
+    <div id="pager"></div>
+    <div id="grid"></div>
+
+    <script>
+        $(document).ready(function () {
+            var dataSource = new kendo.data.DataSource({
+                transport: {
+                    read: "https://demos.telerik.com/service/v2/core/Orders"
+                },
+                schema: {
+                    model: {
+                        fields: {
+                            OrderID: { type: "number" },
+                            Freight: { type: "number" },
+                            ShipName: { type: "string" },
+                            OrderDate: { type: "date" },
+                            ShipCity: { type: "string" }
+                        }
+                    }
+                },
+                pageSize: 20,
+                serverPaging: true,
+                serverFiltering: true,
+                serverSorting: true
+            });
+            $("#pager").kendoPager({
+                dataSource: dataSource,
+                adaptiveMode: "auto",
+                pageSizes:true,
+                responsive: true
+            });
+            $("#grid").kendoGrid({
+                dataSource: dataSource,
+                height: 360,
+                filterable: true,
+                sortable: true,
+                columns: [{
+                    field: "OrderID",
+                    filterable: false
+                },
+                    "Freight",
+                {
+                    field: "OrderDate",
+                    title: "Order Date",
+                    format: "{0:MM/dd/yyyy}"
+                }, {
+                    field: "ShipName",
+                    title: "Ship Name"
+                }, {
+                    field: "ShipCity",
+                    title: "Ship City"
+                }
+                ]
+            });
+            dataSource.read();
+        });
+    </script>
+    <style>
+        .note {
+            font: normal 18px "Metric";
+            border-radius: 2px;
+            margin: 20px auto 40px auto;
+            padding: 20px;
+            border-left: 4px solid;
+            border-left-color: #5392e4;
+            background: rgba(83,146,228,0.1);
+            text-align: center;
+        }
+    </style>
+</div>
+</body>
+</html>

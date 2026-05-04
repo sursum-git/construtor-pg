@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Keyboard Navigation</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="k-d-flex k-justify-content-center" style="padding-top: 54px;">
+    <div class="promptbox-container">
+        <input id="promptbox" />
+    </div>
+</div>
+
+<div class="demo-hint" style="text-align: center; margin-top: 20px;">
+    Hint: Focus the PromptBox and use the keyboard to navigate and interact.
+</div>
+
+<script>
+    $(document).ready(function () {
+        $("#promptbox").kendoPromptBox({
+            placeholder: "Type a message...",
+            mode: "auto",
+            fileSelectButton: true,
+            maxTextAreaHeight: 110
+        });
+    });
+</script>
+
+<style>
+    .promptbox-container {
+        padding-bottom: 40px;
+        padding-top: 160px;
+        padding-left: 35px;
+        padding-right: 35px;
+        width: 540px;
+        min-height: 244px;
+        box-shadow: 0 0 12px 4px rgba(0, 0, 0, 0.08);
+    }
+</style>
+
+</body>
+</html>

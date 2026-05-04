@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>No Data Template</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="demo-section wide">
+    <div id="chart"></div>
+</div>
+<script>
+    $(document).ready(function () {
+        var dataSource = new kendo.data.DataSource({
+            data: [
+                {
+                    "source": "Hydro",
+                    "percentage": 22,
+                    "explode": true
+                },
+                {
+                    "source": "Solar",
+                    "percentage": 2
+                },
+                {
+                    "source": "Nuclear",
+                    "percentage": 49
+                },
+                {
+                    "source": "Wind",
+                    "percentage": 27
+                }
+            ]
+        });
+
+        $("#chart").kendoChart({
+            title: {
+                text: "Break-up of Spain Electricity Production for 2008"
+            },
+            legend: {
+                position: "bottom"
+            },
+            dataSource: {
+                data: []
+            },
+            series: [{
+                type: "pie",
+                field: "percentage",
+                categoryField: "source",
+                explodeField: "explode"
+            }],
+            noData: {
+                template: () => {
+                    return `<div class="empty-template">
+                                            <p>There is no data to display.</p>
+                                            <button id="button" type="button">Load Data</button>
+                                        </div>`;
+                }
+            },
+            dataBound: function (e) {
+                $("#button").kendoButton({
+                    icon: "arrow-rotate-cw",
+                    click: function () {
+                        e.sender.setDataSource(dataSource);
+                    }
+                })
+            }
+        });
+    });
+</script>
+
+
+</body>
+</html>

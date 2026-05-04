@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>API</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="configurator">
+    <div class="header">Configurator</div>
+    <div class="box-col">
+        <ul class="options">
+            <li>
+                <button id="clear-messages">Clear messages</button>
+            </li>
+            <li>
+                <button id="clear-pinned-messages">Clear Pinned messages</button>
+            </li>
+        </ul>
+    </div>
+    <div class="box-col">
+        <ul class="options">
+            <li>
+                <button id="get-data-item">Get Message Data</button>
+            </li>
+            <li>
+                <button id="get-file-data-item">Get File Data</button>
+            </li>
+        </ul>
+    </div>
+     <div class="box-col">
+        <ul class="options">
+            <li>
+                <button id="get-message-by-uid">Get Message by UID</button>
+            </li>
+            <li>
+                <button id="get-user-id">Get User ID</button>
+            </li>
+        </ul>
+    </div>
+    <div class="box-col">
+        <ul class="options">
+            <li>
+                <button id="update-message">Update Last Message</button>
+            </li>
+            <li>
+                <button id="set-data-source">Set New DataSource</button>
+            </li>
+        </ul>
+    </div>
+    <div class="box-col">
+        <ul class="options">
+            <li>
+                <button id="post-message">Post Message</button>
+            </li>
+            <li>
+                <button id="remove-message">Remove Last Message</button>
+            </li>
+        </ul>
+    </div>
+     <div class="box-col">
+        <ul class="options">
+            <li>
+                <button id="toggle-generating">Toggle Generating</button>
+            </li>
+            <li>
+                <button id="scroll-to-bottom">Scroll to Bottom</button>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="k-d-flex k-justify-content-center">
+    <div id="chat"></div>
+</div>
+
+<script>
+
+    $('#clear-messages').on('click', function() {
+        let chat = $("#chat").data("kendoChat");
+        chat.clearMessages();
+    });
+    $('#clear-pinned-messages').on('click', function() {
+        let chat = $("#chat").data("kendoChat");
+        chat.clearPinnedMessage();
+    });
+    $('#post-message').on('click', function() {
+        let chat = $("#chat").data("kendoChat");
+        const message = {
+            authorId: 3,
+            authorName: "API Demo",
+            authorImageUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/BERGS.jpg",
+            authorImageAltText: "API Demo User",
+            text: "This message was posted via postMessage() API call at " + new Date().toLocaleTimeString(),
+            timestamp: new Date()
+        };
+        const postedMessage = chat.postMessage(message);
+    });
+    $('#scroll-to-bottom').on('click', function() {
+        let chat = $("#chat").data("kendoChat");
+        chat.scrollToBottom();
+    });
+    // Data methods
+    $('#get-data-item').on('click', function() {
+        let chat = $("#chat").data("kendoChat");
+        const messageElements = chat.element.find('.k-message-group .k-message');
+        if (messageElements.length > 0) {
+            const dataItem = chat.dataItem(messageElements.last());
+            kendo.alert('<strong>ID: </strong>' + dataItem.id + '</br><strong>Author: </strong>' + dataItem.authorName + '</br> <strong>Text: </strong>' + dataItem.text);
+        } else {
+            kendo.alert('No messages to get data item from');
+        }
+    });
+    $('#get-file-data-item').on('click', function() {
+        let chat = $("#chat").data("kendoChat");
+        let messageElement = chat.wrapper.find(".k-message").first();
+        let messageData = chat.dataItem(messageElement);
+        const fileElements = chat.element.find('.k-file-box');
+        if (fileElements.length > 0) {
+            const fileDataItem = chat.fileDataItem(messageData, fileElements);
+            kendo.alert('<strong>File name: </strong>' + fileDataItem.name + '</br><strong>Size: </strong>' + fileDataItem.size + '</br><strong>Extension: </strong>' + fileDataItem.extension);
+        } else {
+            kendo.alert('No file elements found');
+        }
+    });
+    $('#get-message-by-uid').on('click', function() {
+        let chat = $("#chat").data("kendoChat");
+        let lastMessageUid = $('.k-message').last().attr('data-uid')
+        if (lastMessageUid) {
+            const message = chat.getMessageByUid(lastMessageUid);
+            kendo.alert('<strong>Last message UID: </strong>' + lastMessageUid + '</br><strong>ID: </strong>' + message.id + '</br><strong>Author: </strong>' + message.authorName + '</br><strong>Text: </strong>' + message.text);
+        } else {
+            kendo.alert('No message UID available. Post a message first.');
+        }
+    });
+    $('#get-user-id').on('click', function() {
+        let chat = $("#chat").data("kendoChat");
+        const userId = chat.getUserId();
+        kendo.alert('<strong>User ID: </strong>' + userId);
+    });
+    // Message manipulation
+    $('#remove-message').on('click', function() {
+        let chat = $("#chat").data("kendoChat");
+        let lastMessageUid = $('.k-message').last();
+        let messageData = chat.dataItem(lastMessageUid);
+        if (lastMessageUid) {
+            const removed = chat.removeMessage(messageData);
+        } else {
+            kendo.alert('No sample message to remove. Post a message first.');
+        }
+    });
+    $('#update-message').on('click', function() {
+        let chat = $("#chat").data("kendoChat");
+        let lastMessageUid = $('.k-message').last();
+        let messageData = chat.dataItem(lastMessageUid);
+        if (messageData) {
+            const updatedData = {
+                ...messageData,
+                text: "UPDATED: " + messageData.text + " (updated at " + new Date().toLocaleTimeString() + ")"
+            };
+            const updatedMessage = chat.updateMessage(messageData, updatedData);
+        } else {
+            kendo.alert('No sample message to update. Post a message first.');
+        }
+    });
+    // State management
+    $('#set-data-source').on('click', function() {
+        let chat = $("#chat").data("kendoChat");
+        const newData = [
+            {
+                id: 1,
+                authorId: 5,
+                authorName: "New DataSource",
+                text: "This is from a new DataSource set via setDataSource()",
+                timestamp: new Date()
+            },
+            {
+                id: 2,
+                authorId: 6,
+                authorName: "Another User",
+                text: "Second message in new DataSource",
+                timestamp: new Date()
+            }
+        ];
+        chat.setDataSource(newData);
+    });
+    $('#toggle-generating').kendoToggleButton({
+        themeColor: 'inverse',
+        size: 'small',
+        click: function(e) {
+            let chat = $("#chat").data("kendoChat");
+            const currentState = chat.element.find('.k-generating').attr('aria-disabled');
+            chat.loading(!chat.loading());
+        },
+    });
+
+    const currentUser = {
+        id: 123,
+        name: "John Doe",
+        iconUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/RICSU.jpg",
+        iconAltText: "John's profile picture"
+    };
+    var chat = $("#chat").kendoChat({
+        fileAttachment: { restrictions: { allowedExtensions: ['.jpg', '.pdf'] } },
+        suggestedActionsScrollable: true,
+        suggestionsScrollable: true,
+        messageWidthMode: "standard",
+        height: 600,
+        headerItems: [{
+            type: "contentItem",
+            template: () => "<strong>John's chat</strong>"
+        }],
+        fileActions: [],
+        suggestions: [
+            { text: "Learn more about the company" },
+            { text: "No need for further assistance" }
+        ],
+        authorId: 123,
+        dataSource: {
+            data: [
+                {
+                    id: 2,
+                    authorId: 2,
+                    authorName: "Peter Smith",
+                    authorImageUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/GOURL.jpg",
+                    authorImageAltText: "Peter's profile picture",
+                    text: "Hi there! Welcome to our Careers Portal. I see you're interested in the Designer position. Could you please upload your application documents (CV, portfolio and cover letter) so we can get started? Below you will also find a CV template file",
+                    timestamp: new Date(),
+                    isPinned: true,
+                    files: [{
+                        name: "CV.pdf",
+                        size: 5315153,
+                        extension: "pdf",
+                        url: "http://127.0.0.1:5500/demos/core/wwwroot/content/chat/CV.pdf"
+                    }],
+                },
+            ]
+        },
+        sendMessage: function(e) {
+            e.message.authorId = 123;
+            e.message.authorName = currentUser.name;
+            e.message.authorImageUrl = currentUser.iconUrl;
+            e.message.authorImageAltText = currentUser.iconAltText;
+            let text = '';
+            let file = {};
+            if (e.message.files.length > 0) {
+                setTimeout(function() {
+                    e.sender.postMessage({
+                        authorId: 2,
+                        authorName: "Peter Smith",
+                        authorImageUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/GOURL.jpg",
+                        authorImageAltText: "Peter's profile picture",
+                        text: "Great! Your application has been successfully submitted. Our hiring team will review your files and get back to you within 5-7 business days. In the meantime, let me know what else would you like.",
+                        timestamp: new Date()
+                    });
+                }, 500)
+            } else {
+                if (e.message.text.toLowerCase().trim() === 'learn more about the company') {
+                    text = "Thank you for your interest! To learn more about our company and the services we offer, please visit the following links: https://www.youtube.com/watch?v=VX919tM3Zck https://www.progress.com/company";
+                } else if (e.message.text.toLowerCase().trim() === 'no need for further assistance') {
+                    text = "Understood. Good luck with your application. I'm here if you need anything else in the future.";
+                } else {
+                    text = "Please select a quick reply.";
+                }
+                setTimeout(function() {
+                    const messages = [];
+                    // Push main message
+                    messages.push({
+                        authorId: 2,
+                        authorName: "Peter Smith",
+                        authorImageUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/GOURL.jpg",
+                        authorImageAltText: "Peter's profile picture",
+                        text: text,
+                        timestamp: new Date()
+                    });
+                    // Push file message if exists
+                    if (file.hasOwnProperty('name')) {
+                        messages.push({
+                            authorId: 2,
+                            authorName: "Peter Smith",
+                            authorImageUrl: "https://demos.telerik.com/kendo-ui/content/web/Customers/GOURL.jpg",
+                            authorImageAltText: "Peter's profile picture",
+                            timestamp: new Date(),
+                            files: [file]
+                        });
+                    }
+                    sendMessagesSequentially(e.sender, messages);
+                }, 200)
+            }
+        }
+    }).data("kendoChat");
+
+    $(document.body).keydown(function(e) {
+        if (e.altKey && e.keyCode === 87 /* w */) {
+            $("#chat").focus();
+        }
+    });
+    function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    async function sendMessagesSequentially(sender, messages) {
+        for (const msg of messages) {
+            sender.postMessage(msg);
+            await delay(300); // Adjust delay as needed
+        }
+    }
+</script>
+
+<style>
+    .k-dialog-content {
+        max-width: 400px;
+        min-width: 250px;
+    }
+   .options button{
+     width: 170px;
+   }
+   #toggle-generating.k-selected{
+    color: var(--kendo-color-on-primary-active);
+   }
+   .k-chat{
+            max-width: 400px;
+        }
+</style>
+
+</body>
+</html>

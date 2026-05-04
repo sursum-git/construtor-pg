@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Toolbar Template</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+    <div id="example">
+      <h4>Toolbar Template as a Function</h4>
+      <div id="treelist-function-template"></div>
+
+      <h4>Custom Button as a Toolbar Template</h4>
+      <div id="treelist-button-template"></div>
+
+      <script>
+        $(document).ready(function() {
+          var service = "https://demos.telerik.com/service/v2/core";
+
+          let treelistFunctionTemplate = $("#treelist-function-template").kendoTreeList({
+            dataSource: {
+              transport: {
+                read: {
+                  url: service + "/EmployeeDirectory/All"
+                }
+              },
+              schema: {
+                model: {
+                  id: "EmployeeID",
+                  parentId: "ReportsTo",
+                  fields: {
+                    ReportsTo: { field: "ReportsTo",  nullable: true },
+                    EmployeeID: { field: "EmployeeId", type: "number" },
+                    Extension: { field: "Extension", type: "number" }
+                  },
+                  expanded: true
+                }
+              },
+              pageSize: 20
+            },
+            toolbar: [ { template: () => `<button id="refresh"></button>
+         								  <span class="k-spacer"></span>
+         								  <div class="toolbar">
+            								<label class="position-label" for="position">Filter by position:</label>
+              								<input type="search" id="position" style="width: 150px"/>
+        								  </div>`}],
+            height: 540,
+            columns: [
+              { field: "FirstName", title: "First Name", width: 280 },
+              { field: "LastName", title: "Last Name", width: 220 },
+              { field: "Position", width: 260 },
+              { field: "Address" }
+            ]
+          });
+
+          $("#refresh").kendoButton({
+            icon: "arrow-rotate-cw",
+            click: function() {
+              treelistFunctionTemplate.data("kendoTreeList").dataSource.read();
+            }
+          });
+
+          var dropDown = treelistFunctionTemplate.find("#position").kendoDropDownList({
+            optionLabel: "All",
+            dataSource: ['CEO', 'Chief Technical Officer', 'Chief Product Officer', 'VP, Engineering', 'Chief Process Officer', 'Team Lead', 'Director, Engineering', 'Junior Software Developer', 'Software Developer', 'Technical Lead', 'QA Engineer', 'Junior QA Engineer', 'Support Officer', 'Senior Enterprise Support Officer'],
+            change: function() {
+              var value = this.value();
+              if (value) {
+                treelistFunctionTemplate.data("kendoTreeList").dataSource.filter({ field: "Position", operator: "eq", value: value });
+              } else {
+                treelistFunctionTemplate.data("kendoTreeList").dataSource.filter({});
+              }
+            }
+          });
+
+          let treelistButtonTemplate = $("#treelist-button-template").kendoTreeList({
+            dataSource: {
+              transport: {
+                read: {
+                  url: service + "/EmployeeDirectory/All",
+                  
+                }
+              },
+              schema: {
+                model: {
+                  id: "EmployeeID",
+                  parentId: "ReportsTo",
+                  fields: {
+                    ReportsTo: { field: "ReportsTo",  nullable: true },
+                    EmployeeID: { field: "EmployeeId", type: "number" },
+                    Extension: { field: "Extension", type: "number" }
+                  },
+                  expanded: true
+                }
+              },
+              pageSize: 20
+            },
+            toolbar: () => `<button id='refresh-button'>Refresh</button>`,
+            height: 540,
+            columns: [
+              { field: "FirstName", title: "First Name", width: 280 },
+              { field: "LastName", title: "Last Name", width: 220 },
+              { field: "Position", width: 260 },
+              { field: "Address" }
+            ]
+          });
+
+          $("#refresh-button").kendoButton({
+            icon: "arrow-rotate-cw",
+            click: function() {
+              treelistButtonTemplate.data("kendoTreeList").dataSource.read();
+            }
+          });
+
+        });
+
+      </script>
+      <style>
+        .k-toolbar-item {
+          width: 100%;
+        }
+        .k-grid-toolbar
+        {
+          padding: .6em 1.3em .6em .4em;
+        }
+      </style>
+</div>
+</body>
+</html>

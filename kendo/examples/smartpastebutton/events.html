@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Events</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<link href="../content/smartpaste/smartpastebuttonstyles.css" rel="stylesheet" />
+@{
+    var fontIconsUrl = "https://unpkg.com/@progress/kendo-font-icons/dist/index.css";
+}
+<link rel="stylesheet" href="@fontIconsUrl" />
+
+<div id="example">
+    <div class="demo-section k-justify-content-center">
+        <div class="smartpaste-container" id="smartPasteContainer">
+
+            <div class="sample-data-card">
+                <div class="sample-title">Sample Data to Copy</div>
+
+                <div class="sample-box" id="chatContent">
+                    <pre>
+Alice Johnson
+Email: alice.johnson@company.com
+Phone: +1 (555) 987–6543
+                </pre>
+                </div>
+
+                <button id="copyButton">Copy</button>
+            </div>
+
+            <div class="form-wrapper">
+                <div id="loader"></div>
+                <form id="responsiveForm"></form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+
+        $("#copyButton").kendoButton({
+            themeColor: "base",
+            fillMode: "flat",
+            icon: "copy",
+            click: onClick
+        });
+
+        $("#loader").kendoLoader({
+            size: "large",
+            type: "converging-spinner",
+            visible: false
+        });
+
+        $("#responsiveForm").kendoForm({
+            orientation: "vertical",
+            validatable: {
+                validationSummary: false
+            },
+            buttonsTemplate:
+                "<button id='clearButton' type='reset' onclick='onClear()' " +
+                "data-role='button' class='k-button k-button-md k-rounded-md k-button-flat k-button-flat-base' " +
+                "role='button' aria-disabled='false' tabindex='0'>" +
+                "<span class='k-icon k-font-icon k-i-arrow-rotate-ccw'></span>" +
+                "</button>",
+            items: [
+                {
+                    field: "FullName",
+                    label: "Full Name",
+                    editor: "TextBox",
+                    editorOptions: {
+                        placeholder: "e.g. John Doe"
+                    }
+                },
+                {
+                    field: "Email",
+                    label: "Email",
+                    editor: "TextBox",
+                    editorOptions: {
+                        placeholder: "e.g. john.doe@company.com"
+                    }
+                },
+                {
+                    field: "Phone",
+                    label: "Phone Number",
+                    editor: "MaskedTextBox",
+                    editorOptions: {
+                        mask: "(000) 000-00-00"
+                    },
+                    attributes: {
+                        placeholder: "e.g. XXXXXXXX"
+                    }
+                }
+            ],
+            smartPaste: {
+                text: "Smart Paste",
+                service: "https://demos.telerik.com/service/v2/ai/smartpaste/smartpaste",
+                requestStart: onRequestStart,
+                requestEnd: onRequestEnd,
+                error: onError
+            }
+        });
+
+    });
+
+    function onClick(e) {
+        const element = document.getElementById("chatContent");
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        navigator.clipboard.writeText(selection.toString());
+        $(e.sender.element).find(".k-button-text").text("Text Copied");
+    }
+
+    function onRequestStart() {
+        $("#loader").data("kendoLoader").show();
+        $("#copyButton").find(".k-button-text").text("Copy");
+        kendoConsole.log("Request Start");
+        clearSelection();
+    }
+
+    function onRequestEnd() {
+        $("#loader").data("kendoLoader").hide();
+        $("#Phone").blur();
+        kendoConsole.log("Request End");
+    }
+
+    function onError() {
+        kendoConsole.log("Error");
+    }
+
+    function onClear() {
+        $(".k-form-field").removeClass("k-form-field-error");
+        $(".k-input").removeClass("k-invalid");
+        $(".k-invalid-msg").remove();
+        $("#copyButton").find(".k-button-text").text("Copy");
+        clearSelection();
+        $(".k-input").removeClass("k-valid");
+    }
+
+    function clearSelection() {
+        var selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+            selection.removeAllRanges();
+        }
+    }
+</script>
+
+<style>
+    .sample-data-card {
+        width: 284px;
+        border: 1px solid rgba(0,0,0,.08);
+        border-radius: 8px;
+        padding: 16px;
+        background: #ffffff;
+        position: relative;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+        .sample-data-card .k-button {
+            position: absolute;
+            right: 12px;
+            bottom: 12px;
+        }
+
+    .sample-box {
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+
+        .sample-box pre {
+            margin: 0;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #1f1f1f;
+            white-space: pre-wrap;
+        }
+</style>
+
+</body>
+</html>

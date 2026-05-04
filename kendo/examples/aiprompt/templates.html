@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Templates</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="k-d-flex k-justify-content-center" style="width: 600px; margin: auto;">
+    <div class="k-w-full">
+        <div id="aiprompt"></div>
+    </div>
+</div>
+<script>
+    var defaultResponse = 'For real prompt processing, please connect the component to a preferred AI service. You can use one of the items from the "Prompt Suggestions" section in the Prompt View to get a sample result.';
+    var promptData = [
+        {
+            suggestion: "Out of office (contact colleague)",
+            output: `Subject: Out of Office: [Your Name]
+
+                    Dear [Recipient's Name],
+
+                    I am currently out of the office until [Return Date] and won't have access to email. For urgent matters, please contact [Colleague's Name] at [Colleague's Email]. I'll respond to your email upon my return.
+
+                    Thank you,
+                    [Your Name]`
+        },
+        {
+            suggestion: "LinkedIn post for work/life balance and well-being",
+            output: `🌟 Embracing Work/Life Balance for Success 🌟
+
+                    Hello LinkedIn network! 👋 Today, let's talk about a key to our well-being: work/life balance. 🌐⚖️
+
+                    In our fast-paced world, balancing professional and personal life is not just a luxury, it's a necessity for health and productivity. 📈🌿
+
+                    ✨ Key Points ✨
+
+                    Enhances Productivity: Less burnout, more motivation. 🚀
+                    Boosts Creativity: New experiences = fresh ideas. 💡
+                    Improves Health: Mental and physical benefits. 🧘‍♂️
+                    Strengthens Relationships: Quality time matters. 🤝
+                    Let's champion a culture where success and well-being go hand in hand. Share your work/life balance tips below! 👇
+
+                    #WorkLifeBalance #Productivity #WellBeing`
+        }
+    ];
+    $(document).ready(function () {
+        $("#aiprompt").kendoAIPrompt({
+            showOutputRating:false,
+            promptSuggestionItemTemplate: ({ suggestion }) => `<span role="listitem" class="k-suggestion">${suggestion.text}</span>`,
+            activeView: 0,
+            promptRequest: function (ev) {
+
+                const response = promptData.find((s) => s.suggestion === ev.prompt);
+                const output = {
+                    id: kendo.guid(),
+                    output: response !== undefined ? response.output : defaultResponse,
+                    prompt: ev.prompt,
+                    isRetry: ev.isRetry
+                };
+
+                this.addPromptOutput(output);
+                this.activeView(1);
+            },
+            views: [
+                {
+                    type: 'prompt',
+                    promptSuggestions: promptData.map(x => ({  text : x.suggestion }))
+
+                },
+                {
+                    type: 'output',
+                    messages: {
+                        retryButtonText: "Retry from view config"
+                    },
+                },
+                {
+                    name: "custom",
+                    type: 'custom',
+                    buttonText: "Custom View from Options",
+                    viewTemplate: () => "<div><p>Custom View</p></div>",
+                    footerTemplate: () => `<div class="k-actions k-actions-start k-actions-horizontal k-prompt-actions">
+                                    <button ref-custom-button>Click me</button>
+                                </div>`,
+                    initializeComponents: function () {
+                        var that = this;
+
+                        that.element.find("[ref-custom-button]").kendoButton({
+                            click: function (e) {
+                                kendo.alert("Custom button clicked", e);
+                            }
+                        });
+                    }
+                }
+            ]
+        });
+    });
+</script>
+
+<style>
+    .k-d-flex{
+        border-radius: 4px 4px 0 0;
+        box-shadow: 0 0 12px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    .prompt-suggestion-item {
+        cursor: pointer;
+        border: 1px solid #eaeaea;
+        border-radius: 24px;
+        margin: 3px;
+        padding: 0.5rem;
+        transition: transform 0.2s;
+        box-shadow: rgba(149, 157, 165, 0.2) 0px 8px 24px;
+    }
+
+    .prompt-suggestion-item:hover {
+        transform: scale(1.05)
+    }
+</style>
+</body>
+</html>

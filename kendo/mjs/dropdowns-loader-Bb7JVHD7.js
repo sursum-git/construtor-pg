@@ -1,0 +1,10 @@
+/**
+ * Kendo UI v2026.1.212 (http://www.telerik.com/kendo-ui)
+ * Copyright 2026 Progress Software Corporation and/or one of its subsidiaries or affiliates. All rights reserved.
+ *
+ * Kendo UI commercial licenses may be obtained at
+ * http://www.telerik.com/purchase/license-agreement/kendo-ui-complete
+ * If you do not own a commercial license, this file shall be governed by the trial license terms.
+ */
+let e=kendo.jQuery;const t=`k-loading`,n=`k-input-inner`,r=`aria-busy`;function i(){let t=this;t._loading=e(`<span></span>`).addClass(`k-icon k-i-loading k-input-loading-icon`).attr(`role`,`presentation`),t._showBusy=s.bind(t),t._hideBusy=c.bind(t),t._toggleLoader=a.bind(t),t._showBusyHandler=o.bind(t)}function a(r){let i=this,a=i.wrapper.hasClass(t),o=i.wrapper.find(`.k-input-values`),s=i.options.name.toLowerCase()===`multiselect`;if(i._loading)if(r&&!a)if(i.wrapper.addClass(t),i._suffixContainer){let t=i.wrapper.find(`.k-input-separator`);e(t[t.length-1]).before(i._loading)}else if(i._arrow)i._arrow.before(i._loading);else if(o.length>0&&s)i._loading.insertAfter(o);else{let e=i.element.hasClass(n)?i.element:i.wrapper.find(`.${n}`);i._loading.insertAfter(e)}else a&&(i.wrapper.removeClass(t),i._loading.remove())}function o(){let e=this;e._focused?e._focused.attr(r,!0):(e.element.hasClass(n)?e.element:e.wrapper.find(`.${n}`)).attr(r,!0),e._toggleLoader(!0),e._hideClear()}function s(e){let t=this;e&&e.isDefaultPrevented()||(t._request=!0,!t._busy&&(t._busy=setTimeout(t._showBusyHandler,100)))}function c(){let e=this;clearTimeout(e._busy),e._toggleLoader(!1),e._busy=null,e._request&&=!1,e._focused?e._focused.attr(r,!1):(e.element.hasClass(n)?e.element:e.wrapper.find(`.${n}`)).attr(r,!0),e._toggleCloseVisibility?e._toggleCloseVisibility():e._showClear()}export{i as t};
+//# sourceMappingURL=dropdowns-loader-Bb7JVHD7.js.map

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Appearance</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+    <div class="configurator">
+        <div class="header">Configurator</div>
+
+        <div class="box-col">
+            <ul class="options">
+                <li>
+                    <h4>Size</h4>
+                    <input id="size" />
+                </li>
+            </ul>
+        </div>
+
+        <div class="box-col">
+            <ul class="options">
+                <li>
+                    <h4>Theme Color</h4>
+                    <input id="themeColor" />
+                </li>
+            </ul>
+        </div>
+
+        <div class="box-col">
+            <ul class="options">
+                <li>
+                    <h4>Fill Mode</h4>
+                    <input id="fillMode" />
+                </li>
+            </ul>
+        </div>
+
+        <div class="box-col">
+            <ul class="options">
+                <li>
+                    <h4>Border Radius</h4>
+                    <input id="rounded" />
+                </li>
+            </ul>
+        </div>
+
+        <div class="box-col">
+            <ul class="options">
+                <li>
+                    <h4>Icon</h4>
+                    <input id="icon" />
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="k-d-flex k-justify-content-center" style="padding-top: 54px;">
+        <button id="smartPasteButton">Smart Paste</button>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+
+        $("#smartPasteButton").kendoSmartPasteButton({
+            service: "https://demos.telerik.com/service/v2/ai/smartpaste/smartpaste"
+        });
+
+        $("#size").kendoDropDownList({
+            dataTextField: "text",
+            dataValueField: "value",
+            value: "medium",
+            change: onChange,
+            dataSource: [
+                { text: "Small", value: "small" },
+                { text: "Medium", value: "medium" },
+                { text: "Large", value: "large" },
+                { text: "None", value: "none" }
+            ]
+        });
+
+        $("#themeColor").kendoDropDownList({
+            dataTextField: "text",
+            dataValueField: "value",
+            value: "base",
+            change: onChange,
+            dataSource: [
+                { text: "Base", value: "base" },
+                { text: "Primary", value: "primary" },
+                { text: "Secondary", value: "secondary" },
+                { text: "Tertiary", value: "tertiary" },
+                { text: "Info", value: "info" },
+                { text: "Success", value: "success" },
+                { text: "Warning", value: "warning" },
+                { text: "Error", value: "error" },
+                { text: "Dark", value: "dark" },
+                { text: "Light", value: "light" },
+                { text: "Inverse", value: "inverse" }
+            ]
+        });
+
+        $("#rounded").kendoDropDownList({
+            dataTextField: "text",
+            dataValueField: "value",
+            value: "medium",
+            change: onChange,
+            dataSource: [
+                { text: "Small", value: "small" },
+                { text: "Medium", value: "medium" },
+                { text: "Large", value: "large" },
+                { text: "Full", value: "full" },
+                { text: "None", value: "none" }
+            ]
+        });
+
+        $("#fillMode").kendoDropDownList({
+            dataTextField: "text",
+            dataValueField: "value",
+            value: "solid",
+            change: onChange,
+            dataSource: [
+                { text: "Solid", value: "solid" },
+                { text: "Outline", value: "outline" },
+                { text: "Flat", value: "flat" },
+                { text: "Link", value: "link" },
+                { text: "Clear", value: "clear" },
+                { text: "None", value: "none" }
+            ]
+        });
+
+        $("#icon").kendoDropDownList({
+            dataTextField: "text",
+            dataValueField: "value",
+            value: "paste-sparkle",
+            change: onChange,
+            dataSource: [
+                { text: "Smart Paste", value: "paste-sparkle" },
+                { text: "Mic", value: "microphone-outline" },
+                { text: "Undo", value: "undo" },
+                { text: "Copy", value: "copy" },
+                { text: "Headset", value: "headset" }
+            ]
+        });
+
+        function onChange() {
+            var options = {
+                size: $("#size").data("kendoDropDownList").value(),
+                themeColor: $("#themeColor").data("kendoDropDownList").value(),
+                rounded: $("#rounded").data("kendoDropDownList").value(),
+                fillMode: $("#fillMode").data("kendoDropDownList").value(),
+                icon: $("#icon").data("kendoDropDownList").value()
+            };
+
+            $("#smartPasteButton")
+                .data("kendoSmartPasteButton")
+                .setOptions(options);
+        }
+
+    });
+</script>
+
+<style>
+    .k-picker.k-dropdownlist {
+        width: 140px;
+    }
+</style>
+
+</body>
+</html>

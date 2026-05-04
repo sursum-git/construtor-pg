@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Virtualization</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+		<div class="k-d-flex k-justify-content-center" style="padding-top: 54px;">
+			<div class="k-w-300">
+				<label for="orders">Orders</label>
+				<input id="orders" />
+			</div>
+		</div>
+
+            <script>
+                $(document).ready(function() {
+                    $("#orders").kendoMultiColumnComboBox({
+                        dataTextField: "ShipName",
+                        dataValueField: "OrderID",
+                        filter: "startswith",
+                        columns: [
+                            { field: "OrderID", title: "Order", width: 100 },
+                            { field: "ShipName", title: "Ship", width: 300 },
+                            { field: "ShipCountry", title: "Country", width: 200 }
+                        ],
+                        virtual: {
+                            itemHeight: 33,
+                            valueMapper: function(options) {
+                                $.ajax({
+                                    url: "https://demos.telerik.com/service/v2/core/Orders/ValueMapper",
+                                    type: "GET",
+                                    data: convertValues(options.value),
+                                    success: function (data) {
+                                        options.success(data);
+                                    }
+                                })
+                            }
+                        },
+                        height: 660,
+                        dataSource: {
+                            type: "odata-v4",
+                            transport: {
+                                read: "https://demos.telerik.com/service/v2/odata/Orders"
+                            },
+                            schema: {
+                                model: {
+                                    fields: {
+                                        OrderID: { type: "number" },
+                                        Freight: { type: "number" },
+                                        ShipName: { type: "string" },
+                                        OrderDate: { type: "date" },
+                                        ShipCity: { type: "string" }
+                                    }
+                                }
+                            },
+                            pageSize: 80,
+                            serverPaging: true,
+                            serverFiltering: true
+                        }
+                    });
+                });
+
+                function convertValues(value) {
+                    var data = {};
+
+                    value = Array.isArray(value) ? value : [value];
+
+                    for (var idx = 0; idx < value.length; idx++) {
+                        data["values[" + idx + "]"] = value[idx];
+                    }
+
+                    return data;
+                }
+            </script>
+
+            <style>
+                .k-list-ul .k-table-row.k-focus {
+                    box-shadow: inset 0 0 0 2px var(--kendo-color-border-alt, rgba(0, 0, 0, 0.16));
+                }
+                .k-list-ul .k-table-row.k-selected {
+                    background-color: color-mix(in srgb, var(--kendo-color-primary, #1274AC) 25%, transparent);
+                }
+                .k-list-ul .k-table-row.k-hover {
+                    background-color: color-mix(in srgb, var(--kendo-color-on-app-surface, #424242) 11%, transparent);
+                }
+            </style>
+</body>
+</html>

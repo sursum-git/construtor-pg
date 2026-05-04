@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Keyboard Navigation</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<button id="open-wizard">Open Chart Wizard</button>
+<div id="container">
+    <div id="chartwizard"></div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        var chartwizard = $("#chartwizard").kendoChartWizard({
+            dataSource: [
+                [
+                    { field: 'Product Name', value: 'Calzone' },
+                    { field: 'Quantity', value: 1 },
+                    { field: 'Price', value: 12.39 },
+                    { field: 'Tax', value: 2.48 },
+                    { field: 'Total', value: 14.87 }
+                ],
+                [
+                    { field: 'Product Name', value: 'Margarita' },
+                    { field: 'Quantity', value: 2 },
+                    { field: 'Price', value: 8.79 },
+                    { field: 'Tax', value: 3.52 },
+                    { field: 'Total', value: 21.1 }
+                ],
+                [
+                    { field: 'Product Name', value: 'Pollo Formaggio' },
+                    { field: 'Quantity', value: 1 },
+                    { field: 'Price', value: 13.99 },
+                    { field: 'Tax', value: 2.8 },
+                    { field: 'Total', value: 16.79 }
+                ]
+            ],
+            defaultState: {
+                seriesType: 'column',
+            },
+            window: {
+                modal: false,
+                draggable: {
+                    containment: "#container"
+                },
+            },
+            close: function(){
+                $('#open-wizard').data('kendoButton').enable(true)
+            }
+        }).data("kendoChartWizard");
+
+         $('#open-wizard').kendoButton({
+            icon: 'chart-column-clustered',
+            click: function(e){
+                chartwizard.open()
+                e.sender.enable(false)
+            },
+            enable: false
+        })
+
+        
+    });
+
+    $(document).keydown(function (e) {
+        if (e.altKey && e.keyCode === 87) {
+            $(".k-chart-wizard").focus();
+        }
+    });
+</script>
+
+<style>
+    #container {
+        min-height: 700px;
+        width: 100%;
+        position: relative;
+    }
+
+    .k-window.k-chart-wizard{
+        z-index: 1000 !important;
+    }
+</style>
+</body>
+</html>

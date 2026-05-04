@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Prefix and Suffix</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="k-d-flex k-justify-content-center" style="padding-top: 100px;">
+    <div class="k-w-300">
+        <textarea id="comment"></textarea>
+        <textarea id="comment-vertical"></textarea>
+    </div>
+</div>
+<script>
+    $("#comment").kendoTextArea({
+        placeholder: "Add comment...",
+        prefixOptions: {
+            template: () => `${kendo.ui.icon("plus")}${kendo.ui.icon("comment")}`
+        },
+        suffixOptions: {
+            template: () => `${kendo.ui.icon("volume-up")}`
+        },
+        rows: 5,
+        layoutFlow: "horizontal",
+    });
+
+     $("#comment-vertical").kendoTextArea({
+        placeholder: "Add comment...",
+        prefixOptions: {
+            template: () => `${kendo.ui.icon("plus")}${kendo.ui.icon("comment")}`
+        },
+        suffixOptions: {
+            template: () => `${kendo.ui.icon("volume-up")}`
+        },
+        rows: 5,
+        layoutFlow: "vertical",
+    });
+</script>
+
+</body>
+</html>

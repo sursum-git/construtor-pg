@@ -1,0 +1,82 @@
+/**
+ * Kendo UI v2026.1.212 (http://www.telerik.com/kendo-ui)
+ * Copyright 2026 Progress Software Corporation and/or one of its subsidiaries or affiliates. All rights reserved.
+ *
+ * Kendo UI commercial licenses may be obtained at
+ * http://www.telerik.com/purchase/license-agreement/kendo-ui-complete
+ * If you do not own a commercial license, this file shall be governed by the trial license terms.
+ */
+
+export const __meta__ = {
+    id: "ripplecontainer",
+    name: "RippleContainer",
+    category: "web",
+    depends: [ "core" ]
+};
+
+import { register } from "@progress/kendo-ripple";
+
+(function($, undefined) {
+    var kendo = window.kendo,
+        ui = kendo.ui,
+        Widget = ui.Widget,
+        extend = $.extend;
+
+    var RippleContainer = Widget.extend({
+        init: function(element, options) {
+            var that = this;
+
+            Widget.fn.init.call(that, element);
+
+            element = that.wrapper = that.element;
+
+            element.addClass("k-ripple-container");
+
+            that.options = extend({}, that.options, options);
+
+            that.registerListeners();
+        },
+
+        options: {
+            name: "RippleContainer",
+            elements: [
+                { selector: ".k-button:not(li)" },
+                { selector: ".k-list-ul > .k-list-item", options: { global: true } },
+                { selector: ".k-checkbox-label, .k-radio-label" },
+                {
+                    selector: ".k-checkbox, .k-radio",
+                    options: {
+                        events: [ "focusin", "animationend", "click"]
+                    }
+                }
+            ]
+        },
+
+        removeListeners: function() {},
+
+        registerListeners: function() {
+            var that = this;
+            var root = that.element[0];
+            var elements = that.options.elements;
+
+            that.removeListeners();
+
+            var callback = register(root, elements);
+
+            that.removeListeners = callback;
+        },
+
+        destroy: function() {
+            var that = this;
+
+            Widget.fn.destroy.call(that);
+
+            that.removeListeners();
+        }
+    });
+
+    ui.plugin(RippleContainer);
+
+})(window.kendo.jQuery);
+export default kendo;
+

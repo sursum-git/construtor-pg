@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Remote Data Binding</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<button id="open-wizard">Open Chart Wizard</button>
+<div id="container">
+    <div id="chartwizard"></div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        var chartwizard = $("#chartwizard").kendoChartWizard({
+            dataSource: {
+                transport: {
+                    read: {
+                        url: "../content/shared/js/wizard-products.json",
+                        dataType: "json"
+                    }
+                }
+            },
+            defaultState: {
+                seriesType: 'column',
+            },
+            window: {
+                modal: false,
+                draggable: {
+                    containment: "#container"
+                },
+            },
+            close: function(){
+                $('#open-wizard').data('kendoButton').enable(true)
+            }
+        }).data("kendoChartWizard");
+
+         $('#open-wizard').kendoButton({
+            icon: 'chart-column-clustered',
+            click: function(e){
+                chartwizard.open()
+                e.sender.enable(false)
+            },
+            enable: false
+        })
+    });
+</script>
+
+<style>
+    #container {
+        min-height: 700px;
+        width: 100%;
+        position: relative;
+    }
+</style>
+</body>
+</html>

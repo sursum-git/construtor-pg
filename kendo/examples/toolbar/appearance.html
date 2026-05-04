@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Appearance</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+    <div class="configurator">
+        <div class="header">Configurator</div>
+        <div class="box-col">
+            <h4>Tools Size:</h4>
+            <input id="toolSize" />
+        </div>
+        <div class="box-col">
+            <h4>Mode:</h4>
+            <input id="mode" />
+        </div>
+        <div class="box-col">
+            <h4>Buttons Positon:</h4>
+            <input id="position" />
+        </div>
+        <div class="box-col">
+            <h4>Buttons Visibility:</h4>
+            <input id="visibility" />
+        </div>
+        <div class="box-col">
+            <h4>Scroll Distance:</h4>
+            <input id="scrollDistance" />
+        </div>
+    </div>
+
+    <span id="undo" style="display:none" class="k-button">Click here to open the window.</span>
+
+    <div id="window">
+        <div id="toolbar"></div>
+        <div id="content">
+            <div class="demo-section">
+                <ul>
+                    <li>
+                        <label>To:</label>
+                        <span class="k-textbox k-input" style="width: 80%;">
+                            <input id="to" type="text" class="k-input-inner" />
+                        </span>
+                    </li>
+                    <li>
+                        <label>Title:</label>
+                        <span class="k-textbox k-input" style="width: 80%;">
+                            <input id="title" type="text" class="k-input-inner" />
+                        </span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <script>
+        $(document).ready(function () {
+            $("#window").kendoWindow({
+                resizable: true,
+                width: 890,
+                height: 300,
+                minHeight: 280,
+                minWidth: 430,
+                maxWidth: 1200,
+                title: "Message",
+                close: function () {
+                    $("#undo").show();
+                }
+            });
+
+            $("#undo").bind("click", function () {
+                $("#window").data("kendoWindow").open();
+                $("#undo").hide();
+            });
+
+            $('#toolSize').kendoDropDownList({
+                dataSource: ["small", "medium", "large"],
+                value: "medium",
+                change: onChange
+            });
+
+            $('#position').kendoDropDownList({
+                dataSource: ["start", "split", "end"],
+                change: onChange
+            });
+
+            $('#visibility').kendoDropDownList({
+                dataSource: ["auto", "visible", "hidden"],
+                change: onChange
+            });
+
+            $('#mode').kendoDropDownList({
+                dataSource: ["menu", "scroll", "section"],
+                value: "scroll",
+                change: onChange
+            });
+
+            $('#scrollDistance').kendoNumericTextBox({
+                value: 50,
+                step: 10,
+                min: 10,
+                max: 200,
+                change: onChange
+            });
+
+            let toolbar = $("#toolbar").kendoToolBar({
+                overflow: {
+                    mode: "scroll"
+                },
+                items: [
+                    {
+                        template: "<img alt='Kendo UI for jQuery ToolBar User' src='../content/web/toolbar/user.png' class='user-image' />",
+                        overflow: "never"
+                    },
+                    { type: "button", text: "Send", overflow: "never" },
+                    { type: "button", text: "Discard", overflow: "never" },
+                    {
+                        type: "splitButton",
+                        imageUrl: "../content/web/toolbar/save.png",
+                        text: "Save",
+                        menuButtons: [
+                            { imageUrl: "../content/web/toolbar/save.png", text: "Save as" },
+                            { imageUrl: "../content/web/toolbar/upload.png", text: "Upload to drive" }
+                        ]
+                    },
+                    {
+                        type: "splitButton",
+                        imageUrl: "../content/web/toolbar/reply.png",
+                        text: "Reply",
+                        menuButtons: [
+                            { imageUrl: "../content/web/toolbar/save.png", text: "Reply All" },
+                            { imageUrl: "../content/web/toolbar/forward.png", text: "Forward" },
+                            { imageUrl: "../content/web/toolbar/reply.png", text: "Reply & Delete" }
+                        ]
+                    },
+                    { type: "button", text: "Close", icon: "x", overflow: "never" },
+                    {
+                        template: "<span><input id='contacts' style='width: 180px;' /></span>",
+                        overflow: "never"
+                    },
+                    {
+                        type: "buttonGroup",
+                        buttons: [
+                            { imageUrl: "../content/web/toolbar/done.png", text: "Done", togglable: true, group: "category" },
+                            { imageUrl: "../content/web/toolbar/todo.png", text: "To Do", togglable: true, group: "category" },
+                            { imageUrl: "../content/web/toolbar/important.png", text: "Important", togglable: true, group: "category" }
+                        ]
+                    }
+                ]
+            }).data("kendoToolBar");
+            initializeContactsDropDown();
+
+            function onChange() {
+                if (toolbar) {
+                    let toolbarOptions = toolbar.options;
+                    let overflowOptions = {
+                        overflow: {
+                            scrollButtonsPosition: $('#position').data('kendoDropDownList').value(),
+                            scrollButtons: $('#visibility').data('kendoDropDownList').value(),
+                            mode: $('#mode').data('kendoDropDownList').value(),
+                            scrollDistance: $('#scrollDistance').data('kendoNumericTextBox').value()
+                        }
+                    }
+                    let size = { size: $('#toolSize').data('kendoDropDownList').value() }
+                    toolbar.destroy();
+                    $("#toolbar").replaceWith('<div id="toolbar"></div>');
+                    $.extend(toolbarOptions, overflowOptions, size);
+                    $("#toolbar").kendoToolBar(toolbarOptions);
+
+                    var isScrollMode = $('#mode').data().kendoDropDownList.value() == "scroll";
+                    $('#visibility').data().kendoDropDownList.enable(isScrollMode);
+                    $('#position').data().kendoDropDownList.enable(isScrollMode);
+                    $('#scrollDistance').data().kendoNumericTextBox.enable(isScrollMode);
+
+                    initializeContactsDropDown();
+                }
+            }
+
+            function initializeContactsDropDown() {
+                $("#contacts").kendoDropDownList({
+                    optionLabel: "Choose a contact...",
+                    dataTextField: "text",
+                    dataValueField: "value",
+                    size: $('#toolSize').data('kendoDropDownList').value(),
+                    value: 2,
+                    size: $('#toolSize').data('kendoDropDownList').value(),
+                    dataSource: [
+                        { text: "Ana Trujillo", value: 1 },
+                        { text: "Antonio Moreno", value: 2 },
+                        { text: "Christina Berglund", value: 3 },
+                        { text: "Felipe Izquierdo", value: 4 }
+                    ]
+                });
+            }
+        });
+    </script>
+
+    <style>
+        div.k-window {
+            z-index: 0;
+            padding: 0;
+        }
+        #toolbar {
+            border-width: 0 0 1px;
+        }
+        .user-image {
+            margin: 0 .5em;
+        }
+        #example {
+            height: 500px;
+        }
+            #example .box p {
+                padding-bottom: 5px;
+            }
+        #content .demo-section {
+            margin: 0;
+            padding: 10px;
+            border-width: 0 0 1px 0;
+        }
+            #content .demo-section label {
+                display: inline-block;
+                width: 40px;
+                text-align: right;
+                line-height: 2.5em;
+                vertical-align: middle;
+            }
+            #content .demo-section input {
+                width: 80%;
+            }
+    </style>
+
+</div>
+</body>
+</html>

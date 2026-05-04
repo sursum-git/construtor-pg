@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Overview</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+ 
+    <div id="diagram"></div> 
+    <script>
+        const shapes = [
+               {
+                   id: 'board',
+                   firstName: 'Jane',
+                   lastName: 'Simons',
+                   image: 'jane.png',
+                   title: 'CEO',
+                   colorScheme: '#E0F8F1',
+                   strokeColor: '#A3CFBB',
+               },
+               {
+                   id: 'generalManager',
+                   firstName: 'Liam',
+                   lastName: 'Turner',
+                   image: 'liam.png',
+                   title: 'General Manager',
+                   colorScheme: '#E0F8F1',
+                   strokeColor: '#A3CFBB',
+               },
+               {
+                   id: 'hrManager',
+                   firstName: 'Amelia',
+                   lastName: 'Carter',
+                   image: 'amelia.png',
+                   title: 'HR Director',
+                   colorScheme: '#E2D9F3',
+                   strokeColor: '#C5B3E6',
+               },
+               {
+                   id: 'uxManager',
+                   firstName: 'Noah',
+                   lastName: 'Sullivan',
+                   image: 'noah.png',
+                   title: 'UX Manager',
+                   colorScheme: '#E2D9F3',
+                   strokeColor: '#C5B3E6',
+               },
+               {
+                   id: 'operationsManager',
+                   firstName: 'Zara',
+                   lastName: 'Mitchell',
+                   image: 'zara.png',
+                   title: 'Marketing Manager',
+                   colorScheme: '#E2D9F3',
+                   strokeColor: '#C5B3E6',
+               },
+               {
+                   id: 'marketingManager',
+                   firstName: 'Kapoor',
+                   lastName: 'Chandra',
+                   image: 'kapoor.png',
+                   title: 'HR Manager',
+                   colorScheme: '#CFE2FF',
+                   strokeColor: '#9EC5FE',
+               },
+               {
+                   id: 'financeManager',
+                   firstName: 'Isabella',
+                   lastName: 'Hayes',
+                   image: 'isabella.png',
+                   title: 'UX/UI Design Lead',
+                   colorScheme: '#CFE2FF',
+                   strokeColor: '#9EC5FE',
+               },
+               {
+                   id: 'designSupervisor',
+                   firstName: 'Leo',
+                   lastName: 'Anderson',
+                   image: 'leo.png',
+                   title: 'Marketing Lead',
+                   colorScheme: '#CFE2FF',
+                   strokeColor: '#9EC5FE',
+               },
+               {
+                   id: 'statisticsDepartment',
+                   firstName: 'Sofia',
+                   lastName: 'Bennett',
+                   image: 'sofia.png',
+                   title: 'Recruitment Lead',
+                   colorScheme: '#CFE2FF',
+                   strokeColor: '#9EC5FE',
+               },
+               {
+                   id: 'salesManager',
+                   firstName: 'Mateo',
+                   lastName: 'Brooks',
+                   image: 'mateo.png',
+                   title: 'UX/UI Designer',
+                   colorScheme: '#CFE2FF',
+                   strokeColor: '#9EC5FE',
+               },
+               {
+                   id: 'recruitingTeam',
+                   firstName: 'Elias',
+                   lastName: 'Parker',
+                   image: 'elias.png',
+                   title: 'Senior Copywriter',
+                   colorScheme: '#CFE2FF',
+                   strokeColor: '#9EC5FE',
+               },
+               {
+                   id: 'developmentSupervisor',
+                   firstName: 'Lena',
+                   lastName: 'Robinson',
+                   image: 'lena.png',
+                   title: 'UX/UI Intern',
+                   colorScheme: '#CFE2FF',
+                   strokeColor: '#9EC5FE',
+               },
+           ];
+
+           const connections = [
+               {
+                   from: 'board',
+                   to: 'generalManager',
+                   fromConnector: 'bottom',
+                   toConnector: 'top',
+                   stroke: {
+                       color: 'black',
+                       width: 2,
+                   },
+               },
+               {
+                   from: 'generalManager',
+                   to: 'hrManager',
+                   fromConnector: 'bottom',
+                   toConnector: 'top',
+                   stroke: {
+                       color: 'black',
+                       width: 2,
+                   },
+               },
+               {
+                   from: 'generalManager',
+                   to: 'uxManager',
+                   fromConnector: 'bottom',
+                   toConnector: 'top',
+                   stroke: {
+                       color: 'black',
+                       width: 2,
+                   },
+               },
+               {
+                   from: 'generalManager',
+                   to: 'operationsManager',
+                   fromConnector: 'bottom',
+                   toConnector: 'top',
+                   stroke: {
+                       color: 'black',
+                       width: 2,
+                   },
+               },
+               {
+                   from: 'hrManager',
+                   to: 'marketingManager',
+                   fromConnector: 'bottom',
+                   toConnector: 'top',
+                   stroke: {
+                       color: 'black',
+                       width: 2,
+                   },
+               },
+               {
+                   from: 'uxManager',
+                   to: 'financeManager',
+                   fromConnector: 'bottom',
+                   toConnector: 'top',
+                   stroke: {
+                       color: 'black',
+                       width: 2,
+                   },
+               },
+               {
+                   from: 'operationsManager',
+                   to: 'designSupervisor',
+                   fromConnector: 'bottom',
+                   toConnector: 'top',
+                   stroke: {
+                       color: 'black',
+                       width: 2,
+                   },
+               },
+               {
+                   from: 'marketingManager',
+                   to: 'statisticsDepartment',
+                   fromConnector: 'bottom',
+                   toConnector: 'top',
+                   stroke: {
+                       color: 'black',
+                       width: 2,
+                   },
+               },
+               {
+                   from: 'financeManager',
+                   to: 'salesManager',
+                   fromConnector: 'bottom',
+                   toConnector: 'top',
+                   stroke: {
+                       color: 'black',
+                       width: 2,
+                   },
+               },
+               {
+                   from: 'designSupervisor',
+                   to: 'recruitingTeam',
+                   fromConnector: 'bottom',
+                   toConnector: 'top',
+                   stroke: {
+                       color: 'black',
+                       width: 2,
+                   },
+               },
+               {
+                   from: 'salesManager',
+                   to: 'developmentSupervisor',
+                   fromConnector: 'bottom',
+                   toConnector: 'top',
+                   stroke: {
+                       color: 'black',
+                       width: 2,
+                   },
+               },
+           ];
+
+        function visualTemplate(options) {
+            var dataviz = kendo.dataviz;
+            var g = new dataviz.diagram.Group();
+            var dataItem = options.dataItem;
+
+            g.append(new dataviz.diagram.Process({
+                width: 300,
+                height: 92,
+                stroke: {
+                    width: 1,
+                    color: dataItem.strokeColor,
+                },
+                fill: {
+                    color: dataItem.colorScheme,
+                },
+                cornerRadius: 5,
+            }));
+
+            g.append(new dataviz.diagram.TextBlock({
+                text: dataItem.firstName + ' ' + dataItem.lastName,
+                x: 100,
+                y: 15,
+                fill: '#212529',
+                fontSize: 20,
+                fontFamily: 'Roboto, sans-serif',
+                fontWeight: 500,
+            }));
+
+            g.append(new dataviz.diagram.TextBlock({
+                text: dataItem.title,
+                x: 100,
+                y: 52,
+                fill: '#212529',
+                fontSize: 16,
+                fontFamily: 'Roboto, sans-serif',
+                fontWeight: 400,
+            }));
+
+            g.append(new dataviz.diagram.Image({
+                source: "../content/dataviz/diagram/people/" + dataItem.image,
+                x: 16,
+                y: 12,
+                width: 68,
+                height: 68,
+            }));
+
+            return g;
+        }
+
+        function createDiagram() {
+            $("#diagram").kendoDiagram({
+                editable:false,
+                dataSource: shapes,
+                connectionsDataSource: connections,
+                layout: {
+                   type: 'tree',
+                   subtype: 'down',
+                   horizontalSeparation: 40,
+                   verticalSeparation: 40,
+                   radialFirstLevelSeparation: 150,
+                   radialSeparation: 100,
+                },
+                shapeDefaults: {
+                    visual: visualTemplate
+                }
+            });
+
+            var diagram = $("#diagram").getKendoDiagram();
+            diagram.bringIntoView(diagram.shapes);
+        }
+
+        $(document).ready(createDiagram);
+    </script>
+</div>
+
+</body>
+</html>

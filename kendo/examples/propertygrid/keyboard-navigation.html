@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Keyboard Navigation</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+
+<div class="demo-section wide">
+	<div id="propertyGrid"></div>
+</div>
+
+<script>
+	$(document).ready(function () {
+
+		var items = [
+			{ field: "size", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["small", "medium", "large", "none"] }, description: 'Controls the overall physical size of a button. Default value is "medium".' },
+			{ field: "fillMode", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["solid", "outline", "flat", "link", "clear", "none"] }, description: 'Controls how the color is applied to the button. Default value is "solid".' },
+			{ field: "themeColor", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["base", "primary", "secondary", "tertiart", "info", "warning", "success", "error", "dark", "light", "inverse", "none"] }, description: 'Controls the main color applied to the button.' },
+			{ field: "rounded", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["small", "medium", "large", "full", "none"] }, description: 'Controls what border radius is applied to a button.' },
+			{
+				field: "icon", group: "Kendo UI/Telerik", editor: "DropDownList", editorOptions: { dataSource: ["gear", "star", "folder", "user", "info-circle"] },
+				template: (data) => `${kendo.ui.icon(data.value)}`,
+				description: 'Defines a name of an existing icon in the Kendo UI theme sprite.'
+			},
+			{
+				field: "font",
+				group: "HTML",
+				template: "&nbsp;",
+				items: [
+					{
+						field: "font-weight",
+						editor: "NumericTextBox",
+						editorOptions: {
+							min: 100, max: 900, step: 100
+						},
+						validation: { required: true }
+					},
+					{
+						field: "font-family",
+						editor: "AutoComplete",
+						editorOptions: {
+							dataSource: ["Arial", "Roboto", "Georgia", "Calibri", "Cursive", "Monospace", "Fantasy"]
+						},
+						validation: { required: true }
+					}
+				],
+			}
+		];
+
+		var obj = {
+			size: "medium",
+			themeColor: "base",
+			fillMode: "solid",
+			rounded: "medium",
+			icon: "star",
+			font: {
+				"font-weight": 400,
+				"font-family": "Roboto"
+			}
+		};
+
+		$("#propertyGrid").kendoPropertyGrid({
+			model: obj,
+			items: items,
+			width: '70%',
+			height: 450,
+			columns: {
+				fieldColumn: { width: 200 },
+				valueColumn: { width: 250 },
+			},
+			resizable: true,
+			groupable: true,
+			contextMenu: true,
+			navigatable: true
+		})
+	})
+</script>
+<script>
+	$(document.body).keydown(function (e) {
+		if (e.altKey && e.keyCode == 87) {
+			$("#propertyGrid").data("kendoPropertyGrid").table.focus();
+		}
+	});
+</script>
+<style>
+    #propertyGrid {
+        margin: auto;
+	}
+
+    @media (max-width: 1038px) {
+        #propertyGrid {
+            width: 100%;
+        }
+    }
+</style>
+</body>
+</html>

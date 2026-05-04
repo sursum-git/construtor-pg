@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>MVVM</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="example">
+    <div id="filter"
+         data-role="filter"
+         data-apply-button="true"
+         data-source="viewModel.products"
+         data-bind="events: {
+                    change: change
+                    }">
+    </div>
+    <br />
+    <br />
+    <br />
+    <div data-role="grid"
+         data-pageable="true"
+         data-columns="[
+                           { 'field': 'ProductName', 'width': 270 },
+                           { 'field': 'UnitPrice' },
+                        ]"
+         data-bind="source: products"
+         style="height: 460px">
+    </div>
+    <br />
+    <br />
+    <br />    
+
+    <script>
+        var viewModel = kendo.observable({
+            change: function () {
+                kendoConsole.log("event: change");
+            },
+
+            products: new kendo.data.DataSource({
+                schema: {
+                    model: {
+                        id: "ProductID",
+                        fields: {
+                            ProductName: { type: "string" },
+                            UnitPrice: { type: "number" }
+                        }
+                    }
+                },
+                pageSize: 20,
+                transport: {
+                    read: {
+                        url: "https://demos.telerik.com/service/v2/core/products"
+                    }
+                }
+            })
+        });
+        kendo.bind($("#example"), viewModel);
+    </script>
+</div>
+
+</body>
+</html>

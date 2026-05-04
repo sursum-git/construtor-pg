@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Overview</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="promptbox-demo card-container" style="max-width: 800px; margin: 0 auto; padding: 20px;">
+    <div class="k-card custom-card">
+        <div class="card-column">
+            <div class="k-skeleton k-skeleton-circle" style="width: 40px; height: 40px;"></div>
+            <div class="k-skeleton k-skeleton-circle" style="width: 40px; height: 40px;"></div>
+        </div>
+
+        <div class="custom-card-header" style="display: flex; gap: 10px; padding: 16px; border-bottom: 1px solid #eee;">
+            <div class="k-skeleton k-skeleton-circle" style="width: 40px; height: 40px;"></div>
+            <div class="k-skeleton k-skeleton-circle" style="width: 40px; height: 40px;"></div>
+            <div class="k-skeleton k-skeleton-text" style="width: 120px; height: 20px; align-self: center;"></div>
+        </div>
+
+        <div class="card-content k-p-8 k-w-full">
+            <div class="chat-container">
+                <div class="chat-message user-message">
+                    <div class="message-bubble">
+                        <div class="message-text"></div>
+                    </div>
+                    <div class="avatar user-avatar"></div>
+                </div>
+                <div class="chat-message ai-message">
+                    <div class="avatar ai-avatar"></div>
+                    <div class="message-bubble">
+                        <div class="message-text"></div>
+                    </div>
+                </div>
+                <div class="chat-message user-message">
+                    <div class="message-bubble">
+                        <div class="message-text"></div>
+                    </div>
+                    <div class="avatar user-avatar"></div>
+                </div>
+                <!-- The last message target for typing indicator -->
+                <div class="chat-message ai-message" id="target-message">
+                    <div class="avatar ai-avatar"></div>
+                    <div class="message-bubble">
+                        <div class="message-text" id="target-text"></div>
+                        <!-- Helper container for indicator -->
+                        <div id="target-indicator-container"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="promptbox-container">
+                <input id="promptbox" />
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        // Initialize PromptBox
+        var promptBox = $("#promptbox").kendoPromptBox({
+            mode: "auto",
+            placeholder: "Type a message",
+            input: triggerLoading,
+            fileSelectButton: true,
+            maxTextAreaHeight: 110,
+            startAffixTemplate: function() {
+                return `<button title="Attach file" aria-label="Attach file" ref-promptbox-file-select-button=""
+                                type="button" class="k-button k-button-clear k-icon-button attach-button">
+                                 <span'>`+kendo.ui.icon({ icon: 'paperclip' })+
+                                `</span>
+                            </button>`;
+            }
+        }).data("kendoPromptBox");
+
+        function triggerLoading() {
+            var $container = $("#target-indicator-container");
+            var $text = $("#target-text");
+
+            // HTML for the typing indicator
+            var indicatorHtml =
+                '<div class="typing-indicator">' +
+                    '<span class="dot"></span>' +
+                    '<span class="dot"></span>' +
+                    '<span class="dot"></span>' +
+                '</div>';
+
+            // Hide text, show indicator
+            $text.hide();
+            $container.html(indicatorHtml);
+            $(".chat-container").scrollTop($(".chat-container").height());
+
+            // Simulate delay
+            setTimeout(function () {
+                $container.empty();
+                $text.show();
+            }, 3000);
+        }
+    });
+</script>
+<style>
+    .promptbox-demo.card-container {
+        margin-top: 20px;
+        display: flex;
+        justify-content: center;
+    }
+
+    .promptbox-demo .custom-card-header {
+        min-width: 48px;
+        background-color: var(--kendo-color-base);
+    }
+
+        .promptbox-demo .custom-card-header .k-skeleton {
+            opacity: 0.4;
+        }
+
+    .promptbox-demo .custom-card-header-action {
+        width: 20px;
+        height: 20px;
+    }
+
+    .promptbox-demo .custom-card {
+        width: 712px;
+        height: 460px;
+        border-radius: 4px 4px 0 0;
+        box-shadow: 0 0 12px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    button:not(.attach-button):has(.k-svg-i-paperclip-outline-alt-right) {
+        display: none;
+    }
+
+    .attach-button span.k-svg-i-paperclip {
+        margin-bottom: 3px
+    }
+
+    .card-content {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+        padding-left: 130px;
+        padding-right: 75px;
+    }
+
+    .chat-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 16px 0;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .chat-message {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        animation: fadeIn 0.3s ease-in;
+    }
+
+    .user-message {
+        justify-content: flex-end;
+    }
+
+    .avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 16px;
+    }
+
+    .ai-avatar, .user-avatar, .ai-message .message-bubble, .user-message .message-bubble {
+        background-color: color-mix(in srgb, var(--kendo-color-on-app-surface, #3d3d3d) 10%, transparent);
+    }
+
+    .message-bubble {
+        width: 190px;
+        height: 50px;
+        padding: 12px 16px;
+        border-radius: 12px;
+        word-wrap: break-word;
+    }
+
+        .message-bubble:has(.typing-indicator) {
+            width: 65px;
+            height: auto;
+            padding: 14px 16px;
+        }
+
+    .message-text {
+        line-height: 1.5;
+    }
+
+    .promptbox-container {
+        padding-top: 16px;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+     .custom-card-header {
+          display: none !important;
+     }
+
+     .card-column{
+         width: 72px;
+         padding: 16px;
+         background-color: var(--kendo-color-base);
+         position: absolute;
+         height: 100%;
+     }
+
+     .card-column .k-skeleton-circle{
+            margin-bottom: 15px;
+            opacity: 0.4;
+     }
+
+    @media (max-width: 1060px) {
+          .custom-card-header {
+              display: flex !important;
+         }
+
+         .card-column {
+              display: none;
+         }
+
+         .promptbox-demo .card-content {
+              padding-left: 40px;
+              padding-right: 40px;
+        }
+    }
+
+    @media (max-width: 860px) {
+        .promptbox-demo .custom-card {
+            flex-direction: column !important;
+            width: 359px;
+        }
+
+        .k-skeleton-text{
+            display: none;
+        }
+
+        .promptbox-demo .card-content {
+            padding: 16px;
+            box-sizing: border-box;
+        }
+
+        .custom-card-header {
+            width: 100%;
+            padding: 8px !important;
+        }
+
+        .promptbox-demo .card-actions-container {
+            flex-direction: row;
+            padding: 10px 16px;
+        }
+
+        .promptbox-demo .skeleton-text-large {
+            height: 64px;
+        }
+    }
+
+    .typing-indicator {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 8px 0;
+    }
+
+        .typing-indicator .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #9e9e9e;
+            animation: typingDot 1.4s infinite ease-in-out;
+        }
+
+            .typing-indicator .dot:nth-child(1) {
+                animation-delay: 0s;
+            }
+
+            .typing-indicator .dot:nth-child(2) {
+                animation-delay: 0.2s;
+            }
+
+            .typing-indicator .dot:nth-child(3) {
+                animation-delay: 0.4s;
+            }
+
+    @keyframes typingDot {
+        0%, 60%, 100% {
+            opacity: 0.3;
+            transform: scale(0.8);
+        }
+
+        30% {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+</style>
+
+</body>
+</html>

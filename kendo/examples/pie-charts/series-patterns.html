@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Series Patterns</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div id="chart"></div>
+
+<script>
+    const myPatterns = {
+        verticalStripes: {
+            type: 'verticalStripes',
+            background: 'rgb(75, 96, 250)',
+            width: 1.2,
+            gap: 12
+        },
+        crosshatch: {
+            type: 'crosshatch',
+            background: 'rgb(172, 88, 255)',
+            width: 1.2,
+            gap: 12
+        },
+        diagonalStripes: {
+            type: 'diagonalStripes',
+            background: 'rgb(255, 146, 184)',
+            width: 1.2,
+            gap: 12
+        },
+        grid: {
+            type: 'grid',
+            background: 'rgb(255, 148, 109)',
+            size: 12,
+            gap: 1.2
+        },
+        dots: {
+            type: 'dots',
+            background: 'rgba(255, 255, 99, 0.5)',
+            radius: 7.2,
+            gap: 3.6
+        }
+    };
+
+    $("#chart").kendoChart({
+        title: {
+            text: 'Pie Chart with Patterns'
+        },
+        seriesDefaults: {
+            type: 'pie',
+            overlay: {
+                gradient: 'none'
+            },
+            border: {
+                width: 0
+            }
+        },
+        series: [{
+            type: "pie",
+            data: [
+                {
+                    name: 'Series A',
+                    value: 33,
+                    color: 'rgb(148, 236, 255)',
+                    pattern: myPatterns.verticalStripes
+                },
+                {
+                    name: 'Series B',
+                    value: 22,
+                    color: 'rgb(250, 201, 187)',
+                    pattern: myPatterns.crosshatch
+                },
+                {
+                    name: 'Series C',
+                    value: 20,
+                    color: 'rgb(255, 208, 223)',
+                    pattern: myPatterns.diagonalStripes
+                },
+                {
+                    name: 'Series D',
+                    value: 15,
+                    color: 'rgb(255, 99, 88)',
+                    pattern: myPatterns.grid
+                },
+                {
+                    name: 'Series E',
+                    value: 10,
+                    color: 'rgb(177, 193, 61)',
+                    pattern: myPatterns.dots
+                }]
+        }],
+        legend: {
+            position: "top"
+        },
+    });
+</script>
+</body>
+</html>

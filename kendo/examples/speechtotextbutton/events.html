@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Events</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+
+<div id="example">
+
+    <div class="demo-section">
+        
+        <div class="textarea-pair">
+            <div class="textarea-group">
+                <h4>SpeechToTextButtons</h4>
+                <textarea id="textarea"></textarea>
+            </div>
+
+            <div class="textarea-group">
+                <h4>Disabled SpeechToTextButtons</h4>
+                <textarea id="textareaForDisabledButton"></textarea>
+                <p class="demo-hint">The disabled button will not fire events.</p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        $(document).ready(function () {
+
+            var textArea = $("#textarea").kendoTextArea({
+                rows: 3,
+                rounded: "large",
+                size: "large",
+                value: "Describe a project you worked on that had a strong impact.",
+                suffixOptions: {
+                    template: () => `<div class="description k-ml-xs">Click the mic to speak</div> <button id="speechButton" class="k-mr-xs"></button>`
+                }
+            }).data("kendoTextArea");
+
+            $("#textareaForDisabledButton").kendoTextArea({
+                rows: 3,
+                rounded: "large",
+                size: "large",
+                value: "Describe a project you worked on that had a strong impact.",
+                suffixOptions: {
+                    template: () => `<div class="descriptionForDisabledButton k-ml-xs">Disabled</div> <button id="disabledSpeechButton" class="k-mr-xs"></button>`
+                }
+            });
+
+            $("#speechButton").kendoSpeechToTextButton({
+                fillMode: "flat",
+                start: onStart,
+                end: onEnd,
+                result: onResult,
+                error: onError
+            });
+
+            $("#disabledSpeechButton").kendoSpeechToTextButton({
+                enable: false
+            });
+
+            function onStart() {
+                $(".description").text("Listening...");
+                kendoConsole.log("event :: start")
+            }
+
+            function onEnd() {
+                $(".description").text("Click the mic to speak");
+                kendoConsole.log("event :: end")
+            }
+
+            var finalTranscript = "";
+            function onResult(e) {
+                let transcript = e.alternatives[0].transcript;
+                $("#textarea").data("kendoTextArea").value(`${transcript}`);
+            }
+
+            function onError(e) {
+                kendoConsole.log("event :: error (" + e.error + ")");
+            }
+        });
+    </script>
+
+    <style>
+        .demo-section {
+            line-height: 4em;
+        }
+
+        .textarea-pair {
+            display: flex; /* Side-by-side layout */
+            gap: 24px; /* Space between columns */
+        }
+
+        .textarea-group {
+            flex: 1; /* Equal width columns */
+            display: flex;
+            flex-direction: column; /* Stack header + textarea vertically */
+            gap: 8px; /* Space between header and textarea */
+        }
+
+        textarea {
+            min-height: 120px; /* Adjust as needed */
+            width: 100%; /* Fill container width */
+            resize: vertical; /* Allow vertical resizing only */
+        }
+
+        .k-input-suffix {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem;
+        }
+    </style>
+</div>
+</body>
+</html>

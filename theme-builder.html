@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor de Tema CRUD Engine</title>
+  <link id="kendo-theme-link" rel="stylesheet" href="kendo/styles/default-blue.css">
+  <link rel="stylesheet" href="src/styles/crud-engine.css">
+  <link rel="stylesheet" href="src/styles/theme-builder.css">
+</head>
+<body data-crud-theme="light">
+  <main class="theme-builder-shell">
+    <header class="theme-builder-header">
+      <div>
+        <h1>Editor de Tema</h1>
+        <p>Gere tokens para o JSON global do CRUD Engine.</p>
+      </div>
+      <div class="theme-builder-actions">
+        <label>
+          Tema Kendo
+          <select id="kendo-theme"></select>
+        </label>
+        <label>
+          Modo
+          <select id="theme-mode">
+            <option value="light">Claro</option>
+            <option value="dark">Escuro</option>
+          </select>
+        </label>
+        <button type="button" id="load-current">Carregar config atual</button>
+        <button type="button" id="reset-current-mode" title="Volta as cores originais do modo selecionado">Limpar</button>
+        <button type="button" id="copy-json">Copiar JSON</button>
+      </div>
+    </header>
+
+    <section class="theme-builder-grid">
+      <div class="theme-builder-panel">
+        <h2>Tokens</h2>
+        <div id="theme-token-list" class="theme-token-list"></div>
+      </div>
+
+      <div class="theme-builder-preview" id="theme-preview">
+        <header class="crud-header">
+          <div class="crud-title-group">
+            <div class="crud-title-line">
+              <h1 class="crud-title">Clientes</h1>
+              <span class="crud-program-version k-badge k-badge-solid k-badge-solid-base k-rounded-md">v1.0.0</span>
+            </div>
+          </div>
+          <div class="crud-header-meta">
+            <button type="button" class="crud-subtitle">Consulta e manutencao</button>
+            <span class="crud-last-updated k-badge k-badge-solid k-badge-solid-primary k-rounded-md">02/05/2026 10:30</span>
+            <button type="button" class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base crud-icon-button">
+              <span class="k-button-icon k-icon k-svg-icon"></span>
+            </button>
+          </div>
+        </header>
+
+        <section class="crud-toolbar">
+          <div class="crud-toolbar-group crud-main-actions">
+            <button type="button" class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-primary">Novo</button>
+            <button type="button" class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base">Filtros</button>
+            <button type="button" class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base">Leiaute</button>
+          </div>
+        </section>
+
+        <section class="crud-active-filters">
+          <span class="crud-active-filters-title">Filtros aplicados</span>
+          <div class="crud-active-filter-list">
+            <span class="crud-filter-chip">Status: Ativo</span>
+            <span class="crud-filter-chip">Periodo: 01/05/2026 ate 31/05/2026</span>
+          </div>
+        </section>
+
+        <section class="crud-grid-panel theme-preview-block">
+          <div class="theme-preview-block-header">
+            <h2>Grid Kendo</h2>
+            <p>Previa real do componente de consulta.</p>
+          </div>
+          <div id="theme-preview-grid"></div>
+        </section>
+
+        <section class="crud-section theme-preview-form">
+          <div class="theme-preview-block-header">
+            <h2 class="crud-section-title">Formulario Kendo</h2>
+            <p>Campos comuns para comparar contraste, bordas, fundos e estados.</p>
+          </div>
+          <div class="crud-section-grid">
+            <div class="crud-field crud-col-span-2">
+              <label for="preview-nome">Nome</label>
+              <input id="preview-nome">
+            </div>
+            <div class="crud-field">
+              <label for="preview-status">Status</label>
+              <input id="preview-status">
+            </div>
+            <div class="crud-field">
+              <label for="preview-data">Data de cadastro</label>
+              <input id="preview-data">
+            </div>
+            <div class="crud-field">
+              <label for="preview-valor">Valor total</label>
+              <input id="preview-valor">
+            </div>
+            <div class="crud-field">
+              <label for="preview-tags">Tags</label>
+              <select id="preview-tags" multiple="multiple"></select>
+            </div>
+            <div class="crud-field crud-col-span-2">
+              <label for="preview-observacao">Observacao</label>
+              <textarea id="preview-observacao"></textarea>
+            </div>
+            <label class="crud-checkbox-field">
+              <input id="preview-ativo">
+              <span>Cliente ativo</span>
+            </label>
+            <div class="crud-field">
+              <label>Somente leitura</label>
+              <div class="crud-readonly-value">Valor calculado: R$ 1.542,05</div>
+            </div>
+          </div>
+          <div class="crud-form-actions">
+            <button type="button" id="preview-save">Salvar</button>
+            <button type="button" id="preview-cancel">Cancelar</button>
+          </div>
+        </section>
+      </div>
+
+      <div class="theme-builder-panel theme-output-panel">
+        <h2>JSON gerado</h2>
+        <textarea id="theme-json-output" spellcheck="false"></textarea>
+      </div>
+    </section>
+  </main>
+
+  <script src="vendor/jquery/jquery-4.0.0.min.js"></script>
+  <script src="kendo/js/kendo.all.min.js"></script>
+  <script src="kendo/kendo-license.js"></script>
+  <script src="kendo/js/cultures/kendo.culture.pt-BR.min.js"></script>
+  <script src="kendo/js/messages/kendo.messages.pt-BR.min.js"></script>
+  <script>
+    kendo.culture("pt-BR");
+  </script>
+  <script src="src/crud-engine/CrudUtils.js"></script>
+  <script src="src/theme-builder/theme-builder.js"></script>
+</body>
+</html>

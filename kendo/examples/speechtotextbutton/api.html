@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>API</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+
+<div id="example">
+
+    <div class="configurator">
+        <div class="header">Configurator</div>
+        <div class="box-col">
+            <h4>SpeechToTextButton API Functions</h4>
+            <ul class="options">
+                <li>
+                    <button id="enableButton" type="button">Enable</button>
+                    <button id="disableButton" type="button">Disable</button>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <textarea id="textarea">
+        </textarea>
+        
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            let textArea = $("#textarea").kendoTextArea({
+                rows: 3,
+                rounded: "large",
+                size: "large",
+                value: "Describe a project you worked on that had a strong impact.",
+                suffixOptions: {
+                    template: () => `<div class="description k-ml-xs">Click the mic to speak</div> <button id="speechToTextButton"></button>`
+                }
+            }).data("kendoTextArea");
+
+            var buttonObject = $("#speechToTextButton").kendoSpeechToTextButton({
+                result: onResult,
+                start: onStart,
+                end: onEnd
+            }).data("kendoSpeechToTextButton");
+
+            function onResult(e) {
+                var transcript = e.alternatives[0].transcript;
+                textArea.value(`${transcript}`);
+            }
+
+            function onStart() {
+                $(".description").text("Listening...");
+            }
+
+            function onEnd() {
+                $(".description").text("Click the mic to speak");
+            }
+
+            $("#enableButton").click(function(){
+                buttonObject.enable(true);
+            });
+
+            $("#disableButton").click(function(){
+                buttonObject.enable(false);
+            });
+        });
+    </script>
+
+    <style>
+        .demo-section {
+            text-align: center;
+        }
+
+        .k-input-suffix {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem;
+        }
+    </style>
+</div>
+</body>
+</html>

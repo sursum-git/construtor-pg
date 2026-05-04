@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Window Configuration</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="configurator">
+    <div class="header">Configurator</div>
+    <div class="box-col">
+        <h4>Window state:</h4>
+        <input id="dropDownList" />
+    </div>
+    <div class="box-col">
+        <h4>window Width:</h4>
+        <ul class="options">
+            <li>
+                <input id="width" />
+            </li>
+        </ul>
+    </div>
+    <div class="box-col">
+        <h4>Window Height:</h4>
+        <ul class="options">
+            <li>
+                <input id="height"/>
+            </li>
+        </ul>
+    </div>
+    <div class="box-col">
+        <h4>Window Min Width:</h4>
+        <ul class="options">
+            <li>
+                <input id="min-width" />
+            </li>
+        </ul>
+    </div>
+    <div class="box-col">
+        <h4>Window Min Height:</h4>
+        <ul class="options">
+            <li>
+                <input id="min-height"/>
+            </li>
+        </ul>
+    </div>
+</div>
+
+<div class="demo-section wide">
+    <button id="open-wizard">Open Chart Wizard</button>
+    <div id="container">
+        <div id="chartwizard"></div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function () {
+        let chartwizard = $("#chartwizard").kendoChartWizard({
+            dataSource: [
+                [
+                    { field: 'Product Name', value: 'Calzone' },
+                    { field: 'Quantity', value: 1 },
+                    { field: 'Price', value: 12.39 },
+                    { field: 'Tax', value: 2.48 },
+                    { field: 'Total', value: 14.87 }
+                ],
+                [
+                    { field: 'Product Name', value: 'Margarita' },
+                    { field: 'Quantity', value: 2 },
+                    { field: 'Price', value: 8.79 },
+                    { field: 'Tax', value: 3.52 },
+                    { field: 'Total', value: 21.1 }
+                ],
+                [
+                    { field: 'Product Name', value: 'Pollo Formaggio' },
+                    { field: 'Quantity', value: 1 },
+                    { field: 'Price', value: 13.99 },
+                    { field: 'Tax', value: 2.8 },
+                    { field: 'Total', value: 16.79 }
+                ]
+            ],
+            defaultState: {
+                seriesType: 'column',
+            },
+            window: {
+                modal: false,
+                actions: [ "Minimize", "Maximize", "Close" ],
+                draggable: {
+                    containment: "#container"
+                },
+                height: 550,
+                width: 700
+            },
+            close: function(e){
+                $('#open-wizard').data('kendoButton').enable(true);
+            }
+        }).data("kendoChartWizard");
+
+        $('#open-wizard').kendoButton({
+            icon: 'chart-column-clustered',
+            click: function(e){
+                chartwizard.open()
+                e.sender.enable(false)
+            },
+            enable: false
+        })
+
+        $('#dropDownList').kendoDropDownList({
+            dataSource: ["Default", "Minimized", "Maximized"],
+            change: setChartWizard
+        });
+
+        $('#width').kendoNumericTextBox({
+            value: 700,
+            step: 10,
+            min: 200,
+            max: 1500,
+            change: setChartWizard
+        });
+
+         $('#height').kendoNumericTextBox({
+            value: 550,
+            step: 10,
+            min: 200,
+            max: 1500,
+            change: setChartWizard
+        });
+
+         $('#min-width').kendoNumericTextBox({
+            value: 450,
+            step: 10,
+            min: 200,
+            max: 1500,
+            change: setChartWizard
+        });
+
+         $('#min-height').kendoNumericTextBox({
+            value: 300,
+            step: 10,
+            min: 200,
+            max: 1500,
+            change: setChartWizard
+        });
+
+        function setChartWizard(){
+
+            let windowState = $('#dropDownList').data('kendoDropDownList').value();
+            let wizardWidth = $('#width').data('kendoNumericTextBox').value();
+            let wizardHeight = $('#height').data('kendoNumericTextBox').value();
+            let wizardMinWidth = $('#min-width').data('kendoNumericTextBox').value();
+            let wizardMinHeight = $('#min-height').data('kendoNumericTextBox').value();
+            chartwizard.setOptions({
+                window:{
+                    height: wizardHeight,
+                    width: wizardWidth,
+                    minWidth: wizardMinWidth,
+                    minHeight: wizardMinHeight
+                }
+            })
+            if(windowState == 'Minimized'){
+                chartwizard.window.minimize()
+            }else if(windowState == 'Maximized'){
+                chartwizard.window.maximize()
+            }
+
+            setTimeout(function(){
+                chartwizard.chart.resize()
+            })
+
+        }
+    });
+</script>
+
+<style>
+    #container {
+        min-height: 700px;
+        width: 100%;
+        position: relative;
+    }
+</style>
+</body>
+</html>

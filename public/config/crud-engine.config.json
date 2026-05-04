@@ -1,0 +1,92 @@
+{
+  "$schema": "../metadata/schemas/crud-engine-config-v1.schema.json",
+  "schemaVersion": "1.0",
+  "theme": {
+    "kendoTheme": "kendo/styles/default-urban.css",
+    "defaultMode": "light",
+    "allowUserSwitch": true,
+    "persistUserChoice": true,
+    "storageKey": "crudEngine.theme",
+    "tokens": {
+      "light": {
+        "background": "#f4f5f7",
+        "surface": "#ffffff",
+        "border": "#d9dee7",
+        "text": "#1f2937",
+        "muted": "#667085",
+        "title": "#0f4f8f",
+        "accent": "#0d6efd",
+        "accentSoft": "#eef6ff",
+        "accentBorder": "#bfdaf8",
+        "inputBackground": "#ffffff",
+        "readonlyBackground": "#f8fafc",
+        "messageBackground": "#ffffff",
+        "errorBorder": "#f4c7c3",
+        "errorBackground": "#fff5f5",
+        "buttonBackground": "#ffffff",
+        "buttonHoverBackground": "#f8fafc",
+        "buttonBorder": "#cfd5df",
+        "buttonText": "#344054",
+        "buttonPrimaryBackground": "#0f5f9f",
+        "buttonPrimaryHoverBackground": "#0b4f8a",
+        "buttonPrimaryText": "#ffffff",
+        "notificationBackground": "#d92d20",
+        "notificationText": "#ffffff",
+        "danger": "#b42318"
+      },
+      "dark": {
+        "background": "#111827",
+        "surface": "#182230",
+        "border": "#344054",
+        "text": "#f2f4f7",
+        "muted": "#98a2b3",
+        "title": "#8ec5ff",
+        "accent": "#4da3ff",
+        "accentSoft": "#102a43",
+        "accentBorder": "#275f9f",
+        "inputBackground": "#101828",
+        "readonlyBackground": "#101828",
+        "messageBackground": "#182230",
+        "errorBorder": "#7a271a",
+        "errorBackground": "#2a1210",
+        "buttonBackground": "#202c3d",
+        "buttonHoverBackground": "#28384d",
+        "buttonBorder": "#42526a",
+        "buttonText": "#f2f4f7",
+        "buttonPrimaryBackground": "#2f7ec8",
+        "buttonPrimaryHoverBackground": "#3b8fdf",
+        "buttonPrimaryText": "#ffffff",
+        "notificationBackground": "#f97066",
+        "notificationText": "#111827",
+        "danger": "#ffb4ab"
+      }
+    }
+  },
+  "help": {
+    "enabled": true,
+    "title": "Ajuda e novidades",
+    "storageKey": "crudEngine.help.seen",
+    "readEndpoint": {
+      "url": "/api/help/seen",
+      "method": "POST"
+    },
+    "items": [
+      {
+        "id": "filtros-iniciais",
+        "title": "Nova regra de filtros iniciais",
+        "kind": "text",
+        "publishedAt": "2026-05-02",
+        "summary": "Quando a tela abre com filtros, o grid aguarda o usuario consultar.",
+        "body": "O parametro crud.filter.openOnLoad controla se a janela de filtros abre automaticamente. Com crud.filter.waitForSubmitOnLoad ativo, o grid nao carrega dados ate o usuario clicar em Filtrar."
+      },
+      {
+        "id": "leiautes-nomeados",
+        "title": "Leiautes nomeados",
+        "kind": "text",
+        "publishedAt": "2026-05-02",
+        "summary": "Agora a tela permite salvar mais de um leiaute.",
+        "body": "A opcao Leiaute permite aplicar, salvar e restaurar configuracoes do grid. Ao salvar, o usuario informa um nome e pode definir o leiaute como padrao."
+      }
+    ]
+  }
+}

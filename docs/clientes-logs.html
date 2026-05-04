@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Logs do Cadastro de Clientes</title>
+  <style>
+    body {
+      margin: 0;
+      color: #1f2937;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+    }
+
+    header {
+      padding: 16px;
+      border-bottom: 1px solid #d9dee7;
+      background: #f8fafc;
+    }
+
+    h1 {
+      margin: 0;
+      color: #0f4f8f;
+      font-size: 20px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f4f5f7;
+      color: #667085;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1 id="page-title">Logs do Cadastro de Clientes</h1>
+  </header>
+  <table>
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Usuario</th>
+        <th>Evento</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>02/05/2026 10:24</td>
+        <td>admin.demo</td>
+        <td>Layout padrao atualizado.</td>
+      </tr>
+      <tr>
+        <td>02/05/2026 09:51</td>
+        <td>admin.demo</td>
+        <td>Cliente Acme Comercio editado.</td>
+      </tr>
+      <tr>
+        <td>01/05/2026 16:18</td>
+        <td>suporte.demo</td>
+        <td>Cliente Beta Servicos visualizado.</td>
+      </tr>
+    </tbody>
+  </table>
+  <script>
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var id = params.get("id");
+      if (!id) {
+        return;
+      }
+      document.getElementById("page-title").textContent = "Logs do Cliente " + id;
+    })();
+  </script>
+</body>
+</html>

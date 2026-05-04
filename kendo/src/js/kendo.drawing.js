@@ -1,0 +1,19 @@
+/**
+ * Kendo UI v2026.1.212 (http://www.telerik.com/kendo-ui)
+ * Copyright 2026 Progress Software Corporation and/or one of its subsidiaries or affiliates. All rights reserved.
+ *
+ * Kendo UI commercial licenses may be obtained at
+ * http://www.telerik.com/purchase/license-agreement/kendo-ui-complete
+ * If you do not own a commercial license, this file shall be governed by the trial license terms.
+ */
+
+import "./drawing/surface.js";
+import "./drawing/html.js";
+
+    export const __meta__ = {
+        id: "drawing",
+        name: "Drawing API",
+        category: "framework",
+        description: "The Kendo UI low-level drawing API",
+        depends: [ "core", "color", "popup", "icons" ]
+    };

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Disabled Autocorrection</title>
+    <meta charset="utf-8">
+    <link href="../content/shared/styles/examples-offline.css" rel="stylesheet">
+    <link href="../../styles/default-ocean-blue.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.7.0.min.js"></script>
+    <script src="https://unpkg.com/jszip/dist/jszip.min.js"></script>
+    <script src="../../js/kendo.all.min.js"></script>
+    <script src="../content/shared/js/console.js"></script>
+    
+    
+</head>
+<body>
+    <a class="offline-button" href="../index.html">Back</a>
+
+    
+<div class="demo-section">
+    <div id="validation-success"></div>
+
+    <form id="exampleform"></form>
+</div>
+
+
+<script>
+    $(document).ready(function () {
+        var validationSuccess = $("#validation-success");
+
+        $("#exampleform").kendoForm({
+            orientation: "horizontal",
+            items: [
+                {
+                    field: "DateInput",
+                    label: "DateInput:",
+                    validation: { required: true },
+                    editor: "DateInput",
+                    editorOptions: {
+                        min: new Date("1/1/2024"),
+                        max: new Date("12/31/2024"),
+                        dateInput: true,
+                        autoAdjust: false
+                    },
+                    validation: {
+                        required: true,
+                        min: function (input) { 
+                            var date = kendo.parseDate(input.val());
+                            if (input.is("[name='DateInput']") && date) {
+                                var minDate = $(input).data("kendoDateInput").options.min;
+                                input.attr("data-min-msg", "Entered date should be greater than the min 01/01/2024 date.");
+                                return minDate.getTime() < date.getTime();
+                            }
+
+                            return true;
+                        },
+                        max: function (input) {
+                            var date = kendo.parseDate(input.val());
+                            if (input.is("[name='DateInput']") && date) {
+                                
+                                var maxDate = $(input).data("kendoDateInput").options.max;
+                                input.attr("data-max-msg", "Entered date should be lesser than the max 12/31/2024 date.");
+                                return maxDate.getTime() > date.getTime();
+                            }
+
+                            return true;
+                        },
+
+                    }
+                },
+                {
+                    field: "DatePicker",
+                    editor: "DatePicker",
+                    label: "DatePicker:",
+                    editorOptions: {
+                        min: new Date("1/1/2024"),
+                        max: new Date("12/31/2024"),
+                        dateInput: true,
+                        autoAdjust: false
+                    },
+                    validation: {
+                        required: true,
+                        minDatePicker: function (input) {
+                            var date = kendo.parseDate(input.val());
+                            if (input.is("[name='DatePicker']") && date) {
+                                
+                                var minDate = $(input).data("kendoDatePicker").options.min;
+                                input.attr("data-mindatepicker-msg", "Entered date should be greater than the min 01/01/2024 date.");
+                                return minDate.getTime() < date.getTime();
+                            }
+
+                            return true;
+                        },
+                        maxDatePicker: function (input) {
+                            var date = kendo.parseDate(input.val())
+                            if (input.is("[name='DatePicker']") && date ) {
+                               
+                                var maxDate = $(input).data("kendoDatePicker").options.max;
+                                input.attr("data-maxdatepicker-msg", "Entered date should be lesser than the max 12/31/2024 date.");
+                                return maxDate.getTime() > date.getTime();
+                            }
+
+                            return true;
+                        },
+
+                    }
+                },             
+                {
+                    field: "DateTimePicker",
+                    editor: "DateTimePicker",
+                    label: "DateTimePicker:",
+                    editorOptions: {
+                        min: new Date("1/1/2024"),
+                        max: new Date("12/31/2024"),
+                        dateInput: true,
+                        autoAdjust: false
+                    },
+                    validation: {
+                        required: true,
+                        minDateTime: function (input) {
+                            var date = kendo.parseDate(input.val());
+                            if (input.is("[name='DateTimePicker']") && date ) {
+                                
+                                var minDate = $(input).data("kendoDateTimePicker").options.min;
+                                input.attr("data-mindatetime-msg", "Entered date should be greater than the min 01/01/2024 date.");
+                                return minDate.getTime() < date.getTime();
+                            }
+
+                            return true;
+                        },
+                        maxDateTime: function (input) {
+                            var date = kendo.parseDate(input.val())
+                            if (input.is("[name='DateTimePicker']") && date) {
+                                
+                                var maxDate = $(input).data("kendoDateTimePicker").options.max;
+                                input.attr("data-maxdatetime-msg", "Entered date should be lesser than the max 12/31/2024 date.");
+                                return maxDate.getTime() > date.getTime();
+                            }
+
+                            return true;
+                        },
+
+                    }
+                },
+                {
+                    field: "NumericTextBox",
+                    editor: "NumericTextBox",
+                    label: "NumericTextBox:",
+                    editorOptions: {
+                        min: 3,
+                        max: 10,
+                        autoAdjust: false
+                    },
+                    validation: {
+                        required: true,
+                        minVal: function (input) {
+                            if (input.is("[name='NumericTextBox']") && input.val() !== '') {
+                                var value = input.val(),
+                                    minValue = $(input).data("kendoNumericTextBox").options.min;
+                                input.attr("data-minval-msg", "Entered value should be greater than 3.");
+                                return minValue <= value
+                            }
+
+                            return true;
+                        },
+                        maxVal: function (input) {
+                            if (input.is("[name='NumericTextBox']") && input.val() !== '') {
+                                var value = input.val(),
+                                    maxValue = $(input).data("kendoNumericTextBox").options.max;
+                                input.attr("data-maxval-msg", "Entered value should be lesser 10.");
+                                return maxValue >= value
+                            }
+
+                            return true;
+                        },
+
+                    }
+                },
+                {
+                    field: "TimePicker",
+                    editor: "TimePicker",
+                    label: "TimePicker:",
+                    editorOptions: {
+                        min: "08:00",
+                        max: "22:00",
+                        dateInput: true,
+                        autoAdjust: false
+                    },
+                    validation: {
+                        required: true,
+                        minTime: function (input) {
+                            var date = kendo.parseDate(input.val());
+                            if (input.is("[name='TimePicker']") && date) {
+                                var minDate = $(input).data("kendoTimePicker").options.min;
+                                input.attr("data-mintime-msg", "Entered time should be after 08:00 AM.");
+                                return minDate.getTime() < date.getTime();
+                            }
+                            return true;
+                        },                     
+                        maxTime: function (input) {
+                            var date = kendo.parseDate(input.val());
+                            if (input.is("[name='TimePicker']") && date) {
+                                var maxDate = $(input).data("kendoTimePicker").options.max;
+                                input.attr("data-maxtime-msg", "Entered time should be before 22:00 PM.");
+                                return maxDate.getTime() > date.getTime();
+                            }
+                            return true;
+                        },
+
+                    }
+                },
+
+            ],
+            validateField: function (e) {
+                validationSuccess.html("");
+            },
+            submit: function (e) {
+                e.preventDefault();
+                validationSuccess.html("<div class='k-messagebox k-messagebox-success'>Form data is valid!</div>");
+            },
+            clear: function (ev) {
+                validationSuccess.html("");
+            }
+        });
+    });
+</script>
+</body>
+</html>
