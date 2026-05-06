@@ -367,6 +367,10 @@ body .k-notification:has(.crud-toast) .k-svg-icon {
   align-items: flex-end;
 }
 
+.crud-toolbar-toggle.k-button {
+  display: none;
+}
+
 .crud-filter-panel {
   padding: 14px;
   border: 0;
@@ -784,6 +788,25 @@ body[data-crud-theme="dark"] .crud-filter-chip {
 
 .crud-mobile-template-cell {
   padding: 8px !important;
+}
+
+body .k-grid .crud-mobile-group-row .crud-mobile-group-cell {
+  padding: 8px 8px 4px !important;
+  border-color: var(--crud-border) !important;
+  background: var(--crud-readonly-bg) !important;
+}
+
+.crud-mobile-group-title {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  padding: 3px 9px;
+  border: 1px solid var(--crud-accent-border);
+  border-radius: 999px;
+  background: var(--crud-accent-soft);
+  color: var(--crud-title);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .crud-mobile-card {
@@ -1889,9 +1912,48 @@ body textarea {
     height: 19px;
   }
 
-  .crud-toolbar,
+  .crud-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    width: 100%;
+    gap: 6px;
+    align-items: center;
+  }
+
   .crud-toolbar-group {
     width: 100%;
+  }
+
+  .crud-primary-actions {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .crud-toolbar-toggle.k-button {
+    display: inline-flex;
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    padding-inline: 0;
+  }
+
+  .crud-toolbar-tools {
+    display: none;
+    grid-column: 1 / -1;
+    gap: 6px;
+  }
+
+  .crud-toolbar-expanded .crud-toolbar-tools {
+    display: flex;
+  }
+
+  .crud-toolbar-tools > .k-button,
+  .crud-toolbar-tools > .crud-bulk-actions,
+  .crud-toolbar-tools > .crud-print-actions {
+    flex: 1 1 calc(50% - 6px);
   }
 
   .crud-bulk-actions,

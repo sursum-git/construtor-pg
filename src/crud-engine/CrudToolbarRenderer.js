@@ -11,20 +11,54 @@
 
     render(container) {
       const toolbar = $("<section class=\"crud-toolbar\" aria-label=\"Acoes principais\"></section>");
-      const mainGroup = $("<div class=\"crud-toolbar-group crud-main-actions\"></div>").appendTo(toolbar);
+      const primaryGroup = $("<div class=\"crud-toolbar-group crud-primary-actions\"></div>").appendTo(toolbar);
+      const toolsGroup = $("<div class=\"crud-toolbar-group crud-toolbar-tools\"></div>").appendTo(toolbar);
 
       global.CrudUtils.ensureArray(this.definition.grid && this.definition.grid.toolbar).forEach((item) => {
         if (!global.CrudUtils.getPermission(this.definition, item.permission)) {
           return;
         }
 
-        this.renderButton(mainGroup, item);
+        this.renderButton(this.isPrimaryAction(item) ? primaryGroup : toolsGroup, item);
       });
-      this.renderBulkActions(mainGroup);
-      this.renderPrintActions(mainGroup);
+      this.renderBulkActions(toolsGroup);
+      this.renderPrintActions(toolsGroup);
+
+      if (!primaryGroup.children().length) {
+        primaryGroup.remove();
+      }
+      if (toolsGroup.children().length) {
+        this.renderToolbarToggle(toolbar, toolsGroup);
+      } else {
+        toolsGroup.remove();
+      }
 
       $(container).append(toolbar);
       return toolbar;
+    }
+
+    isPrimaryAction(item) {
+      return Boolean(item && item.action === "create");
+    }
+
+    renderToolbarToggle(toolbar, toolsGroup) {
+      const toolsId = String(this.definition.id || "crud").replace(/[^a-z0-9_-]+/gi, "-") + "-toolbar-tools";
+      toolsGroup.attr("id", toolsId);
+      const button = $("<button type=\"button\" class=\"crud-toolbar-toggle crud-icon-button\"></button>")
+        .attr("title", "Ferramentas")
+        .attr("aria-label", "Ferramentas")
+        .attr("aria-controls", toolsId)
+        .attr("aria-expanded", "false")
+        .insertBefore(toolsGroup);
+      button.kendoButton({
+        icon: "more-vertical"
+      });
+      button.on("click", function() {
+        const expanded = !toolbar.hasClass("crud-toolbar-expanded");
+        toolbar.toggleClass("crud-toolbar-expanded", expanded);
+        button.attr("aria-expanded", expanded ? "true" : "false");
+      });
+      this.toolbarToggleElement = button;
     }
 
     renderButton(container, item) {

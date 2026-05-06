@@ -61,6 +61,7 @@
           this.notifySelectionChange();
           this.initializeMobileTemplateTabs();
           this.initializeRowActionButtons();
+          this.renderMobileTemplateGroups();
         },
         columns: isMobileTemplate ? this.buildMobileTemplateColumns() : this.buildColumns(),
         noRecords: {
@@ -633,6 +634,12 @@
     buildDataSource() {
       const definition = this.definition;
       const endpoint = definition.api.read;
+      const isMobileTemplate = this.isMobileTemplateMode();
+      const initialGroup = this.getInitialGroup();
+      const initialSort = this.getInitialSort();
+      if (isMobileTemplate) {
+        this.mobileTemplateGroupDescriptors = initialGroup;
+      }
       return new kendo.data.DataSource({
         transport: {
           read: (options) => {
@@ -658,9 +665,9 @@
         serverFiltering: true,
         pageSize: definition.query && definition.query.defaultPageSize || 20,
         aggregate: this.getInitialGroupAggregates(),
-        sort: this.getInitialSort(),
+        sort: isMobileTemplate ? this.mergeGroupSortWithSort(initialGroup, initialSort) : initialSort,
         filter: this.getInitialFilter(),
-        group: this.getInitialGroup()
+        group: isMobileTemplate ? [] : initialGroup
       });
     }
 
@@ -918,6 +925,56 @@
           widget.select(0);
         }
       });
+    }
+
+    renderMobileTemplateGroups() {
+      if (!this.isMobileTemplateMode() || !this.grid || !this.grid.tbody) {
+        return;
+      }
+
+      this.grid.tbody.find(".crud-mobile-group-row").remove();
+      const groups = global.CrudUtils.ensureArray(this.mobileTemplateGroupDescriptors);
+      if (!groups.length) {
+        return;
+      }
+
+      let previousKey = null;
+      this.grid.tbody.children("tr.crud-mobile-template-row").each((_, row) => {
+        const dataItem = this.grid.dataItem(row);
+        if (!dataItem) {
+          return;
+        }
+
+        const key = this.buildMobileGroupKey(dataItem, groups);
+        if (key === previousKey) {
+          return;
+        }
+        previousKey = key;
+
+        $("<tr class=\"crud-mobile-group-row k-table-row\"></tr>")
+          .append(
+            $("<td class=\"crud-mobile-group-cell k-table-td\" colspan=\"1\"></td>")
+              .append(
+                $("<span class=\"crud-mobile-group-title\"></span>")
+                  .text(this.buildMobileGroupLabel(dataItem, groups))
+              )
+          )
+          .insertBefore(row);
+      });
+    }
+
+    buildMobileGroupKey(dataItem, groups) {
+      return groups.map(function(group) {
+        return dataItem[group.field];
+      }).join("\u001f");
+    }
+
+    buildMobileGroupLabel(dataItem, groups) {
+      return groups.map((group) => {
+        const label = this.getFieldLabel(group.field);
+        const value = this.formatColumnValue(group.field, dataItem[group.field]);
+        return label + ": " + value;
+      }).join(" / ");
     }
 
     getFirstVisibleField() {
@@ -2075,20 +2132,38 @@
     }
 
     getCurrentSort() {
-      return this.grid ? global.CrudUtils.ensureArray(this.grid.dataSource.sort()) : [];
+      if (!this.grid) {
+        return [];
+      }
+      const sort = global.CrudUtils.ensureArray(this.grid.dataSource.sort());
+      if (this.isMobileTemplateMode()) {
+        return this.removeGroupSort(sort, this.mobileTemplateGroupDescriptors);
+      }
+      return sort;
     }
 
     setSort(sort) {
       if (!this.grid) {
         return;
       }
-      this.grid.dataSource.sort(global.CrudUtils.ensureArray(sort));
+      const nextSort = this.isMobileTemplateMode()
+        ? this.mergeGroupSortWithSort(this.mobileTemplateGroupDescriptors, sort)
+        : global.CrudUtils.ensureArray(sort);
+      this.grid.dataSource.sort(nextSort);
       if (this.grid.dataSource.page() !== 1) {
         this.grid.dataSource.page(1);
       }
     }
 
     getCurrentGroup() {
+      if (this.isMobileTemplateMode()) {
+        return global.CrudUtils.ensureArray(this.mobileTemplateGroupDescriptors).map(function(item) {
+          return {
+            field: item.field,
+            dir: item.dir === "desc" ? "desc" : "asc"
+          };
+        });
+      }
       return this.grid ? global.CrudUtils.ensureArray(this.grid.dataSource.group()).map(function(item) {
         return {
           field: item.field,
@@ -2101,6 +2176,9 @@
       if (!this.grid) {
         return [];
       }
+      if (this.isMobileTemplateMode()) {
+        return this.normalizeGroupAggregates(this.currentGroupAggregates);
+      }
       const aggregates = this.grid.dataSource.aggregate && this.grid.dataSource.aggregate();
       return this.normalizeGroupAggregates(aggregates && aggregates.length ? aggregates : this.extractAggregatesFromGroup(this.grid.dataSource.group()));
     }
@@ -2112,10 +2190,59 @@
       const normalizedAggregates = this.normalizeGroupAggregates(aggregates);
       const descriptors = this.buildGroupDescriptors(group, normalizedAggregates);
       this.grid.dataSource.aggregate(normalizedAggregates);
+      if (this.isMobileTemplateMode()) {
+        const previousGroups = this.mobileTemplateGroupDescriptors;
+        const baseSort = this.removeGroupSort(this.grid.dataSource.sort(), previousGroups);
+        this.mobileTemplateGroupDescriptors = descriptors;
+        this.grid.dataSource.group([]);
+        this.grid.dataSource.sort(this.mergeGroupSortWithSort(descriptors, baseSort));
+        if (this.grid.dataSource.page() !== 1) {
+          this.grid.dataSource.page(1);
+        } else {
+          this.grid.dataSource.read();
+        }
+        return;
+      }
       this.grid.dataSource.group(descriptors);
       if (this.grid.dataSource.page() !== 1) {
         this.grid.dataSource.page(1);
       }
+    }
+
+    mergeGroupSortWithSort(groups, sort) {
+      const groupSort = global.CrudUtils.ensureArray(groups)
+        .filter(function(item) {
+          return item && item.field;
+        })
+        .map(function(item) {
+          return {
+            field: item.field,
+            dir: item.dir === "desc" ? "desc" : "asc"
+          };
+        });
+      const groupFields = groupSort.map(function(item) {
+        return item.field;
+      });
+      const remainingSort = this.removeGroupSort(sort, groupSort);
+      return groupSort.concat(remainingSort.filter(function(item) {
+        return groupFields.indexOf(item.field) === -1;
+      }));
+    }
+
+    removeGroupSort(sort, groups) {
+      const groupFields = global.CrudUtils.ensureArray(groups)
+        .filter(function(item) {
+          return item && item.field;
+        })
+        .map(function(item) {
+          return item.field;
+        });
+      if (!groupFields.length) {
+        return global.CrudUtils.ensureArray(sort);
+      }
+      return global.CrudUtils.ensureArray(sort).filter(function(item) {
+        return item && groupFields.indexOf(item.field) === -1;
+      });
     }
 
     goToFirstPageAndRefresh() {

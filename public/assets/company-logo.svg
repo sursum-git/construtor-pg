@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="40" viewBox="0 0 128 40" role="img" aria-labelledby="title">
+  <title id="title">Construtor PG</title>
+  <rect width="128" height="40" rx="8" fill="#0f5f9f"/>
+  <path d="M18 10h15v5H23v10h10v5H18z" fill="#ffffff"/>
+  <path d="M39 10h19c6 0 10 4 10 10s-4 10-10 10h-9v-6h8c3 0 5-1 5-4s-2-4-5-4H45v14h-6z" fill="#ffffff"/>
+  <path d="M74 10h22c8 0 14 5 14 13s-6 13-14 13H74zm7 6v14h14c5 0 8-3 8-7s-3-7-8-7z" fill="#cde7ff"/>
+</svg>

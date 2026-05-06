@@ -73,6 +73,14 @@
     }
 
     destroyCurrentEngine(root);
+    if (example.engine === "home") {
+      return initializeHomeEngine(example, catalog, state, root);
+    }
+    return initializeCrudEngine(example, catalog, state, root);
+  }
+
+  function initializeCrudEngine(example, catalog, state, root) {
+    $(root).removeClass("home-app-root").addClass("crud-app-shell");
     const artifacts = buildRuntimeArtifacts(example, catalog, state);
     const httpClient = new global.DemoMockHttpClient({
       storageSuffix: "examples-" + example.id
@@ -94,6 +102,28 @@
     });
   }
 
+  function initializeHomeEngine(example, catalog, state, root) {
+    $(root).removeClass("crud-app-shell").addClass("home-app-root example-home-root");
+    const artifacts = buildHomeRuntimeArtifacts(example, catalog, state);
+    const httpClient = new global.DemoMockHttpClient({
+      storageSuffix: "examples-" + example.id
+    });
+    const engine = new global.HomeEngine({
+      root: "#example-render-root",
+      definition: artifacts.definition,
+      config: artifacts.config,
+      httpClient
+    });
+
+    return engine.init().then(function(instance) {
+      global.currentHomeExampleEngine = instance;
+      return instance;
+    }).catch(function(error) {
+      console.error("Falha ao renderizar exemplo da Home.", error);
+      throw error;
+    });
+  }
+
   function destroyCurrentEngine(root) {
     const engine = global.currentCrudExampleEngine;
     if (engine && engine.gridRenderer && typeof engine.gridRenderer.destroy === "function") {
@@ -103,10 +133,24 @@
       engine.filterRenderer.destroy();
     }
     if (global.kendo) {
+      destroyHomeExampleEngine();
       global.kendo.destroy($(root));
     }
     $(root).empty();
     global.currentCrudExampleEngine = null;
+    global.currentHomeExampleEngine = null;
+  }
+
+  function destroyHomeExampleEngine() {
+    const engine = global.currentHomeExampleEngine;
+    if (!engine) {
+      return;
+    }
+    ["destroyChatWindow", "destroySupportWindow", "destroyAiChatWindow", "destroyAppbarPanelWindows", "destroyCurrentProgram"].forEach(function(method) {
+      if (typeof engine[method] === "function") {
+        engine[method]();
+      }
+    });
   }
 
   function buildRuntimeArtifacts(example, catalog, state) {
@@ -123,6 +167,49 @@
 
     deepMerge(definition, patch);
     return { definition, config };
+  }
+
+  function buildHomeRuntimeArtifacts(example, catalog, state) {
+    const definition = catalog.buildHomeDefinition(example.id);
+    const config = catalog.buildConfig(example.id, { assetPrefix: EXAMPLE_ASSET_PREFIX });
+    const patch = diffValue(state.originalPatch, state.currentPatch) || {};
+    const configPatch = patch[CONFIG_ROOT_KEY];
+
+    if (configPatch) {
+      deepMerge(config, configPatch);
+      normalizeConfigAssets(config);
+      delete patch[CONFIG_ROOT_KEY];
+    }
+
+    deepMerge(definition, patch);
+    normalizeHomeDefinitionAssets(definition);
+    return { definition, config };
+  }
+
+  function normalizeHomeDefinitionAssets(definition) {
+    const appLogo = definition && definition.app && definition.app.logo;
+    if (typeof appLogo === "string") {
+      definition.app.logo = prefixExamplePath(appLogo);
+    } else if (appLogo && appLogo.url) {
+      appLogo.url = prefixExamplePath(appLogo.url);
+    }
+
+    global.CrudUtils.ensureArray(definition && definition.programs).forEach(function(program) {
+      ["url", "openUrl", "definitionUrl", "htmlUrl"].forEach(function(property) {
+        if (program[property]) {
+          program[property] = prefixExamplePath(program[property]);
+        }
+      });
+      if (program.logs && program.logs.url) {
+        program.logs.url = prefixExamplePath(program.logs.url);
+      }
+      if (program.help && program.help.linkUrl) {
+        program.help.linkUrl = prefixExamplePath(program.help.linkUrl);
+      }
+      if (program.help && program.help.videoUrl) {
+        program.help.videoUrl = prefixExamplePath(program.help.videoUrl);
+      }
+    });
   }
 
   function renderConfigurator(state, catalog) {
@@ -474,7 +561,9 @@
 
     Object.keys(source).forEach(function(key) {
       const value = source[key];
-      if (isPlainObject(value) && isPlainObject(target[key])) {
+      if (Array.isArray(value) && Array.isArray(target[key])) {
+        target[key] = mergeArrayByStableKey(target[key], value);
+      } else if (isPlainObject(value) && isPlainObject(target[key])) {
         deepMerge(target[key], value);
       } else {
         target[key] = clone(value);
@@ -482,6 +571,43 @@
     });
 
     return target;
+  }
+
+  function mergeArrayByStableKey(targetItems, sourceItems) {
+    const key = getArrayStableKey(targetItems, sourceItems);
+    if (!key) {
+      return clone(sourceItems);
+    }
+
+    const merged = clone(targetItems);
+    sourceItems.forEach(function(sourceItem) {
+      const sourceKey = String(sourceItem && sourceItem[key] || "");
+      const index = merged.findIndex(function(targetItem) {
+        return String(targetItem && targetItem[key] || "") === sourceKey;
+      });
+      if (index === -1) {
+        merged.push(clone(sourceItem));
+      } else if (isPlainObject(sourceItem)) {
+        deepMerge(merged[index], sourceItem);
+      } else {
+        merged[index] = clone(sourceItem);
+      }
+    });
+    return merged;
+  }
+
+  function getArrayStableKey(targetItems, sourceItems) {
+    const items = targetItems.concat(sourceItems);
+    if (!items.length || items.some(function(item) { return !isPlainObject(item); })) {
+      return "";
+    }
+    if (items.every(function(item) { return item.id != null; })) {
+      return "id";
+    }
+    if (items.every(function(item) { return item.programId != null; })) {
+      return "programId";
+    }
+    return "";
   }
 
   function normalizeConfigAssets(config) {
@@ -495,6 +621,14 @@
   function isAbsoluteOrPrefixed(value) {
     const text = String(value || "");
     return /^(https?:)?\/\//i.test(text) || text.indexOf(EXAMPLE_ASSET_PREFIX) === 0 || text.indexOf("/") === 0;
+  }
+
+  function prefixExamplePath(value) {
+    const text = String(value || "");
+    if (!text || isAbsoluteOrPrefixed(text) || text.indexOf("#") === 0 || /^[a-z]+:/i.test(text)) {
+      return text;
+    }
+    return EXAMPLE_ASSET_PREFIX + text.replace(/^\/+/, "");
   }
 
   function findPropertyOption(path, options) {

@@ -276,6 +276,18 @@
   padding: 0;
 }
 
+.example-render-root.home-app-root {
+  width: 100%;
+  min-height: min(760px, calc(100vh - 260px));
+  overflow: hidden;
+  border: 1px solid var(--crud-border);
+  border-radius: 6px;
+}
+
+.example-render-root.home-app-root .home-shell {
+  min-height: min(760px, calc(100vh - 260px));
+}
+
 .example-code-panel {
   display: grid;
   gap: 10px;

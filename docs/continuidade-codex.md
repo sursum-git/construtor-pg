@@ -8,7 +8,8 @@ Use este arquivo para retomar o trabalho em outra sessao.
 2. Leia `docs/arquitetura-crud-engine.md`.
 3. Leia `docs/padroes-ui-kendo.md`.
 4. Confira `git status --short`.
-5. Nao reverta alteracoes existentes sem pedido explicito do usuario.
+5. Para alteracoes na pagina inicial, leia `docs/arquitetura-home-engine.md`.
+6. Nao reverta alteracoes existentes sem pedido explicito do usuario.
 
 ## Comandos uteis
 
@@ -21,6 +22,9 @@ node --check src\examples\examples-page.js
 node --check src\crud-engine\CrudEngine.js
 node --check src\crud-engine\CrudKendoGridRenderer.js
 node --check src\crud-engine\CrudKendoFormRenderer.js
+node --check src\home-engine\HomeEngine.js
+node --check src\home-engine\HomeDefinitionLoader.js
+node --check src\home-engine\HomeDefinitionValidator.js
 ```
 
 Validar exemplos pelo catalogo:
@@ -57,6 +61,7 @@ Validar no browser:
 - Usar Playwright/Chromium headless quando possivel.
 - URLs principais:
   - `file:///C:/construtor-pg/index.html`
+  - `file:///C:/construtor-pg/home.html`
   - `file:///C:/construtor-pg/exemplos.html`
   - `file:///C:/construtor-pg/theme-builder.html`
   - `file:///C:/construtor-pg/examples/pages/consulta-basica.html`
@@ -92,6 +97,11 @@ Implementado ate agora, em nivel demo/frontend:
 - Mobile com modo colunas e modo template/card seguro.
 - Formulario popup com abas, etapas, situacao, eventos seguros, logs, impressao e outras acoes.
 - Tema claro/escuro por configuracao global.
+- Pagina inicial por JSON com Kendo TreeView lateral, appbar e chamada de programas por `iframe`, `crud` e `html` sanitizado.
+- Chat opcional no appbar da pagina inicial, usando Kendo Chat com ComboBox de usuarios e endpoints configurados no JSON.
+- Atendimento opcional no appbar da pagina inicial, com selecao de setor, chat quando houver atendente online no setor e solicitacao com setor travado quando nao houver disponibilidade.
+- Chat de IA opcional no appbar da pagina inicial, usando Kendo Chat sem selecao de usuario e endpoints configurados no JSON.
+- Alertas e solicitacoes opcionais no appbar da pagina inicial, com botoes compactos e janelas Kendo alimentadas por endpoints configurados no JSON.
 - Pagina de exemplos com PanelBar e aba de configuracao por exemplo.
 - Theme builder com preview.
 - Guia PDF para orientar outra IA a padronizar projeto Kendo/PHP/Symfony.

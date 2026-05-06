@@ -7,6 +7,9 @@ Backend decide.
 Frontend renderiza.
 ```
 
+Esse mesmo principio tambem existe para a pagina inicial via `HomeEngine`.
+O `HomeEngine` e separado do `CrudEngine`: ele monta o shell global e pode chamar um CRUD como um dos tipos fechados de programa.
+
 Nesta etapa ainda nao existe backend real. O JSON vem de arquivo/local embed e as chamadas passam pelo mock HTTP.
 
 ## Estrutura principal
@@ -28,8 +31,15 @@ src/crud-engine/
 src/page-engine/
   PageDefinitionNormalizer.js
 
+src/home-engine/
+  HomeEngine.js
+  HomeDefinitionLoader.js
+  HomeDefinitionValidator.js
+
 src/demo/
   demo.js
+  home-demo.js
+  home-embedded-data.js
   demo-embedded-data.js
   DemoMockHttpClient.js
 
@@ -100,9 +110,12 @@ new CrudEngine({
   definition,
   config,
   configUrl,
+  hideThemeSwitch,
   httpClient
 }).init()
 ```
+
+`hideThemeSwitch=true` desativa o seletor claro/escuro do CRUD quando a tela e aberta dentro de um shell que ja possui controle global de tema.
 
 Contrato HTTP esperado:
 

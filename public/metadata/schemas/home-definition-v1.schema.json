@@ -1,0 +1,483 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "home-definition-v1.schema.json",
+  "title": "Home Definition v1",
+  "type": "object",
+  "required": ["schemaVersion", "pageType", "app", "navigation", "programs"],
+  "properties": {
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "pageType": {
+      "const": "home"
+    },
+    "app": {
+      "type": "object",
+      "required": ["title"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "version": { "type": "string" },
+        "logoUrl": { "type": "string" },
+        "logo": {
+          "oneOf": [
+            { "type": "string" },
+            {
+              "type": "object",
+              "properties": {
+                "url": { "type": "string" },
+                "alt": { "type": "string" },
+                "showTitle": { "type": "boolean" },
+                "showSubtitle": { "type": "boolean" }
+              },
+              "additionalProperties": true
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "permissions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
+    "currentUser": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "fullName": { "type": "string" },
+        "username": { "type": "string" },
+        "email": { "type": "string" },
+        "initials": { "type": "string" },
+        "favoritePrograms": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "unfavoritePrograms": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "favorites": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "layout": {
+      "type": "object",
+      "properties": {
+        "initialProgramId": { "type": "string" },
+        "sidebar": {
+          "type": "object",
+          "properties": {
+            "component": { "const": "kendoTreeView" },
+            "collapsible": { "type": "boolean" },
+            "collapsed": { "type": "boolean" },
+            "expanded": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        },
+        "appbar": {
+          "type": "object",
+          "properties": {
+            "showSidebarToggle": { "type": "boolean" },
+            "showRefresh": { "type": "boolean" },
+            "showThemeSwitch": { "type": "boolean" },
+            "showFavoriteToggle": { "type": "boolean" },
+            "showUserMenu": { "type": "boolean" },
+            "chat": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "title": { "type": "string" },
+                "buttonTitle": { "type": "string" },
+                "icon": { "type": "string" },
+                "permission": { "type": "string" },
+                "width": { "type": "number" },
+                "height": { "type": "number" },
+                "defaultRecipientId": { "type": "string" },
+                "recipientId": { "type": "string" },
+                "contactsUrl": { "type": "string" },
+                "historyUrl": { "type": "string" },
+                "sendUrl": { "type": "string" },
+                "contacts": {
+                  "type": "array",
+                  "items": {
+                    "oneOf": [
+                      { "type": "string" },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "userId": { "type": "string" },
+                          "name": { "type": "string" },
+                          "fullName": { "type": "string" },
+                          "username": { "type": "string" },
+                          "email": { "type": "string" },
+                          "initials": { "type": "string" }
+                        },
+                        "additionalProperties": true
+                      }
+                    ]
+                  }
+                },
+                "recipient": {
+                  "type": "object",
+                  "properties": {
+                    "placeholder": { "type": "string" },
+                    "dataTextField": { "type": "string" },
+                    "dataValueField": { "type": "string" }
+                  },
+                  "additionalProperties": true
+                },
+                "bot": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" }
+                  },
+                  "additionalProperties": true
+                },
+                "endpoints": {
+                  "type": "object",
+                  "properties": {
+                    "contacts": {
+                      "oneOf": [
+                        { "type": "string" },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "url": { "type": "string" },
+                            "method": { "enum": ["GET", "POST"] }
+                          },
+                          "required": ["url"],
+                          "additionalProperties": true
+                        }
+                      ]
+                    },
+                    "history": {
+                      "oneOf": [
+                        { "type": "string" },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "url": { "type": "string" },
+                            "method": { "enum": ["GET", "POST"] }
+                          },
+                          "required": ["url"],
+                          "additionalProperties": true
+                        }
+                      ]
+                    },
+                    "send": {
+                      "oneOf": [
+                        { "type": "string" },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "url": { "type": "string" },
+                            "method": { "enum": ["GET", "POST"] }
+                          },
+                          "required": ["url"],
+                          "additionalProperties": true
+                        }
+                      ]
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true
+            },
+            "support": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "title": { "type": "string" },
+                "buttonTitle": { "type": "string" },
+                "icon": { "type": "string" },
+                "permission": { "type": "string" },
+                "width": { "type": "number" },
+                "height": { "type": "number" },
+                "onlineTitle": { "type": "string" },
+                "onlineDescription": { "type": "string" },
+                "requestTitle": { "type": "string" },
+                "requestDescription": { "type": "string" },
+                "attendantLabel": { "type": "string" },
+                "attendantPlaceholder": { "type": "string" },
+                "requestButtonText": { "type": "string" },
+                "defaultPriority": { "type": "string" },
+                "onlineUsersUrl": { "type": "string" },
+                "historyUrl": { "type": "string" },
+                "sendUrl": { "type": "string" },
+                "createRequestUrl": { "type": "string" },
+                "requestStatusUrl": { "type": "string" },
+                "fallbackRequest": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": { "type": "boolean" },
+                    "defaultSectorId": { "type": "string" }
+                  },
+                  "additionalProperties": true
+                },
+                "sectors": {
+                  "type": "array",
+                  "items": {
+                    "oneOf": [
+                      { "type": "string" },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "title": { "type": "string" }
+                        },
+                        "additionalProperties": true
+                      }
+                    ]
+                  }
+                },
+                "priorities": {
+                  "type": "array",
+                  "items": {
+                    "oneOf": [
+                      { "type": "string" },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "string" },
+                          "name": { "type": "string" },
+                          "title": { "type": "string" }
+                        },
+                        "additionalProperties": true
+                      }
+                    ]
+                  }
+                },
+                "endpoints": {
+                  "type": "object",
+                  "properties": {
+                    "onlineUsers": { "$ref": "#/$defs/endpoint" },
+                    "history": { "$ref": "#/$defs/endpoint" },
+                    "send": { "$ref": "#/$defs/endpoint" },
+                    "createRequest": { "$ref": "#/$defs/endpoint" },
+                    "requestStatus": { "$ref": "#/$defs/endpoint" }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true
+            },
+            "aiChat": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "title": { "type": "string" },
+                "buttonTitle": { "type": "string" },
+                "icon": { "type": "string" },
+                "permission": { "type": "string" },
+                "width": { "type": "number" },
+                "height": { "type": "number" },
+                "historyUrl": { "type": "string" },
+                "sendUrl": { "type": "string" },
+                "welcomeMessage": {
+                  "oneOf": [
+                    { "type": "string" },
+                    { "type": "object" }
+                  ]
+                },
+                "bot": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "string" },
+                    "name": { "type": "string" }
+                  },
+                  "additionalProperties": true
+                },
+                "endpoints": {
+                  "type": "object",
+                  "properties": {
+                    "history": {
+                      "$ref": "#/$defs/endpoint"
+                    },
+                    "send": {
+                      "$ref": "#/$defs/endpoint"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true
+            },
+            "alerts": {
+              "$ref": "#/$defs/appbarListConfig"
+            },
+            "requests": {
+              "$ref": "#/$defs/appbarListConfig"
+            },
+            "userMenu": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["id", "label"],
+                    "properties": {
+                      "id": { "type": "string" },
+                      "label": { "type": "string" },
+                      "icon": { "type": "string" },
+                      "action": { "type": "string" },
+                      "url": { "type": "string" },
+                      "openAs": { "enum": ["newTab", "window"] },
+                      "target": { "type": "string" },
+                      "permission": { "type": "string" },
+                      "visible": { "type": "boolean" }
+                    },
+                    "additionalProperties": true
+                  }
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "navigation": {
+      "type": "object",
+      "required": ["groups"],
+      "properties": {
+        "initialModuleId": {
+          "type": "string",
+          "description": "Informe um id de modulo para iniciar filtrado. Vazio, ausente ou __all__ inicia exibindo todos os modulos."
+        },
+        "modules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "__all__ e reservado para a opcao Todos criada pelo motor."
+              },
+              "title": { "type": "string" },
+              "permission": { "type": "string" }
+            },
+            "additionalProperties": true
+          }
+        },
+        "groups": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title", "items"],
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "moduleId": { "type": "string" },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["programId"],
+                  "properties": {
+                    "programId": { "type": "string" },
+                    "title": { "type": "string" },
+                    "permission": { "type": "string" },
+                    "favorite": { "type": "boolean" },
+                    "isFavorite": { "type": "boolean" }
+                  },
+                  "additionalProperties": true
+                }
+              }
+            },
+            "additionalProperties": true
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "programs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "type"],
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+          "subtitle": { "type": "string" },
+          "subtitleTooltip": { "type": "string" },
+          "version": { "type": "string" },
+          "type": {
+            "enum": ["iframe", "crud", "html"]
+          },
+          "icon": { "type": "string" },
+          "permission": { "type": "string" },
+          "favorite": { "type": "boolean" },
+          "isFavorite": { "type": "boolean" },
+          "openUrl": { "type": "string" },
+          "url": { "type": "string" },
+          "definitionUrl": { "type": "string" },
+          "definition": { "type": "object" },
+          "htmlUrl": { "type": "string" },
+          "html": { "type": "string" },
+          "help": { "type": "object" },
+          "logs": { "type": "object" },
+          "sandbox": { "type": "string" }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "$defs": {
+    "endpoint": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "required": ["url"],
+          "properties": {
+            "url": { "type": "string" },
+            "method": { "enum": ["GET", "POST"] }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "appbarListConfig": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "title": { "type": "string" },
+        "buttonTitle": { "type": "string" },
+        "icon": { "type": "string" },
+        "permission": { "type": "string" },
+        "width": { "type": "number" },
+        "height": { "type": "number" },
+        "url": { "type": "string" },
+        "listUrl": { "type": "string" },
+        "endpoints": {
+          "type": "object",
+          "properties": {
+            "list": {
+              "$ref": "#/$defs/endpoint"
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

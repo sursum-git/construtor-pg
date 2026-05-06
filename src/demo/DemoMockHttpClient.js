@@ -233,6 +233,42 @@
       if (url === "/api/help/seen" && method === "POST") {
         return this.saveHelpSeen(data);
       }
+      if (url === "/api/home/chat/contacts" && method === "GET") {
+        return this.getHomeChatContacts(data);
+      }
+      if (url === "/api/home/chat/history" && (method === "GET" || method === "POST")) {
+        return this.getHomeChatHistory(data);
+      }
+      if (url === "/api/home/chat/send" && method === "POST") {
+        return this.sendHomeChatMessage(data);
+      }
+      if (url === "/api/home/support/online-users" && method === "GET") {
+        return this.getHomeSupportOnlineUsers(data);
+      }
+      if (url === "/api/home/support/history" && (method === "GET" || method === "POST")) {
+        return this.getHomeSupportHistory(data);
+      }
+      if (url === "/api/home/support/send" && method === "POST") {
+        return this.sendHomeSupportMessage(data);
+      }
+      if (url === "/api/home/support/requests" && method === "POST") {
+        return this.createHomeSupportRequest(data);
+      }
+      if (url === "/api/home/support/requests/status" && (method === "GET" || method === "POST")) {
+        return this.getHomeSupportRequestStatus(data);
+      }
+      if (url === "/api/home/ai-chat/history" && (method === "GET" || method === "POST")) {
+        return this.getHomeAiChatHistory(data);
+      }
+      if (url === "/api/home/ai-chat/send" && method === "POST") {
+        return this.sendHomeAiChatMessage(data);
+      }
+      if (url === "/api/home/alerts" && method === "GET") {
+        return this.getHomeAlerts(data);
+      }
+      if (url === "/api/home/requests" && method === "GET") {
+        return this.getHomeRequests(data);
+      }
       if (url === "/api/crud-layout/cadastros/clientes" && method === "DELETE") {
         this.activeLayoutId = null;
         this.persistLayouts();
@@ -290,6 +326,231 @@
         readAt: data.readAt || new Date().toISOString(),
         itemIds,
         seenIds: this.helpSeen.slice()
+      };
+    }
+
+    getHomeChatContacts() {
+      return {
+        contacts: [
+          {
+            id: "u-ana",
+            name: "Ana Lima",
+            email: "ana@example.com",
+            initials: "AL"
+          },
+          {
+            id: "u-bruno",
+            name: "Bruno Costa",
+            email: "bruno@example.com",
+            initials: "BC"
+          },
+          {
+            id: "u-clara",
+            name: "Clara Rocha",
+            email: "clara@example.com",
+            initials: "CR"
+          }
+        ]
+      };
+    }
+
+    getHomeChatHistory(data) {
+      const user = data && data.user ? data.user : {};
+      const recipient = data && data.recipient ? data.recipient : {};
+      const recipientId = recipient.id || "u-ana";
+      const recipientName = recipient.name || "Ana Lima";
+      return {
+        messages: [
+          {
+            id: "home-chat-history-" + recipientId + "-1",
+            text: "Bom dia. Voce consegue revisar as informacoes recebidas?",
+            authorId: recipientId,
+            authorName: recipientName,
+            timestamp: "2026-05-05T08:40:00-03:00"
+          },
+          {
+            id: "home-chat-history-" + recipientId + "-2",
+            text: "Consigo sim. Vou verificar pelo programa atual.",
+            authorId: user.id || "u-demo",
+            authorName: user.name || "Usuario",
+            timestamp: "2026-05-05T08:42:00-03:00"
+          }
+        ]
+      };
+    }
+
+    sendHomeChatMessage(data) {
+      const text = String(data && data.message && data.message.text || "").trim();
+      const recipient = data && data.recipient ? data.recipient : {};
+      return {
+        ok: true,
+        deliveredAt: new Date().toISOString(),
+        recipientId: recipient.id || "",
+        text
+      };
+    }
+
+    getHomeSupportOnlineUsers() {
+      return {
+        onlineUsers: [
+          {
+            id: "u-ana",
+            name: "Ana Lima",
+            email: "ana@example.com",
+            sectorId: "suporte",
+            sectorName: "Suporte",
+            status: "online"
+          },
+        ],
+        sectors: [
+          { id: "suporte", name: "Suporte" },
+          { id: "financeiro", name: "Financeiro" }
+        ]
+      };
+    }
+
+    getHomeSupportHistory(data) {
+      const user = data && data.user ? data.user : {};
+      const attendant = data && data.attendant ? data.attendant : {};
+      const attendantId = attendant.id || "u-ana";
+      const attendantName = attendant.name || "Ana Lima";
+      return {
+        messages: [
+          {
+            id: "home-support-history-" + attendantId + "-1",
+            text: "Estou online para ajudar. Pode enviar sua duvida.",
+            authorId: attendantId,
+            authorName: attendantName,
+            timestamp: "2026-05-05T09:10:00-03:00"
+          },
+          {
+            id: "home-support-history-" + attendantId + "-2",
+            text: "Obrigado. Vou explicar o que preciso.",
+            authorId: user.id || "u-demo",
+            authorName: user.name || "Usuario",
+            timestamp: "2026-05-05T09:11:00-03:00"
+          }
+        ]
+      };
+    }
+
+    sendHomeSupportMessage(data) {
+      const text = String(data && data.message && data.message.text || "").trim();
+      const attendant = data && data.attendant ? data.attendant : {};
+      return {
+        message: {
+          id: "home-support-reply-" + Date.now(),
+          text: text ? "Recebi sua mensagem. Vou acompanhar por aqui." : "Recebi sua mensagem.",
+          authorId: attendant.id || "u-atendente",
+          authorName: attendant.name || "Atendimento",
+          timestamp: new Date().toISOString()
+        }
+      };
+    }
+
+    createHomeSupportRequest(data) {
+      const sector = data && data.sector ? data.sector : {};
+      return {
+        ok: true,
+        protocol: "ATD-" + Date.now(),
+        sectorId: sector.id || "suporte",
+        status: "aberta",
+        createdAt: new Date().toISOString()
+      };
+    }
+
+    getHomeSupportRequestStatus() {
+      return {
+        status: "aberta",
+        assignedTo: null,
+        updatedAt: new Date().toISOString()
+      };
+    }
+
+    getHomeAiChatHistory() {
+      return {
+        messages: [
+          {
+            id: "home-ai-chat-welcome",
+            text: "Sou o assistente de IA da demo. Posso ajudar com duvidas sobre navegacao, filtros, programas e acoes disponiveis.",
+            authorId: "ia",
+            authorName: "IA",
+            timestamp: new Date().toISOString()
+          }
+        ]
+      };
+    }
+
+    sendHomeAiChatMessage(data) {
+      const text = String(data && data.message && data.message.text || "").trim();
+      const programTitle = data && data.context && data.context.programTitle
+        ? String(data.context.programTitle)
+        : "programa atual";
+      const answer = text
+        ? "Analisei sua pergunta sobre " + programTitle + ": \"" + text + "\". Nesta demo a resposta vem do mock; em producao o backend chamaria a IA e executaria apenas acoes permitidas."
+        : "Informe uma duvida ou acao para a IA.";
+
+      return {
+        message: {
+          id: "home-ai-chat-reply-" + Date.now(),
+          text: answer,
+          authorId: "ia",
+          authorName: "IA",
+          timestamp: new Date().toISOString()
+        }
+      };
+    }
+
+    getHomeAlerts(data) {
+      const programTitle = data && data.context && data.context.programTitle
+        ? String(data.context.programTitle)
+        : "programa atual";
+      return {
+        items: [
+          {
+            id: "alerta-atualizacao-clientes",
+            title: "Carga de clientes concluida",
+            description: "Foram recebidas novas informacoes para conferencia no " + programTitle + ".",
+            type: "Informacao",
+            status: "Novo",
+            receivedAt: "2026-05-05T08:15:00-03:00",
+            linkUrl: "index.html",
+            linkText: "Abrir clientes"
+          },
+          {
+            id: "alerta-novidade-home",
+            title: "Nova central de mensagens",
+            description: "O appbar global agora pode exibir chat, alertas e solicitacoes por configuracao JSON.",
+            type: "Sistema",
+            status: "Lido parcialmente",
+            receivedAt: "2026-05-05T09:20:00-03:00"
+          }
+        ]
+      };
+    }
+
+    getHomeRequests() {
+      return {
+        items: [
+          {
+            id: "solicitacao-cadastro-pendente",
+            title: "Revisar cadastro pendente",
+            description: "Existe uma solicitacao de revisao de dados cadastrais aguardando validacao.",
+            type: "Cadastro",
+            status: "Pendente",
+            updatedAt: "2026-05-05T10:05:00-03:00",
+            linkUrl: "examples/pages/formulario-eventos.html",
+            linkText: "Ver exemplo"
+          },
+          {
+            id: "solicitacao-aprovacao-comercial",
+            title: "Aprovacao comercial atualizada",
+            description: "Uma etapa de aprovacao foi atualizada e precisa ser consultada.",
+            type: "Workflow",
+            status: "Atualizada",
+            updatedAt: "2026-05-05T10:32:00-03:00"
+          }
+        ]
       };
     }
 

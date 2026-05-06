@@ -1,0 +1,3504 @@
+(function(global, $) {
+  "use strict";
+
+  class HomeEngine {
+    constructor(options) {
+      this.options = options || {};
+      this.root = $(this.options.root);
+      this.httpClient = this.options.httpClient || new global.CrudHttpClient();
+      this.configLoader = new global.CrudConfigLoader();
+      this.loader = new global.HomeDefinitionLoader({ httpClient: this.httpClient });
+      this.validator = new global.HomeDefinitionValidator();
+      this.config = this.normalizeConfig(this.options.config);
+      this.currentTheme = this.resolveInitialTheme();
+      this.currentProgram = null;
+      this.currentProgramEngine = null;
+      this.currentProgramFrame = null;
+      this.chatWindowElement = null;
+      this.chatWindow = null;
+      this.chatToolbar = null;
+      this.chatHost = null;
+      this.chatWidget = null;
+      this.chatRecipientInput = null;
+      this.chatRecipientComboBox = null;
+      this.chatRecipients = [];
+      this.currentChatRecipient = null;
+      this.chatHistoryLoaded = false;
+      this.chatHistoryRecipientId = "";
+      this.supportWindowElement = null;
+      this.supportWindow = null;
+      this.supportStatusElement = null;
+      this.supportOnlineSectorInput = null;
+      this.supportOnlineSectorComboBox = null;
+      this.supportUserInput = null;
+      this.supportUserComboBox = null;
+      this.supportUserField = null;
+      this.supportSectorInput = null;
+      this.supportSectorComboBox = null;
+      this.supportSubjectInput = null;
+      this.supportDescriptionInput = null;
+      this.supportPriorityInput = null;
+      this.supportOnlineSection = null;
+      this.supportRequestSection = null;
+      this.supportRequestBackButton = null;
+      this.supportRequestToggleButton = null;
+      this.supportChatHost = null;
+      this.supportChatWidget = null;
+      this.supportOnlineUsers = [];
+      this.supportSectors = [];
+      this.currentSupportUser = null;
+      this.currentSupportSectorId = "";
+      this.supportHistoryLoadedUserId = "";
+      this.aiChatWindowElement = null;
+      this.aiChatWindow = null;
+      this.aiChatHost = null;
+      this.aiChatWidget = null;
+      this.aiChatHistoryLoaded = false;
+      this.appbarPanelWindows = {};
+      this.currentSidebarToggleIcon = "";
+      this.allModulesId = "__all__";
+      this.modules = [];
+      this.currentModuleId = "";
+      this.menuSearchText = "";
+      this.showOnlyFavorites = false;
+      this.applyTheme(this.currentTheme, { persist: false });
+    }
+
+    init() {
+      this.renderLoading();
+      return this.loadConfig().then(() => {
+        return this.loader.load({
+          definitionUrl: this.options.definitionUrl,
+          definition: this.options.definition
+        });
+      }).then((definition) => {
+        this.definition = this.normalizeDefinition(definition);
+        this.loadUserFavoriteState();
+        this.validator.validate(this.definition);
+        this.modules = this.buildModuleList();
+        this.currentModuleId = this.resolveInitialModuleId();
+        this.render();
+        return this.openInitialProgram().then(() => this);
+      }).catch((error) => {
+        this.renderError(global.CrudUtils.unwrapError(error, "Erro ao carregar pagina inicial."));
+        throw error;
+      });
+    }
+
+    loadConfig() {
+      return this.configLoader.load({
+        configUrl: this.options.configUrl,
+        config: this.options.config
+      }).then((config) => {
+        this.config = this.normalizeConfig(config);
+        this.applyKendoTheme();
+        this.currentTheme = this.resolveInitialTheme();
+        this.applyTheme(this.currentTheme, { persist: false });
+        return this.config;
+      });
+    }
+
+    normalizeDefinition(definition) {
+      const source = global.CrudUtils.clone(definition || {});
+      source.layout = Object.assign({
+        initialProgramId: "",
+        sidebar: {
+          component: "kendoTreeView",
+          collapsible: true,
+          collapsed: false,
+          expanded: true
+        },
+        appbar: {
+          showSidebarToggle: true,
+          showRefresh: true,
+          showThemeSwitch: true,
+          showFavoriteToggle: true,
+          showUserMenu: true,
+          chat: {
+            enabled: false
+          },
+          support: {
+            enabled: false
+          },
+          aiChat: {
+            enabled: false
+          },
+          alerts: {
+            enabled: false
+          },
+          requests: {
+            enabled: false
+          },
+          userMenu: {
+            items: []
+          }
+        }
+      }, source.layout || {});
+      source.layout.sidebar = Object.assign({
+        component: "kendoTreeView",
+        collapsible: true,
+        collapsed: false,
+        expanded: true
+      }, source.layout.sidebar || {});
+      source.layout.appbar = Object.assign({
+        showSidebarToggle: true,
+        showRefresh: true,
+        showThemeSwitch: true,
+        showFavoriteToggle: true,
+        showUserMenu: true,
+        chat: {
+          enabled: false
+        },
+        support: {
+          enabled: false
+        },
+        aiChat: {
+          enabled: false
+        },
+        alerts: {
+          enabled: false
+        },
+        requests: {
+          enabled: false
+        },
+        userMenu: {
+          items: []
+        }
+      }, source.layout.appbar || {});
+      source.currentUser = source.currentUser || source.user || {};
+      source.navigation = source.navigation || {};
+      source.permissions = source.permissions || {};
+      return source;
+    }
+
+    normalizeConfig(config) {
+      const source = config || {};
+      const defaultConfig = {
+        schemaVersion: "1.0",
+        theme: {
+          kendoTheme: "kendo/styles/default-urban.css",
+          defaultMode: "light",
+          allowUserSwitch: true,
+          persistUserChoice: true,
+          storageKey: "crudEngine.theme",
+          tokens: {
+            light: {},
+            dark: {}
+          }
+        }
+      };
+      const sourceTheme = source.theme || {};
+      const sourceTokens = sourceTheme.tokens || {};
+      return Object.assign({}, defaultConfig, source, {
+        theme: Object.assign({}, defaultConfig.theme, sourceTheme, {
+          tokens: {
+            light: Object.assign({}, defaultConfig.theme.tokens.light, sourceTokens.light || {}),
+            dark: Object.assign({}, defaultConfig.theme.tokens.dark, sourceTokens.dark || {})
+          }
+        })
+      });
+    }
+
+    render() {
+      this.destroyChatWindow();
+      this.destroySupportWindow();
+      this.destroyAiChatWindow();
+      this.destroyAppbarPanelWindows();
+      this.destroyCurrentProgram();
+      kendo.destroy(this.root);
+      this.root.empty();
+
+      const shell = $("<div class=\"home-shell\"></div>").appendTo(this.root);
+      if (this.shouldStartSidebarCollapsed()) {
+        shell.addClass("home-sidebar-collapsed");
+      }
+      this.shell = shell;
+      this.renderAppBar(shell);
+      this.renderMain(shell);
+    }
+
+    renderAppBar(shell) {
+      const appbar = $("<header class=\"home-appbar\"></header>").appendTo(shell);
+      const left = $("<div class=\"home-appbar-left\"></div>").appendTo(appbar);
+
+      this.renderSidebarToggle(left);
+
+      const brand = $("<div class=\"home-brand\"></div>").appendTo(left);
+      this.renderBrand(brand);
+
+      const center = $("<div class=\"home-appbar-center\"></div>").appendTo(appbar);
+      const titleLine = $("<div class=\"home-program-title-line\"></div>").appendTo(center);
+      this.programTitleElement = $("<h1></h1>").text(this.definition.app.title).appendTo(titleLine);
+      this.programVersionElement = $("<span class=\"home-program-version k-badge k-badge-solid k-badge-solid-base k-rounded-md\" hidden></span>").appendTo(titleLine);
+      this.renderProgramFavoriteButton(titleLine);
+      const meta = $("<div class=\"home-program-meta\"></div>").appendTo(center);
+      this.programSubtitleElement = $("<button type=\"button\" class=\"home-program-subtitle\" hidden></button>").appendTo(meta);
+      this.programSubtitleElement.on("click", () => this.openProgramSubtitleTooltip());
+      this.programLastUpdatedElement = $("<span class=\"crud-last-updated k-badge k-badge-solid k-badge-solid-primary k-rounded-md\"></span>").appendTo(meta);
+
+      const actions = $("<div class=\"home-appbar-actions\"></div>").appendTo(appbar);
+      this.programActionsElement = $("<div class=\"home-program-actions\"></div>").appendTo(actions);
+      this.renderChatButton(actions);
+      this.renderSupportButton(actions);
+      this.renderAiChatButton(actions);
+      this.renderAppbarListButton(actions, "alerts");
+      this.renderAppbarListButton(actions, "requests");
+      if (this.definition.layout.appbar.showRefresh !== false) {
+        this.refreshButton = $("<button type=\"button\" class=\"home-icon-button\"></button>")
+          .attr("title", "Atualizar")
+          .attr("aria-label", "Atualizar")
+          .appendTo(actions);
+        this.refreshButton.kendoButton({ icon: "arrow-rotate-cw" });
+        this.refreshButton.on("click", () => this.refreshProgram());
+      }
+
+      if (this.definition.layout.appbar.showThemeSwitch !== false && this.config.theme.allowUserSwitch !== false) {
+        this.renderThemeToggle(actions);
+      }
+      this.renderUserMenu(actions);
+    }
+
+    renderChatButton(container) {
+      if (!this.shouldShowChatButton()) {
+        return;
+      }
+      const chat = this.getChatConfig();
+      const title = chat.buttonTitle || chat.title || "Chat";
+      this.chatButton = $("<button type=\"button\" class=\"home-icon-button home-chat-button\"></button>")
+        .attr("title", title)
+        .attr("aria-label", title)
+        .appendTo(container);
+      this.chatButton.kendoButton({ icon: chat.icon || "comment" });
+      this.chatButton.on("click", () => this.openChatWindow());
+    }
+
+    shouldShowChatButton() {
+      const chat = this.getChatConfig();
+      return chat.enabled === true &&
+        this.hasPermission(chat.permission) &&
+        Boolean(this.getChatEndpoint(chat, "send")) &&
+        this.hasChatRecipientSource(chat);
+    }
+
+    getChatConfig() {
+      const layout = this.definition && this.definition.layout ? this.definition.layout : {};
+      const appbar = layout.appbar || {};
+      return appbar.chat || this.definition.chat || {};
+    }
+
+    getChatEndpoint(chat, name) {
+      const source = chat && chat.endpoints ? chat.endpoints[name] : null;
+      const fallback = chat ? chat[name + "Url"] : null;
+      const endpoint = source || fallback;
+      if (!endpoint) {
+        return null;
+      }
+      if (typeof endpoint === "string") {
+        return {
+          url: endpoint,
+          method: name === "contacts" ? "GET" : "POST"
+        };
+      }
+      if (typeof endpoint === "object" && endpoint.url) {
+        return {
+          url: endpoint.url,
+          method: String(endpoint.method || (name === "contacts" ? "GET" : "POST")).toUpperCase()
+        };
+      }
+      return null;
+    }
+
+    hasChatRecipientSource(chat) {
+      return Boolean(
+        this.getChatEndpoint(chat, "contacts") ||
+        global.CrudUtils.ensureArray(chat && (chat.contacts || chat.users || chat.recipients)).length
+      );
+    }
+
+    openChatWindow() {
+      const chat = this.getChatConfig();
+      if (!this.shouldShowChatButton()) {
+        return;
+      }
+      if (!$.fn.kendoChat) {
+        global.CrudUtils.showMessage("Componente de chat do Kendo UI indisponivel.", "error");
+        return;
+      }
+
+      if (!this.chatWindowElement) {
+        this.createChatWindow(chat);
+      }
+
+      this.resizeChatWindow(chat);
+      this.chatWindow.center().open();
+      if (this.chatWidget && typeof this.chatWidget.scrollToBottom === "function") {
+        this.chatWidget.scrollToBottom();
+      }
+      this.loadChatRecipients(chat);
+    }
+
+    createChatWindow(chat) {
+      this.chatWindowElement = $("<div class=\"home-chat-window\"></div>").appendTo(document.body);
+      this.chatToolbar = $("<div class=\"home-chat-toolbar\"></div>").appendTo(this.chatWindowElement);
+      const recipientField = $("<label class=\"home-chat-recipient-field\"></label>").appendTo(this.chatToolbar);
+      $("<span></span>").text(chat.recipientLabel || "Conversar com").appendTo(recipientField);
+      this.chatRecipientInput = $("<input type=\"text\" class=\"home-chat-recipient-input\">")
+        .attr("aria-label", chat.recipientLabel || "Conversar com")
+        .appendTo(recipientField);
+      this.chatHost = $("<div class=\"home-chat-host\"></div>").appendTo(this.chatWindowElement);
+      this.chatWindowElement.kendoWindow({
+        title: chat.title || "Chat",
+        modal: false,
+        actions: ["Maximize", "Close"],
+        resizable: true,
+        visible: false,
+        close: () => {
+          if (this.chatButton) {
+            this.chatButton.trigger("focus");
+          }
+        }
+      });
+      this.chatWindow = this.chatWindowElement.data("kendoWindow");
+      this.initializeChatRecipientComboBox(chat);
+      this.initializeChatWidget(chat);
+    }
+
+    initializeChatRecipientComboBox(chat) {
+      const recipientConfig = chat.recipient || {};
+      this.chatRecipientInput.kendoComboBox({
+        dataSource: [],
+        dataTextField: recipientConfig.dataTextField || "name",
+        dataValueField: recipientConfig.dataValueField || "id",
+        placeholder: recipientConfig.placeholder || "Selecione um usuario",
+        clearButton: false,
+        filter: "contains",
+        suggest: true,
+        change: () => this.handleChatRecipientChange(chat)
+      });
+      this.chatRecipientComboBox = this.chatRecipientInput.data("kendoComboBox");
+    }
+
+    initializeChatWidget(chat) {
+      const user = this.getCurrentUser();
+      const userId = String((chat.user && chat.user.id) || user.id || user.email || user.username || "usuario");
+      const bot = chat.bot || {};
+      this.chatHost.kendoChat({
+        authorId: userId,
+        height: "100%",
+        dataSource: [],
+        autoBind: true,
+        showAvatar: false,
+        showUsername: true,
+        speechToText: false,
+        fileAttachment: false,
+        messageActions: [],
+        fileActions: [],
+        messages: this.getChatMessages(chat),
+        noDataTemplate: () => "<div class=\"home-chat-empty\">Nenhuma mensagem ainda.</div>",
+        sendMessage: (event) => {
+          if (event.generating) {
+            return;
+          }
+          const message = event.message || {};
+          const text = String(message.text || "").trim();
+          if (!text && !global.CrudUtils.ensureArray(message.files).length) {
+            return;
+          }
+          this.sendChatMessage(chat, Object.assign({}, message, { text }), bot);
+        }
+      });
+      this.chatWidget = this.chatHost.data("kendoChat");
+      if (chat.welcomeMessage) {
+        this.postChatMessages([this.normalizeChatMessage(chat.welcomeMessage, bot)]);
+      }
+    }
+
+    getChatMessages(chat) {
+      return Object.assign({
+        messageListLabel: "Lista de mensagens",
+        placeholder: chat.placeholder || "Digite uma mensagem...",
+        sendButton: "Enviar mensagem",
+        sendButtonLoading: "Parar",
+        actionButton: "Enviar mensagem",
+        actionButtonLoading: "Parar",
+        stopButton: "Parar",
+        speechToTextButton: "Alternar ditado",
+        fileButton: "Anexar arquivo",
+        downloadAll: "Baixar todos",
+        selfMessageDeleted: "Voce removeu esta mensagem.",
+        otherMessageDeleted: "Esta mensagem foi removida.",
+        stopGeneration: "Parar geracao",
+        messageBoxLabel: "Digite sua mensagem aqui",
+        pinnedMessageCloseButton: "Desafixar mensagem",
+        replyMessageCloseButton: "Remover resposta",
+        fileMenuButton: "Menu do arquivo",
+        retryMessage: "Tentar novamente"
+      }, chat.messages || {});
+    }
+
+    resizeChatWindow(chat) {
+      if (!this.chatWindow) {
+        return;
+      }
+      const width = Math.min(Number(chat.width) || 420, Math.max(320, window.innerWidth - 24));
+      const height = Math.min(Number(chat.height) || 560, Math.max(360, window.innerHeight - 24));
+      this.chatWindow.setOptions({
+        width,
+        height
+      });
+      if (this.chatHost) {
+        this.chatWindowElement.css("height", Math.max(300, height - 48));
+        this.chatHost.css("height", Math.max(240, height - 124));
+      }
+    }
+
+    loadChatRecipients(chat) {
+      if (this.chatRecipients.length) {
+        this.bindChatRecipients(chat, this.chatRecipients);
+        return;
+      }
+
+      const configured = global.CrudUtils.ensureArray(chat.contacts || chat.users || chat.recipients);
+      if (configured.length) {
+        this.bindChatRecipients(chat, this.normalizeChatRecipients(configured));
+        return;
+      }
+
+      const endpoint = this.getChatEndpoint(chat, "contacts");
+      if (!endpoint) {
+        return;
+      }
+      this.requestChatEndpoint(endpoint, {
+        user: this.buildChatUserPayload(),
+        context: this.buildChatContextPayload()
+      }).then((response) => {
+        this.bindChatRecipients(chat, this.normalizeChatRecipients(response));
+      }).catch(() => {
+        global.CrudUtils.showMessage("Nao foi possivel carregar os usuarios do chat.", "error");
+      });
+    }
+
+    normalizeChatRecipients(response) {
+      const user = this.buildChatUserPayload();
+      const source = Array.isArray(response)
+        ? response
+        : response && (response.contacts || response.users || response.recipients || response.items || response.data);
+      return global.CrudUtils.ensureArray(source).map(function(item) {
+        const rawItem = item && typeof item.toJSON === "function" ? item.toJSON() : item;
+        const sourceItem = typeof rawItem === "string" ? { id: rawItem, name: rawItem } : (rawItem || {});
+        const id = String(sourceItem.id || sourceItem.userId || sourceItem.email || "").trim();
+        const name = String(sourceItem.name || sourceItem.fullName || sourceItem.username || sourceItem.email || id).trim();
+        if (!id || !name || id === String(user.id || "")) {
+          return null;
+        }
+        return {
+          id,
+          name,
+          email: sourceItem.email || "",
+          initials: sourceItem.initials || ""
+        };
+      }).filter(Boolean);
+    }
+
+    bindChatRecipients(chat, recipients) {
+      this.chatRecipients = recipients || [];
+      if (!this.chatRecipientComboBox) {
+        return;
+      }
+      this.chatRecipientComboBox.dataSource.data(this.chatRecipients);
+      if (!this.chatRecipients.length) {
+        this.currentChatRecipient = null;
+        this.clearChatMessages();
+        this.chatRecipientComboBox.enable(false);
+        global.CrudUtils.showMessage("Nenhum usuario disponivel para conversa.", "info");
+        return;
+      }
+      this.chatRecipientComboBox.enable(true);
+      if (!this.currentChatRecipient) {
+        const defaultId = String(chat.defaultRecipientId || chat.recipientId || "").trim();
+        const selected = this.chatRecipients.find(function(item) {
+          return item.id === defaultId;
+        }) || this.chatRecipients[0];
+        this.chatRecipientComboBox.value(selected.id);
+        this.setCurrentChatRecipient(chat, selected);
+        return;
+      }
+      this.chatRecipientComboBox.value(this.currentChatRecipient.id);
+    }
+
+    handleChatRecipientChange(chat) {
+      if (!this.chatRecipientComboBox) {
+        return;
+      }
+      const selected = this.normalizeChatRecipients([
+        this.chatRecipientComboBox.dataItem() || this.findChatRecipientById(this.chatRecipientComboBox.value())
+      ])[0];
+      if (!selected) {
+        this.chatRecipientComboBox.value(this.currentChatRecipient ? this.currentChatRecipient.id : "");
+        return;
+      }
+      this.setCurrentChatRecipient(chat, selected);
+    }
+
+    findChatRecipientById(value) {
+      const id = String(value || "");
+      return this.chatRecipients.find(function(item) {
+        return item.id === id;
+      }) || null;
+    }
+
+    setCurrentChatRecipient(chat, recipient) {
+      const nextId = recipient && recipient.id ? String(recipient.id) : "";
+      if (!nextId || this.currentChatRecipient && this.currentChatRecipient.id === nextId) {
+        return;
+      }
+      this.currentChatRecipient = recipient;
+      this.chatHistoryLoaded = false;
+      this.chatHistoryRecipientId = "";
+      this.clearChatMessages();
+      this.loadChatHistory(chat);
+    }
+
+    clearChatMessages() {
+      if (this.chatWidget && this.chatWidget.dataSource && typeof this.chatWidget.dataSource.data === "function") {
+        this.chatWidget.dataSource.data([]);
+      }
+    }
+
+    loadChatHistory(chat) {
+      const endpoint = this.getChatEndpoint(chat, "history");
+      const recipient = this.buildChatRecipientPayload();
+      if (!endpoint || !recipient.id || this.chatHistoryLoaded && this.chatHistoryRecipientId === recipient.id) {
+        return;
+      }
+      this.chatHistoryLoaded = true;
+      this.chatHistoryRecipientId = recipient.id;
+      this.requestChatEndpoint(endpoint, {
+        user: this.buildChatUserPayload(),
+        recipient,
+        context: this.buildChatContextPayload()
+      }).then((response) => {
+        this.postChatMessages(this.normalizeChatResponseMessages(response, chat.bot || {}));
+      }).catch(() => {
+        this.chatHistoryLoaded = false;
+        this.chatHistoryRecipientId = "";
+        global.CrudUtils.showMessage("Nao foi possivel carregar o historico do chat.", "error");
+      });
+    }
+
+    sendChatMessage(chat, message, bot) {
+      const endpoint = this.getChatEndpoint(chat, "send");
+      if (!endpoint) {
+        return;
+      }
+      const recipient = this.buildChatRecipientPayload();
+      if (!recipient.id) {
+        global.CrudUtils.showMessage("Selecione um usuario para conversar.", "warning");
+        return;
+      }
+      if (this.chatWidget && typeof this.chatWidget.loading === "function") {
+        this.chatWidget.loading(true);
+      }
+      this.requestChatEndpoint(endpoint, {
+        message,
+        user: this.buildChatUserPayload(),
+        recipient,
+        context: this.buildChatContextPayload()
+      }).then((response) => {
+        this.postChatMessages(this.normalizeChatResponseMessages(response, bot || chat.bot || {}));
+      }).catch(() => {
+        this.postChatMessages([this.normalizeChatMessage({
+          text: "Nao foi possivel enviar a mensagem agora."
+        }, bot || chat.bot || {})]);
+      }).finally(() => {
+        if (this.chatWidget && typeof this.chatWidget.loading === "function") {
+          this.chatWidget.loading(false);
+        }
+      });
+    }
+
+    requestChatEndpoint(endpoint, data) {
+      return this.httpClient.request({
+        url: endpoint.url,
+        method: endpoint.method || "POST",
+        data
+      });
+    }
+
+    buildChatUserPayload() {
+      const user = this.getCurrentUser();
+      return {
+        id: user.id || user.email || user.username || "",
+        name: user.name || user.fullName || user.username || "",
+        email: user.email || ""
+      };
+    }
+
+    buildChatRecipientPayload() {
+      const recipient = this.currentChatRecipient || {};
+      return {
+        id: recipient.id || "",
+        name: recipient.name || "",
+        email: recipient.email || ""
+      };
+    }
+
+    buildChatContextPayload() {
+      const info = this.currentHeaderInfo || {};
+      return {
+        appId: this.definition.app && this.definition.app.id || "",
+        appTitle: this.definition.app && this.definition.app.title || "",
+        programId: info.id || this.currentProgram && this.currentProgram.id || "",
+        programTitle: info.title || this.currentProgram && this.currentProgram.title || ""
+      };
+    }
+
+    normalizeChatResponseMessages(response, bot) {
+      if (response == null) {
+        return [];
+      }
+      if (typeof response === "string") {
+        return [this.normalizeChatMessage({ text: response }, bot)];
+      }
+      if (Array.isArray(response)) {
+        return response.map((item) => this.normalizeChatMessage(item, bot));
+      }
+      if (Array.isArray(response.messages)) {
+        return response.messages.map((item) => this.normalizeChatMessage(item, bot));
+      }
+      if (response.message) {
+        return [this.normalizeChatMessage(response.message, bot)];
+      }
+      if (response.text) {
+        return [this.normalizeChatMessage(response, bot)];
+      }
+      return [];
+    }
+
+    normalizeChatMessage(message, bot) {
+      const source = typeof message === "string" ? { text: message } : (message || {});
+      const botConfig = bot || {};
+      return {
+        id: source.id || kendo.guid(),
+        text: String(source.text || ""),
+        authorId: String(source.authorId || source.senderId || source.userId || botConfig.id || "assistente"),
+        authorName: source.authorName || source.senderName || source.userName || botConfig.name || "Assistente",
+        timestamp: source.timestamp ? new Date(source.timestamp) : new Date(),
+        files: global.CrudUtils.ensureArray(source.files),
+        suggestedActions: global.CrudUtils.ensureArray(source.suggestedActions || source.suggestions)
+      };
+    }
+
+    postChatMessages(messages) {
+      if (!this.chatWidget) {
+        return;
+      }
+      global.CrudUtils.ensureArray(messages).forEach((message) => {
+        if (message && (message.text || message.files.length)) {
+          this.chatWidget.postMessage(message);
+        }
+      });
+    }
+
+    destroyChatWindow() {
+      if (this.chatWindow) {
+        this.chatWindow.destroy();
+      }
+      if (this.chatWindowElement) {
+        this.chatWindowElement.remove();
+      }
+      this.chatWindowElement = null;
+      this.chatWindow = null;
+      this.chatToolbar = null;
+      this.chatHost = null;
+      this.chatWidget = null;
+      this.chatRecipientInput = null;
+      this.chatRecipientComboBox = null;
+      this.chatRecipients = [];
+      this.currentChatRecipient = null;
+      this.chatHistoryLoaded = false;
+      this.chatHistoryRecipientId = "";
+    }
+
+    renderSupportButton(container) {
+      if (!this.shouldShowSupportButton()) {
+        return;
+      }
+      const support = this.getSupportConfig();
+      const title = support.buttonTitle || support.title || "Atendimento";
+      this.supportButton = $("<button type=\"button\" class=\"home-icon-button home-support-button\"></button>")
+        .attr("title", title)
+        .attr("aria-label", title)
+        .appendTo(container);
+      this.supportButton.kendoButton({ icon: support.icon || "headset" });
+      this.supportButton.on("click", () => this.openSupportWindow());
+    }
+
+    shouldShowSupportButton() {
+      const support = this.getSupportConfig();
+      return support.enabled === true &&
+        this.hasPermission(support.permission) &&
+        Boolean(this.getSupportEndpoint(support, "onlineUsers")) &&
+        Boolean(this.getSupportEndpoint(support, "createRequest")) &&
+        Boolean(this.getSupportEndpoint(support, "send"));
+    }
+
+    getSupportConfig() {
+      const layout = this.definition && this.definition.layout ? this.definition.layout : {};
+      const appbar = layout.appbar || {};
+      return appbar.support || this.definition.support || {};
+    }
+
+    getSupportEndpoint(support, name) {
+      const source = support && support.endpoints ? support.endpoints[name] : null;
+      const fallback = support ? support[name + "Url"] : null;
+      const endpoint = source || fallback;
+      if (!endpoint) {
+        return null;
+      }
+      if (typeof endpoint === "string") {
+        return {
+          url: endpoint,
+          method: name === "onlineUsers" || name === "requestStatus" ? "GET" : "POST"
+        };
+      }
+      if (typeof endpoint === "object" && endpoint.url) {
+        return {
+          url: endpoint.url,
+          method: String(endpoint.method || (name === "onlineUsers" || name === "requestStatus" ? "GET" : "POST")).toUpperCase()
+        };
+      }
+      return null;
+    }
+
+    openSupportWindow() {
+      const support = this.getSupportConfig();
+      if (!this.shouldShowSupportButton()) {
+        return;
+      }
+      if (!$.fn.kendoChat) {
+        global.CrudUtils.showMessage("Componente de chat do Kendo UI indisponivel.", "error");
+        return;
+      }
+
+      if (!this.supportWindowElement) {
+        this.createSupportWindow(support);
+      }
+
+      this.resizeSupportWindow(support);
+      this.supportWindow.center().open();
+      this.loadSupportAvailability(support);
+    }
+
+    createSupportWindow(support) {
+      this.supportWindowElement = $("<div class=\"home-support-window\"></div>").appendTo(document.body);
+      this.supportStatusElement = $("<div class=\"home-support-status\"></div>").appendTo(this.supportWindowElement);
+      this.renderSupportOnlineSection(support);
+      this.renderSupportRequestSection(support);
+      this.supportWindowElement.kendoWindow({
+        title: support.title || "Atendimento",
+        modal: false,
+        actions: ["Maximize", "Close"],
+        resizable: true,
+        visible: false,
+        close: () => {
+          if (this.supportButton) {
+            this.supportButton.trigger("focus");
+          }
+        }
+      });
+      this.supportWindow = this.supportWindowElement.data("kendoWindow");
+      this.initializeSupportChatWidget(support);
+    }
+
+    renderSupportOnlineSection(support) {
+      this.supportOnlineSection = $("<section class=\"home-support-online\" hidden></section>").appendTo(this.supportWindowElement);
+      const header = $("<div class=\"home-support-section-header\"></div>").appendTo(this.supportOnlineSection);
+      $("<h2></h2>").text(support.onlineTitle || "Atendimento online").appendTo(header);
+      $("<p></p>").text(support.onlineDescription || "Selecione o setor desejado. Se houver atendente online no setor, o chat sera aberto.").appendTo(header);
+      const tools = $("<div class=\"home-support-online-tools\"></div>").appendTo(this.supportOnlineSection);
+      const sectorField = $("<label class=\"home-support-field\"></label>").appendTo(tools);
+      $("<span></span>").text(support.sectorLabel || "Setor").appendTo(sectorField);
+      this.supportOnlineSectorInput = $("<input type=\"text\" class=\"home-support-online-sector-input\">")
+        .attr("aria-label", support.sectorLabel || "Setor")
+        .appendTo(sectorField);
+      this.supportUserField = $("<label class=\"home-support-field\"></label>").appendTo(tools);
+      $("<span></span>").text(support.attendantLabel || "Atendente").appendTo(this.supportUserField);
+      this.supportUserInput = $("<input type=\"text\" class=\"home-support-user-input\">")
+        .attr("aria-label", support.attendantLabel || "Atendente")
+        .appendTo(this.supportUserField);
+      this.supportRequestToggleButton = $("<button type=\"button\" class=\"home-support-request-toggle\"></button>")
+        .text(support.requestButtonText || "Criar solicitacao")
+        .appendTo(tools);
+      this.supportRequestToggleButton.kendoButton({ icon: "clipboard" });
+      this.supportRequestToggleButton.on("click", () => this.showSupportRequestForm(true, true));
+      this.supportChatHost = $("<div class=\"home-support-chat-host home-chat-host\"></div>").appendTo(this.supportOnlineSection);
+
+      this.supportOnlineSectorInput.kendoComboBox({
+        dataSource: [],
+        dataTextField: "name",
+        dataValueField: "id",
+        placeholder: support.sectorPlaceholder || "Selecione o setor",
+        clearButton: false,
+        filter: "contains",
+        suggest: true,
+        change: () => this.handleSupportSectorChange(support)
+      });
+      this.supportOnlineSectorComboBox = this.supportOnlineSectorInput.data("kendoComboBox");
+
+      this.supportUserInput.kendoComboBox({
+        dataSource: [],
+        dataTextField: "name",
+        dataValueField: "id",
+        placeholder: support.attendantPlaceholder || "Selecione um atendente",
+        clearButton: false,
+        filter: "contains",
+        suggest: true,
+        change: () => this.handleSupportUserChange(support)
+      });
+      this.supportUserComboBox = this.supportUserInput.data("kendoComboBox");
+    }
+
+    renderSupportRequestSection(support) {
+      this.supportRequestSection = $("<section class=\"home-support-request\" hidden></section>").appendTo(this.supportWindowElement);
+      const header = $("<div class=\"home-support-section-header\"></div>").appendTo(this.supportRequestSection);
+      $("<h2></h2>").text(support.requestTitle || "Criar solicitacao").appendTo(header);
+      $("<p></p>").text(support.requestDescription || "Registre a solicitacao para o setor responsavel assumir posteriormente.").appendTo(header);
+      const form = $("<div class=\"home-support-request-form\"></div>").appendTo(this.supportRequestSection);
+
+      const sectorField = $("<label class=\"home-support-field\"></label>").appendTo(form);
+      $("<span></span>").text("Setor").appendTo(sectorField);
+      this.supportSectorInput = $("<input type=\"text\" class=\"home-support-sector-input\">").attr("aria-label", "Setor").appendTo(sectorField);
+
+      const subjectField = $("<label class=\"home-support-field\"></label>").appendTo(form);
+      $("<span></span>").text("Assunto").appendTo(subjectField);
+      this.supportSubjectInput = $("<input type=\"text\" class=\"home-support-subject-input\">").attr("aria-label", "Assunto").appendTo(subjectField);
+
+      const descriptionField = $("<label class=\"home-support-field\"></label>").appendTo(form);
+      $("<span></span>").text("Descricao").appendTo(descriptionField);
+      this.supportDescriptionInput = $("<textarea class=\"home-support-description-input\" rows=\"5\"></textarea>")
+        .attr("aria-label", "Descricao")
+        .appendTo(descriptionField);
+
+      const priorityField = $("<label class=\"home-support-field\"></label>").appendTo(form);
+      $("<span></span>").text("Prioridade").appendTo(priorityField);
+      this.supportPriorityInput = $("<input type=\"text\" class=\"home-support-priority-input\">").attr("aria-label", "Prioridade").appendTo(priorityField);
+
+      const actions = $("<div class=\"home-support-actions\"></div>").appendTo(this.supportRequestSection);
+      const submitButton = $("<button type=\"button\"></button>").text("Enviar solicitacao").appendTo(actions);
+      submitButton.kendoButton({ icon: "paper-plane", themeColor: "primary" });
+      submitButton.on("click", () => this.createSupportRequest(support));
+      const backButton = $("<button type=\"button\"></button>").text("Voltar ao atendimento").appendTo(actions);
+      backButton.kendoButton();
+      backButton.on("click", () => this.showSupportSectorPicker());
+      this.supportRequestBackButton = backButton;
+
+      this.initializeSupportRequestControls(support);
+    }
+
+    initializeSupportRequestControls(support) {
+      this.supportSectorInput.kendoComboBox({
+        dataSource: [],
+        dataTextField: "name",
+        dataValueField: "id",
+        placeholder: "Selecione o setor",
+        clearButton: false,
+        filter: "contains",
+        suggest: true
+      });
+      this.supportSectorComboBox = this.supportSectorInput.data("kendoComboBox");
+      if ($.fn.kendoTextBox) {
+        this.supportSubjectInput.kendoTextBox();
+      }
+      if ($.fn.kendoTextArea) {
+        this.supportDescriptionInput.kendoTextArea({
+          rows: 5,
+          resize: "vertical"
+        });
+      }
+      const priorities = global.CrudUtils.ensureArray(support.priorities);
+      const priorityData = priorities.length ? priorities : [
+        { id: "normal", name: "Normal" },
+        { id: "alta", name: "Alta" },
+        { id: "baixa", name: "Baixa" }
+      ];
+      this.supportPriorityInput.kendoDropDownList({
+        dataSource: priorityData,
+        dataTextField: "name",
+        dataValueField: "id",
+        value: support.defaultPriority || "normal"
+      });
+    }
+
+    initializeSupportChatWidget(support) {
+      const user = this.getCurrentUser();
+      const userId = String(user.id || user.email || user.username || "usuario");
+      this.supportChatHost.kendoChat({
+        authorId: userId,
+        height: "100%",
+        dataSource: [],
+        autoBind: true,
+        showAvatar: false,
+        showUsername: true,
+        speechToText: false,
+        fileAttachment: false,
+        messageActions: [],
+        fileActions: [],
+        messages: this.getChatMessages(Object.assign({
+          placeholder: "Digite sua mensagem..."
+        }, support.messages || {})),
+        noDataTemplate: () => "<div class=\"home-chat-empty\">Nenhuma mensagem ainda.</div>",
+        sendMessage: (event) => {
+          if (event.generating) {
+            return;
+          }
+          const message = event.message || {};
+          const text = String(message.text || "").trim();
+          if (!text && !global.CrudUtils.ensureArray(message.files).length) {
+            return;
+          }
+          this.sendSupportMessage(support, Object.assign({}, message, { text }));
+        }
+      });
+      this.supportChatWidget = this.supportChatHost.data("kendoChat");
+    }
+
+    resizeSupportWindow(support) {
+      if (!this.supportWindow) {
+        return;
+      }
+      const width = Math.min(Number(support.width) || 520, Math.max(320, window.innerWidth - 24));
+      const height = Math.min(Number(support.height) || 620, Math.max(380, window.innerHeight - 24));
+      this.supportWindow.setOptions({
+        width,
+        height
+      });
+      if (this.supportChatHost) {
+        this.supportChatHost.css("height", Math.max(220, height - 230));
+      }
+    }
+
+    loadSupportAvailability(support) {
+      const endpoint = this.getSupportEndpoint(support, "onlineUsers");
+      if (!endpoint) {
+        return;
+      }
+      this.setSupportStatus("Consultando atendentes online...", "info");
+      this.supportOnlineSection.attr("hidden", true);
+      this.supportRequestSection.attr("hidden", true);
+      this.requestSupportEndpoint(endpoint, {
+        user: this.buildChatUserPayload(),
+        context: this.buildChatContextPayload()
+      }).then((response) => {
+        this.bindSupportAvailability(support, response);
+      }).catch(() => {
+        this.setSupportStatus("Nao foi possivel consultar atendentes. Registre uma solicitacao.", "warning");
+        this.bindSupportAvailability(support, { onlineUsers: [], sectors: support.sectors || [] });
+      });
+    }
+
+    bindSupportAvailability(support, response) {
+      this.supportOnlineUsers = this.normalizeSupportUsers(response);
+      this.supportSectors = this.normalizeSupportSectors(response, support);
+      this.bindSupportSectors(support);
+      this.showSupportSectorState(support);
+    }
+
+    normalizeSupportUsers(response) {
+      const user = this.buildChatUserPayload();
+      const source = Array.isArray(response)
+        ? response
+        : response && (response.onlineUsers || response.users || response.attendants || response.items || response.data);
+      return global.CrudUtils.ensureArray(source).map(function(item) {
+        const rawItem = item && typeof item.toJSON === "function" ? item.toJSON() : item;
+        const sourceItem = typeof rawItem === "string" ? { id: rawItem, name: rawItem } : (rawItem || {});
+        const id = String(sourceItem.id || sourceItem.userId || sourceItem.email || "").trim();
+        const name = String(sourceItem.name || sourceItem.fullName || sourceItem.username || sourceItem.email || id).trim();
+        if (!id || !name || id === String(user.id || "")) {
+          return null;
+        }
+        return {
+          id,
+          name,
+          email: sourceItem.email || "",
+          sectorId: sourceItem.sectorId || "",
+          sectorName: sourceItem.sectorName || sourceItem.sector || "",
+          status: sourceItem.status || "online"
+        };
+      }).filter(Boolean);
+    }
+
+    normalizeSupportSectors(response, support) {
+      const configured = global.CrudUtils.ensureArray(support.sectors);
+      const source = response && (response.sectors || response.departments) || configured;
+      const sectors = global.CrudUtils.ensureArray(source).map(function(item) {
+        const rawItem = item && typeof item.toJSON === "function" ? item.toJSON() : item;
+        const sourceItem = typeof rawItem === "string" ? { id: rawItem, name: rawItem } : (rawItem || {});
+        const id = String(sourceItem.id || sourceItem.sectorId || sourceItem.name || "").trim();
+        const name = String(sourceItem.name || sourceItem.title || id).trim();
+        return id && name ? { id, name } : null;
+      }).filter(Boolean);
+      if (sectors.length) {
+        return sectors;
+      }
+      return [{ id: support.fallbackRequest && support.fallbackRequest.defaultSectorId || "suporte", name: "Suporte" }];
+    }
+
+    bindSupportSectors(support) {
+      if (!this.supportSectorComboBox || !this.supportOnlineSectorComboBox) {
+        return;
+      }
+      this.supportOnlineSectorComboBox.dataSource.data(this.supportSectors);
+      this.supportSectorComboBox.dataSource.data(this.supportSectors);
+      const defaultSectorId = String(support.fallbackRequest && support.fallbackRequest.defaultSectorId || "").trim();
+      const selected = this.supportSectors.find((item) => {
+        return item.id === this.currentSupportSectorId;
+      }) || this.supportSectors.find(function(item) {
+        return item.id === defaultSectorId;
+      }) || this.supportSectors[0];
+      if (selected) {
+        this.currentSupportSectorId = selected.id;
+        this.supportOnlineSectorComboBox.value(selected.id);
+        this.supportSectorComboBox.value(selected.id);
+      }
+    }
+
+    showSupportSectorState(support) {
+      const sector = this.getSelectedSupportSector();
+      const users = this.getSupportUsersForSector(sector.id);
+      if (!users.length) {
+        this.currentSupportUser = null;
+        this.clearSupportChatMessages();
+        this.setSupportStatus("Nenhum atendente online no setor " + (sector.name || "selecionado") + ". Crie uma solicitacao para o setor.", "warning");
+        this.showSupportRequestForm(true, true);
+        return;
+      }
+      this.showSupportOnlineState(support, users, sector);
+    }
+
+    showSupportOnlineState(support, users, sector) {
+      const availableUsers = users || this.getSupportUsersForSector(this.getSelectedSupportSector().id);
+      if (!availableUsers.length) {
+        this.showSupportSectorState(support || this.getSupportConfig());
+        return;
+      }
+      this.supportOnlineSection.removeAttr("hidden");
+      this.supportRequestSection.attr("hidden", true);
+      this.toggleSupportOnlineChat(true);
+      this.setSupportStatus("Atendente online disponivel no setor " + ((sector && sector.name) || this.getSelectedSupportSector().name || "selecionado") + ".", "success");
+      this.supportUserComboBox.dataSource.data(availableUsers);
+      const currentId = this.currentSupportUser && this.currentSupportUser.id;
+      const selected = availableUsers.find(function(item) {
+        return item.id === currentId;
+      }) || availableUsers[0];
+      this.supportUserComboBox.value(selected.id);
+      this.setCurrentSupportUser(support || this.getSupportConfig(), selected);
+    }
+
+    showSupportRequestForm(canReturn, lockSector) {
+      this.supportOnlineSection.attr("hidden", true);
+      this.syncSupportRequestSector(Boolean(lockSector));
+      this.supportRequestSection.removeAttr("hidden");
+      if (this.supportRequestBackButton) {
+        this.supportRequestBackButton.toggle(Boolean(canReturn && this.supportSectors.length));
+      }
+    }
+
+    showSupportSectorPicker() {
+      this.supportOnlineSection.removeAttr("hidden");
+      this.supportRequestSection.attr("hidden", true);
+      this.toggleSupportOnlineChat(false);
+      this.setSupportStatus("Selecione outro setor para verificar atendimento online.", "info");
+    }
+
+    toggleSupportOnlineChat(visible) {
+      const method = visible ? "show" : "hide";
+      if (this.supportUserField) {
+        this.supportUserField[method]();
+      }
+      if (this.supportRequestToggleButton) {
+        this.supportRequestToggleButton[method]();
+      }
+      if (this.supportChatHost) {
+        this.supportChatHost[method]();
+      }
+    }
+
+    handleSupportSectorChange(support) {
+      const sector = this.getSelectedSupportSector();
+      if (!sector.id) {
+        return;
+      }
+      this.currentSupportSectorId = sector.id;
+      this.currentSupportUser = null;
+      this.supportHistoryLoadedUserId = "";
+      this.clearSupportChatMessages();
+      this.syncSupportRequestSector(false);
+      this.showSupportSectorState(support);
+    }
+
+    getSelectedSupportSector() {
+      const widget = this.supportOnlineSectorComboBox || this.supportSectorComboBox;
+      const dataItem = widget && widget.dataItem ? widget.dataItem() : null;
+      const source = dataItem && typeof dataItem.toJSON === "function" ? dataItem.toJSON() : dataItem || {};
+      const id = String(source.id || widget && widget.value && widget.value() || this.currentSupportSectorId || "").trim();
+      const sector = this.supportSectors.find(function(item) {
+        return item.id === id;
+      }) || source || {};
+      return {
+        id: String(sector.id || id || "").trim(),
+        name: String(sector.name || sector.title || widget && widget.text && widget.text() || id || "").trim()
+      };
+    }
+
+    getSupportUsersForSector(sectorId) {
+      const id = String(sectorId || "");
+      return this.supportOnlineUsers.filter(function(user) {
+        return !id || String(user.sectorId || "") === id;
+      });
+    }
+
+    syncSupportRequestSector(lockSector) {
+      if (!this.supportSectorComboBox) {
+        return;
+      }
+      const sector = this.getSelectedSupportSector();
+      if (sector.id) {
+        this.supportSectorComboBox.value(sector.id);
+      }
+      this.supportSectorComboBox.enable(!lockSector);
+    }
+
+    handleSupportUserChange(support) {
+      if (!this.supportUserComboBox) {
+        return;
+      }
+      const selected = this.normalizeSupportUsers([
+        this.supportUserComboBox.dataItem() || this.findSupportUserById(this.supportUserComboBox.value())
+      ])[0];
+      if (!selected) {
+        this.supportUserComboBox.value(this.currentSupportUser ? this.currentSupportUser.id : "");
+        return;
+      }
+      this.setCurrentSupportUser(support, selected);
+    }
+
+    findSupportUserById(value) {
+      const id = String(value || "");
+      return this.supportOnlineUsers.find(function(item) {
+        return item.id === id;
+      }) || null;
+    }
+
+    setCurrentSupportUser(support, user) {
+      const nextId = user && user.id ? String(user.id) : "";
+      if (!nextId || this.currentSupportUser && this.currentSupportUser.id === nextId) {
+        return;
+      }
+      this.currentSupportUser = user;
+      this.supportHistoryLoadedUserId = "";
+      this.clearSupportChatMessages();
+      this.loadSupportChatHistory(support);
+    }
+
+    loadSupportChatHistory(support) {
+      const endpoint = this.getSupportEndpoint(support, "history");
+      const attendant = this.buildSupportAttendantPayload();
+      if (!endpoint || !attendant.id || this.supportHistoryLoadedUserId === attendant.id) {
+        return;
+      }
+      this.supportHistoryLoadedUserId = attendant.id;
+      this.requestSupportEndpoint(endpoint, {
+        user: this.buildChatUserPayload(),
+        attendant,
+        context: this.buildChatContextPayload()
+      }).then((response) => {
+        this.postSupportChatMessages(this.normalizeChatResponseMessages(response, {
+          id: attendant.id,
+          name: attendant.name || "Atendente"
+        }));
+      }).catch(() => {
+        this.supportHistoryLoadedUserId = "";
+        global.CrudUtils.showMessage("Nao foi possivel carregar o historico do atendimento.", "error");
+      });
+    }
+
+    sendSupportMessage(support, message) {
+      const endpoint = this.getSupportEndpoint(support, "send");
+      const attendant = this.buildSupportAttendantPayload();
+      if (!endpoint || !attendant.id) {
+        global.CrudUtils.showMessage("Selecione um atendente online.", "warning");
+        return;
+      }
+      if (this.supportChatWidget && typeof this.supportChatWidget.loading === "function") {
+        this.supportChatWidget.loading(true);
+      }
+      this.requestSupportEndpoint(endpoint, {
+        message,
+        user: this.buildChatUserPayload(),
+        attendant,
+        context: this.buildChatContextPayload()
+      }).then((response) => {
+        this.postSupportChatMessages(this.normalizeChatResponseMessages(response, {
+          id: attendant.id,
+          name: attendant.name || "Atendente"
+        }));
+      }).catch(() => {
+        this.postSupportChatMessages([this.normalizeChatMessage({
+          text: "Nao foi possivel enviar a mensagem ao atendimento."
+        }, { id: attendant.id || "atendimento", name: attendant.name || "Atendimento" })]);
+      }).finally(() => {
+        if (this.supportChatWidget && typeof this.supportChatWidget.loading === "function") {
+          this.supportChatWidget.loading(false);
+        }
+      });
+    }
+
+    createSupportRequest(support) {
+      const endpoint = this.getSupportEndpoint(support, "createRequest");
+      if (!endpoint) {
+        return;
+      }
+      const sector = this.buildSupportSectorPayload();
+      const priorityWidget = this.supportPriorityInput && this.supportPriorityInput.data("kendoDropDownList");
+      const subject = String(this.supportSubjectInput && this.supportSubjectInput.val() || "").trim();
+      const description = String(this.supportDescriptionInput && this.supportDescriptionInput.val() || "").trim();
+      const priority = priorityWidget ? priorityWidget.value() : String(this.supportPriorityInput && this.supportPriorityInput.val() || "normal");
+      if (!sector.id) {
+        global.CrudUtils.showMessage("Selecione o setor da solicitacao.", "warning");
+        return;
+      }
+      if (!subject || !description) {
+        global.CrudUtils.showMessage("Informe assunto e descricao da solicitacao.", "warning");
+        return;
+      }
+      this.requestSupportEndpoint(endpoint, {
+        sector,
+        priority,
+        subject,
+        description,
+        user: this.buildChatUserPayload(),
+        context: this.buildChatContextPayload()
+      }).then((response) => {
+        const protocol = response && (response.protocol || response.id || response.requestId);
+        this.setSupportStatus(protocol ? "Solicitacao criada: " + protocol + "." : "Solicitacao criada.", "success");
+        global.CrudUtils.showMessage("Solicitacao enviada para o setor.", "success");
+        this.supportSubjectInput.val("");
+        this.supportDescriptionInput.val("");
+      }).catch(() => {
+        global.CrudUtils.showMessage("Nao foi possivel criar a solicitacao.", "error");
+      });
+    }
+
+    buildSupportAttendantPayload() {
+      const user = this.currentSupportUser || {};
+      return {
+        id: user.id || "",
+        name: user.name || "",
+        email: user.email || "",
+        sectorId: user.sectorId || "",
+        sectorName: user.sectorName || ""
+      };
+    }
+
+    buildSupportSectorPayload() {
+      if (!this.supportSectorComboBox) {
+        return { id: "", name: "" };
+      }
+      const dataItem = this.supportSectorComboBox.dataItem();
+      const source = dataItem && typeof dataItem.toJSON === "function" ? dataItem.toJSON() : dataItem || {};
+      return {
+        id: source.id || this.supportSectorComboBox.value() || "",
+        name: source.name || this.supportSectorComboBox.text() || ""
+      };
+    }
+
+    requestSupportEndpoint(endpoint, data) {
+      return this.httpClient.request({
+        url: endpoint.url,
+        method: endpoint.method || "POST",
+        data
+      });
+    }
+
+    postSupportChatMessages(messages) {
+      if (!this.supportChatWidget) {
+        return;
+      }
+      global.CrudUtils.ensureArray(messages).forEach((message) => {
+        if (message && (message.text || message.files.length)) {
+          this.supportChatWidget.postMessage(message);
+        }
+      });
+    }
+
+    clearSupportChatMessages() {
+      if (this.supportChatWidget && this.supportChatWidget.dataSource && typeof this.supportChatWidget.dataSource.data === "function") {
+        this.supportChatWidget.dataSource.data([]);
+      }
+    }
+
+    setSupportStatus(message, type) {
+      if (!this.supportStatusElement) {
+        return;
+      }
+      this.supportStatusElement
+        .removeClass("is-success is-warning is-error is-info")
+        .addClass("is-" + (type || "info"))
+        .text(message || "");
+    }
+
+    destroySupportWindow() {
+      if (this.supportWindow) {
+        this.supportWindow.destroy();
+      }
+      if (this.supportWindowElement) {
+        this.supportWindowElement.remove();
+      }
+      this.supportWindowElement = null;
+      this.supportWindow = null;
+      this.supportStatusElement = null;
+      this.supportOnlineSectorInput = null;
+      this.supportOnlineSectorComboBox = null;
+      this.supportUserInput = null;
+      this.supportUserComboBox = null;
+      this.supportUserField = null;
+      this.supportSectorInput = null;
+      this.supportSectorComboBox = null;
+      this.supportSubjectInput = null;
+      this.supportDescriptionInput = null;
+      this.supportPriorityInput = null;
+      this.supportOnlineSection = null;
+      this.supportRequestSection = null;
+      this.supportRequestBackButton = null;
+      this.supportChatHost = null;
+      this.supportChatWidget = null;
+      this.supportOnlineUsers = [];
+      this.supportSectors = [];
+      this.currentSupportUser = null;
+      this.currentSupportSectorId = "";
+      this.supportHistoryLoadedUserId = "";
+    }
+
+    renderAiChatButton(container) {
+      if (!this.shouldShowAiChatButton()) {
+        return;
+      }
+      const chat = this.getAiChatConfig();
+      const title = chat.buttonTitle || chat.title || "Chat de IA";
+      this.aiChatButton = $("<button type=\"button\" class=\"home-icon-button home-ai-chat-button\"></button>")
+        .attr("title", title)
+        .attr("aria-label", title)
+        .appendTo(container);
+      this.aiChatButton.kendoButton({ icon: chat.icon || "sparkles" });
+      this.aiChatButton.on("click", () => this.openAiChatWindow());
+    }
+
+    shouldShowAiChatButton() {
+      const chat = this.getAiChatConfig();
+      return chat.enabled === true &&
+        this.hasPermission(chat.permission) &&
+        Boolean(this.getAiChatEndpoint(chat, "send"));
+    }
+
+    getAiChatConfig() {
+      const layout = this.definition && this.definition.layout ? this.definition.layout : {};
+      const appbar = layout.appbar || {};
+      return appbar.aiChat || appbar.iaChat || this.definition.aiChat || this.definition.iaChat || {};
+    }
+
+    getAiChatEndpoint(chat, name) {
+      const source = chat && chat.endpoints ? chat.endpoints[name] : null;
+      const fallback = chat ? chat[name + "Url"] : null;
+      const endpoint = source || fallback;
+      if (!endpoint) {
+        return null;
+      }
+      if (typeof endpoint === "string") {
+        return {
+          url: endpoint,
+          method: name === "history" ? "GET" : "POST"
+        };
+      }
+      if (typeof endpoint === "object" && endpoint.url) {
+        return {
+          url: endpoint.url,
+          method: String(endpoint.method || (name === "history" ? "GET" : "POST")).toUpperCase()
+        };
+      }
+      return null;
+    }
+
+    openAiChatWindow() {
+      const chat = this.getAiChatConfig();
+      if (!this.shouldShowAiChatButton()) {
+        return;
+      }
+      if (!$.fn.kendoChat) {
+        global.CrudUtils.showMessage("Componente de chat do Kendo UI indisponivel.", "error");
+        return;
+      }
+
+      if (!this.aiChatWindowElement) {
+        this.createAiChatWindow(chat);
+      }
+
+      this.resizeAiChatWindow(chat);
+      this.aiChatWindow.center().open();
+      if (this.aiChatWidget && typeof this.aiChatWidget.scrollToBottom === "function") {
+        this.aiChatWidget.scrollToBottom();
+      }
+      this.loadAiChatHistory(chat);
+    }
+
+    createAiChatWindow(chat) {
+      this.aiChatWindowElement = $("<div class=\"home-ai-chat-window\"></div>").appendTo(document.body);
+      this.aiChatHost = $("<div class=\"home-ai-chat-host home-chat-host\"></div>").appendTo(this.aiChatWindowElement);
+      this.aiChatWindowElement.kendoWindow({
+        title: chat.title || "Chat de IA",
+        modal: false,
+        actions: ["Maximize", "Close"],
+        resizable: true,
+        visible: false,
+        close: () => {
+          if (this.aiChatButton) {
+            this.aiChatButton.trigger("focus");
+          }
+        }
+      });
+      this.aiChatWindow = this.aiChatWindowElement.data("kendoWindow");
+      this.initializeAiChatWidget(chat);
+    }
+
+    initializeAiChatWidget(chat) {
+      const user = this.getCurrentUser();
+      const userId = String((chat.user && chat.user.id) || user.id || user.email || user.username || "usuario");
+      const bot = this.getAiChatBot(chat);
+      this.aiChatHost.kendoChat({
+        authorId: userId,
+        height: "100%",
+        dataSource: [],
+        autoBind: true,
+        showAvatar: false,
+        showUsername: true,
+        speechToText: false,
+        fileAttachment: false,
+        messageActions: [],
+        fileActions: [],
+        messages: this.getChatMessages(Object.assign({
+          placeholder: "Digite sua duvida ou acao..."
+        }, chat)),
+        noDataTemplate: () => "<div class=\"home-chat-empty\">Nenhuma mensagem ainda.</div>",
+        sendMessage: (event) => {
+          if (event.generating) {
+            return;
+          }
+          const message = event.message || {};
+          const text = String(message.text || "").trim();
+          if (!text && !global.CrudUtils.ensureArray(message.files).length) {
+            return;
+          }
+          this.sendAiChatMessage(chat, Object.assign({}, message, { text }), bot);
+        }
+      });
+      this.aiChatWidget = this.aiChatHost.data("kendoChat");
+      if (chat.welcomeMessage) {
+        this.postAiChatMessages([this.normalizeChatMessage(chat.welcomeMessage, bot)]);
+      }
+    }
+
+    resizeAiChatWindow(chat) {
+      if (!this.aiChatWindow) {
+        return;
+      }
+      const width = Math.min(Number(chat.width) || 460, Math.max(320, window.innerWidth - 24));
+      const height = Math.min(Number(chat.height) || 560, Math.max(360, window.innerHeight - 24));
+      this.aiChatWindow.setOptions({
+        width,
+        height
+      });
+      if (this.aiChatHost) {
+        this.aiChatHost.css("height", Math.max(260, height - 48));
+      }
+    }
+
+    loadAiChatHistory(chat) {
+      const endpoint = this.getAiChatEndpoint(chat, "history");
+      if (!endpoint || this.aiChatHistoryLoaded) {
+        return;
+      }
+      this.aiChatHistoryLoaded = true;
+      this.requestAiChatEndpoint(endpoint, {
+        user: this.buildChatUserPayload(),
+        context: this.buildChatContextPayload()
+      }).then((response) => {
+        this.postAiChatMessages(this.normalizeChatResponseMessages(response, this.getAiChatBot(chat)));
+      }).catch(() => {
+        this.aiChatHistoryLoaded = false;
+        global.CrudUtils.showMessage("Nao foi possivel carregar o historico do chat de IA.", "error");
+      });
+    }
+
+    sendAiChatMessage(chat, message, bot) {
+      const endpoint = this.getAiChatEndpoint(chat, "send");
+      if (!endpoint) {
+        return;
+      }
+      if (this.aiChatWidget && typeof this.aiChatWidget.loading === "function") {
+        this.aiChatWidget.loading(true);
+      }
+      this.requestAiChatEndpoint(endpoint, {
+        message,
+        user: this.buildChatUserPayload(),
+        context: this.buildChatContextPayload()
+      }).then((response) => {
+        this.postAiChatMessages(this.normalizeChatResponseMessages(response, bot || this.getAiChatBot(chat)));
+      }).catch(() => {
+        this.postAiChatMessages([this.normalizeChatMessage({
+          text: "Nao foi possivel acionar a IA agora."
+        }, bot || this.getAiChatBot(chat))]);
+      }).finally(() => {
+        if (this.aiChatWidget && typeof this.aiChatWidget.loading === "function") {
+          this.aiChatWidget.loading(false);
+        }
+      });
+    }
+
+    requestAiChatEndpoint(endpoint, data) {
+      return this.httpClient.request({
+        url: endpoint.url,
+        method: endpoint.method || "POST",
+        data
+      });
+    }
+
+    getAiChatBot(chat) {
+      return Object.assign({ id: "ia", name: "IA" }, chat && chat.bot || {});
+    }
+
+    postAiChatMessages(messages) {
+      if (!this.aiChatWidget) {
+        return;
+      }
+      global.CrudUtils.ensureArray(messages).forEach((message) => {
+        if (message && (message.text || message.files.length)) {
+          this.aiChatWidget.postMessage(message);
+        }
+      });
+    }
+
+    destroyAiChatWindow() {
+      if (this.aiChatWindow) {
+        this.aiChatWindow.destroy();
+      }
+      if (this.aiChatWindowElement) {
+        this.aiChatWindowElement.remove();
+      }
+      this.aiChatWindowElement = null;
+      this.aiChatWindow = null;
+      this.aiChatHost = null;
+      this.aiChatWidget = null;
+      this.aiChatHistoryLoaded = false;
+    }
+
+    renderAppbarListButton(container, kind) {
+      if (!this.shouldShowAppbarListButton(kind)) {
+        return;
+      }
+      const config = this.getAppbarListConfig(kind);
+      const defaults = this.getAppbarListDefaults(kind);
+      const title = config.buttonTitle || config.title || defaults.title;
+      const button = $("<button type=\"button\" class=\"home-icon-button home-appbar-list-button\"></button>")
+        .attr("title", title)
+        .attr("aria-label", title)
+        .appendTo(container);
+      button.kendoButton({ icon: config.icon || defaults.icon });
+      button.on("click", () => this.openAppbarListWindow(kind, button));
+    }
+
+    shouldShowAppbarListButton(kind) {
+      const config = this.getAppbarListConfig(kind);
+      return config.enabled === true && this.hasPermission(config.permission) && Boolean(this.getAppbarListEndpoint(config));
+    }
+
+    getAppbarListDefaults(kind) {
+      if (kind === "requests") {
+        return {
+          title: "Solicitacoes",
+          emptyText: "Nenhuma solicitacao recebida.",
+          icon: "inbox"
+        };
+      }
+      return {
+        title: "Alertas",
+        emptyText: "Nenhum alerta recebido.",
+        icon: "bell"
+      };
+    }
+
+    getAppbarListConfig(kind) {
+      const layout = this.definition && this.definition.layout ? this.definition.layout : {};
+      const appbar = layout.appbar || {};
+      return appbar[kind] || this.definition[kind] || {};
+    }
+
+    getAppbarListEndpoint(config) {
+      const source = config && config.endpoints ? config.endpoints.list : null;
+      const endpoint = source || config && (config.listUrl || config.url);
+      if (!endpoint) {
+        return null;
+      }
+      if (typeof endpoint === "string") {
+        return {
+          url: endpoint,
+          method: "GET"
+        };
+      }
+      if (typeof endpoint === "object" && endpoint.url) {
+        return {
+          url: endpoint.url,
+          method: String(endpoint.method || "GET").toUpperCase()
+        };
+      }
+      return null;
+    }
+
+    openAppbarListWindow(kind, sourceButton) {
+      const config = this.getAppbarListConfig(kind);
+      const defaults = this.getAppbarListDefaults(kind);
+      const endpoint = this.getAppbarListEndpoint(config);
+      if (!endpoint) {
+        return;
+      }
+
+      this.destroyAppbarPanelWindow(kind);
+
+      const wrapper = $("<div class=\"home-appbar-list-window\"></div>").appendTo(document.body);
+      const content = $("<div class=\"home-appbar-list-window-content\"></div>").appendTo(wrapper);
+      $("<div class=\"home-appbar-list-loading\"></div>").text("Carregando...").appendTo(content);
+      wrapper.kendoWindow({
+        title: config.title || defaults.title,
+        modal: true,
+        actions: ["Maximize", "Close"],
+        resizable: true,
+        width: Math.min(Number(config.width) || 560, Math.max(320, window.innerWidth - 24)),
+        height: Math.min(Number(config.height) || 520, Math.max(360, window.innerHeight - 24)),
+        visible: false,
+        close: () => {
+          const widget = wrapper.data("kendoWindow");
+          if (widget) {
+            widget.destroy();
+          }
+          wrapper.remove();
+          delete this.appbarPanelWindows[kind];
+          if (sourceButton) {
+            sourceButton.trigger("focus");
+          }
+        }
+      });
+      const windowWidget = wrapper.data("kendoWindow");
+      this.appbarPanelWindows[kind] = {
+        element: wrapper,
+        window: windowWidget
+      };
+      windowWidget.center().open();
+      this.loadAppbarListItems(kind, endpoint, content);
+    }
+
+    loadAppbarListItems(kind, endpoint, content) {
+      this.requestAppbarListEndpoint(endpoint, {
+        user: this.buildChatUserPayload(),
+        context: this.buildChatContextPayload()
+      }).then((response) => {
+        const defaults = this.getAppbarListDefaults(kind);
+        const items = this.normalizeAppbarListItems(response, kind);
+        content.empty();
+        this.renderAppbarListItems(content, items, defaults.emptyText);
+      }).catch(() => {
+        content.empty();
+        $("<div class=\"home-appbar-list-empty\"></div>")
+          .text("Nao foi possivel carregar as informacoes.")
+          .appendTo(content);
+      });
+    }
+
+    requestAppbarListEndpoint(endpoint, data) {
+      return this.httpClient.request({
+        url: endpoint.url,
+        method: endpoint.method || "GET",
+        data
+      });
+    }
+
+    normalizeAppbarListItems(response, kind) {
+      if (Array.isArray(response)) {
+        return response.map((item) => this.normalizeAppbarListItem(item));
+      }
+      const key = kind === "requests" ? "requests" : "alerts";
+      const source = response && (response.items || response.data || response[key]);
+      return global.CrudUtils.ensureArray(source).map((item) => this.normalizeAppbarListItem(item));
+    }
+
+    normalizeAppbarListItem(item) {
+      if (typeof item === "string") {
+        return {
+          id: "",
+          title: item,
+          description: "",
+          meta: "",
+          linkUrl: "",
+          linkText: "Abrir"
+        };
+      }
+      const source = item || {};
+      const date = source.receivedAt || source.updatedAt || source.createdAt || source.date || "";
+      const meta = [];
+      if (source.type) {
+        meta.push(String(source.type));
+      }
+      if (source.status) {
+        meta.push(String(source.status));
+      }
+      if (date) {
+        meta.push(this.formatAppbarListDate(date));
+      }
+      return {
+        id: source.id || "",
+        title: source.title || source.label || "Item",
+        description: source.description || source.summary || source.body || "",
+        meta: meta.join(" - "),
+        linkUrl: source.linkUrl || source.url || "",
+        linkText: source.linkText || "Abrir"
+      };
+    }
+
+    formatAppbarListDate(value) {
+      const date = value instanceof Date ? value : new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return String(value || "");
+      }
+      return kendo.toString(date, "dd/MM/yyyy HH:mm");
+    }
+
+    renderAppbarListItems(container, items, emptyText) {
+      if (!items.length) {
+        $("<div class=\"home-appbar-list-empty\"></div>").text(emptyText).appendTo(container);
+        return;
+      }
+      const list = $("<div class=\"home-appbar-list\"></div>").appendTo(container);
+      items.forEach((item) => {
+        const element = $("<article class=\"home-appbar-list-item\"></article>").appendTo(list);
+        $("<h2 class=\"home-appbar-list-title\"></h2>").text(item.title).appendTo(element);
+        if (item.meta) {
+          $("<div class=\"home-appbar-list-meta\"></div>").text(item.meta).appendTo(element);
+        }
+        if (item.description) {
+          $("<p class=\"home-appbar-list-description\"></p>").text(item.description).appendTo(element);
+        }
+        if (item.linkUrl && global.CrudUtils.isAllowedDocumentUrl(item.linkUrl)) {
+          $("<a class=\"home-appbar-list-link\" target=\"_blank\" rel=\"noopener noreferrer\"></a>")
+            .attr("href", item.linkUrl)
+            .text(item.linkText)
+            .appendTo(element);
+        }
+      });
+    }
+
+    destroyAppbarPanelWindows() {
+      Object.keys(this.appbarPanelWindows || {}).forEach((kind) => this.destroyAppbarPanelWindow(kind));
+      this.appbarPanelWindows = {};
+    }
+
+    destroyAppbarPanelWindow(kind) {
+      const entry = this.appbarPanelWindows && this.appbarPanelWindows[kind];
+      if (!entry) {
+        return;
+      }
+      if (entry.window) {
+        entry.window.destroy();
+      }
+      if (entry.element) {
+        entry.element.remove();
+      }
+      delete this.appbarPanelWindows[kind];
+    }
+
+    renderSidebarToggle(container) {
+      if (!this.shouldShowSidebarToggle()) {
+        return;
+      }
+      this.sidebarToggle = $("<button type=\"button\" class=\"home-icon-button home-sidebar-toggle\"></button>")
+        .appendTo(container);
+      this.sidebarToggle.kendoButton({ icon: "menu" });
+      this.sidebarToggleButton = this.sidebarToggle.data("kendoButton");
+      this.sidebarToggle.on("click", () => this.toggleSidebar());
+      this.updateSidebarToggleState();
+    }
+
+    shouldShowSidebarToggle() {
+      const layout = this.definition && this.definition.layout ? this.definition.layout : {};
+      const sidebar = layout.sidebar || {};
+      const appbar = layout.appbar || {};
+      return sidebar.collapsible !== false && appbar.showSidebarToggle !== false;
+    }
+
+    renderBrand(container) {
+      const logo = this.getAppLogoConfig();
+      const hasLogo = Boolean(logo.url);
+      if (hasLogo) {
+        $("<img class=\"home-brand-logo\">")
+          .attr("src", logo.url)
+          .attr("alt", logo.alt || this.definition.app.title || "Logo")
+          .appendTo(container);
+      }
+
+      if (hasLogo && logo.showTitle === false) {
+        return;
+      }
+
+      const text = $("<div class=\"home-brand-text\"></div>").appendTo(container);
+      $("<span class=\"home-brand-title\"></span>").text(this.definition.app.title).appendTo(text);
+      if (this.definition.app.subtitle && logo.showSubtitle !== false) {
+        $("<span class=\"home-brand-subtitle\"></span>").text(this.definition.app.subtitle).appendTo(text);
+      }
+    }
+
+    getAppLogoConfig() {
+      const app = this.definition.app || {};
+      const source = app.logo || app.companyLogo || app.logoUrl || "";
+      if (typeof source === "string") {
+        return {
+          url: source,
+          alt: app.title,
+          showTitle: true,
+          showSubtitle: true
+        };
+      }
+      return Object.assign({
+        url: "",
+        alt: app.title,
+        showTitle: true,
+        showSubtitle: true
+      }, source || {});
+    }
+
+    renderProgramFavoriteButton(container) {
+      if (this.definition.layout.appbar.showFavoriteToggle === false) {
+        return;
+      }
+      const button = $("<button type=\"button\" class=\"home-program-favorite-button home-icon-button\" hidden></button>")
+        .appendTo(container);
+      button.kendoButton({ icon: "star" });
+      button.on("click", () => this.toggleCurrentProgramFavorite());
+      this.programFavoriteButtonElement = button;
+      this.programFavoriteButton = button.data("kendoButton");
+    }
+
+    updateProgramFavoriteButton() {
+      if (!this.programFavoriteButtonElement || !this.currentProgram) {
+        return;
+      }
+      const isFavorite = this.isCurrentProgramFavorite();
+      const title = isFavorite ? "Remover dos favoritos" : "Adicionar aos favoritos";
+      this.programFavoriteButtonElement
+        .removeAttr("hidden")
+        .attr("title", title)
+        .attr("aria-label", title)
+        .attr("aria-pressed", isFavorite ? "true" : "false")
+        .toggleClass("is-favorite", isFavorite);
+      if (this.programFavoriteButton) {
+        this.programFavoriteButton.setOptions({
+          icon: "star",
+          selected: isFavorite
+        });
+      }
+    }
+
+    toggleCurrentProgramFavorite() {
+      if (!this.currentProgram) {
+        return;
+      }
+      const nextValue = !this.isCurrentProgramFavorite();
+      this.setProgramFavorite(this.currentProgram.id, nextValue);
+      this.updateProgramFavoriteButton();
+      this.refreshTreeView();
+      global.CrudUtils.showMessage(nextValue ? "Programa adicionado aos favoritos." : "Programa removido dos favoritos.", "info");
+    }
+
+    isCurrentProgramFavorite() {
+      if (!this.currentProgram) {
+        return false;
+      }
+      return this.isProgramFavorite(this.findNavigationItemByProgramId(this.currentProgram.id), this.currentProgram);
+    }
+
+    renderUserMenu(container) {
+      if (!this.shouldShowUserMenu()) {
+        return;
+      }
+      const user = this.getCurrentUser();
+      const menuItems = this.getUserMenuItems();
+      const label = this.getUserInitials(user);
+      const title = this.getUserDisplayName(user);
+      const wrapper = $("<span class=\"home-user-menu\"></span>").appendTo(container);
+      const button = $("<button type=\"button\" class=\"home-user-button\"></button>")
+        .attr("title", title)
+        .attr("aria-label", "Menu do usuario: " + title)
+        .attr("aria-haspopup", "menu")
+        .attr("aria-expanded", "false")
+        .text(label)
+        .appendTo(wrapper);
+      const menu = $("<div class=\"home-user-menu-list\" role=\"menu\" hidden></div>").appendTo(wrapper);
+      const header = $("<div class=\"home-user-menu-header\"></div>").appendTo(menu);
+      $("<strong></strong>").text(title).appendTo(header);
+      if (user.email) {
+        $("<span></span>").text(user.email).appendTo(header);
+      }
+      if (!menuItems.length) {
+        $("<span class=\"home-user-menu-empty\"></span>").text("Nenhuma acao disponivel.").appendTo(menu);
+      }
+      menuItems.forEach((item) => {
+        const itemButton = $("<button type=\"button\" class=\"home-user-menu-item\" role=\"menuitem\"></button>")
+          .attr("title", item.label)
+          .text(item.label)
+          .appendTo(menu);
+        itemButton.kendoButton({
+          icon: item.icon || this.getUserMenuItemIcon(item)
+        });
+        itemButton.on("click", () => this.executeUserMenuItem(item));
+      });
+      button.kendoButton();
+      button.on("click", (event) => {
+        event.stopPropagation();
+        this.toggleUserMenu();
+      });
+      wrapper.on("click", function(event) {
+        event.stopPropagation();
+      });
+      $(document).off("click.homeUserMenu").on("click.homeUserMenu", () => this.closeUserMenu());
+      this.userMenuButtonElement = button;
+      this.userMenu = menu;
+    }
+
+    shouldShowUserMenu() {
+      const appbar = this.definition.layout && this.definition.layout.appbar ? this.definition.layout.appbar : {};
+      if (appbar.showUserMenu === false) {
+        return false;
+      }
+      const user = this.getCurrentUser();
+      return Boolean(user.name || user.fullName || user.email || user.initials || this.getUserMenuItems().length);
+    }
+
+    getCurrentUser() {
+      return this.definition.currentUser || this.definition.user || {};
+    }
+
+    getUserDisplayName(user) {
+      return String(user.name || user.fullName || user.email || user.username || "Usuario");
+    }
+
+    getUserInitials(user) {
+      const configured = String(user.initials || "").trim();
+      if (configured) {
+        return configured.slice(0, 3).toUpperCase();
+      }
+      const name = this.getUserDisplayName(user);
+      const parts = name.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+      }
+      return name.slice(0, 2).toUpperCase() || "U";
+    }
+
+    getUserMenuConfig() {
+      const appbar = this.definition.layout && this.definition.layout.appbar ? this.definition.layout.appbar : {};
+      const config = appbar.userMenu || this.definition.userMenu || {};
+      if (Array.isArray(config)) {
+        return { items: config };
+      }
+      return config || {};
+    }
+
+    getUserMenuItems() {
+      const config = this.getUserMenuConfig();
+      if (config.enabled === false) {
+        return [];
+      }
+      return global.CrudUtils.ensureArray(config.items).filter((item) => {
+        return item && item.visible !== false && item.label && this.hasPermission(item.permission);
+      });
+    }
+
+    getUserMenuItemIcon(item) {
+      const action = item.action || item.id || "";
+      if (action === "profile") {
+        return "user";
+      }
+      if (action === "preferences") {
+        return "gear";
+      }
+      if (action === "logout") {
+        return "logout";
+      }
+      return "arrow-right";
+    }
+
+    toggleUserMenu() {
+      if (!this.userMenu || !this.userMenuButtonElement) {
+        return;
+      }
+      const isHidden = this.userMenu.prop("hidden");
+      this.userMenu.prop("hidden", !isHidden);
+      this.userMenuButtonElement.attr("aria-expanded", isHidden ? "true" : "false");
+    }
+
+    closeUserMenu() {
+      if (this.userMenu) {
+        this.userMenu.prop("hidden", true);
+      }
+      if (this.userMenuButtonElement) {
+        this.userMenuButtonElement.attr("aria-expanded", "false");
+      }
+    }
+
+    executeUserMenuItem(item) {
+      this.closeUserMenu();
+      if (item.url) {
+        if (item.openAs === "window") {
+          this.openUrlWindow({
+            title: item.label,
+            url: item.url,
+            linkText: item.linkText || "Abrir em nova aba"
+          });
+          return;
+        }
+        global.open(item.url, item.target || "_blank", "noopener,noreferrer");
+        return;
+      }
+      if ((item.action || item.id) === "logout") {
+        global.CrudUtils.showMessage("Saida solicitada.", "info");
+        return;
+      }
+      global.CrudUtils.showMessage("Acao do usuario acionada: " + item.label + ".", "info");
+    }
+
+    renderMain(shell) {
+      const main = $("<div class=\"home-main\"></div>").appendTo(shell);
+      this.sidebar = $("<aside class=\"home-sidebar\"></aside>").appendTo(main);
+      this.contentWrap = $("<section class=\"home-content-wrap\"></section>").appendTo(main);
+      this.contentRoot = $("<div class=\"home-content\"></div>").appendTo(this.contentWrap);
+      this.renderTreeView();
+    }
+
+    renderTreeView() {
+      const sidebar = this.definition.layout.sidebar || {};
+      const header = $("<div class=\"home-sidebar-header\"></div>").appendTo(this.sidebar);
+      this.renderModuleSelector(header);
+      this.renderSidebarFilters(this.sidebar);
+
+      this.treeHost = $("<div class=\"home-treeview\"></div>").appendTo(this.sidebar);
+      this.initializeTreeView(this.buildTreeData());
+
+      if (this.shouldStartSidebarCollapsed()) {
+        this.shell.addClass("home-sidebar-collapsed");
+      }
+    }
+
+    renderModuleSelector(container) {
+      $("<span class=\"k-icon k-i-menu home-module-icon\" aria-hidden=\"true\"></span>").appendTo(container);
+      const input = $("<input class=\"home-module-selector\">")
+        .attr("id", "home-module-selector")
+        .attr("aria-label", "Sistema ou modulo")
+        .appendTo(container);
+
+      input.kendoComboBox({
+        dataSource: this.modules,
+        dataTextField: "title",
+        dataValueField: "id",
+        clearButton: false,
+        filter: "contains",
+        suggest: true,
+        value: this.currentModuleId,
+        change: () => this.handleModuleChange()
+      });
+      this.moduleSelector = input.data("kendoComboBox");
+      if (this.moduleSelector && this.modules.length <= 1) {
+        this.moduleSelector.enable(false);
+      }
+    }
+
+    renderSidebarFilters(container) {
+      const filters = $("<div class=\"home-sidebar-filters\"></div>").appendTo(container);
+      const searchWrap = $("<span class=\"home-menu-search\"></span>").appendTo(filters);
+      const search = $("<input class=\"home-menu-search-input\" type=\"search\">")
+        .attr("aria-label", "Filtrar programas por nome")
+        .attr("placeholder", "Filtrar programas")
+        .val(this.menuSearchText)
+        .appendTo(searchWrap);
+      if ($.fn.kendoTextBox) {
+        search.kendoTextBox();
+      }
+      search.on("input", () => {
+        this.menuSearchText = search.val();
+        this.refreshTreeView();
+      });
+
+      const favoriteButton = $("<button type=\"button\" class=\"home-favorites-filter\"></button>")
+        .attr("title", "Mostrar apenas favoritos")
+        .attr("aria-label", "Mostrar apenas favoritos")
+        .attr("aria-pressed", this.showOnlyFavorites ? "true" : "false")
+        .appendTo(filters);
+      favoriteButton.kendoButton({
+        icon: "star",
+        selected: this.showOnlyFavorites
+      });
+      favoriteButton.on("click", () => {
+        this.showOnlyFavorites = !this.showOnlyFavorites;
+        this.updateFavoritesFilterButton();
+        this.refreshTreeView();
+      });
+      this.menuSearchInput = search;
+      this.favoritesFilterButtonElement = favoriteButton;
+      this.favoritesFilterButton = favoriteButton.data("kendoButton");
+    }
+
+    updateFavoritesFilterButton() {
+      if (!this.favoritesFilterButtonElement) {
+        return;
+      }
+      this.favoritesFilterButtonElement.attr("aria-pressed", this.showOnlyFavorites ? "true" : "false");
+      if (this.favoritesFilterButton) {
+        this.favoritesFilterButton.setOptions({
+          icon: "star",
+          selected: this.showOnlyFavorites
+        });
+      }
+    }
+
+    initializeTreeView(data) {
+      const sidebar = this.definition.layout.sidebar || {};
+      kendo.destroy(this.treeHost);
+      this.treeHost.empty();
+      this.treeDataSource = new kendo.data.HierarchicalDataSource({
+        data
+      });
+      this.treeHost.kendoTreeView({
+        dataSource: this.treeDataSource,
+        template: this.getTreeTemplate(),
+        loadOnDemand: false,
+        select: (event) => this.handleTreeSelect(event)
+      });
+
+      this.treeView = this.treeHost.data("kendoTreeView");
+      if (this.treeView && sidebar.expanded !== false) {
+        this.treeView.expand(".k-treeview-item");
+      }
+      this.bindTreeOpenButtons();
+      if (this.currentProgram) {
+        this.updateActiveMenu(this.currentProgram.id);
+      }
+    }
+
+    buildTreeData() {
+      const searchText = this.normalizeSearchText(this.menuSearchText);
+      const showAllModules = this.isAllModulesSelected();
+      return global.CrudUtils.ensureArray(this.definition.navigation && this.definition.navigation.groups).map((group) => {
+        if (!showAllModules && this.getGroupModuleId(group) !== this.currentModuleId) {
+          return null;
+        }
+        return {
+          id: group.id,
+          text: group.title,
+          iconClass: "folder",
+          expanded: this.definition.layout.sidebar.expanded !== false,
+          items: global.CrudUtils.ensureArray(group.items).map((item) => {
+            const program = this.findProgram(item.programId);
+            if (!program || !this.hasPermission(item.permission || program.permission)) {
+              return null;
+            }
+            if (!this.shouldShowProgramInMenu(item, program, searchText)) {
+              return null;
+            }
+            return {
+              id: program.id,
+              programId: program.id,
+              openUrl: this.getProgramOpenUrl(program),
+              text: item.title || program.title,
+              iconClass: this.escapeClass(program.icon || item.icon || "file"),
+              favorite: this.isProgramFavorite(item, program)
+            };
+          }).filter(Boolean)
+        };
+      }).filter(function(group) {
+        return group && group.items.length > 0;
+      });
+    }
+
+    shouldShowProgramInMenu(item, program, searchText) {
+      if (this.showOnlyFavorites && !this.isProgramFavorite(item, program)) {
+        return false;
+      }
+      if (!searchText) {
+        return true;
+      }
+      const name = this.normalizeSearchText(item.title || program.title || "");
+      const description = this.normalizeSearchText(program.subtitle || program.description || "");
+      return name.indexOf(searchText) !== -1 || description.indexOf(searchText) !== -1;
+    }
+
+    isProgramFavorite(item, program) {
+      const programId = String(program && program.id || "");
+      if (!programId) {
+        return false;
+      }
+      if (this.getUnfavoriteProgramIds().indexOf(programId) !== -1) {
+        return false;
+      }
+      if (this.getFavoriteProgramIds().indexOf(programId) !== -1) {
+        return true;
+      }
+      return Boolean(
+        item && (item.favorite === true || item.isFavorite === true) ||
+        program && (program.favorite === true || program.isFavorite === true)
+      );
+    }
+
+    getFavoriteProgramIds() {
+      const user = this.getCurrentUser();
+      return global.CrudUtils.ensureArray(user.favoritePrograms || user.favorites)
+        .map(String)
+        .filter(Boolean);
+    }
+
+    getUnfavoriteProgramIds() {
+      const user = this.getCurrentUser();
+      return global.CrudUtils.ensureArray(user.unfavoritePrograms || user.removedFavorites)
+        .map(String)
+        .filter(Boolean);
+    }
+
+    setProgramFavorite(programId, isFavorite) {
+      const id = String(programId || "");
+      if (!id) {
+        return;
+      }
+      const user = this.getCurrentUser();
+      const favorites = this.getFavoriteProgramIds().filter(function(item) {
+        return item !== id;
+      });
+      const unfavorites = this.getUnfavoriteProgramIds().filter(function(item) {
+        return item !== id;
+      });
+      if (isFavorite) {
+        favorites.push(id);
+      } else {
+        unfavorites.push(id);
+      }
+      user.favoritePrograms = favorites;
+      user.unfavoritePrograms = unfavorites;
+      this.saveUserFavoriteState();
+    }
+
+    loadUserFavoriteState() {
+      const key = this.getFavoriteStorageKey();
+      if (!key || !global.localStorage) {
+        return;
+      }
+      try {
+        const raw = global.localStorage.getItem(key);
+        if (!raw) {
+          return;
+        }
+        const state = JSON.parse(raw);
+        if (!state || typeof state !== "object") {
+          return;
+        }
+        const user = this.getCurrentUser();
+        if (Array.isArray(state.favoritePrograms)) {
+          user.favoritePrograms = state.favoritePrograms.map(String);
+        }
+        if (Array.isArray(state.unfavoritePrograms)) {
+          user.unfavoritePrograms = state.unfavoritePrograms.map(String);
+        }
+      } catch (_) {
+        return;
+      }
+    }
+
+    saveUserFavoriteState() {
+      const key = this.getFavoriteStorageKey();
+      if (!key || !global.localStorage) {
+        return;
+      }
+      try {
+        global.localStorage.setItem(key, JSON.stringify({
+          favoritePrograms: this.getFavoriteProgramIds(),
+          unfavoritePrograms: this.getUnfavoriteProgramIds()
+        }));
+      } catch (_) {
+        return;
+      }
+    }
+
+    getFavoriteStorageKey() {
+      const app = this.definition && this.definition.app ? this.definition.app : {};
+      const user = this.getCurrentUser();
+      const appId = app.id || app.title || "home";
+      const userId = user.id || user.email || user.username || "usuario";
+      return "homeEngine.favoritePrograms." + appId + "." + userId;
+    }
+
+    findNavigationItemByProgramId(programId) {
+      const id = String(programId || "");
+      let found = null;
+      global.CrudUtils.ensureArray(this.definition.navigation && this.definition.navigation.groups).some(function(group) {
+        found = global.CrudUtils.ensureArray(group && group.items).find(function(item) {
+          return item && String(item.programId || "") === id;
+        }) || null;
+        return Boolean(found);
+      });
+      return found;
+    }
+
+    normalizeSearchText(value) {
+      return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim();
+    }
+
+    buildModuleList() {
+      const configuredModules = global.CrudUtils.ensureArray(this.definition.navigation && this.definition.navigation.modules)
+        .map((module, index) => {
+          if (!module || !module.id || !module.title || !this.hasPermission(module.permission)) {
+            return null;
+          }
+          if (String(module.id) === this.allModulesId) {
+            return null;
+          }
+          return {
+            id: String(module.id),
+            title: String(module.title),
+            order: index
+          };
+        })
+        .filter(Boolean);
+
+      return [{
+        id: this.allModulesId,
+        title: "Todos",
+        order: -1,
+        isAll: true
+      }].concat(configuredModules);
+    }
+
+    resolveInitialModuleId() {
+      const navigation = this.definition.navigation || {};
+      const configuredInitialId = String(navigation.initialModuleId || "").trim() || this.allModulesId;
+      if (this.findModule(configuredInitialId)) {
+        return configuredInitialId;
+      }
+      return this.findModule(this.allModulesId) ? this.allModulesId : "";
+    }
+
+    findModule(moduleId) {
+      const id = String(moduleId || "");
+      return this.modules.find(function(module) {
+        return module && module.id === id;
+      }) || null;
+    }
+
+    findFirstConfiguredModule() {
+      return this.modules.find(function(module) {
+        return module && !module.isAll;
+      }) || null;
+    }
+
+    isAllModulesSelected() {
+      return this.currentModuleId === this.allModulesId;
+    }
+
+    findModuleIdByProgramId(programId) {
+      if (!programId) {
+        return "";
+      }
+      const group = global.CrudUtils.ensureArray(this.definition.navigation && this.definition.navigation.groups).find(function(item) {
+        return global.CrudUtils.ensureArray(item && item.items).some(function(navItem) {
+          return navItem && navItem.programId === programId;
+        });
+      });
+      return group ? this.getGroupModuleId(group) : "";
+    }
+
+    getGroupModuleId(group) {
+      const moduleId = group && group.moduleId ? String(group.moduleId) : "";
+      if (moduleId && this.findModule(moduleId)) {
+        return moduleId;
+      }
+      const module = this.findFirstConfiguredModule();
+      return module ? module.id : "";
+    }
+
+    handleModuleChange() {
+      if (!this.moduleSelector) {
+        return;
+      }
+      const module = this.moduleSelector.dataItem();
+      if (!module || !this.findModule(module.id)) {
+        this.moduleSelector.value(this.currentModuleId);
+        return;
+      }
+      this.currentModuleId = module.id;
+      this.refreshTreeView();
+    }
+
+    refreshTreeView() {
+      if (!this.treeHost || !this.treeHost.length) {
+        return;
+      }
+      this.initializeTreeView(this.buildTreeData());
+    }
+
+    getTreeTemplate() {
+      return kendo.template(
+        "# if (item.programId) { #" +
+        "<span class=\"home-tree-line\" data-program-id=\"#: item.programId #\">" +
+        "# } else { #" +
+        "<span class=\"home-tree-line\">" +
+        "# } #" +
+          "<span class=\"home-tree-icon k-icon k-i-#: item.iconClass #\"></span>" +
+          "<span class=\"home-tree-text\">#: item.text #</span>" +
+          "# if (item.programId) { #" +
+          "<button type=\"button\" class=\"home-tree-open-button\" data-program-id=\"#: item.programId #\" title=\"Abrir em nova aba\" aria-label=\"Abrir #: item.text # em nova aba\"></button>" +
+          "# } #" +
+        "</span>"
+      );
+    }
+
+    bindTreeOpenButtons() {
+      const buttons = this.treeHost.find(".home-tree-open-button");
+      buttons.each(function() {
+        const button = $(this);
+        if (!button.data("kendoButton")) {
+          button.kendoButton({ icon: "hyperlink-open" });
+        }
+      });
+
+      buttons.off(".homeTreeOpen")
+        .on("mousedown.homeTreeOpen", function(event) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          return false;
+        })
+        .on("click.homeTreeOpen", (event) => {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          this.openProgramExternalById($(event.currentTarget).attr("data-program-id"));
+          return false;
+        })
+        .on("keydown.homeTreeOpen", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") {
+            return;
+          }
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          this.openProgramExternalById($(event.currentTarget).attr("data-program-id"));
+        });
+    }
+
+    handleTreeSelect(event) {
+      if (!this.treeView || !event || !event.node) {
+        return;
+      }
+      const item = this.treeView.dataItem(event.node);
+      if (!item || !item.programId) {
+        if (typeof event.preventDefault === "function") {
+          event.preventDefault();
+        }
+        return;
+      }
+      this.openProgram(item.programId);
+      this.collapseSidebar();
+    }
+
+    openInitialProgram() {
+      const initialId = this.definition.layout.initialProgramId || (this.definition.programs[0] && this.definition.programs[0].id);
+      return this.openProgram(initialId, { syncModule: false });
+    }
+
+    openProgram(programId, options) {
+      const openOptions = options || {};
+      const program = this.findProgram(programId);
+      if (!program) {
+        this.renderContentMessage("Programa nao encontrado.", "error");
+        return Promise.resolve();
+      }
+      if (!this.hasPermission(program.permission)) {
+        this.renderContentMessage("Acesso ao programa nao permitido.", "error");
+        return Promise.resolve();
+      }
+
+      this.destroyCurrentProgram();
+      this.currentProgram = program;
+      if (openOptions.syncModule !== false) {
+        this.syncModuleWithProgram(program.id);
+      }
+      this.updateProgramHeader(program);
+      this.updateActiveMenu(program.id);
+      this.renderContentMessage("Carregando...");
+
+      if (program.type === "crud") {
+        return this.renderCrudProgram(program);
+      }
+      if (program.type === "html") {
+        return this.renderHtmlProgram(program);
+      }
+      return this.renderIframeProgram(program);
+    }
+
+    renderIframeProgram(program) {
+      this.contentRoot.empty();
+      const frame = $("<iframe class=\"home-program-frame\"></iframe>")
+        .attr("title", program.title)
+        .attr("src", this.getProgramFrameUrl(program))
+        .appendTo(this.contentRoot);
+      this.currentProgramFrame = frame[0];
+      frame.on("load", () => this.prepareProgramFrame(frame[0]));
+      if (program.sandbox) {
+        frame.attr("sandbox", program.sandbox);
+      }
+      return Promise.resolve();
+    }
+
+    renderCrudProgram(program) {
+      this.contentRoot.empty();
+      const rootId = "home-crud-program-" + this.normalizeDomId(program.id);
+      $("<main></main>")
+        .attr("id", rootId)
+        .addClass("home-crud-root crud-app-shell")
+        .appendTo(this.contentRoot);
+
+      const engine = new global.CrudEngine({
+        root: "#" + rootId,
+        definitionUrl: program.definitionUrl,
+        definition: program.definition,
+        config: this.getEmbeddedProgramConfig(),
+        hideHeader: true,
+        hideThemeSwitch: true,
+        onLastUpdated: (date) => this.updateProgramLastUpdated(date),
+        httpClient: this.httpClient
+      });
+      this.currentProgramEngine = engine;
+      return engine.init().then((instance) => {
+        if (this.currentProgram && this.currentProgram.id === program.id) {
+          this.currentProgramEngine = instance;
+          this.updateProgramHeader(program, instance.definition);
+        }
+        return instance;
+      });
+    }
+
+    getEmbeddedProgramConfig() {
+      const config = global.CrudUtils.clone(this.config || {});
+      config.theme = Object.assign({}, config.theme || {}, {
+        allowUserSwitch: false
+      });
+      return config;
+    }
+
+    getProgramFrameUrl(program) {
+      const url = program && program.url ? program.url : "";
+      if (!url) {
+        return url;
+      }
+      const themedUrl = this.hasGlobalThemeSwitch()
+        ? this.appendUrlParameter(url, "hideThemeSwitch", "1")
+        : url;
+      return this.appendUrlParameter(themedUrl, "hideProgramHeader", "1");
+    }
+
+    hasGlobalThemeSwitch() {
+      return this.definition.layout.appbar.showThemeSwitch !== false && this.config.theme.allowUserSwitch !== false;
+    }
+
+    appendUrlParameter(url, key, value) {
+      try {
+        const parsedUrl = new URL(url, global.location && global.location.href ? global.location.href : undefined);
+        parsedUrl.searchParams.set(key, value);
+        return parsedUrl.href;
+      } catch (_) {
+        const source = String(url || "");
+        const hashIndex = source.indexOf("#");
+        const base = hashIndex === -1 ? source : source.slice(0, hashIndex);
+        const hash = hashIndex === -1 ? "" : source.slice(hashIndex);
+        const separator = base.indexOf("?") === -1 ? "?" : "&";
+        return base + separator + encodeURIComponent(key) + "=" + encodeURIComponent(value) + hash;
+      }
+    }
+
+    prepareProgramFrame(frame) {
+      if (!frame) {
+        return;
+      }
+      this.hideFrameProgramHeader(frame);
+      if (this.hasGlobalThemeSwitch()) {
+        this.hideFrameThemeToggle(frame);
+        this.syncFrameTheme(frame, this.currentTheme);
+      }
+    }
+
+    hideFrameThemeToggle(frame) {
+      try {
+        const doc = frame.contentDocument || frame.contentWindow.document;
+        if (!doc || doc.getElementById("home-hide-embedded-theme-toggle")) {
+          return;
+        }
+        const style = doc.createElement("style");
+        style.id = "home-hide-embedded-theme-toggle";
+        style.textContent = ".crud-theme-toggle{display:none!important;}";
+        (doc.head || doc.documentElement).appendChild(style);
+      } catch (_) {
+        return;
+      }
+    }
+
+    hideFrameProgramHeader(frame) {
+      try {
+        const doc = frame.contentDocument || frame.contentWindow.document;
+        if (!doc || doc.getElementById("home-hide-embedded-program-header")) {
+          return;
+        }
+        const style = doc.createElement("style");
+        style.id = "home-hide-embedded-program-header";
+        style.textContent = ".crud-header{display:none!important;}";
+        (doc.head || doc.documentElement).appendChild(style);
+      } catch (_) {
+        return;
+      }
+    }
+
+    syncFrameTheme(frame, mode) {
+      this.postFrameTheme(frame, mode);
+      try {
+        const frameWindow = frame.contentWindow;
+        const doc = frame.contentDocument || frameWindow.document;
+        if (!doc) {
+          return;
+        }
+        const link = doc.getElementById("kendo-theme-link");
+        const href = this.config && this.config.theme && this.config.theme.kendoTheme;
+        if (link && href) {
+          link.setAttribute("href", href);
+        }
+        if (doc.body) {
+          doc.body.setAttribute("data-crud-theme", mode);
+        }
+        const targets = [
+          doc.documentElement,
+          doc.body
+        ].filter(Boolean);
+        const theme = this.config && this.config.theme ? this.config.theme : {};
+        const tokens = theme.tokens && theme.tokens[mode] ? theme.tokens[mode] : {};
+        this.applyThemeCssMap(targets, this.getThemeTokenMap(), tokens);
+        this.applyThemeCssMap(targets, this.getKendoThemeTokenMap(), tokens);
+      } catch (_) {
+        return;
+      }
+    }
+
+    postFrameTheme(frame, mode) {
+      try {
+        if (frame && frame.contentWindow && typeof frame.contentWindow.postMessage === "function") {
+          frame.contentWindow.postMessage({
+            type: "homeThemeChange",
+            theme: mode
+          }, "*");
+        }
+      } catch (_) {
+        return;
+      }
+    }
+
+    renderHtmlProgram(program) {
+      this.contentRoot.empty();
+      if (program.html) {
+        this.injectSafeHtml(program.html);
+        return Promise.resolve();
+      }
+
+      return this.loadText(program.htmlUrl).then((html) => {
+        if (this.currentProgram && this.currentProgram.id === program.id) {
+          this.contentRoot.empty();
+          this.injectSafeHtml(html);
+        }
+      }).catch((error) => {
+        this.renderContentMessage(error && error.message ? error.message : "Erro ao carregar HTML.", "error");
+      });
+    }
+
+    injectSafeHtml(html) {
+      const nodes = this.sanitizeHtml(html);
+      const fragment = document.createDocumentFragment();
+      nodes.forEach(function(node) {
+        fragment.appendChild(node);
+      });
+      this.contentRoot[0].appendChild(fragment);
+    }
+
+    sanitizeHtml(html) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(String(html || ""), "text/html");
+      const blockedTags = ["SCRIPT", "STYLE", "IFRAME", "OBJECT", "EMBED", "BASE", "META", "LINK"];
+      Array.prototype.slice.call(doc.body.querySelectorAll("*")).forEach((element) => {
+        if (blockedTags.indexOf(element.tagName) !== -1) {
+          element.remove();
+          return;
+        }
+        Array.prototype.slice.call(element.attributes).forEach((attribute) => {
+          const name = attribute.name.toLowerCase();
+          const value = String(attribute.value || "").trim();
+          if (name.indexOf("on") === 0 || name === "style" || /^javascript:/i.test(value)) {
+            element.removeAttribute(attribute.name);
+          }
+          if ((name === "href" || name === "src") && value && value.charAt(0) !== "#" && !global.CrudUtils.isAllowedDocumentUrl(value)) {
+            element.removeAttribute(attribute.name);
+          }
+        });
+      });
+      return Array.prototype.slice.call(doc.body.childNodes).map(function(node) {
+        return document.importNode(node, true);
+      });
+    }
+
+    loadText(url) {
+      return fetch(url).then(function(response) {
+        if (!response.ok) {
+          throw new Error("Falha ao carregar " + url + ".");
+        }
+        return response.text();
+      }).catch(function(error) {
+        if (!global.location || global.location.protocol !== "file:") {
+          throw error;
+        }
+        return new Promise(function(resolve, reject) {
+          const xhr = new XMLHttpRequest();
+          xhr.open("GET", url, true);
+          xhr.onload = function() {
+            if (xhr.status === 0 || (xhr.status >= 200 && xhr.status < 300)) {
+              resolve(xhr.responseText);
+              return;
+            }
+            reject(error);
+          };
+          xhr.onerror = function() {
+            reject(error);
+          };
+          xhr.send();
+        });
+      });
+    }
+
+    refreshProgram() {
+      if (!this.currentProgram) {
+        return;
+      }
+      this.openProgram(this.currentProgram.id);
+    }
+
+    openProgramExternalById(programId) {
+      const program = this.findProgram(programId);
+      if (!program) {
+        return;
+      }
+      const url = this.getProgramOpenUrl(program);
+      if (!url) {
+        global.CrudUtils.showMessage("Este programa nao possui URL externa.", "info");
+        return;
+      }
+      global.open(url, "_blank", "noopener,noreferrer");
+    }
+
+    getProgramOpenUrl(program) {
+      if (!program) {
+        return "";
+      }
+      return program.openUrl || program.url || program.htmlUrl || "";
+    }
+
+    updateProgramHeader(program, programDefinition) {
+      const info = this.getProgramHeaderInfo(program, programDefinition);
+      this.currentHeaderInfo = info;
+      this.programTitleElement.text(info.title || this.definition.app.title);
+
+      if (info.version) {
+        this.programVersionElement
+          .removeAttr("hidden")
+          .text("v" + info.version);
+      } else {
+        this.programVersionElement
+          .attr("hidden", true)
+          .text("");
+      }
+
+      if (info.subtitle) {
+        this.programSubtitleElement
+          .removeAttr("hidden")
+          .attr("title", info.subtitleTooltip || info.subtitle)
+          .attr("aria-label", info.subtitleTooltip || info.subtitle)
+          .text(info.subtitle);
+      } else {
+        this.programSubtitleElement
+          .attr("hidden", true)
+          .removeAttr("title")
+          .removeAttr("aria-label")
+          .text("");
+      }
+
+      this.updateProgramLastUpdated(new Date());
+      this.updateProgramFavoriteButton();
+      this.renderProgramHeaderActions(info);
+    }
+
+    getProgramHeaderInfo(program, programDefinition) {
+      const source = programDefinition || {};
+      const programMeta = source.program || {};
+      const fallback = program || {};
+      return {
+        id: source.id || programMeta.id || fallback.id || "",
+        title: source.title || programMeta.title || fallback.title || this.definition.app.title,
+        version: source.programVersion || programMeta.version || fallback.version || fallback.programVersion || "",
+        subtitle: source.subtitle || programMeta.subtitle || fallback.subtitle || fallback.description || "",
+        subtitleTooltip: source.subtitleTooltip || programMeta.subtitleTooltip || fallback.subtitleTooltip || "",
+        help: source.help || programMeta.help || fallback.help || null,
+        logs: source.logs || programMeta.logs || fallback.logs || null
+      };
+    }
+
+    updateProgramLastUpdated(date) {
+      if (!this.programLastUpdatedElement) {
+        return;
+      }
+      const value = date instanceof Date ? date : new Date();
+      this.programLastUpdatedElement
+        .attr("title", "Data e hora da ultima atualizacao")
+        .text(kendo.toString(value, "dd/MM/yyyy HH:mm"));
+    }
+
+    renderProgramHeaderActions(info) {
+      if (!this.programActionsElement) {
+        return;
+      }
+      kendo.destroy(this.programActionsElement);
+      this.programActionsElement.empty();
+      if (this.isProgramLogsEnabled(info)) {
+        this.renderProgramLogsButton(this.programActionsElement, info);
+      }
+      if (this.isProgramHelpEnabled(info)) {
+        this.renderProgramHelpButton(this.programActionsElement, info);
+      }
+    }
+
+    isProgramLogsEnabled(info) {
+      if (this.currentProgramEngine && typeof this.currentProgramEngine.isLogsEnabled === "function") {
+        return this.currentProgramEngine.isLogsEnabled();
+      }
+      const logs = info && info.logs ? info.logs : {};
+      return logs.enabled !== false && typeof logs.url === "string" && logs.url.trim() !== "";
+    }
+
+    renderProgramLogsButton(container, info) {
+      const logs = info && info.logs ? info.logs : {};
+      const title = logs.title || "Logs";
+      const button = $("<button type=\"button\" class=\"home-icon-button crud-log-button crud-icon-button\"></button>")
+        .attr("title", title)
+        .attr("aria-label", title)
+        .appendTo(container);
+      button.kendoButton({ icon: "list-unordered" });
+      button.on("click", () => this.openProgramLogs(info));
+    }
+
+    openProgramLogs(info) {
+      if (this.currentProgramEngine && typeof this.currentProgramEngine.openLogsWindow === "function") {
+        this.currentProgramEngine.openLogsWindow();
+        return;
+      }
+      const logs = info && info.logs ? info.logs : {};
+      if (!logs || logs.enabled === false || typeof logs.url !== "string" || !logs.url.trim()) {
+        return;
+      }
+      this.openUrlWindow({
+        title: logs.title || "Logs",
+        url: logs.url,
+        linkText: logs.linkText || "Abrir logs em nova aba"
+      });
+    }
+
+    isProgramHelpEnabled(info) {
+      if (this.currentProgramEngine && typeof this.currentProgramEngine.isHelpEnabled === "function") {
+        return this.currentProgramEngine.isHelpEnabled();
+      }
+      const help = info && info.help ? info.help : {};
+      return help.enabled !== false && Boolean(
+        help.body ||
+        help.summary ||
+        help.linkUrl ||
+        help.videoUrl ||
+        global.CrudUtils.ensureArray(help.items).length
+      );
+    }
+
+    renderProgramHelpButton(container, info) {
+      const help = info && info.help ? info.help : {};
+      const title = help.title || "Ajuda e novidades";
+      const wrapper = $("<span class=\"crud-help-button-wrap\"></span>").appendTo(container);
+      const button = $("<button type=\"button\" class=\"home-icon-button crud-help-button crud-icon-button\"></button>")
+        .attr("title", title)
+        .attr("aria-label", title)
+        .appendTo(wrapper);
+      button.kendoButton({ icon: "question-circle" });
+      button.on("click", () => this.openProgramHelp(info));
+      this.programHelpBadgeElement = $("<span class=\"crud-help-badge k-badge k-badge-solid k-badge-solid-error k-rounded-full\" hidden></span>")
+        .appendTo(wrapper);
+      this.updateProgramHelpBadge();
+    }
+
+    updateProgramHelpBadge() {
+      if (!this.programHelpBadgeElement) {
+        return;
+      }
+      const count = this.currentProgramEngine && typeof this.currentProgramEngine.getUnseenHelpItems === "function"
+        ? this.currentProgramEngine.getUnseenHelpItems().length
+        : 0;
+      if (!count) {
+        this.programHelpBadgeElement.attr("hidden", true).text("");
+        return;
+      }
+      this.programHelpBadgeElement.removeAttr("hidden").text(String(count));
+    }
+
+    openProgramHelp(info) {
+      if (this.currentProgramEngine && typeof this.currentProgramEngine.openHelpWindow === "function") {
+        this.currentProgramEngine.openHelpWindow();
+        this.updateProgramHelpBadge();
+        return;
+      }
+      const help = info && info.help ? info.help : {};
+      this.openProgramHelpWindow(help);
+    }
+
+    openProgramHelpWindow(help) {
+      const items = this.normalizeProgramHelpItems(help);
+      const wrapper = $("<div></div>").appendTo(document.body);
+      const content = $("<div class=\"crud-help-window-content\"></div>").appendTo(wrapper);
+      const list = $("<div class=\"crud-help-list\"></div>").appendTo(content);
+      if (!items.length) {
+        $("<p class=\"crud-help-empty\"></p>").text("Nenhuma novidade cadastrada.").appendTo(list);
+      }
+      items.forEach((item) => this.renderProgramHelpItem(list, item));
+      const actions = $("<div class=\"crud-help-actions\"></div>").appendTo(content);
+      const closeButton = $("<button type=\"button\">Fechar</button>").appendTo(actions);
+      closeButton.kendoButton();
+      wrapper.kendoWindow({
+        title: help.title || "Ajuda e novidades",
+        modal: true,
+        actions: ["Maximize", "Close"],
+        resizable: true,
+        width: Math.min(720, Math.max(320, window.innerWidth - 24)),
+        visible: false,
+        close: function() {
+          wrapper.data("kendoWindow").destroy();
+          wrapper.remove();
+        }
+      });
+      const windowWidget = wrapper.data("kendoWindow");
+      closeButton.on("click", function() {
+        windowWidget.close();
+      });
+      windowWidget.center().open();
+    }
+
+    normalizeProgramHelpItems(help) {
+      const source = help || {};
+      const items = [];
+      if (source.body || source.summary || source.linkUrl || source.videoUrl) {
+        items.push(source);
+      }
+      return items.concat(global.CrudUtils.ensureArray(source.items)).filter(function(item) {
+        return item && (item.title || item.summary || item.body || item.linkUrl || item.videoUrl);
+      });
+    }
+
+    renderProgramHelpItem(container, item) {
+      const element = $("<article class=\"crud-help-item\"></article>").appendTo(container);
+      $("<h2 class=\"crud-help-item-title\"></h2>").text(item.title || "Ajuda").appendTo(element);
+      if (item.summary) {
+        $("<p class=\"crud-help-summary\"></p>").text(item.summary).appendTo(element);
+      }
+      if (item.body) {
+        const body = $("<div class=\"crud-help-body\"></div>").appendTo(element);
+        String(item.body).split(/\n+/).forEach(function(paragraph) {
+          if (paragraph.trim()) {
+            $("<p></p>").text(paragraph.trim()).appendTo(body);
+          }
+        });
+      }
+      if (item.videoUrl) {
+        $("<video class=\"crud-help-video\" controls></video>").attr("src", item.videoUrl).appendTo(element);
+      }
+      if (item.linkUrl) {
+        $("<a class=\"crud-help-link\" target=\"_blank\" rel=\"noopener noreferrer\"></a>")
+          .attr("href", item.linkUrl)
+          .text(item.linkText || "Abrir ajuda")
+          .appendTo(element);
+      }
+    }
+
+    openProgramSubtitleTooltip() {
+      const info = this.currentHeaderInfo || {};
+      const text = info.subtitleTooltip || info.subtitle;
+      if (!text) {
+        return;
+      }
+      const wrapper = $("<div></div>").appendTo(document.body);
+      const content = $("<div class=\"crud-subtitle-window-content\"></div>").appendTo(wrapper);
+      $("<p></p>").text(text).appendTo(content);
+      const actions = $("<div class=\"crud-help-actions\"></div>").appendTo(content);
+      const closeButton = $("<button type=\"button\">Fechar</button>").appendTo(actions);
+      closeButton.kendoButton();
+      wrapper.kendoWindow({
+        title: info.title || "Informacoes",
+        modal: true,
+        actions: ["Close"],
+        resizable: false,
+        width: Math.min(420, Math.max(300, window.innerWidth - 24)),
+        visible: false,
+        close: function() {
+          wrapper.data("kendoWindow").destroy();
+          wrapper.remove();
+        }
+      });
+      const windowWidget = wrapper.data("kendoWindow");
+      closeButton.on("click", function() {
+        windowWidget.close();
+      });
+      windowWidget.center().open();
+    }
+
+    openUrlWindow(options) {
+      const settings = options || {};
+      const wrapper = $("<div></div>").appendTo(document.body);
+      const content = $("<div class=\"crud-log-window-content\"></div>").appendTo(wrapper);
+      $("<iframe class=\"crud-log-frame\" title=\"Logs\"></iframe>")
+        .attr("src", settings.url)
+        .appendTo(content);
+      const actions = $("<div class=\"crud-log-actions\"></div>").appendTo(content);
+      $("<a class=\"crud-log-link\" target=\"_blank\" rel=\"noopener noreferrer\"></a>")
+        .attr("href", settings.url)
+        .text(settings.linkText || "Abrir em nova aba")
+        .appendTo(actions);
+      const closeButton = $("<button type=\"button\">Fechar</button>").appendTo(actions);
+      closeButton.kendoButton();
+      wrapper.kendoWindow({
+        title: settings.title || "Logs",
+        modal: true,
+        actions: ["Maximize", "Close"],
+        resizable: true,
+        width: Math.min(960, Math.max(320, window.innerWidth - 24)),
+        visible: false,
+        close: function() {
+          wrapper.data("kendoWindow").destroy();
+          wrapper.remove();
+        }
+      });
+      const windowWidget = wrapper.data("kendoWindow");
+      closeButton.on("click", function() {
+        windowWidget.close();
+      });
+      windowWidget.center().open();
+    }
+
+    updateActiveMenu(programId) {
+      if (!this.treeView || !this.treeHost) {
+        return;
+      }
+      this.treeHost.find(".home-tree-line").removeClass("is-active").attr("aria-current", "false");
+      const line = this.treeHost.find(".home-tree-line[data-program-id='" + this.escapeSelector(programId) + "']");
+      line
+        .addClass("is-active")
+        .attr("aria-current", "page");
+      const node = line.closest(".k-treeview-item");
+      if (node.length) {
+        this.treeView.select(node);
+      }
+    }
+
+    syncModuleWithProgram(programId) {
+      if (this.isAllModulesSelected()) {
+        return;
+      }
+      const moduleId = this.findModuleIdByProgramId(programId);
+      if (!moduleId || moduleId === this.currentModuleId || !this.findModule(moduleId)) {
+        return;
+      }
+      this.currentModuleId = moduleId;
+      if (this.moduleSelector) {
+        this.moduleSelector.value(moduleId);
+      }
+      if (this.treeHost && this.treeHost.length) {
+        this.refreshTreeView();
+      }
+    }
+
+    toggleSidebar() {
+      const sidebar = this.definition && this.definition.layout ? this.definition.layout.sidebar : {};
+      if (!this.shell || sidebar.collapsible === false) {
+        return;
+      }
+      this.shell.toggleClass("home-sidebar-collapsed");
+      this.updateSidebarToggleState();
+    }
+
+    updateSidebarToggleState() {
+      if (!this.sidebarToggle || !this.sidebarToggle.length || !this.shell) {
+        return;
+      }
+      const isCollapsed = this.shell.hasClass("home-sidebar-collapsed");
+      const label = isCollapsed ? "Expandir menu" : "Recolher menu";
+      const icon = isCollapsed ? "chevron-right" : "chevron-left";
+      this.sidebarToggle
+        .attr("title", label)
+        .attr("aria-label", label)
+        .attr("aria-expanded", isCollapsed ? "false" : "true")
+        .toggleClass("is-collapsed", isCollapsed);
+      if (this.sidebarToggleButton && this.currentSidebarToggleIcon !== icon) {
+        this.sidebarToggleButton.setOptions({ icon });
+        this.currentSidebarToggleIcon = icon;
+      }
+    }
+
+    shouldStartSidebarCollapsed() {
+      return Boolean(this.definition.layout.sidebar.collapsed || this.isMobileViewport());
+    }
+
+    isMobileViewport() {
+      return Boolean(global.matchMedia && global.matchMedia("(max-width: 860px)").matches);
+    }
+
+    collapseSidebar() {
+      const sidebar = this.definition && this.definition.layout ? this.definition.layout.sidebar : {};
+      if (!this.shell || sidebar.collapsible === false) {
+        return;
+      }
+      this.shell.addClass("home-sidebar-collapsed");
+      this.updateSidebarToggleState();
+    }
+
+    destroyCurrentProgram() {
+      if (this.currentProgramEngine) {
+        if (this.currentProgramEngine.gridRenderer && typeof this.currentProgramEngine.gridRenderer.destroy === "function") {
+          this.currentProgramEngine.gridRenderer.destroy();
+        }
+        if (this.currentProgramEngine.filterRenderer && typeof this.currentProgramEngine.filterRenderer.destroy === "function") {
+          this.currentProgramEngine.filterRenderer.destroy();
+        }
+      }
+      if (this.contentRoot && this.contentRoot.length) {
+        kendo.destroy(this.contentRoot);
+        this.contentRoot.empty();
+      }
+      this.currentProgramEngine = null;
+      this.currentProgramFrame = null;
+    }
+
+    findProgram(programId) {
+      return global.CrudUtils.ensureArray(this.definition && this.definition.programs).find(function(program) {
+        return program && program.id === programId;
+      }) || null;
+    }
+
+    hasPermission(permission) {
+      if (!permission) {
+        return true;
+      }
+      return Boolean(this.definition.permissions && this.definition.permissions[permission]);
+    }
+
+    renderLoading() {
+      this.root.empty().append($("<section class=\"crud-loading\"></section>").text("Carregando pagina inicial..."));
+    }
+
+    renderError(error) {
+      this.root.empty();
+      const message = error && error.message ? error.message : "Erro ao carregar pagina inicial.";
+      $("<section class=\"crud-message crud-message-error\"></section>").text(message).appendTo(this.root);
+    }
+
+    renderContentMessage(message, type) {
+      if (!this.contentRoot || !this.contentRoot.length) {
+        return;
+      }
+      this.contentRoot.empty();
+      $("<section></section>")
+        .addClass("crud-message")
+        .toggleClass("crud-message-error", type === "error")
+        .text(message || "")
+        .appendTo(this.contentRoot);
+    }
+
+    renderThemeToggle(container) {
+      const field = $("<label class=\"crud-theme-toggle home-theme-toggle\"></label>").appendTo(container);
+      const input = $("<input type=\"checkbox\" class=\"crud-theme-input\">")
+        .prop("checked", this.currentTheme === "dark")
+        .appendTo(field);
+      $("<span class=\"crud-theme-track\"><span class=\"crud-theme-thumb\"></span></span>").appendTo(field);
+      this.updateThemeToggleLabel(field);
+      input.on("change", () => {
+        this.toggleTheme(input.is(":checked") ? "dark" : "light");
+      });
+      this.themeToggleElement = field;
+      this.themeInputElement = input;
+    }
+
+    updateThemeToggleLabel(element) {
+      const label = this.currentTheme === "dark" ? "Tema claro" : "Tema escuro";
+      element.attr("title", label).attr("aria-label", label);
+    }
+
+    applyKendoTheme() {
+      const href = this.config && this.config.theme && this.config.theme.kendoTheme;
+      const link = document.getElementById("kendo-theme-link");
+      if (href && link) {
+        link.setAttribute("href", href);
+      }
+    }
+
+    resolveInitialTheme() {
+      const theme = this.config && this.config.theme ? this.config.theme : {};
+      if (theme.persistUserChoice !== false && theme.storageKey && global.localStorage) {
+        try {
+          const stored = global.localStorage.getItem(theme.storageKey);
+          if (stored === "dark" || stored === "light") {
+            return stored;
+          }
+        } catch (_) {
+          return theme.defaultMode === "dark" ? "dark" : "light";
+        }
+      }
+      return theme.defaultMode === "dark" ? "dark" : "light";
+    }
+
+    toggleTheme(mode) {
+      this.currentTheme = mode === "dark" ? "dark" : "light";
+      this.applyTheme(this.currentTheme, { persist: true });
+      if (this.themeInputElement) {
+        this.themeInputElement.prop("checked", this.currentTheme === "dark");
+      }
+      if (this.themeToggleElement) {
+        this.updateThemeToggleLabel(this.themeToggleElement);
+      }
+    }
+
+    applyTheme(mode, options) {
+      const theme = this.config && this.config.theme ? this.config.theme : {};
+      const normalizedMode = mode === "dark" ? "dark" : "light";
+      this.currentTheme = normalizedMode;
+      document.body.setAttribute("data-crud-theme", normalizedMode);
+      this.applyThemeTokens(normalizedMode);
+      if (options && options.persist && theme.persistUserChoice !== false && theme.storageKey && global.localStorage) {
+        try {
+          global.localStorage.setItem(theme.storageKey, normalizedMode);
+        } catch (_) {
+          return;
+        }
+      }
+      this.syncCurrentProgramTheme(normalizedMode);
+    }
+
+    applyThemeTokens(mode) {
+      const theme = this.config && this.config.theme ? this.config.theme : {};
+      const tokens = theme.tokens && theme.tokens[mode] ? theme.tokens[mode] : {};
+      const targets = [
+        document.documentElement,
+        document.body
+      ].filter(Boolean);
+
+      this.applyThemeCssMap(targets, this.getThemeTokenMap(), tokens);
+      this.applyThemeCssMap(targets, this.getKendoThemeTokenMap(), tokens);
+    }
+
+    applyThemeCssMap(targets, tokenMap, tokens) {
+      Object.keys(tokenMap).forEach(function(key) {
+        const properties = Array.isArray(tokenMap[key]) ? tokenMap[key] : [tokenMap[key]];
+        properties.forEach(function(propertyName) {
+          targets.forEach(function(target) {
+            if (tokens[key]) {
+              target.style.setProperty(propertyName, tokens[key]);
+            } else {
+              target.style.removeProperty(propertyName);
+            }
+          });
+        });
+      });
+    }
+
+    getThemeTokenMap() {
+      return {
+        background: "--crud-bg",
+        surface: "--crud-surface",
+        border: "--crud-border",
+        text: "--crud-text",
+        muted: "--crud-muted",
+        title: "--crud-title",
+        accent: "--crud-accent",
+        accentSoft: "--crud-accent-soft",
+        accentBorder: "--crud-accent-border",
+        inputBackground: "--crud-input-bg",
+        readonlyBackground: "--crud-readonly-bg",
+        messageBackground: "--crud-message-bg",
+        errorBorder: "--crud-error-border",
+        errorBackground: "--crud-error-bg",
+        buttonBackground: "--crud-button-bg",
+        buttonHoverBackground: "--crud-button-hover-bg",
+        buttonBorder: "--crud-button-border",
+        buttonText: "--crud-button-text",
+        buttonPrimaryBackground: "--crud-button-primary-bg",
+        buttonPrimaryHoverBackground: "--crud-button-primary-hover-bg",
+        buttonPrimaryText: "--crud-button-primary-text",
+        notificationBackground: "--crud-notification-bg",
+        notificationText: "--crud-notification-text",
+        danger: "--crud-danger"
+      };
+    }
+
+    getKendoThemeTokenMap() {
+      return {
+        background: [
+          "--kendo-color-app-surface"
+        ],
+        surface: [
+          "--kendo-color-surface"
+        ],
+        border: [
+          "--kendo-color-border",
+          "--kendo-color-base-emphasis"
+        ],
+        text: [
+          "--kendo-color-on-app-surface",
+          "--kendo-color-on-base",
+          "--kendo-color-base-on-surface"
+        ],
+        muted: [
+          "--kendo-color-subtle",
+          "--kendo-color-base-on-subtle"
+        ],
+        title: [
+          "--kendo-color-primary-on-surface",
+          "--kendo-color-primary-on-subtle"
+        ],
+        accent: [
+          "--kendo-color-primary",
+          "--kendo-color-primary-emphasis",
+          "--kendo-color-info",
+          "--kendo-color-info-on-surface",
+          "--kendo-color-tertiary",
+          "--kendo-color-series-a"
+        ],
+        accentSoft: [
+          "--kendo-color-primary-subtle",
+          "--kendo-color-primary-subtle-hover",
+          "--kendo-color-primary-subtle-active",
+          "--kendo-color-info-subtle",
+          "--kendo-color-tertiary-subtle"
+        ],
+        accentBorder: [
+          "--kendo-color-border-alt"
+        ],
+        inputBackground: [
+          "--kendo-color-surface-alt"
+        ],
+        readonlyBackground: [
+          "--kendo-color-base-subtle",
+          "--kendo-color-base-subtle-active",
+          "--kendo-color-base-active"
+        ],
+        buttonBackground: [
+          "--kendo-color-base",
+          "--kendo-color-secondary"
+        ],
+        buttonHoverBackground: [
+          "--kendo-color-base-hover",
+          "--kendo-color-base-subtle-hover",
+          "--kendo-color-secondary-hover"
+        ],
+        buttonText: [
+          "--kendo-color-on-secondary",
+          "--kendo-color-secondary-on-subtle",
+          "--kendo-color-secondary-on-surface"
+        ],
+        buttonPrimaryBackground: [
+          "--kendo-color-primary"
+        ],
+        buttonPrimaryHoverBackground: [
+          "--kendo-color-primary-hover",
+          "--kendo-color-primary-active"
+        ],
+        buttonPrimaryText: [
+          "--kendo-color-on-primary"
+        ],
+        errorBackground: [
+          "--kendo-color-error-subtle",
+          "--kendo-color-error-subtle-hover",
+          "--kendo-color-error-subtle-active"
+        ],
+        danger: [
+          "--kendo-color-error",
+          "--kendo-color-error-hover",
+          "--kendo-color-error-active",
+          "--kendo-color-error-emphasis",
+          "--kendo-color-error-on-surface",
+          "--kendo-color-error-on-subtle"
+        ]
+      };
+    }
+
+    syncCurrentProgramTheme(mode) {
+      if (!this.currentProgramEngine || typeof this.currentProgramEngine.applyTheme !== "function") {
+        if (this.currentProgramFrame) {
+          this.syncFrameTheme(this.currentProgramFrame, mode);
+        }
+        return;
+      }
+      this.currentProgramEngine.applyTheme(mode, { persist: false });
+      if (this.currentProgramEngine.themeInputElement) {
+        this.currentProgramEngine.themeInputElement.prop("checked", mode === "dark");
+      }
+      if (this.currentProgramEngine.themeToggleElement && typeof this.currentProgramEngine.updateThemeToggleLabel === "function") {
+        this.currentProgramEngine.updateThemeToggleLabel(this.currentProgramEngine.themeToggleElement);
+      }
+      if (this.currentProgramFrame) {
+        this.syncFrameTheme(this.currentProgramFrame, mode);
+      }
+    }
+
+    normalizeDomId(value) {
+      return String(value || "program")
+        .replace(/[^A-Za-z0-9_-]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "") || "program";
+    }
+
+    escapeClass(value) {
+      return String(value || "folder").replace(/[^A-Za-z0-9_-]+/g, "-");
+    }
+
+    escapeSelector(value) {
+      if (global.CSS && typeof global.CSS.escape === "function") {
+        return global.CSS.escape(value);
+      }
+      return String(value || "").replace(/'/g, "\\'");
+    }
+  }
+
+  global.HomeEngine = HomeEngine;
+})(window, jQuery);

@@ -21,6 +21,7 @@ Decisoes fechadas:
 
 Paginas principais:
 
+- `home.html`: demo de pagina inicial por JSON, com appbar, seletor de sistema/modulo, Kendo TreeView lateral e abertura de programas.
 - `index.html`: demo principal de clientes.
 - `exemplos.html`: indice central de exemplos.
 - `theme-builder.html`: pagina de teste/geracao visual de temas.
@@ -28,7 +29,9 @@ Paginas principais:
 
 Arquivos de configuracao e dados:
 
+- `examples/home.home.json`: JSON completo da demo da pagina inicial.
 - `examples/clientes.crud.json`: JSON completo da demo.
+- `public/metadata/schemas/home-definition-v1.schema.json`: schema inicial da home.
 - `public/metadata/schemas/crud-definition-v1.schema.json`: schema inicial.
 - `src/demo/demo-embedded-data.js`: dados e configuracao embutidos para uso via `file://`.
 - `src/demo/DemoMockHttpClient.js`: mock HTTP em memoria.
@@ -36,6 +39,7 @@ Arquivos de configuracao e dados:
 Documentos importantes:
 
 - `especificacao-crud-engine-v1.md`: especificacao inicial maior.
+- `docs/arquitetura-home-engine.md`: arquitetura da pagina inicial por JSON.
 - `docs/backlog-v1-estavel.md`: memoria de pontos para estabilizacao futura.
 - `docs/guia-ia-padrao-kendo-grids-formularios.pdf`: guia para IA padronizar outro projeto Kendo/PHP/Symfony.
 - `docs/guia-ia-padrao-kendo-grids-formularios.html`: fonte do PDF.
@@ -52,4 +56,5 @@ Como iniciar uma nova sessao:
 2. Leia `docs/arquitetura-crud-engine.md`.
 3. Leia `docs/padroes-ui-kendo.md`.
 4. Se for alterar codigo, leia `docs/continuidade-codex.md`.
-5. Depois leia apenas os arquivos especificos da funcionalidade.
+5. Se for alterar a pagina inicial, leia `docs/arquitetura-home-engine.md`.
+6. Depois leia apenas os arquivos especificos da funcionalidade.

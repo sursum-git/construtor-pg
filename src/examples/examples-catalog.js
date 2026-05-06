@@ -5,6 +5,126 @@
 
   const examples = [
     {
+      id: "home-engine",
+      engine: "home",
+      category: "Home",
+      title: "Pagina inicial por JSON",
+      summary: "Monta menu lateral, appbar global com metadados do programa e abertura por iframe, CrudEngine ou HTML sanitizado.",
+      code: {
+        pageType: "home",
+        app: {
+          logo: {
+            url: "public/assets/company-logo.svg",
+            alt: "Construtor PG",
+            showTitle: true,
+            showSubtitle: true
+          }
+        },
+        currentUser: {
+          name: "Tasio Silva",
+          email: "tasio@example.com",
+          initials: "TS",
+          favoritePrograms: ["clientes-crud", "exemplos"]
+        },
+        layout: {
+          initialProgramId: "painel",
+          sidebar: {
+            component: "kendoTreeView"
+          },
+          appbar: {
+            showSidebarToggle: true,
+            showFavoriteToggle: true,
+            showUserMenu: true,
+            chat: {
+              enabled: false,
+              endpoints: {
+                contacts: "/api/home/chat/contacts",
+                history: { url: "/api/home/chat/history", method: "POST" },
+                send: "/api/home/chat/send"
+              }
+            },
+            support: {
+              enabled: true,
+              icon: "headset",
+              fallbackRequest: {
+                defaultSectorId: "suporte"
+              },
+              sectors: [
+                { id: "suporte", name: "Suporte" },
+                { id: "financeiro", name: "Financeiro" }
+              ],
+              endpoints: {
+                onlineUsers: "/api/home/support/online-users",
+                history: "/api/home/support/history",
+                send: "/api/home/support/send",
+                createRequest: "/api/home/support/requests"
+              }
+            },
+            aiChat: {
+              enabled: true,
+              icon: "sparkles",
+              endpoints: {
+                history: "/api/home/ai-chat/history",
+                send: "/api/home/ai-chat/send"
+              }
+            },
+            alerts: {
+              enabled: true,
+              endpoints: {
+                list: "/api/home/alerts"
+              }
+            },
+            requests: {
+              enabled: true,
+              endpoints: {
+                list: "/api/home/requests"
+              }
+            },
+            userMenu: {
+              items: [
+                { id: "profile", label: "Meus dados", action: "profile" },
+                { id: "preferences", label: "Preferencias", action: "preferences" },
+                { id: "logout", label: "Sair", action: "logout" }
+              ]
+            }
+          }
+        },
+        navigation: {
+          initialModuleId: "",
+          modules: [
+            { id: "operacional", title: "Operacional" },
+            { id: "ferramentas", title: "Ferramentas" }
+          ],
+          groups: [
+            {
+              id: "principal",
+              title: "Principal",
+              moduleId: "operacional",
+              items: [
+                { programId: "painel", title: "Painel" },
+                { programId: "clientes-crud", title: "Clientes", favorite: true }
+              ]
+            },
+            {
+              id: "apoio",
+              title: "Apoio",
+              moduleId: "ferramentas",
+              items: [
+                { programId: "clientes-iframe", title: "Clientes via iframe" },
+                { programId: "exemplos", title: "Exemplos", favorite: true },
+                { programId: "tema", title: "Editor de tema" }
+              ]
+            }
+          ]
+        },
+        programs: [
+          { id: "painel", type: "html", title: "Painel inicial" },
+          { id: "clientes-crud", type: "crud", title: "Clientes", openUrl: "index.html", definitionUrl: "examples/clientes.crud.json" },
+          { id: "clientes-iframe", type: "iframe", title: "Clientes via iframe", version: "1.0.0", url: "index.html" }
+        ]
+      }
+    },
+    {
       id: "programa-ajuda-logs",
       category: "Programa",
       title: "Cabecalho com ajuda e logs",
@@ -610,7 +730,60 @@
     option("Global", "config.theme.defaultMode", "light | dark", "light", "Modo inicial do tema global."),
     option("Global", "config.theme.allowUserSwitch", "true | false", "true", "Permite alternar claro/escuro no cabecalho."),
     option("Global", "config.theme.persistUserChoice", "true | false", "true", "Persiste escolha do usuario no localStorage."),
-    option("Global", "config.help.items[].kind", "text | link | video", "text", "Tipo de novidade global.")
+    option("Global", "config.help.items[].kind", "text | link | video", "text", "Tipo de novidade global."),
+    option("Home", "pageType", "\"home\"", "Obrigatorio", "Ativa o HomeEngine para renderizar uma pagina inicial por JSON."),
+    option("Home", "app.logo.url", "URL relativa | http | https", "vazio", "Logo da empresa exibido no canto esquerdo da appbar global."),
+    option("Home", "app.logo.showTitle", "true | false", "true", "Define se o nome do app aparece ao lado do logo."),
+    option("Home", "app.logo.showSubtitle", "true | false", "true", "Define se o subtitulo do app aparece abaixo do nome ao lado do logo."),
+    option("Home", "layout.initialProgramId", "id de programa", "primeiro programa", "Programa aberto ao carregar a pagina inicial."),
+    option("Home", "layout.sidebar.component", "\"kendoTreeView\"", "kendoTreeView", "Componente Kendo usado no menu lateral."),
+    option("Home", "layout.sidebar.collapsible", "true | false", "true", "Permite recolher e expandir o menu lateral."),
+    option("Home", "layout.sidebar.collapsed", "true | false", "false", "Define se o menu lateral inicia recolhido."),
+    option("Home", "layout.sidebar.expanded", "true | false", "true", "Define se os grupos do TreeView iniciam expandidos."),
+    option("Home", "layout.appbar.showSidebarToggle", "true | false", "true", "Exibe o botao de expandir/recolher o menu lateral no appbar."),
+    option("Home", "layout.appbar.showRefresh", "true | false", "true", "Exibe o botao Atualizar no appbar."),
+    option("Home", "layout.appbar.showFavoriteToggle", "true | false", "true", "Exibe o botao para favoritar o programa corrente no cabecalho."),
+    option("Home", "layout.appbar.showUserMenu", "true | false", "true", "Exibe o menu do usuario logado na appbar global."),
+    option("Home", "layout.appbar.chat.enabled", "true | false", "false", "Exibe o botao de chat no appbar global."),
+    option("Home", "layout.appbar.chat.endpoints.contacts", "URL relativa | http | https", "obrigatorio quando enabled=true sem contacts[]", "Endpoint que retorna os usuarios disponiveis para conversa."),
+    option("Home", "layout.appbar.chat.contacts[]", "texto | { id, name, email }", "vazio", "Lista estatica opcional de usuarios para o ComboBox do chat."),
+    option("Home", "layout.appbar.chat.endpoints.history", "URL relativa | http | https", "vazio", "Endpoint opcional para carregar historico inicial do chat."),
+    option("Home", "layout.appbar.chat.endpoints.send", "URL relativa | http | https", "obrigatorio quando enabled=true", "Endpoint chamado ao enviar mensagem no chat."),
+    option("Home", "layout.appbar.chat.defaultRecipientId", "id de usuario", "primeiro usuario", "Usuario selecionado inicialmente no ComboBox do chat."),
+    option("Home", "layout.appbar.support.enabled", "true | false", "false", "Exibe o botao de atendimento no appbar global."),
+    option("Home", "layout.appbar.support.endpoints.onlineUsers", "URL relativa | http | https", "obrigatorio quando enabled=true", "Endpoint que informa setores e atendentes online por setor."),
+    option("Home", "layout.appbar.support.endpoints.send", "URL relativa | http | https", "obrigatorio quando enabled=true", "Endpoint chamado ao enviar mensagem ao atendente online do setor selecionado."),
+    option("Home", "layout.appbar.support.endpoints.createRequest", "URL relativa | http | https", "obrigatorio quando enabled=true", "Endpoint chamado para abrir solicitacao quando nao houver atendente online no setor."),
+    option("Home", "layout.appbar.support.fallbackRequest.defaultSectorId", "id de setor", "suporte", "Setor inicial selecionado no atendimento e na solicitacao."),
+    option("Home", "layout.appbar.support.sectors[]", "texto | { id, name }", "Suporte", "Setores disponiveis para atendimento e abertura de solicitacao."),
+    option("Home", "layout.appbar.aiChat.enabled", "true | false", "false", "Exibe o botao de chat de IA no appbar global."),
+    option("Home", "layout.appbar.aiChat.endpoints.history", "URL relativa | http | https", "vazio", "Endpoint opcional para carregar historico inicial do chat de IA."),
+    option("Home", "layout.appbar.aiChat.endpoints.send", "URL relativa | http | https", "obrigatorio quando enabled=true", "Endpoint chamado ao enviar mensagem para a IA."),
+    option("Home", "layout.appbar.aiChat.bot.id/name", "texto", "ia", "Autor usado nas mensagens de resposta da IA."),
+    option("Home", "layout.appbar.alerts.enabled", "true | false", "false", "Exibe o botao de sino para alertas de informacoes recebidas."),
+    option("Home", "layout.appbar.alerts.endpoints.list", "URL relativa | http | https", "obrigatorio quando enabled=true", "Endpoint que retorna os alertas exibidos em janela."),
+    option("Home", "layout.appbar.requests.enabled", "true | false", "false", "Exibe o botao de solicitacoes recebidas ou atualizadas."),
+    option("Home", "layout.appbar.requests.endpoints.list", "URL relativa | http | https", "obrigatorio quando enabled=true", "Endpoint que retorna as solicitacoes exibidas em janela."),
+    option("Home", "layout.appbar.userMenu.items[].action", "profile | preferences | logout | texto", "vazio", "Acao executada pelo item do menu de usuario."),
+    option("Home", "layout.appbar.userMenu.items[].openAs", "newTab | window", "newTab", "Define como abrir URLs do menu de usuario."),
+    option("Home", "currentUser.name/email/initials", "texto", "vazio", "Dados usados para montar o botao e cabecalho do menu do usuario."),
+    option("Home", "currentUser.favoritePrograms[]", "ids de programas", "vazio", "Favoritos do usuario usados pelo filtro do menu lateral."),
+    option("Home", "currentUser.unfavoritePrograms[]", "ids de programas", "vazio", "Programas removidos dos favoritos pelo usuario."),
+    option("Home", "navigation.groups[].items[].favorite", "true | false", "false", "Marca o programa como favorito para filtro e botao da pagina corrente, sem indicador no item do menu."),
+    option("Home", "programs[].favorite", "true | false", "false", "Tambem pode marcar o programa como favorito no cadastro do programa, sem indicador no item do menu."),
+    option("Home", "navigation.initialModuleId", "vazio | __all__ | id de modulo", "vazio", "Modulo selecionado no ComboBox ao abrir a pagina inicial. Vazio, ausente ou __all__ mostra Todos."),
+    option("Home", "navigation.modules[]", "id, title, permission", "vazio", "Lista de sistemas/modulos exibidos no ComboBox acima do TreeView. A opcao Todos e criada pelo motor."),
+    option("Home", "navigation.groups[].moduleId", "id de modulo", "primeiro modulo configurado", "Vincula um grupo da TreeView ao sistema/modulo selecionado."),
+    option("Home", "programs[].type", "iframe | crud | html", "iframe", "Modo fechado usado para abrir o programa."),
+    option("Home", "programs[].title/subtitle/version", "texto", "vazio", "Metadados exibidos na appbar global quando o programa abre na Home."),
+    option("Home", "programs[].subtitleTooltip", "texto", "vazio", "Texto longo aberto pelo subtitulo na appbar global."),
+    option("Home", "programs[].help", "body | linkUrl | videoUrl | items[]", "vazio", "Ajuda/novidades exibidas na appbar global para programas sem CrudEngine embutido."),
+    option("Home", "programs[].logs.url", "URL relativa | http | https", "vazio", "Log exibido na appbar global para programas sem CrudEngine embutido."),
+    option("Home", "programs[].openUrl", "URL relativa | http | https", "vazio", "URL navegavel preferencial usada pelo botao de abrir em nova aba no menu."),
+    option("Home", "programs[].url", "URL relativa | http | https", "vazio", "Obrigatorio para programas type=iframe."),
+    option("Home", "programs[].definitionUrl", "URL relativa | http | https", "vazio", "Usado por programas type=crud."),
+    option("Home", "programs[].html", "HTML sem script/eventos", "vazio", "HTML sanitizado antes da injecao."),
+    option("Home", "programs[].htmlUrl", "URL relativa | http | https", "vazio", "Carrega fragmento HTML para programas type=html.")
   ];
 
   function option(category, path, values, defaultValue, note) {
@@ -624,7 +797,7 @@
         category: example.category,
         title: example.title,
         summary: example.summary,
-        page: pagePath + example.id + ".html"
+        page: example.page || pagePath + example.id + ".html"
       };
     });
   }
@@ -642,6 +815,19 @@
     applyCommonDefaults(definition, source, example);
     if (example && typeof example.apply === "function") {
       example.apply(definition, source);
+    }
+    return definition;
+  }
+
+  function buildHomeDefinition(id) {
+    const example = get(id);
+    const source = getHomeSourceDefinition();
+    const definition = clone(source);
+    if (example && example.code) {
+      deepMerge(definition, example.code);
+    }
+    if (example && typeof example.applyHome === "function") {
+      example.applyHome(definition, source);
     }
     return definition;
   }
@@ -736,6 +922,69 @@
     return global.CrudDemoEmbedded.clientesDefinition;
   }
 
+  function getHomeSourceDefinition() {
+    if (!global.HomeDemoEmbedded || !global.HomeDemoEmbedded.homeDefinition) {
+      throw new Error("Definicao base da Home nao carregada.");
+    }
+    return global.HomeDemoEmbedded.homeDefinition;
+  }
+
+  function deepMerge(target, source) {
+    if (!source || typeof source !== "object" || Array.isArray(source)) {
+      return target;
+    }
+
+    Object.keys(source).forEach(function(key) {
+      const value = source[key];
+      if (Array.isArray(value) && Array.isArray(target[key])) {
+        target[key] = mergeArrayByStableKey(target[key], value);
+      } else if (value && typeof value === "object" && !Array.isArray(value) && target[key] && typeof target[key] === "object" && !Array.isArray(target[key])) {
+        deepMerge(target[key], value);
+      } else {
+        target[key] = clone(value);
+      }
+    });
+
+    return target;
+  }
+
+  function mergeArrayByStableKey(targetItems, sourceItems) {
+    const key = getArrayStableKey(targetItems, sourceItems);
+    if (!key) {
+      return clone(sourceItems);
+    }
+
+    const merged = clone(targetItems);
+    sourceItems.forEach(function(sourceItem) {
+      const sourceKey = String(sourceItem && sourceItem[key] || "");
+      const index = merged.findIndex(function(targetItem) {
+        return String(targetItem && targetItem[key] || "") === sourceKey;
+      });
+      if (index === -1) {
+        merged.push(clone(sourceItem));
+      } else if (sourceItem && typeof sourceItem === "object" && !Array.isArray(sourceItem)) {
+        deepMerge(merged[index], sourceItem);
+      } else {
+        merged[index] = clone(sourceItem);
+      }
+    });
+    return merged;
+  }
+
+  function getArrayStableKey(targetItems, sourceItems) {
+    const items = targetItems.concat(sourceItems);
+    if (!items.length || items.some(function(item) { return !item || typeof item !== "object" || Array.isArray(item); })) {
+      return "";
+    }
+    if (items.every(function(item) { return item.id != null; })) {
+      return "id";
+    }
+    if (items.every(function(item) { return item.programId != null; })) {
+      return "programId";
+    }
+    return "";
+  }
+
   function prefixAssetPath(path, prefix) {
     const value = String(path || "");
     if (/^(https?:)?\/\//i.test(value) || value.indexOf(prefix) === 0) {
@@ -757,6 +1006,7 @@
     list,
     get,
     buildDefinition,
+    buildHomeDefinition,
     buildConfig,
     getCode,
     getPropertyOptions

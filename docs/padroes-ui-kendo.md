@@ -19,6 +19,36 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - Data/hora da ultima atualizacao deve ficar em badge compacto, sem texto longo.
 - Botoes de ajuda, log e tema devem ser compactos, com icone e tooltip.
 
+## Pagina inicial
+
+- A pagina inicial pode ser montada pelo `HomeEngine` a partir de JSON.
+- Usar appbar superior global com titulo do app, titulo do programa corrente e acoes compactas.
+- O logo da empresa vem de `app.logo.url`; o JSON define se o titulo/subtitulo do app continuam ao lado do logo.
+- Na pagina inicial, o seletor claro/escuro fica apenas no appbar global.
+- Programa chamado pelo menu nao deve duplicar o seletor claro/escuro da pagina inicial.
+- Usar Kendo TreeView no menu lateral para grupos de programas e programas filhos.
+- O TreeView do menu lateral deve usar `kendo.data.HierarchicalDataSource`.
+- Acima do TreeView, usar Kendo ComboBox para selecionar sistema/modulo quando houver mais de um.
+- O ComboBox de modulos deve iniciar em `Todos` quando `navigation.initialModuleId` nao vier preenchido; se vier um modulo valido, inicia nesse modulo.
+- O menu lateral deve permitir filtro por nome e filtro por favoritos.
+- A appbar global deve ter botao compacto para favoritar/desfavoritar o programa corrente quando habilitado.
+- Favorito marcado deve usar fundo amarelo no botao da pagina corrente; os itens do menu nao exibem marcador de favorito.
+- A appbar global deve ter botao compacto para expandir/recolher o menu lateral quando `layout.sidebar.collapsible` permitir.
+- Quando `layout.appbar.chat.enabled=true`, a appbar global deve exibir botao compacto de chat e abrir o componente Kendo Chat em janela com ComboBox para selecionar o usuario destinatario.
+- Quando `layout.appbar.support.enabled=true`, a appbar global deve exibir botao compacto de atendimento; a janela deve ter ComboBox de setor, abrir chat quando houver atendente online no setor selecionado e exibir formulario de solicitacao com setor travado quando nao houver disponibilidade.
+- Quando `layout.appbar.aiChat.enabled=true`, a appbar global deve exibir outro botao compacto para chat de IA, sem ComboBox de destinatario.
+- Quando `layout.appbar.alerts.enabled=true`, a appbar global deve exibir botao compacto de sino e abrir alertas em janela.
+- Quando `layout.appbar.requests.enabled=true`, a appbar global deve exibir botao compacto de solicitacoes e abrir solicitacoes em janela.
+- Menu do usuario logado fica no canto direito da appbar global, com avatar/iniciais e opcoes vindas do JSON.
+- Ao clicar em programa que abre na area central, recolher o menu lateral.
+- Em viewport mobile, iniciar o menu lateral recolhido.
+- Cada programa do TreeView deve ter botao compacto para abrir em nova aba.
+- Programas podem abrir por modos fechados: `iframe`, `crud` ou `html`.
+- `crud` deve instanciar o `CrudEngine` dentro da area central.
+- Programas abertos dentro da Home nao devem duplicar cabecalho interno; a appbar global mostra titulo, versao, subtitulo, ultima atualizacao, ajuda, logs, atualizar e tema.
+- `html` deve ser sanitizado e nao pode executar scripts/eventos vindos do JSON.
+- `iframe` deve usar URL configurada e titulo acessivel.
+
 ## Toolbar do grid
 
 - Botoes principais usam Kendo Button com icones.
@@ -27,6 +57,7 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - Acoes em massa so aparecem se existirem acoes cadastradas.
 - Imprimir/exportar so aparece se existirem opcoes.
 - Opcoes de leiaute, ordenacao e agrupamento devem abrir em janela, nao ocupar espaco fixo na toolbar.
+- No mobile, a toolbar do grid deve recolher filtros, atualizar, ordenacao, agrupamento, leiaute, imprimir e acoes em massa atras de um botao compacto.
 
 ## Grid
 

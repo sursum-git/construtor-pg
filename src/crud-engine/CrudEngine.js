@@ -10,7 +10,7 @@
       this.loader = new global.CrudDefinitionLoader({ httpClient: this.httpClient });
       this.definitionNormalizer = new global.PageDefinitionNormalizer();
       this.validator = new global.CrudDefinitionValidator();
-      this.config = this.normalizeConfig(this.options.config);
+      this.config = this.applyRuntimeConfigOptions(this.normalizeConfig(this.options.config));
       this.currentTheme = this.resolveInitialTheme();
       this.applyTheme(this.currentTheme, { persist: false });
     }
@@ -44,7 +44,9 @@
       kendo.destroy(this.root);
       this.root.empty();
       const screen = $("<div class=\"crud-screen\"></div>").appendTo(this.root);
-      this.renderHeader(screen);
+      if (this.options.hideHeader !== true) {
+        this.renderHeader(screen);
+      }
 
       this.layoutManager = new global.CrudLayoutManager({
         definition: this.definition,
@@ -353,7 +355,7 @@
         configUrl: this.options.configUrl,
         config: this.options.config
       }).then((config) => {
-        this.config = this.normalizeConfig(config);
+        this.config = this.applyRuntimeConfigOptions(this.normalizeConfig(config));
         this.applyKendoTheme();
         this.currentTheme = this.resolveInitialTheme();
         this.applyTheme(this.currentTheme, { persist: false });
@@ -448,6 +450,16 @@
         theme,
         help: Object.assign({}, defaultConfig.help, source.help || {})
       });
+    }
+
+    applyRuntimeConfigOptions(config) {
+      const source = global.CrudUtils.clone(config || {});
+      if (this.options.hideThemeSwitch === true) {
+        source.theme = Object.assign({}, source.theme || {}, {
+          allowUserSwitch: false
+        });
+      }
+      return source;
     }
 
     renderThemeToggle(container) {
@@ -1355,13 +1367,15 @@
     }
 
     updateLastUpdated() {
-      if (!this.lastUpdatedElement) {
-        return;
-      }
       this.lastUpdatedAt = new Date();
-      this.lastUpdatedElement
-        .attr("title", "Data e hora da ultima atualizacao")
-        .text(kendo.toString(this.lastUpdatedAt, "dd/MM/yyyy HH:mm"));
+      if (this.lastUpdatedElement) {
+        this.lastUpdatedElement
+          .attr("title", "Data e hora da ultima atualizacao")
+          .text(kendo.toString(this.lastUpdatedAt, "dd/MM/yyyy HH:mm"));
+      }
+      if (typeof this.options.onLastUpdated === "function") {
+        this.options.onLastUpdated(this.lastUpdatedAt);
+      }
     }
 
     afterRecordSaved(record, mode) {
