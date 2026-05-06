@@ -623,6 +623,7 @@
       const api = this.definition.api || {};
       return Boolean(buttonConfig && (
         buttonConfig.endpointId ||
+        buttonConfig.actionId ||
         buttonConfig.endpoint ||
         buttonConfig.api ||
         buttonConfig.url ||
@@ -711,7 +712,7 @@
 
     isLogsEnabled() {
       const logs = this.getLogsConfig();
-      return logs.enabled !== false && typeof logs.url === "string" && logs.url.trim() !== "";
+      return logs.enabled !== false && (typeof logs.url === "string" && logs.url.trim() !== "" || logs.documentId || logs.endpointId || logs.actionId);
     }
 
     getLogsConfig() {
@@ -918,6 +919,9 @@
       const endpointId = situation.historyEndpointId || situation.endpointId;
       if (endpointId && api[endpointId]) {
         return api[endpointId];
+      }
+      if (situation.actionId && api[situation.actionId]) {
+        return api[situation.actionId];
       }
       if (situation.historyEndpoint && situation.historyEndpoint.url) {
         return situation.historyEndpoint;
@@ -1356,7 +1360,7 @@
       if (!logConfig || logConfig.enabled === false) {
         return null;
       }
-      if (logConfig.endpointId || logConfig.endpoint || logConfig.api || logConfig.url) {
+      if (logConfig.endpointId || logConfig.actionId || logConfig.endpoint || logConfig.api || logConfig.url) {
         return logConfig;
       }
       return null;
@@ -1400,6 +1404,9 @@
       const api = this.definition.api || {};
       if (logConfig.endpointId && api[logConfig.endpointId]) {
         return api[logConfig.endpointId];
+      }
+      if (logConfig.actionId && api[logConfig.actionId]) {
+        return api[logConfig.actionId];
       }
       if (logConfig.endpoint && logConfig.endpoint.url) {
         return logConfig.endpoint;
@@ -1707,6 +1714,9 @@
       }
       if (eventConfig.endpointId && api[eventConfig.endpointId]) {
         return api[eventConfig.endpointId];
+      }
+      if (eventConfig.actionId && api[eventConfig.actionId]) {
+        return api[eventConfig.actionId];
       }
       if (eventConfig.endpoint && eventConfig.endpoint.url) {
         return eventConfig.endpoint;
@@ -2333,6 +2343,9 @@
       if (configured.endpointId && api[configured.endpointId]) {
         return api[configured.endpointId];
       }
+      if (configured.actionId && api[configured.actionId]) {
+        return api[configured.actionId];
+      }
       if (configured.endpoint && configured.endpoint.url) {
         return configured.endpoint;
       }
@@ -2356,7 +2369,7 @@
       if (byMode && byMode[mode]) {
         return byMode[mode];
       }
-      if (buttonConfig.endpointId || buttonConfig.endpoint || buttonConfig.api || buttonConfig.url) {
+      if (buttonConfig.endpointId || buttonConfig.actionId || buttonConfig.endpoint || buttonConfig.api || buttonConfig.url) {
         return buttonConfig;
       }
       return null;

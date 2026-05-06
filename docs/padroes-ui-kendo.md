@@ -34,6 +34,7 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - A appbar global deve ter botao compacto para favoritar/desfavoritar o programa corrente quando habilitado.
 - Favorito marcado deve usar fundo amarelo no botao da pagina corrente; os itens do menu nao exibem marcador de favorito.
 - A appbar global deve ter botao compacto para expandir/recolher o menu lateral quando `layout.sidebar.collapsible` permitir.
+- A appbar global pode exibir o assinante corrente como badge compacto quando `currentSubscriber` existir e `layout.appbar.showCurrentSubscriber` nao for `false`.
 - Quando `layout.appbar.chat.enabled=true`, a appbar global deve exibir botao compacto de chat e abrir o componente Kendo Chat em janela com ComboBox para selecionar o usuario destinatario.
 - Quando `layout.appbar.support.enabled=true`, a appbar global deve exibir botao compacto de atendimento; a janela deve ter ComboBox de setor, abrir chat quando houver atendente online no setor selecionado e exibir formulario de solicitacao com setor travado quando nao houver disponibilidade.
 - Quando `layout.appbar.aiChat.enabled=true`, a appbar global deve exibir outro botao compacto para chat de IA, sem ComboBox de destinatario.
@@ -167,3 +168,12 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - Evitar mensagens sobrepostas.
 - Evitar verde forte com azul forte.
 - Botoes em janelas devem ficar alinhados a esquerda.
+
+## Seguranca
+
+- Tela em producao deve ser carregada por `screenId`, nao por URL livre.
+- Entradas de producao ficam em `production/`; demos continuam nas paginas atuais.
+- Entradas de producao nao devem carregar mock, JSON local de `examples/` ou scripts inline de inicializacao.
+- URLs livres em APIs e acoes devem ser substituidas por `endpointId` ou `actionId`.
+- O backend e quem valida usuario, tenant, permissao, campos permitidos e acao solicitada.
+- O JSON continua apenas declarativo: sem JavaScript, `eval`, `Function`, `template` livre ou HTML bruto inseguro.

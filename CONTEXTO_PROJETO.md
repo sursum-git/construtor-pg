@@ -26,6 +26,8 @@ Paginas principais:
 - `exemplos.html`: indice central de exemplos.
 - `theme-builder.html`: pagina de teste/geracao visual de temas.
 - `examples/pages/*.html`: paginas isoladas por variacao de configuracao.
+- `production/app.html`: entrada de producao para CRUD por `screenId`.
+- `production/home.html`: entrada de producao para Home por `screenId`.
 
 Arquivos de configuracao e dados:
 
@@ -33,6 +35,7 @@ Arquivos de configuracao e dados:
 - `examples/clientes.crud.json`: JSON completo da demo.
 - `public/metadata/schemas/home-definition-v1.schema.json`: schema inicial da home.
 - `public/metadata/schemas/crud-definition-v1.schema.json`: schema inicial.
+- `public/config/crud-engine.production.config.json`: configuracao segura para primeira versao de producao.
 - `src/demo/demo-embedded-data.js`: dados e configuracao embutidos para uso via `file://`.
 - `src/demo/DemoMockHttpClient.js`: mock HTTP em memoria.
 
@@ -41,6 +44,7 @@ Documentos importantes:
 - `especificacao-crud-engine-v1.md`: especificacao inicial maior.
 - `docs/arquitetura-home-engine.md`: arquitetura da pagina inicial por JSON.
 - `docs/backlog-v1-estavel.md`: memoria de pontos para estabilizacao futura.
+- `docs/paridade-demo-producao.md`: controle do que mudou na demo e precisa, ou nao, ser levado para producao.
 - `docs/guia-ia-padrao-kendo-grids-formularios.pdf`: guia para IA padronizar outro projeto Kendo/PHP/Symfony.
 - `docs/guia-ia-padrao-kendo-grids-formularios.html`: fonte do PDF.
 
@@ -57,4 +61,5 @@ Como iniciar uma nova sessao:
 3. Leia `docs/padroes-ui-kendo.md`.
 4. Se for alterar codigo, leia `docs/continuidade-codex.md`.
 5. Se for alterar a pagina inicial, leia `docs/arquitetura-home-engine.md`.
-6. Depois leia apenas os arquivos especificos da funcionalidade.
+6. Se for alterar demo, exemplos ou mocks, use a skill `construtor-pg-demo-production-parity` e leia `docs/paridade-demo-producao.md`.
+7. Depois leia apenas os arquivos especificos da funcionalidade.

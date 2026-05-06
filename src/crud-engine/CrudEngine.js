@@ -11,6 +11,7 @@
       this.definitionNormalizer = new global.PageDefinitionNormalizer();
       this.validator = new global.CrudDefinitionValidator();
       this.config = this.applyRuntimeConfigOptions(this.normalizeConfig(this.options.config));
+      this.securityPolicy = global.CrudUtils.normalizeSecurityPolicy(this.config, this.options);
       this.currentTheme = this.resolveInitialTheme();
       this.applyTheme(this.currentTheme, { persist: false });
     }
@@ -18,14 +19,18 @@
     init() {
       this.renderLoading();
       return this.loadConfig().then(() => {
+        this.securityPolicy = global.CrudUtils.normalizeSecurityPolicy(this.config, this.options);
         return this.loader.load({
           definitionUrl: this.options.definitionUrl,
-          definition: this.options.definition
+          definition: this.options.definition,
+          screenId: this.options.screenId,
+          securityPolicy: this.securityPolicy
         });
       }).then((definition) => {
         this.rawDefinition = definition;
         this.definition = this.definitionNormalizer.normalize(definition);
-        this.validator.validate(this.definition);
+        this.validator.validate(this.definition, { securityPolicy: this.securityPolicy });
+        global.CrudUtils.applyEndpointSecurity(this.definition, this.securityPolicy);
         this.render();
         return this;
       }).catch((error) => {
@@ -241,7 +246,7 @@
 
     isLogsEnabled() {
       const logs = this.getLogsConfig();
-      return logs.enabled !== false && typeof logs.url === "string" && logs.url.trim() !== "";
+      return logs.enabled !== false && (typeof logs.url === "string" && logs.url.trim() !== "" || logs.documentId || logs.endpointId || logs.actionId);
     }
 
     renderLogsButton(container) {
@@ -258,10 +263,15 @@
 
     openLogsWindow(record, logsConfig) {
       const logs = logsConfig || this.getLogsConfig();
-      if (!logs || logs.enabled === false || typeof logs.url !== "string" || !logs.url.trim()) {
+      if (!logs || logs.enabled === false) {
         return;
       }
-      const url = this.resolveRecordUrl(logs.url, record || {});
+      const screenId = global.CrudUtils.getDefinitionScreenId(this.definition);
+      const sourceUrl = global.CrudUtils.resolveDocumentUrlForPolicy(logs, "logs", screenId, this.securityPolicy);
+      if (!sourceUrl) {
+        return;
+      }
+      const url = this.resolveRecordUrl(sourceUrl, record || {});
 
       const wrapper = $("<div></div>").appendTo(document.body);
       const content = $("<div class=\"crud-log-window-content\"></div>").appendTo(wrapper);
@@ -577,6 +587,16 @@
       const programHelp = this.getProgramHelpConfig();
       const globalHelp = this.getHelpConfig();
       const endpoint = programHelp.readEndpoint || globalHelp.readEndpoint || null;
+      const api = this.definition && this.definition.api || {};
+      const screenId = this.definition ? global.CrudUtils.getDefinitionScreenId(this.definition) : "screen";
+      if (endpoint && typeof endpoint === "object" && (endpoint.endpointId || endpoint.actionId)) {
+        return global.CrudUtils.resolveEndpointForPolicy(endpoint, endpoint.endpointId || endpoint.actionId, screenId, this.securityPolicy);
+      }
+      if (typeof endpoint === "string" && this.securityPolicy && this.securityPolicy.endpoints.allowInlineUrls === false) {
+        return api[endpoint] || (global.CrudUtils.isSafeIdentifier(endpoint)
+          ? global.CrudUtils.resolveEndpointForPolicy({ endpointId: endpoint }, endpoint, screenId, this.securityPolicy)
+          : null);
+      }
       if (typeof endpoint === "string") {
         const url = endpoint.trim();
         if (!url) {
@@ -588,6 +608,12 @@
         };
       }
       if (!endpoint || typeof endpoint !== "object" || !endpoint.url || !String(endpoint.url).trim()) {
+        if (endpoint && endpoint.endpointId && api[endpoint.endpointId]) {
+          return api[endpoint.endpointId];
+        }
+        return null;
+      }
+      if (this.securityPolicy && this.securityPolicy.endpoints.allowInlineUrls === false) {
         return null;
       }
       return {
@@ -1038,8 +1064,13 @@
     }
 
     renderError(error) {
-      const message = global.CrudUtils.escapeHtml(error.message || "Erro inesperado.");
-      const details = error.details && error.details.errors
+      const productionErrors = this.options.productionErrors === true ||
+        global.CrudUtils.isProductionSecurity(this.securityPolicy);
+      const safeMessage = productionErrors
+        ? "Nao foi possivel carregar a tela. Entre em contato com o suporte."
+        : error.message || "Erro inesperado.";
+      const message = global.CrudUtils.escapeHtml(safeMessage);
+      const details = !productionErrors && error.details && error.details.errors
         ? "<ul>" + error.details.errors.map(function(item) { return "<li>" + global.CrudUtils.escapeHtml(item) + "</li>"; }).join("") + "</ul>"
         : "";
       this.root.html("<div class=\"crud-message crud-message-error\"><strong>" + message + "</strong>" + details + "</div>");
@@ -1066,7 +1097,8 @@
       const url = global.CrudUtils.replaceUrlParams(endpoint.url, { [primaryKey]: id });
       return this.httpClient.request({
         url,
-        method: endpoint.method || "GET"
+        method: endpoint.method || "GET",
+        data: { [primaryKey]: id, id }
       });
     }
 
@@ -1111,7 +1143,8 @@
         const url = global.CrudUtils.replaceUrlParams(endpoint.url, this.buildRecordActionParams(record));
         return this.httpClient.request({
           url,
-          method: endpoint.method || "DELETE"
+          method: endpoint.method || "DELETE",
+          data: this.buildRecordActionParams(record)
         }).then(() => {
           this.refresh();
           return true;
@@ -1208,6 +1241,9 @@
       }
       if (action.endpointId && api[action.endpointId]) {
         return api[action.endpointId];
+      }
+      if (action.actionId && api[action.actionId]) {
+        return api[action.actionId];
       }
       if (action.endpoint && action.endpoint.url) {
         return action.endpoint;

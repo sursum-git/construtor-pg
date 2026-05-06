@@ -167,6 +167,14 @@
     }
 
     route(method, url, data) {
+      const screenMatch = String(url || "").match(/^\/api\/runtime\/screens\/([^/?]+)$/);
+      if (screenMatch && method === "GET") {
+        return this.getRuntimeScreenDefinition(decodeURIComponent(screenMatch[1]));
+      }
+      const runtimeMatch = String(url || "").match(/^\/api\/runtime\/screens\/([^/]+)\/endpoints\/([^/?]+)/);
+      if (runtimeMatch) {
+        return this.routeRuntimeEndpoint(decodeURIComponent(runtimeMatch[1]), decodeURIComponent(runtimeMatch[2]), data);
+      }
       if (url === "/api/cadastros/clientes" && method === "GET") {
         return this.list(data);
       }
@@ -276,6 +284,161 @@
       }
 
       throw global.CrudUtils.makeError("ROUTE_NOT_FOUND", "Rota mock nao encontrada.", { method, url });
+    }
+
+    getRuntimeScreenDefinition(screenId) {
+      const normalized = String(screenId || "");
+      if (normalized === "cadastros.clientes.producao") {
+        return this.buildProductionClientDefinition(normalized);
+      }
+      if (normalized === "cadastros.clientes" || normalized === "clientes" || normalized === "clientes-crud") {
+        const definition = global.CrudDemoEmbedded && global.CrudDemoEmbedded.clientesDefinition;
+        if (definition) {
+          return global.CrudUtils.clone(definition);
+        }
+      }
+      if (normalized === "home" || normalized === "construtor-pg") {
+        const definition = global.HomeDemoEmbedded && global.HomeDemoEmbedded.homeDefinition;
+        if (definition) {
+          return global.CrudUtils.clone(definition);
+        }
+      }
+      throw global.CrudUtils.makeError("SCREEN_NOT_FOUND", "Tela nao encontrada no runtime mock.", { screenId });
+    }
+
+    buildProductionClientDefinition(screenId) {
+      const source = global.CrudDemoEmbedded && global.CrudDemoEmbedded.clientesDefinition;
+      const definition = global.CrudUtils.clone(source || {});
+      if (!definition || !definition.program) {
+        return definition;
+      }
+
+      definition.screenId = screenId;
+      definition.program.screenId = screenId;
+      definition.program.title = "Clientes - Producao segura";
+      definition.program.subtitle = "Definicao carregada por screenId e APIs roteadas por endpointId.";
+      definition.program.logs = { enabled: false };
+      definition.program.help = { enabled: false };
+
+      const api = definition.dataSource && definition.dataSource.api || definition.api || {};
+      Object.keys(api).forEach(function(key) {
+        const endpoint = api[key] || {};
+        api[key] = {
+          endpointId: endpoint.endpointId || key,
+          method: endpoint.method || "POST"
+        };
+      });
+
+      if (definition.dataSource) {
+        definition.dataSource.api = api;
+      }
+      definition.api = api;
+
+      if (definition.crud && definition.crud.grid) {
+        definition.crud.grid.ai = { enabled: false };
+      }
+      if (definition.crud && definition.crud.form) {
+        definition.crud.form.logs = { enabled: false };
+      }
+
+      return definition;
+    }
+
+    routeRuntimeEndpoint(screenId, endpointId, data) {
+      const normalizedScreenId = String(screenId || "");
+      if (normalizedScreenId === "home" || normalizedScreenId === "construtor-pg") {
+        return this.routeHomeRuntimeEndpoint(normalizedScreenId, endpointId, data);
+      }
+
+      const id = data && (data.id || data.clienteId);
+      switch (endpointId) {
+        case "read":
+          return this.list(data || {});
+        case "get":
+          return this.get(id);
+        case "create":
+          return this.create(data || {});
+        case "update":
+          return this.update(id, data || {});
+        case "delete":
+          return this.delete(id);
+        case "validateStatusCliente":
+          return this.validateStatusRules(data || {});
+        case "loadCidadesByUf":
+          return this.listCitiesByState(data || {});
+        case "statusHistory":
+          return this.getStatusHistory(data || {});
+        case "stepHistory":
+          return this.getStepHistory(id, data && data.stepId, data || {});
+        case "printClienteExcel":
+          return this.printClient(id, "excel", data || {});
+        case "printClientePdf":
+          return this.printClient(id, "pdf", data || {});
+        case "printClienteCsv":
+          return this.printClient(id, "csv", data || {});
+        case "checkCredit":
+          return this.executeClientAction(id, "check-credit", data || {});
+        case "sendWelcome":
+          return this.executeClientAction(id, "send-welcome", data || {});
+        case "bulkActivate":
+        case "bulkInactivate":
+          return this.bulkUpdateStatus(data || {});
+        case "bulkDelete":
+          return this.bulkDelete(data || {});
+        case "saveLayout":
+          return this.saveLayout(data || {});
+        case "restoreLayout":
+          this.activeLayoutId = null;
+          this.persistLayouts();
+          return { ok: true, userLayout: this.buildUserLayout() };
+        case "saveSort":
+          return this.saveSort(data || {});
+        case "deleteSort":
+          return this.deleteSort(data && data.id);
+        case "saveGroup":
+          return this.saveGroup(data || {});
+        case "deleteGroup":
+          return this.deleteGroup(data && data.id);
+        case "saveFilter":
+          return this.saveFilter(data || {});
+        case "deleteFilter":
+          return this.deleteFilter(data && data.id);
+        case "help.markAsRead":
+          return this.saveHelpSeen(data || {});
+        default:
+          throw global.CrudUtils.makeError("RUNTIME_ENDPOINT_NOT_FOUND", "Endpoint runtime mock nao encontrado.", { screenId, endpointId });
+      }
+    }
+
+    routeHomeRuntimeEndpoint(screenId, endpointId, data) {
+      switch (endpointId) {
+        case "home.chat.contacts":
+          return this.getHomeChatContacts(data || {});
+        case "home.chat.history":
+          return this.getHomeChatHistory(data || {});
+        case "home.chat.send":
+          return this.sendHomeChatMessage(data || {});
+        case "home.support.onlineUsers":
+          return this.getHomeSupportOnlineUsers(data || {});
+        case "home.support.history":
+          return this.getHomeSupportHistory(data || {});
+        case "home.support.send":
+          return this.sendHomeSupportMessage(data || {});
+        case "home.support.createRequest":
+          return this.createHomeSupportRequest(data || {});
+        case "home.support.requestStatus":
+          return this.getHomeSupportRequestStatus(data || {});
+        case "home.aiChat.history":
+          return this.getHomeAiChatHistory(data || {});
+        case "home.aiChat.send":
+          return this.sendHomeAiChatMessage(data || {});
+        case "home.alerts.list":
+          return this.getHomeAlerts(data || {});
+        case "home.requests.list":
+          return this.getHomeRequests(data || {});
+        default:
+          throw global.CrudUtils.makeError("HOME_RUNTIME_ENDPOINT_NOT_FOUND", "Endpoint runtime da Home nao encontrado.", { screenId, endpointId });
+      }
     }
 
     list(query) {

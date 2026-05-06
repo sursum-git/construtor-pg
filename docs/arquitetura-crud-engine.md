@@ -12,6 +12,9 @@ O `HomeEngine` e separado do `CrudEngine`: ele monta o shell global e pode chama
 
 Nesta etapa ainda nao existe backend real. O JSON vem de arquivo/local embed e as chamadas passam pelo mock HTTP.
 
+Para uma primeira versao de producao, o motor tambem aceita carregar a tela por `screenId`.
+Nesse modo o frontend nao recebe uma URL livre de JSON: ele pede ao backend uma tela conhecida, e o backend devolve somente a definicao autorizada para o usuario.
+
 ## Estrutura principal
 
 ```text
@@ -42,6 +45,15 @@ src/demo/
   home-embedded-data.js
   demo-embedded-data.js
   DemoMockHttpClient.js
+
+src/bootstrap/
+  kendo-ptbr.js
+  production-crud.js
+  production-home.js
+
+production/
+  app.html
+  home.html
 
 src/examples/
   examples-catalog.js
@@ -106,6 +118,7 @@ src/examples/
 ```js
 new CrudEngine({
   root,
+  screenId,
   definitionUrl,
   definition,
   config,
@@ -116,6 +129,37 @@ new CrudEngine({
 ```
 
 `hideThemeSwitch=true` desativa o seletor claro/escuro do CRUD quando a tela e aberta dentro de um shell que ja possui controle global de tema.
+
+Em modo `security.mode="production"`, a inicializacao recomendada e:
+
+```js
+new CrudEngine({
+  root,
+  screenId: "cadastros.clientes",
+  config,
+  httpClient
+}).init()
+```
+
+Nesse modo, `definition` direto e `definitionUrl` livre podem ser bloqueados por configuracao.
+As APIs da tela devem usar `endpointId` ou `actionId`; o motor converte esses identificadores para o gateway runtime configurado em `config.security.endpoints.runtimeEndpoint`.
+
+## Entrada de producao
+
+As demos continuam em `index.html`, `home.html` e `examples/pages/*.html`.
+Para producao, usar entradas separadas:
+
+- `production/app.html?screenId=cadastros.clientes`: abre um CRUD por `screenId`.
+- `production/home.html?screenId=home`: abre a Home por `screenId`; se ausente, usa `home`.
+
+Essas entradas:
+
+- usam `public/config/crud-engine.production.config.json`;
+- nao carregam `DemoMockHttpClient`;
+- nao carregam JSON de `examples/`;
+- nao possuem script inline proprio;
+- usam `CrudHttpClient({ allowLocalFallback: false })`;
+- exibem erro generico para o usuario final.
 
 Contrato HTTP esperado:
 
@@ -172,3 +216,14 @@ Sempre que uma funcionalidade nova for implementada, atualizar:
 - `src/examples/examples-catalog.js`;
 - paginas/fluxo de exemplos, se necessario;
 - a referencia de propriedades em `getPropertyOptions()`.
+
+## Seguranca de producao
+
+- `config.security.mode="production"` ativa padroes conservadores.
+- `definitionSource.requireScreenId=true` exige que a tela seja carregada por identificador.
+- `definitionSource.allowDirectDefinition=false` bloqueia JSON direto vindo da camada chamadora.
+- `definitionSource.allowDefinitionUrl=false` bloqueia URL livre para definicao de tela.
+- `endpoints.allowInlineUrls=false` bloqueia URLs livres em APIs e acoes.
+- `endpoints.requireEndpointIds=true` exige `endpointId` ou `actionId`.
+- `documents.allowInlineUrls=false` bloqueia links diretos para logs/documentos quando configurado.
+- O frontend continua validando o JSON, mas permissao real, tenant, dados e acoes precisam ser validados no backend.

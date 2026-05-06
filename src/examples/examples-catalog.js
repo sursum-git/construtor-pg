@@ -26,6 +26,11 @@
           initials: "TS",
           favoritePrograms: ["clientes-crud", "exemplos"]
         },
+        currentSubscriber: {
+          name: "Empresa Demonstracao",
+          document: "00.000.000/0001-00",
+          label: "Assinante"
+        },
         layout: {
           initialProgramId: "painel",
           sidebar: {
@@ -34,6 +39,7 @@
           appbar: {
             showSidebarToggle: true,
             showFavoriteToggle: true,
+            showCurrentSubscriber: true,
             showUserMenu: true,
             chat: {
               enabled: false,
@@ -631,6 +637,59 @@
       }
     },
     {
+      id: "seguranca-producao",
+      category: "Seguranca",
+      title: "Modo producao seguro",
+      summary: "Carrega a tela por screenId, bloqueia definitionUrl livre e troca URLs de API por endpointIds roteados pelo backend.",
+      loadByScreenId: true,
+      screenId: "cadastros.clientes.producao",
+      code: {
+        runtime: {
+          screenId: "cadastros.clientes.producao"
+        },
+        "production/app.html": "production/app.html?screenId=cadastros.clientes",
+        "production/home.html": "production/home.html?screenId=home",
+        "crud-engine.config.json": {
+          security: {
+            mode: "production",
+            definitionSource: {
+              allowDirectDefinition: false,
+              allowDefinitionUrl: false,
+              requireScreenId: true,
+              endpoint: {
+                url: "/api/runtime/screens/{screenId}",
+                method: "GET"
+              }
+            },
+            endpoints: {
+              allowInlineUrls: false,
+              requireEndpointIds: true,
+              runtimeEndpoint: {
+                url: "/api/runtime/screens/{screenId}/endpoints/{endpointId}",
+                method: "POST"
+              }
+            },
+            documents: {
+              allowInlineUrls: false,
+              allowExternalUrls: false
+            },
+            content: {
+              allowInlineHtml: false
+            }
+          },
+          help: {
+            readEndpoint: {
+              endpointId: "help.markAsRead",
+              method: "POST"
+            }
+          }
+        }
+      },
+      applyConfig: function(config, source) {
+        deepMerge(config, source["crud-engine.config.json"]);
+      }
+    },
+    {
       id: "tema-global",
       category: "Tema",
       title: "Tema global",
@@ -671,6 +730,15 @@
     option("Programa", "program.help.items[].kind", "text | link | video", "text", "Itens adicionais exibidos na janela de ajuda/novidades."),
     option("Programa", "program.logs.url", "URL relativa | http | https", "vazio", "Se vazio, o botao de log da tela nao aparece."),
     option("Permissoes", "permissions.*", "true | false", "false se ausente", "Controla exibicao de botoes e acoes."),
+    option("Seguranca", "runtime.screenId", "identificador seguro", "vazio", "Usado pelo exemplo para carregar a tela sem definitionUrl livre."),
+    option("Seguranca", "config.security.mode", "demo | production", "demo", "production ativa bloqueios conservadores de primeira versao."),
+    option("Seguranca", "config.security.definitionSource.allowDirectDefinition", "true | false", "false em production", "Bloqueia JSON direto informado pelo frontend em producao."),
+    option("Seguranca", "config.security.definitionSource.allowDefinitionUrl", "true | false", "false em production", "Bloqueia definitionUrl livre em producao."),
+    option("Seguranca", "config.security.definitionSource.requireScreenId", "true | false", "true em production", "Exige carregar a tela por screenId."),
+    option("Seguranca", "config.security.endpoints.allowInlineUrls", "true | false", "false em production", "Bloqueia URL livre nos endpoints do JSON."),
+    option("Seguranca", "config.security.endpoints.requireEndpointIds", "true | false", "true em production", "Exige endpointId/actionId para chamadas de dados e acoes."),
+    option("Seguranca", "config.security.endpoints.runtimeEndpoint.url", "URL relativa com {screenId}/{endpointId}", "/api/runtime/screens/{screenId}/endpoints/{endpointId}", "Gateway backend que resolve endpointId autorizado."),
+    option("Seguranca", "dataSource.api.*.endpointId", "identificador seguro", "nome da API", "Identificador que o backend valida antes de executar a acao."),
     option("Dados/API", "dataSource.api.*.method", "GET | POST | PUT | PATCH | DELETE", "GET", "Metodo usado pelo mock/backend."),
     option("Dados/API", "dataModel.fields[].type", "string | text | integer | decimal | number | boolean | date | datetime | email | enum | lookup | hidden", "Obrigatorio", "Tipo base usado por grid, filtros e formulario."),
     option("Dados/API", "dataModel.fields[].format", "currency | date | datetime | number", "por tipo", "Atalhos implementados para formatacao Kendo."),
@@ -743,6 +811,7 @@
     option("Home", "layout.appbar.showSidebarToggle", "true | false", "true", "Exibe o botao de expandir/recolher o menu lateral no appbar."),
     option("Home", "layout.appbar.showRefresh", "true | false", "true", "Exibe o botao Atualizar no appbar."),
     option("Home", "layout.appbar.showFavoriteToggle", "true | false", "true", "Exibe o botao para favoritar o programa corrente no cabecalho."),
+    option("Home", "layout.appbar.showCurrentSubscriber", "true | false", "true", "Exibe o assinante corrente no cabecalho quando currentSubscriber estiver informado."),
     option("Home", "layout.appbar.showUserMenu", "true | false", "true", "Exibe o menu do usuario logado na appbar global."),
     option("Home", "layout.appbar.chat.enabled", "true | false", "false", "Exibe o botao de chat no appbar global."),
     option("Home", "layout.appbar.chat.endpoints.contacts", "URL relativa | http | https", "obrigatorio quando enabled=true sem contacts[]", "Endpoint que retorna os usuarios disponiveis para conversa."),
@@ -767,6 +836,7 @@
     option("Home", "layout.appbar.userMenu.items[].action", "profile | preferences | logout | texto", "vazio", "Acao executada pelo item do menu de usuario."),
     option("Home", "layout.appbar.userMenu.items[].openAs", "newTab | window", "newTab", "Define como abrir URLs do menu de usuario."),
     option("Home", "currentUser.name/email/initials", "texto", "vazio", "Dados usados para montar o botao e cabecalho do menu do usuario."),
+    option("Home", "currentSubscriber", "texto | { id, name, displayName, title, code, document, label }", "vazio", "Assinante/tenant corrente exibido como badge no cabecalho global."),
     option("Home", "currentUser.favoritePrograms[]", "ids de programas", "vazio", "Favoritos do usuario usados pelo filtro do menu lateral."),
     option("Home", "currentUser.unfavoritePrograms[]", "ids de programas", "vazio", "Programas removidos dos favoritos pelo usuario."),
     option("Home", "navigation.groups[].items[].favorite", "true | false", "false", "Marca o programa como favorito para filtro e botao da pagina corrente, sem indicador no item do menu."),
@@ -797,7 +867,10 @@
         category: example.category,
         title: example.title,
         summary: example.summary,
-        page: example.page || pagePath + example.id + ".html"
+        page: example.page || pagePath + example.id + ".html",
+        engine: example.engine,
+        loadByScreenId: example.loadByScreenId,
+        screenId: example.screenId
       };
     });
   }
@@ -836,7 +909,7 @@
     const example = get(id);
     const config = clone(global.CrudDemoEmbedded && global.CrudDemoEmbedded.config || {});
     if (example && typeof example.applyConfig === "function") {
-      example.applyConfig(config);
+      example.applyConfig(config, example.code || {});
     }
     if (options && options.assetPrefix && config.theme && config.theme.kendoTheme) {
       config.theme.kendoTheme = prefixAssetPath(config.theme.kendoTheme, options.assetPrefix);

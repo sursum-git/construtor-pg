@@ -18,4 +18,5 @@ Regras importantes:
 - Nao usar `alert`, `confirm` ou `prompt` nativos do browser.
 - Nao permitir template livre, `eval` ou JavaScript vindo do JSON.
 - Sempre atualizar os exemplos quando uma funcionalidade nova for implementada.
+- Sempre que mudar demonstracao, exemplos ou mocks, executar a skill `construtor-pg-demo-production-parity` e atualizar `docs/paridade-demo-producao.md`.
 - Para validar interface, usar as paginas locais em `file:///C:/construtor-pg/...`.

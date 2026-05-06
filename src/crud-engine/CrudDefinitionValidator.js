@@ -20,9 +20,10 @@
   const MAX_SUBTITLE_TOOLTIP_LENGTH = 300;
 
   class CrudDefinitionValidator {
-    validate(definition) {
+    validate(definition, options) {
       const errors = [];
       const normalizedDefinition = this.normalizeDefinition(definition);
+      this.securityPolicy = options && options.securityPolicy || global.CrudUtils.normalizeSecurityPolicy({}, {});
 
       if (!normalizedDefinition || typeof normalizedDefinition !== "object") {
         errors.push("A definicao precisa ser um objeto JSON.");
@@ -40,6 +41,7 @@
         this.validateUserLayoutGroup(normalizedDefinition, errors);
         this.validateForm(normalizedDefinition, errors);
         this.validatePermissions(normalizedDefinition, errors);
+        this.validateSensitiveKeys(normalizedDefinition, "", errors);
         this.validateUrls(normalizedDefinition, errors);
         this.validateLogs(normalizedDefinition, errors);
       }
@@ -314,6 +316,9 @@
       const serviceUrl = ai.serviceUrl || (ai.service && ai.service.url);
       if ((ai.provider === "service" || ai.service) && !serviceUrl) {
         errors.push(this.path(definition, "grid.ai.serviceUrl") + " e obrigatorio quando provider=service.");
+      }
+      if (serviceUrl && this.isInlineEndpointUrlDisallowed()) {
+        errors.push(this.path(definition, "grid.ai.serviceUrl") + " nao pode usar URL livre em modo producao. Use endpointId/actionId.");
       }
       if (serviceUrl && !global.CrudUtils.isRelativeUrl(serviceUrl)) {
         errors.push(this.path(definition, "grid.ai.serviceUrl") + " deve ser uma URL relativa para um endpoint backend.");
@@ -599,10 +604,15 @@
       this.validateFormOtherActions(definition, form, errors);
 
       if (form.logs && form.logs.enabled !== false) {
-        if (!form.logs.url) {
-          errors.push(this.path(definition, "form.logs.url") + " e obrigatorio quando logs do formulario estiver configurado.");
+        if (!form.logs.url && !form.logs.documentId && !form.logs.endpointId && !form.logs.actionId) {
+          errors.push(this.path(definition, "form.logs") + " precisa configurar url, documentId, endpointId ou actionId.");
         } else if (!global.CrudUtils.isAllowedDocumentUrl(form.logs.url)) {
-          errors.push(this.path(definition, "form.logs.url") + " deve ser uma URL relativa, http ou https.");
+          if (form.logs.url) {
+            errors.push(this.path(definition, "form.logs.url") + " deve ser uma URL relativa, http ou https.");
+          }
+        }
+        if (form.logs.url && this.isInlineDocumentUrlDisallowed()) {
+          errors.push(this.path(definition, "form.logs.url") + " nao pode usar URL livre em modo producao. Use documentId, endpointId ou actionId.");
         }
       }
 
@@ -672,6 +682,7 @@
       const api = definition.api || {};
       return Boolean(
         action.endpointId ||
+        action.actionId ||
         action.endpoint ||
         action.api ||
         action.url ||
@@ -713,7 +724,7 @@
         if (allowedFormats.indexOf(format) === -1) {
           errors.push(label + ".options possui formato invalido: " + (format || "(vazio)") + ".");
         }
-        if (!allowEndpoints && (item.endpointId || item.endpoint || item.api || item.url)) {
+        if (!allowEndpoints && (item.endpointId || item.actionId || item.endpoint || item.api || item.url)) {
           errors.push(label + ".options nao deve configurar API; exportacoes do grid usam o Kendo Grid.");
         }
         if (allowEndpoints) {
@@ -744,7 +755,7 @@
         }
       });
 
-      const endpointId = situation.historyEndpointId || situation.endpointId;
+      const endpointId = situation.historyEndpointId || situation.endpointId || situation.actionId;
       if (endpointId && !api[endpointId]) {
         errors.push(this.path(definition, "form.situation.historyEndpointId") + " referencia endpoint inexistente: " + endpointId + ".");
       }
@@ -861,8 +872,15 @@
     }
 
     validateUrls(definition, errors) {
-      const inspectEndpoint = function(endpoint, label) {
+      const inspectEndpoint = (endpoint, label) => {
         if (!endpoint || !endpoint.url) {
+          if (this.isEndpointIdRequired() && endpoint && !endpoint.endpointId && !endpoint.actionId && !endpoint.id) {
+            errors.push(label + " precisa informar endpointId ou actionId em modo producao.");
+          }
+          return;
+        }
+        if (this.isInlineEndpointUrlDisallowed()) {
+          errors.push(label + " nao pode usar url livre em modo producao. Use endpointId ou actionId.");
           return;
         }
         if (!global.CrudUtils.isRelativeUrl(endpoint.url)) {
@@ -890,17 +908,22 @@
       if (action.endpointId && !api[action.endpointId]) {
         errors.push(label + " referencia endpoint inexistente: " + action.endpointId + ".");
       }
-      if (action.endpoint && !action.endpoint.url) {
-        errors.push(label + " possui endpoint sem url.");
+      if (action.actionId && !api[action.actionId]) {
+        errors.push(label + " referencia endpoint inexistente: " + action.actionId + ".");
       }
-      if (action.api && !action.api.url) {
-        errors.push(label + " possui api sem url.");
-      }
+      this.validateInlineEndpointObject(action.endpoint, label + ".endpoint", errors);
+      this.validateInlineEndpointObject(action.api, label + ".api", errors);
       if (action.endpoint && action.endpoint.url && !global.CrudUtils.isRelativeUrl(action.endpoint.url)) {
         errors.push(label + " possui endpoint com URL externa nao permitida: " + action.endpoint.url + ".");
       }
       if (action.api && action.api.url && !global.CrudUtils.isRelativeUrl(action.api.url)) {
         errors.push(label + " possui api com URL externa nao permitida: " + action.api.url + ".");
+      }
+      if (this.isInlineEndpointUrlDisallowed() && (action.endpoint && action.endpoint.url || action.api && action.api.url)) {
+        errors.push(label + " nao pode usar endpoint/api com URL livre em modo producao. Use endpointId ou actionId.");
+      }
+      if (this.isInlineDocumentUrlDisallowed() && action.url) {
+        errors.push(label + " nao pode usar url livre em modo producao. Use documentId, endpointId ou actionId.");
       }
       if (action.url && !global.CrudUtils.isAllowedDocumentUrl(action.url)) {
         errors.push(label + " possui url invalida: " + action.url + ".");
@@ -911,18 +934,63 @@
       });
     }
 
+    validateInlineEndpointObject(endpoint, label, errors) {
+      if (!endpoint) {
+        return;
+      }
+      if (typeof endpoint === "string") {
+        return;
+      }
+      if (endpoint.url) {
+        return;
+      }
+      if (endpoint.endpointId || endpoint.actionId || endpoint.id) {
+        return;
+      }
+      errors.push(label + " precisa informar url, endpointId ou actionId.");
+    }
+
     validateLogs(definition, errors) {
       const logs = definition.logs;
       if (!logs || logs.enabled === false) {
         return;
       }
-      if (!logs.url) {
-        errors.push(this.programPath(definition, "logs.url") + " e obrigatorio quando logs estiver configurado.");
+      if (!logs.url && !logs.documentId && !logs.endpointId && !logs.actionId) {
+        errors.push(this.programPath(definition, "logs") + " precisa configurar url, documentId, endpointId ou actionId.");
         return;
       }
-      if (!global.CrudUtils.isAllowedDocumentUrl(logs.url)) {
+      if (logs.url && !global.CrudUtils.isAllowedDocumentUrl(logs.url)) {
         errors.push(this.programPath(definition, "logs.url") + " deve ser uma URL relativa, http ou https.");
       }
+      if (logs.url && this.isInlineDocumentUrlDisallowed()) {
+        errors.push(this.programPath(definition, "logs.url") + " nao pode usar URL livre em modo producao. Use documentId, endpointId ou actionId.");
+      }
+    }
+
+    validateSensitiveKeys(value, path, errors) {
+      if (value == null || typeof value !== "object") {
+        return;
+      }
+      const pattern = new RegExp(this.securityPolicy.blockedKeyPattern, "i");
+      Object.keys(value).forEach((key) => {
+        const currentPath = path ? path + "." + key : key;
+        if (pattern.test(key)) {
+          errors.push(currentPath + " nao deve existir no JSON de tela. Segredos e tokens devem ficar no backend.");
+        }
+        this.validateSensitiveKeys(value[key], currentPath, errors);
+      });
+    }
+
+    isInlineEndpointUrlDisallowed() {
+      return Boolean(this.securityPolicy && this.securityPolicy.endpoints && this.securityPolicy.endpoints.allowInlineUrls === false);
+    }
+
+    isEndpointIdRequired() {
+      return Boolean(this.securityPolicy && this.securityPolicy.endpoints && this.securityPolicy.endpoints.requireEndpointIds === true);
+    }
+
+    isInlineDocumentUrlDisallowed() {
+      return Boolean(this.securityPolicy && this.securityPolicy.documents && this.securityPolicy.documents.allowInlineUrls === false);
     }
 
     path(definition, path) {

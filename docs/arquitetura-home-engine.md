@@ -20,6 +20,7 @@ src/home-engine/
 examples/home.home.json
 public/metadata/schemas/home-definition-v1.schema.json
 home.html
+production/home.html
 ```
 
 ## Responsabilidades
@@ -41,6 +42,7 @@ home.html
 
 - Carrega o JSON da home por URL ou objeto informado.
 - Usa o mesmo contrato de `httpClient.request({ url, method, data })`.
+- Em modo de producao, tambem pode carregar por `screenId`, bloqueando `definition` direto e `definitionUrl` livre.
 
 `HomeDefinitionValidator.js`
 
@@ -78,9 +80,11 @@ Niveis importantes:
 
 - `app`: titulo, subtitulo, versao e logo da empresa.
 - `currentUser`: usuario logado exibido no menu da appbar global.
+- `currentSubscriber`: assinante/tenant corrente exibido no cabecalho global quando informado.
 - `permissions`: permissoes visuais.
 - `layout`: programa inicial, Kendo TreeView lateral, appbar e menu do usuario.
 - `layout.appbar.showSidebarToggle`: exibe o botao de expandir/recolher o menu lateral quando o menu for recolhivel.
+- `layout.appbar.showCurrentSubscriber`: exibe ou oculta o assinante corrente quando `currentSubscriber` estiver informado.
 - `layout.appbar.chat`: habilita o botao de chat no appbar global. O chat e entre usuarios do sistema, usa ComboBox de destinatarios e informa endpoints `contacts`, `history` e `send`.
 - `layout.appbar.support`: habilita o botao de atendimento no appbar global. O usuario escolhe o setor; se houver atendente online naquele setor, abre chat; se nao houver, abre formulario de solicitacao com o setor travado.
 - `layout.appbar.aiChat`: habilita outro botao no appbar global para chat de IA, sem selecao de destinatario, com endpoints `history` e `send`.
@@ -104,6 +108,7 @@ Em viewport mobile (`max-width: 860px`), o menu lateral inicia recolhido mesmo q
 ```js
 new HomeEngine({
   root,
+  screenId,
   definitionUrl,
   definition,
   config,
@@ -114,8 +119,13 @@ new HomeEngine({
 
 ## Regras de seguranca
 
+- Em producao, preferir `screenId` para carregar a Home.
+- `production/home.html` e a entrada separada para producao; `home.html` continua sendo demo.
+- Programas `crud` abertos pela Home devem preferir `screenId` em vez de `definitionUrl`.
+- Endpoints de chat, atendimento, IA, alertas e solicitacoes podem usar `endpointId` ou `actionId`, resolvidos pelo gateway runtime.
 - Nao aceitar JavaScript vindo do JSON.
 - Nao aceitar `template` livre.
 - Nao executar `eval`.
 - HTML do tipo `html` deve passar por sanitizacao antes de entrar no DOM.
 - Permissao visual no frontend nao substitui validacao no backend.
+- `currentSubscriber` e apenas informativo na interface; o backend continua responsavel por validar tenant/assinante em todas as chamadas.

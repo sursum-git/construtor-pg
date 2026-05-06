@@ -10,6 +10,7 @@
       this.loader = new global.HomeDefinitionLoader({ httpClient: this.httpClient });
       this.validator = new global.HomeDefinitionValidator();
       this.config = this.normalizeConfig(this.options.config);
+      this.securityPolicy = global.CrudUtils.normalizeSecurityPolicy(this.config, this.options);
       this.currentTheme = this.resolveInitialTheme();
       this.currentProgram = null;
       this.currentProgramEngine = null;
@@ -67,14 +68,18 @@
     init() {
       this.renderLoading();
       return this.loadConfig().then(() => {
+        this.securityPolicy = global.CrudUtils.normalizeSecurityPolicy(this.config, this.options);
         return this.loader.load({
           definitionUrl: this.options.definitionUrl,
-          definition: this.options.definition
+          definition: this.options.definition,
+          screenId: this.options.screenId || this.options.homeId,
+          securityPolicy: this.securityPolicy
         });
       }).then((definition) => {
         this.definition = this.normalizeDefinition(definition);
+        this.validator.validate(this.definition, { securityPolicy: this.securityPolicy });
+        this.applyDefinitionSecurity(this.definition);
         this.loadUserFavoriteState();
-        this.validator.validate(this.definition);
         this.modules = this.buildModuleList();
         this.currentModuleId = this.resolveInitialModuleId();
         this.render();
@@ -113,6 +118,7 @@
           showRefresh: true,
           showThemeSwitch: true,
           showFavoriteToggle: true,
+          showCurrentSubscriber: true,
           showUserMenu: true,
           chat: {
             enabled: false
@@ -145,6 +151,7 @@
         showRefresh: true,
         showThemeSwitch: true,
         showFavoriteToggle: true,
+        showCurrentSubscriber: true,
         showUserMenu: true,
         chat: {
           enabled: false
@@ -166,9 +173,60 @@
         }
       }, source.layout.appbar || {});
       source.currentUser = source.currentUser || source.user || {};
+      source.currentSubscriber = source.currentSubscriber || source.currentTenant || source.tenant || source.subscriber || {};
       source.navigation = source.navigation || {};
       source.permissions = source.permissions || {};
       return source;
+    }
+
+    applyDefinitionSecurity(definition) {
+      if (!definition || !this.securityPolicy) {
+        return definition;
+      }
+      const screenId = this.getHomeScreenId();
+      const appbar = definition.layout && definition.layout.appbar ? definition.layout.appbar : {};
+
+      this.applyEndpointGroupSecurity(appbar.chat || definition.chat, {
+        contacts: "home.chat.contacts",
+        history: "home.chat.history",
+        send: "home.chat.send"
+      }, screenId);
+      this.applyEndpointGroupSecurity(appbar.support || definition.support, {
+        onlineUsers: "home.support.onlineUsers",
+        history: "home.support.history",
+        send: "home.support.send",
+        createRequest: "home.support.createRequest",
+        requestStatus: "home.support.requestStatus"
+      }, screenId);
+      this.applyEndpointGroupSecurity(appbar.aiChat || appbar.iaChat || definition.aiChat || definition.iaChat, {
+        history: "home.aiChat.history",
+        send: "home.aiChat.send"
+      }, screenId);
+      this.applyEndpointGroupSecurity(appbar.alerts || definition.alerts, {
+        list: "home.alerts.list"
+      }, screenId);
+      this.applyEndpointGroupSecurity(appbar.requests || definition.requests, {
+        list: "home.requests.list"
+      }, screenId);
+      return definition;
+    }
+
+    applyEndpointGroupSecurity(group, endpointIds, screenId) {
+      if (!group) {
+        return;
+      }
+      group.endpoints = Object.assign({}, group.endpoints || {});
+      Object.keys(endpointIds).forEach((key) => {
+        const value = group.endpoints[key] || group[key + "Url"] || group[key];
+        if (!value) {
+          return;
+        }
+        group.endpoints[key] = global.CrudUtils.resolveEndpointForPolicy(value, endpointIds[key], screenId, this.securityPolicy);
+      });
+    }
+
+    getHomeScreenId() {
+      return String(this.definition && this.definition.screenId || this.definition && this.definition.app && this.definition.app.id || "home").trim();
     }
 
     normalizeConfig(config) {
@@ -235,6 +293,7 @@
       this.programSubtitleElement = $("<button type=\"button\" class=\"home-program-subtitle\" hidden></button>").appendTo(meta);
       this.programSubtitleElement.on("click", () => this.openProgramSubtitleTooltip());
       this.programLastUpdatedElement = $("<span class=\"crud-last-updated k-badge k-badge-solid k-badge-solid-primary k-rounded-md\"></span>").appendTo(meta);
+      this.renderCurrentSubscriber(meta);
 
       const actions = $("<div class=\"home-appbar-actions\"></div>").appendTo(appbar);
       this.programActionsElement = $("<div class=\"home-program-actions\"></div>").appendTo(actions);
@@ -1882,6 +1941,57 @@
       }, source || {});
     }
 
+    renderCurrentSubscriber(container) {
+      const subscriber = this.getCurrentSubscriber();
+      if (!this.shouldShowCurrentSubscriber(subscriber)) {
+        return;
+      }
+      const displayName = this.getSubscriberDisplayName(subscriber);
+      const label = this.getSubscriberLabel(subscriber);
+      const title = this.getSubscriberTitle(subscriber, displayName, label);
+      $("<span class=\"home-current-subscriber k-badge k-badge-solid k-badge-solid-base k-rounded-md\"></span>")
+        .attr("title", title)
+        .text(label ? label + ": " + displayName : displayName)
+        .appendTo(container);
+    }
+
+    shouldShowCurrentSubscriber(subscriber) {
+      const appbar = this.definition.layout && this.definition.layout.appbar ? this.definition.layout.appbar : {};
+      return appbar.showCurrentSubscriber !== false && Boolean(this.getSubscriberDisplayName(subscriber));
+    }
+
+    getCurrentSubscriber() {
+      const source = this.definition.currentSubscriber || this.definition.currentTenant || this.definition.tenant || this.definition.subscriber || {};
+      if (typeof source === "string") {
+        return { name: source };
+      }
+      return source && typeof source === "object" && !Array.isArray(source) ? source : {};
+    }
+
+    getSubscriberDisplayName(subscriber) {
+      return String(subscriber.name || subscriber.displayName || subscriber.title || subscriber.code || subscriber.id || "").trim();
+    }
+
+    getSubscriberLabel(subscriber) {
+      return String(subscriber.label || "Assinante").trim();
+    }
+
+    getSubscriberTitle(subscriber, displayName, label) {
+      const details = [];
+      if (label) {
+        details.push(label + ": " + displayName);
+      } else {
+        details.push(displayName);
+      }
+      if (subscriber.document) {
+        details.push(subscriber.document);
+      }
+      if (subscriber.id && subscriber.id !== displayName) {
+        details.push("ID: " + subscriber.id);
+      }
+      return details.join(" | ");
+    }
+
     renderProgramFavoriteButton(container) {
       if (this.definition.layout.appbar.showFavoriteToggle === false) {
         return;
@@ -2581,9 +2691,11 @@
 
       const engine = new global.CrudEngine({
         root: "#" + rootId,
+        screenId: program.screenId,
         definitionUrl: program.definitionUrl,
         definition: program.definition,
         config: this.getEmbeddedProgramConfig(),
+        security: this.securityPolicy,
         hideHeader: true,
         hideThemeSwitch: true,
         onLastUpdated: (date) => this.updateProgramLastUpdated(date),
@@ -2904,7 +3016,12 @@
         return this.currentProgramEngine.isLogsEnabled();
       }
       const logs = info && info.logs ? info.logs : {};
-      return logs.enabled !== false && typeof logs.url === "string" && logs.url.trim() !== "";
+      return logs.enabled !== false && (
+        typeof logs.url === "string" && logs.url.trim() !== "" ||
+        logs.documentId ||
+        logs.endpointId ||
+        logs.actionId
+      );
     }
 
     renderProgramLogsButton(container, info) {
@@ -2924,12 +3041,17 @@
         return;
       }
       const logs = info && info.logs ? info.logs : {};
-      if (!logs || logs.enabled === false || typeof logs.url !== "string" || !logs.url.trim()) {
+      if (!logs || logs.enabled === false) {
+        return;
+      }
+      const screenId = info && info.id || "home";
+      const url = global.CrudUtils.resolveDocumentUrlForPolicy(logs, "logs", screenId, this.securityPolicy);
+      if (!url) {
         return;
       }
       this.openUrlWindow({
         title: logs.title || "Logs",
-        url: logs.url,
+        url,
         linkText: logs.linkText || "Abrir logs em nova aba"
       });
     }
@@ -3230,7 +3352,11 @@
 
     renderError(error) {
       this.root.empty();
-      const message = error && error.message ? error.message : "Erro ao carregar pagina inicial.";
+      const productionErrors = this.options.productionErrors === true ||
+        global.CrudUtils.isProductionSecurity(this.securityPolicy);
+      const message = productionErrors
+        ? "Nao foi possivel carregar a pagina inicial. Entre em contato com o suporte."
+        : error && error.message ? error.message : "Erro ao carregar pagina inicial.";
       $("<section class=\"crud-message crud-message-error\"></section>").text(message).appendTo(this.root);
     }
 

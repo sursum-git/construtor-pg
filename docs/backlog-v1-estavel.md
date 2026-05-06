@@ -4,19 +4,20 @@ Registro para fechar a primeira versao estavel do motor CRUD dinamico.
 
 ## Seguranca da definicao de telas
 
-- Em producao, o frontend nao deve carregar JSON livre informado pelo usuario.
-- O motor deve iniciar por `screenId`, por exemplo `cadastros.clientes`.
+- Implementado no frontend: modo `security.mode="production"` para bloquear JSON direto e `definitionUrl` livre.
+- Implementado no frontend: motor pode iniciar por `screenId`, por exemplo `cadastros.clientes`.
+- Implementado no frontend: entradas separadas em `production/`, sem mock e sem JSON local de `examples/`.
 - O backend deve autenticar o usuario, validar tenant e permissoes, e somente entao devolver o JSON autorizado da tela.
 - A demo pode continuar usando `definitionUrl` e JSON local.
-- A versao de producao deve poder desabilitar `definition` direto e `definitionUrl` livre.
+- Implementado no frontend: a configuracao de producao pode desabilitar `definition` direto e `definitionUrl` livre.
 
 ## Endpoints e acoes
 
-- Evitar URL livre no JSON em producao.
-- Preferir `endpointId` ou `actionId`, resolvidos pelo backend.
+- Implementado no frontend: URL livre no JSON pode ser bloqueada em producao.
+- Implementado no frontend: `endpointId` e `actionId` podem ser resolvidos por gateway runtime.
 - O backend deve validar se a acao pertence a tela solicitada.
 - O backend deve validar permissao por acao: consultar, criar, editar, excluir, exportar, acoes em massa, salvar layout, salvar filtros, ajuda lida e logs.
-- O endpoint de novidades lidas deve evoluir de URL direta para identificador controlado, por exemplo `help.markAsRead`.
+- Implementado no frontend: o endpoint de novidades lidas aceita identificador controlado, por exemplo `help.markAsRead`.
 
 ## Validacao no backend
 
@@ -44,4 +45,3 @@ Registro para fechar a primeira versao estavel do motor CRUD dinamico.
 - Frontend renderiza dinamicamente.
 - Todas as chamadas de dados passam por uma camada runtime controlada pelo backend.
 - O JSON define experiencia visual, mas nao autoriza acesso a dados.
-

@@ -7,8 +7,9 @@
   const UNSAFE_HTML_PATTERN = /<\s*script|javascript\s*:|on[a-z]+\s*=|<\s*(object|embed|base|meta|link)\b/i;
 
   class HomeDefinitionValidator {
-    validate(definition) {
+    validate(definition, options) {
       const errors = [];
+      this.securityPolicy = options && options.securityPolicy || global.CrudUtils.normalizeSecurityPolicy({}, {});
 
       if (!definition || typeof definition !== "object" || Array.isArray(definition)) {
         errors.push("A definicao da pagina inicial precisa ser um objeto JSON.");
@@ -18,6 +19,7 @@
         this.validatePrograms(definition, errors);
         this.validateNavigation(definition, errors);
         this.validatePermissions(definition, errors);
+        this.validateSensitiveKeys(definition, "", errors);
         this.validateUnsafeContent(definition, "", errors);
       }
 
@@ -39,6 +41,7 @@
         errors.push("app.title e obrigatorio.");
       }
       this.validateAppLogo(definition.app || {}, errors);
+      this.validateCurrentSubscriber(definition.currentSubscriber || definition.currentTenant || definition.tenant || definition.subscriber, errors);
       if (!Array.isArray(definition.programs) || !definition.programs.length) {
         errors.push("programs deve informar ao menos um programa.");
       }
@@ -65,6 +68,24 @@
       });
     }
 
+    validateCurrentSubscriber(subscriber, errors) {
+      if (subscriber == null) {
+        return;
+      }
+      if (typeof subscriber === "string") {
+        return;
+      }
+      if (typeof subscriber !== "object" || Array.isArray(subscriber)) {
+        errors.push("currentSubscriber precisa ser texto ou objeto.");
+        return;
+      }
+      ["id", "name", "displayName", "title", "code", "document", "label"].forEach(function(property) {
+        if (subscriber[property] != null && typeof subscriber[property] !== "string") {
+          errors.push("currentSubscriber." + property + " precisa ser texto.");
+        }
+      });
+    }
+
     validateLayout(definition, errors) {
       const sidebar = definition.layout && definition.layout.sidebar ? definition.layout.sidebar : {};
       const appbar = definition.layout && definition.layout.appbar ? definition.layout.appbar : {};
@@ -76,7 +97,7 @@
           errors.push("layout.sidebar." + property + " precisa ser booleano.");
         }
       });
-      ["showSidebarToggle", "showRefresh", "showThemeSwitch", "showFavoriteToggle", "showUserMenu"].forEach(function(property) {
+      ["showSidebarToggle", "showRefresh", "showThemeSwitch", "showFavoriteToggle", "showCurrentSubscriber", "showUserMenu"].forEach(function(property) {
         if (appbar[property] != null && typeof appbar[property] !== "boolean") {
           errors.push("layout.appbar." + property + " precisa ser booleano.");
         }
@@ -160,11 +181,22 @@
         return;
       }
       if (typeof endpoint === "string") {
+        if (this.isInlineEndpointUrlDisallowed()) {
+          errors.push(label + " nao pode usar URL livre em modo producao. Use endpointId ou actionId.");
+          return;
+        }
         this.validateUrl(endpoint, label, errors, true);
         return;
       }
       if (typeof endpoint !== "object" || Array.isArray(endpoint)) {
-        errors.push(label + " precisa ser URL ou objeto com url/metodo.");
+        errors.push(label + " precisa ser URL ou objeto com url, endpointId ou actionId.");
+        return;
+      }
+      if (!endpoint.url && (endpoint.endpointId || endpoint.actionId || endpoint.id)) {
+        return;
+      }
+      if (endpoint.url && this.isInlineEndpointUrlDisallowed()) {
+        errors.push(label + ".url nao pode usar URL livre em modo producao. Use endpointId ou actionId.");
         return;
       }
       this.validateUrl(endpoint.url, label + ".url", errors, true);
@@ -282,11 +314,22 @@
         return;
       }
       if (typeof endpoint === "string") {
+        if (this.isInlineEndpointUrlDisallowed()) {
+          errors.push(label + " nao pode usar URL livre em modo producao. Use endpointId ou actionId.");
+          return;
+        }
         this.validateUrl(endpoint, label, errors, true);
         return;
       }
       if (typeof endpoint !== "object" || Array.isArray(endpoint)) {
-        errors.push(label + " precisa ser URL ou objeto com url/metodo.");
+        errors.push(label + " precisa ser URL ou objeto com url, endpointId ou actionId.");
+        return;
+      }
+      if (!endpoint.url && (endpoint.endpointId || endpoint.actionId || endpoint.id)) {
+        return;
+      }
+      if (endpoint.url && this.isInlineEndpointUrlDisallowed()) {
+        errors.push(label + ".url nao pode usar URL livre em modo producao. Use endpointId ou actionId.");
         return;
       }
       this.validateUrl(endpoint.url, label + ".url", errors, true);
@@ -325,26 +368,36 @@
           }
         });
 
-        this.validateUrl(program.openUrl, label + ".openUrl", errors, false);
+        this.validateDocumentUrl(program.openUrl, label + ".openUrl", errors, false);
 
         if (type === "iframe") {
-          this.validateUrl(program.url, label + ".url", errors, true);
+          this.validateDocumentUrl(program.url, label + ".url", errors, true);
         }
         if (type === "crud") {
-          if (!program.definition && !program.definitionUrl) {
-            errors.push(label + " precisa informar definition ou definitionUrl quando type=crud.");
+          if (!program.definition && !program.definitionUrl && !program.screenId) {
+            errors.push(label + " precisa informar definition, definitionUrl ou screenId quando type=crud.");
           }
-          this.validateUrl(program.definitionUrl, label + ".definitionUrl", errors, false);
+          if (program.definition && this.securityPolicy.definitionSource.allowDirectDefinition === false) {
+            errors.push(label + ".definition nao pode ser usado em modo producao. Use screenId.");
+          }
+          if (program.definitionUrl && this.securityPolicy.definitionSource.allowDefinitionUrl === false) {
+            errors.push(label + ".definitionUrl nao pode ser usado em modo producao. Use screenId.");
+          }
+          this.validateDocumentUrl(program.definitionUrl, label + ".definitionUrl", errors, false);
         }
         if (type === "html") {
           if (!program.html && !program.htmlUrl) {
             errors.push(label + " precisa informar html ou htmlUrl quando type=html.");
           }
-          this.validateUrl(program.htmlUrl, label + ".htmlUrl", errors, false);
+          if (program.html && this.securityPolicy.content.allowInlineHtml === false) {
+            errors.push(label + ".html nao pode ser usado em modo producao. Use um tipo fechado ou conteudo servido pelo backend.");
+          }
+          this.validateDocumentUrl(program.htmlUrl, label + ".htmlUrl", errors, false);
           if (program.html && UNSAFE_HTML_PATTERN.test(String(program.html))) {
             errors.push(label + ".html possui conteudo inseguro.");
           }
         }
+        this.validateProgramLogs(program.logs, label + ".logs", errors);
       });
     }
 
@@ -457,6 +510,42 @@
       if (!global.CrudUtils.isAllowedDocumentUrl(url)) {
         errors.push(label + " deve ser uma URL relativa, http ou https.");
       }
+      if (this.securityPolicy.production && !this.securityPolicy.documents.allowExternalUrls && global.CrudUtils.isHttpUrl(url)) {
+        errors.push(label + " nao pode usar URL externa em modo seguro.");
+      }
+    }
+
+    validateProgramLogs(logs, label, errors) {
+      if (!logs || logs.enabled === false) {
+        return;
+      }
+      if (typeof logs !== "object" || Array.isArray(logs)) {
+        errors.push(label + " precisa ser um objeto.");
+        return;
+      }
+      if (!logs.url && !logs.documentId && !logs.endpointId && !logs.actionId) {
+        errors.push(label + " precisa configurar url, documentId, endpointId ou actionId.");
+        return;
+      }
+      if (logs.url && this.isInlineDocumentUrlDisallowed()) {
+        errors.push(label + ".url nao pode usar URL livre em modo producao. Use documentId, endpointId ou actionId.");
+        return;
+      }
+      this.validateUrl(logs.url, label + ".url", errors, false);
+    }
+
+    validateDocumentUrl(url, label, errors, required) {
+      if (!url) {
+        if (required) {
+          errors.push(label + " e obrigatorio.");
+        }
+        return;
+      }
+      if (this.isInlineDocumentUrlDisallowed()) {
+        errors.push(label + " nao pode usar URL livre em modo producao. Use identificador controlado pelo backend.");
+        return;
+      }
+      this.validateUrl(url, label, errors, required);
     }
 
     validateUnsafeContent(value, path, errors) {
@@ -480,6 +569,28 @@
           this.validateUnsafeContent(item, currentPath, errors);
         }
       });
+    }
+
+    validateSensitiveKeys(value, path, errors) {
+      if (value == null || typeof value !== "object") {
+        return;
+      }
+      const pattern = new RegExp(this.securityPolicy.blockedKeyPattern, "i");
+      Object.keys(value).forEach((key) => {
+        const currentPath = path ? path + "." + key : key;
+        if (pattern.test(key)) {
+          errors.push(currentPath + " nao deve existir no JSON da pagina inicial. Segredos e tokens devem ficar no backend.");
+        }
+        this.validateSensitiveKeys(value[key], currentPath, errors);
+      });
+    }
+
+    isInlineEndpointUrlDisallowed() {
+      return Boolean(this.securityPolicy && this.securityPolicy.endpoints && this.securityPolicy.endpoints.allowInlineUrls === false);
+    }
+
+    isInlineDocumentUrlDisallowed() {
+      return Boolean(this.securityPolicy && this.securityPolicy.documents && this.securityPolicy.documents.allowInlineUrls === false);
     }
   }
 

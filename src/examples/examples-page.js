@@ -85,12 +85,17 @@
     const httpClient = new global.DemoMockHttpClient({
       storageSuffix: "examples-" + example.id
     });
-    const engine = new global.CrudEngine({
+    const engineOptions = {
       root: "#example-render-root",
-      definition: artifacts.definition,
       config: artifacts.config,
       httpClient
-    });
+    };
+    if (example.loadByScreenId) {
+      engineOptions.screenId = getExampleScreenId(example, state);
+    } else {
+      engineOptions.definition = artifacts.definition;
+    }
+    const engine = new global.CrudEngine(engineOptions);
 
     return engine.init().then(function(instance) {
       global.currentCrudExampleEngine = instance;
@@ -167,6 +172,11 @@
 
     deepMerge(definition, patch);
     return { definition, config };
+  }
+
+  function getExampleScreenId(example, state) {
+    const runtime = state && state.currentPatch && state.currentPatch.runtime || {};
+    return runtime.screenId || example.screenId || example.id;
   }
 
   function buildHomeRuntimeArtifacts(example, catalog, state) {

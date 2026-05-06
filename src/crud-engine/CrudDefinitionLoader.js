@@ -8,13 +8,38 @@
 
     load(options) {
       const request = options || {};
+      const policy = request.securityPolicy || global.CrudUtils.normalizeSecurityPolicy({}, {});
+      const screenId = request.screenId || request.programId;
       if (request.definition) {
+        if (policy.definitionSource && policy.definitionSource.allowDirectDefinition === false) {
+          return Promise.reject(global.CrudUtils.makeError(
+            "DIRECT_DEFINITION_DISABLED",
+            "Definicao direta desabilitada pela politica de seguranca."
+          ));
+        }
         return Promise.resolve(global.CrudUtils.clone(request.definition));
+      }
+      if (screenId) {
+        let runtimeRequest;
+        try {
+          runtimeRequest = global.CrudUtils.buildScreenDefinitionRequest(screenId, policy, "crud");
+        } catch (error) {
+          return Promise.reject(error);
+        }
+        return this.httpClient.request(runtimeRequest);
       }
       if (!request.definitionUrl) {
         return Promise.reject(global.CrudUtils.makeError(
-          "DEFINITION_SOURCE_MISSING",
-          "Nenhuma definicao de tela foi informada."
+          policy.definitionSource && policy.definitionSource.requireScreenId ? "SCREEN_ID_REQUIRED" : "DEFINITION_SOURCE_MISSING",
+          policy.definitionSource && policy.definitionSource.requireScreenId
+            ? "Informe o screenId da tela."
+            : "Nenhuma definicao de tela foi informada."
+        ));
+      }
+      if (policy.definitionSource && policy.definitionSource.allowDefinitionUrl === false) {
+        return Promise.reject(global.CrudUtils.makeError(
+          "DEFINITION_URL_DISABLED",
+          "Carregamento por definitionUrl livre desabilitado pela politica de seguranca."
         ));
       }
       return this.httpClient.request({

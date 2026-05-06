@@ -30,6 +30,12 @@
     "initials": "TS",
     "favoritePrograms": ["clientes-crud", "exemplos"]
   },
+  "currentSubscriber": {
+    "id": "assinante-demo",
+    "name": "Empresa Demonstracao",
+    "document": "00.000.000/0001-00",
+    "label": "Assinante"
+  },
   "layout": {
     "initialProgramId": "painel",
     "sidebar": {
@@ -43,6 +49,7 @@
       "showRefresh": true,
       "showThemeSwitch": true,
       "showFavoriteToggle": true,
+      "showCurrentSubscriber": true,
       "showUserMenu": true,
       "chat": {
         "enabled": false,

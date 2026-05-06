@@ -12,6 +12,9 @@
       "type": "string",
       "const": "1.0"
     },
+    "security": {
+      "$ref": "#/$defs/security"
+    },
     "theme": {
       "type": "object",
       "properties": {
@@ -127,15 +130,86 @@
   "$defs": {
     "helpReadEndpoint": {
       "type": "object",
-      "required": ["url"],
       "properties": {
         "url": {
+          "type": "string"
+        },
+        "endpointId": {
+          "type": "string"
+        },
+        "actionId": {
           "type": "string"
         },
         "method": {
           "type": "string",
           "enum": ["POST", "PUT", "PATCH"],
           "default": "POST"
+        }
+      },
+      "additionalProperties": false
+    },
+    "security": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["demo", "production"]
+        },
+        "production": {
+          "type": "boolean"
+        },
+        "productionMode": {
+          "type": "boolean"
+        },
+        "definitionSource": {
+          "type": "object",
+          "properties": {
+            "allowDirectDefinition": { "type": "boolean" },
+            "allowDefinitionUrl": { "type": "boolean" },
+            "requireScreenId": { "type": "boolean" },
+            "endpoint": { "$ref": "#/$defs/runtimeEndpoint" }
+          },
+          "additionalProperties": false
+        },
+        "endpoints": {
+          "type": "object",
+          "properties": {
+            "allowInlineUrls": { "type": "boolean" },
+            "requireEndpointIds": { "type": "boolean" },
+            "runtimeEndpoint": { "$ref": "#/$defs/runtimeEndpoint" }
+          },
+          "additionalProperties": false
+        },
+        "documents": {
+          "type": "object",
+          "properties": {
+            "allowInlineUrls": { "type": "boolean" },
+            "allowExternalUrls": { "type": "boolean" },
+            "runtimeEndpoint": { "$ref": "#/$defs/runtimeEndpoint" }
+          },
+          "additionalProperties": false
+        },
+        "content": {
+          "type": "object",
+          "properties": {
+            "allowInlineHtml": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "blockedKeyPattern": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "runtimeEndpoint": {
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "url": { "type": "string" },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST"]
         }
       },
       "additionalProperties": false

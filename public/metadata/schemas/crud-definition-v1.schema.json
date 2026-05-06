@@ -159,8 +159,16 @@
   "$defs": {
     "endpoint": {
       "type": "object",
-      "required": ["url"],
       "properties": {
+        "id": {
+          "type": "string"
+        },
+        "endpointId": {
+          "type": "string"
+        },
+        "actionId": {
+          "type": "string"
+        },
         "url": {
           "type": "string"
         },
@@ -168,7 +176,8 @@
           "type": "string",
           "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
         }
-      }
+      },
+      "additionalProperties": true
     },
     "printConfig": {
       "type": "object",
@@ -258,6 +267,9 @@
           "type": "boolean"
         },
         "endpointId": {
+          "type": "string"
+        },
+        "actionId": {
           "type": "string"
         },
         "endpoint": {
@@ -605,6 +617,9 @@
                     "type": "string"
                   },
                   "endpointId": {
+                    "type": "string"
+                  },
+                  "actionId": {
                     "type": "string"
                   },
                   "endpoint": {
@@ -997,6 +1012,9 @@
         "endpointId": {
           "type": "string"
         },
+        "actionId": {
+          "type": "string"
+        },
         "historyEndpoint": {
           "$ref": "#/$defs/endpoint"
         },
@@ -1233,6 +1251,9 @@
         "endpointId": {
           "type": "string"
         },
+        "actionId": {
+          "type": "string"
+        },
         "endpoint": {
           "$ref": "#/$defs/endpoint"
         },
@@ -1299,6 +1320,9 @@
           "default": true
         },
         "endpointId": {
+          "type": "string"
+        },
+        "actionId": {
           "type": "string"
         },
         "endpoint": {
@@ -1370,6 +1394,9 @@
             "endpointId": {
               "type": "string"
             },
+            "actionId": {
+              "type": "string"
+            },
             "url": {
               "type": "string"
             },
@@ -1399,6 +1426,9 @@
           "enum": ["change", "blur", "focus", "enter", "open", "afterLoad"]
         },
         "endpointId": {
+          "type": "string"
+        },
+        "actionId": {
           "type": "string"
         },
         "endpoint": {

@@ -1,6 +1,37 @@
 {
   "$schema": "../metadata/schemas/crud-engine-config-v1.schema.json",
   "schemaVersion": "1.0",
+  "security": {
+    "mode": "demo",
+    "definitionSource": {
+      "allowDirectDefinition": true,
+      "allowDefinitionUrl": true,
+      "requireScreenId": false,
+      "endpoint": {
+        "url": "/api/runtime/screens/{screenId}",
+        "method": "GET"
+      }
+    },
+    "endpoints": {
+      "allowInlineUrls": true,
+      "requireEndpointIds": false,
+      "runtimeEndpoint": {
+        "url": "/api/runtime/screens/{screenId}/endpoints/{endpointId}",
+        "method": "POST"
+      }
+    },
+    "documents": {
+      "allowInlineUrls": true,
+      "allowExternalUrls": false,
+      "runtimeEndpoint": {
+        "url": "/api/runtime/screens/{screenId}/documents/{documentId}",
+        "method": "GET"
+      }
+    },
+    "content": {
+      "allowInlineHtml": true
+    }
+  },
   "theme": {
     "kendoTheme": "kendo/styles/default-urban.css",
     "defaultMode": "light",

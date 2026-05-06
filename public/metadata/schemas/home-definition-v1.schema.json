@@ -68,6 +68,33 @@
       },
       "additionalProperties": true
     },
+    "currentSubscriber": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "name": { "type": "string" },
+            "displayName": { "type": "string" },
+            "title": { "type": "string" },
+            "code": { "type": "string" },
+            "document": { "type": "string" },
+            "label": { "type": "string" }
+          },
+          "additionalProperties": true
+        }
+      ]
+    },
+    "currentTenant": {
+      "$ref": "#/properties/currentSubscriber"
+    },
+    "tenant": {
+      "$ref": "#/properties/currentSubscriber"
+    },
+    "subscriber": {
+      "$ref": "#/properties/currentSubscriber"
+    },
     "layout": {
       "type": "object",
       "properties": {
@@ -89,6 +116,7 @@
             "showRefresh": { "type": "boolean" },
             "showThemeSwitch": { "type": "boolean" },
             "showFavoriteToggle": { "type": "boolean" },
+            "showCurrentSubscriber": { "type": "boolean" },
             "showUserMenu": { "type": "boolean" },
             "chat": {
               "type": "object",
@@ -152,10 +180,11 @@
                         {
                           "type": "object",
                           "properties": {
+                            "endpointId": { "type": "string" },
+                            "actionId": { "type": "string" },
                             "url": { "type": "string" },
                             "method": { "enum": ["GET", "POST"] }
                           },
-                          "required": ["url"],
                           "additionalProperties": true
                         }
                       ]
@@ -166,10 +195,11 @@
                         {
                           "type": "object",
                           "properties": {
+                            "endpointId": { "type": "string" },
+                            "actionId": { "type": "string" },
                             "url": { "type": "string" },
                             "method": { "enum": ["GET", "POST"] }
                           },
-                          "required": ["url"],
                           "additionalProperties": true
                         }
                       ]
@@ -180,10 +210,11 @@
                         {
                           "type": "object",
                           "properties": {
+                            "endpointId": { "type": "string" },
+                            "actionId": { "type": "string" },
                             "url": { "type": "string" },
                             "method": { "enum": ["GET", "POST"] }
                           },
-                          "required": ["url"],
                           "additionalProperties": true
                         }
                       ]
@@ -427,6 +458,7 @@
           "isFavorite": { "type": "boolean" },
           "openUrl": { "type": "string" },
           "url": { "type": "string" },
+          "screenId": { "type": "string" },
           "definitionUrl": { "type": "string" },
           "definition": { "type": "object" },
           "htmlUrl": { "type": "string" },
@@ -445,8 +477,9 @@
         { "type": "string" },
         {
           "type": "object",
-          "required": ["url"],
           "properties": {
+            "endpointId": { "type": "string" },
+            "actionId": { "type": "string" },
             "url": { "type": "string" },
             "method": { "enum": ["GET", "POST"] }
           },

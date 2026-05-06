@@ -257,6 +257,162 @@
         return true;
       }
       return Boolean(definition.permissions && definition.permissions[permission]);
+    },
+
+    normalizeSecurityPolicy(config, options) {
+      const source = Object.assign(
+        {},
+        config && config.security || {},
+        options && options.security || {}
+      );
+      const mode = String(options && options.securityMode || source.mode || "").toLowerCase();
+      const production = source.production === true || source.productionMode === true || mode === "production";
+      const definitionSource = Object.assign({}, source.definitionSource || {});
+      const endpoints = Object.assign({}, source.endpoints || {});
+      const documents = Object.assign({}, source.documents || {});
+      const content = Object.assign({}, source.content || {});
+
+      return {
+        mode: production ? "production" : "demo",
+        production,
+        definitionSource: {
+          allowDirectDefinition: this.resolveSecurityBoolean(definitionSource.allowDirectDefinition, !production),
+          allowDefinitionUrl: this.resolveSecurityBoolean(definitionSource.allowDefinitionUrl, !production),
+          requireScreenId: this.resolveSecurityBoolean(definitionSource.requireScreenId, production),
+          endpoint: definitionSource.endpoint || source.screenDefinitionEndpoint || {
+            url: "/api/runtime/screens/{screenId}",
+            method: "GET"
+          }
+        },
+        endpoints: {
+          allowInlineUrls: this.resolveSecurityBoolean(endpoints.allowInlineUrls, !production),
+          requireEndpointIds: this.resolveSecurityBoolean(endpoints.requireEndpointIds, production),
+          runtimeEndpoint: endpoints.runtimeEndpoint || source.runtimeEndpoint || {
+            url: "/api/runtime/screens/{screenId}/endpoints/{endpointId}",
+            method: "POST"
+          }
+        },
+        documents: {
+          allowInlineUrls: this.resolveSecurityBoolean(documents.allowInlineUrls, !production),
+          allowExternalUrls: this.resolveSecurityBoolean(documents.allowExternalUrls, false),
+          runtimeEndpoint: documents.runtimeEndpoint || {
+            url: "/api/runtime/screens/{screenId}/documents/{documentId}",
+            method: "GET"
+          }
+        },
+        content: {
+          allowInlineHtml: this.resolveSecurityBoolean(content.allowInlineHtml, !production)
+        },
+        blockedKeyPattern: source.blockedKeyPattern || "(token|password|senha|secret|apiKey|authorization|clientSecret|privateKey)"
+      };
+    },
+
+    resolveSecurityBoolean(value, fallback) {
+      return value == null ? fallback : Boolean(value);
+    },
+
+    isProductionSecurity(policy) {
+      return Boolean(policy && policy.production);
+    },
+
+    isSafeIdentifier(value) {
+      return typeof value === "string" && /^[A-Za-z0-9_.:-]+$/.test(value.trim());
+    },
+
+    buildScreenDefinitionRequest(screenId, policy, pageType) {
+      const normalizedScreenId = String(screenId || "").trim();
+      if (!this.isSafeIdentifier(normalizedScreenId)) {
+        throw this.makeError("INVALID_SCREEN_ID", "Identificador de tela invalido.", { screenId });
+      }
+
+      const endpoint = policy && policy.definitionSource && policy.definitionSource.endpoint || {};
+      if (!endpoint.url) {
+        throw this.makeError("SCREEN_ENDPOINT_MISSING", "Endpoint de carregamento por screenId nao configurado.");
+      }
+      const method = String(endpoint.method || "GET").toUpperCase();
+      return {
+        url: this.replaceUrlParams(endpoint.url, { screenId: normalizedScreenId, pageType: pageType || "" }),
+        method,
+        data: method === "GET" ? undefined : {
+          screenId: normalizedScreenId,
+          pageType: pageType || ""
+        }
+      };
+    },
+
+    applyEndpointSecurity(definition, policy) {
+      if (!definition || !definition.api || !policy) {
+        return definition;
+      }
+      const screenId = this.getDefinitionScreenId(definition);
+      Object.keys(definition.api).forEach((key) => {
+        definition.api[key] = this.resolveEndpointForPolicy(definition.api[key], key, screenId, policy);
+      });
+      if (definition.dataSource && definition.dataSource.api) {
+        definition.dataSource.api = definition.api;
+      }
+      return definition;
+    },
+
+    getDefinitionScreenId(definition) {
+      return String(
+        definition && (definition.screenId || definition.id || definition.entity) ||
+        definition && definition.program && (definition.program.screenId || definition.program.id) ||
+        "screen"
+      ).trim();
+    },
+
+    resolveEndpointForPolicy(endpoint, fallbackEndpointId, screenId, policy) {
+      const source = typeof endpoint === "string"
+        ? { endpointId: endpoint }
+        : Object.assign({}, endpoint || {});
+      const endpointId = String(source.endpointId || source.actionId || source.id || fallbackEndpointId || "").trim();
+      const inlineUrlAllowed = policy && policy.endpoints && policy.endpoints.allowInlineUrls !== false;
+
+      if (source.url && inlineUrlAllowed) {
+        return source;
+      }
+
+      if (!endpointId) {
+        return source;
+      }
+
+      const runtime = policy && policy.endpoints && policy.endpoints.runtimeEndpoint || {};
+      if (!runtime.url) {
+        return source;
+      }
+
+      return Object.assign({}, source, {
+        endpointId,
+        originalMethod: source.method || "GET",
+        url: this.replaceUrlParams(runtime.url, {
+          screenId,
+          endpointId
+        }),
+        method: runtime.method || "POST",
+        runtime: {
+          screenId,
+          endpointId,
+          operation: fallbackEndpointId || endpointId,
+          originalMethod: source.method || "GET"
+        }
+      });
+    },
+
+    resolveDocumentUrlForPolicy(source, fallbackDocumentId, screenId, policy) {
+      const config = typeof source === "string" ? { url: source } : Object.assign({}, source || {});
+      if (config.url && (!policy || policy.documents.allowInlineUrls !== false)) {
+        return config.url;
+      }
+      const documentId = String(config.documentId || config.endpointId || config.actionId || fallbackDocumentId || "").trim();
+      const runtime = policy && policy.documents && policy.documents.runtimeEndpoint || {};
+      if (!documentId || !runtime.url) {
+        return config.url || "";
+      }
+      return this.replaceUrlParams(runtime.url, {
+        screenId,
+        documentId
+      });
     }
   };
 

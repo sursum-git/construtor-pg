@@ -172,7 +172,7 @@
       return this.httpClient.request({
         url,
         method: endpoint.method || "DELETE",
-        data: {}
+        data: { id: sortId }
       }).then((response) => {
         if (response && response.userLayout) {
           this.definition.userLayout = response.userLayout;
@@ -272,7 +272,7 @@
       return this.httpClient.request({
         url,
         method: endpoint.method || "DELETE",
-        data: {}
+        data: { id: groupId }
       }).then((response) => {
         if (response && response.userLayout) {
           this.definition.userLayout = response.userLayout;
@@ -330,7 +330,7 @@
       return this.httpClient.request({
         url,
         method: endpoint.method || "DELETE",
-        data: {}
+        data: { id: filterId }
       }).then((response) => {
         if (response && response.userLayout) {
           this.definition.userLayout = response.userLayout;
