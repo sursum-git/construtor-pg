@@ -29,6 +29,23 @@ final class AdminCrudDefinitionFactory
                 defaultSort: [['field' => 'tenant_id', 'dir' => 'asc'], ['field' => 'username', 'dir' => 'asc']],
             ),
             self::screen(
+                'admin.permissoes',
+                'admin-permissoes',
+                'auth_user',
+                'Permissoes',
+                'Gerenciamento de grupos e permissoes dos usuarios.',
+                self::authUserPermissionFields(),
+                ['tenant_id', 'username', 'status'],
+                ['id', 'tenant_id', 'username', 'status', 'updated_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'tenant_id', 'username', 'status']],
+                    ['id' => 'permissoes', 'title' => 'Permissoes', 'fields' => ['groups', 'permissions']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['created_at', 'updated_at']],
+                ],
+                editable: true,
+                defaultSort: [['field' => 'tenant_id', 'dir' => 'asc'], ['field' => 'username', 'dir' => 'asc']],
+            ),
+            self::screen(
                 'admin.usuario-assinantes',
                 'admin-usuario-assinantes',
                 'auth_user_subscriber',
@@ -521,6 +538,24 @@ final class AdminCrudDefinitionFactory
             'permissions' => self::field('json', 'Permissoes', true, true, ['editor' => 'textarea']),
             'auth_source' => self::field('enum', 'Origem de acesso', true, false, ['options' => $authSources]),
             'last_login_at' => self::field('datetime', 'Ultimo login', false, true),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+        ];
+    }
+
+    private static function authUserPermissionFields(): array
+    {
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'tenant_id' => self::field('string', 'Tenant', false, false),
+            'username' => self::field('string', 'Usuario', false, false),
+            'status' => self::field('enum', 'Status', true, false, ['options' => [
+                ['value' => 'active', 'text' => 'Ativo'],
+                ['value' => 'inactive', 'text' => 'Inativo'],
+                ['value' => 'blocked', 'text' => 'Bloqueado'],
+            ]]),
+            'groups' => self::field('json', 'Grupos', true, true, ['editor' => 'textarea']),
+            'permissions' => self::field('json', 'Permissoes', true, true, ['editor' => 'textarea']),
             'created_at' => self::field('datetime', 'Criado em', false, false),
             'updated_at' => self::field('datetime', 'Atualizado em', false, false),
         ];

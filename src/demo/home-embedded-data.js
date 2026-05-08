@@ -456,6 +456,15 @@
           "screenId": "admin.usuarios"
         },
         {
+          "id": "admin-permissoes",
+          "title": "Permissoes",
+          "subtitle": "Controle de grupos e permissoes dos usuarios",
+          "type": "crud",
+          "icon": "users",
+          "permission": "admin.read",
+          "screenId": "admin.permissoes"
+        },
+        {
           "id": "admin-usuario-assinantes",
           "title": "Usuarios por Assinante",
           "subtitle": "Relacao de usuarios com assinantes e permissoes por contexto",

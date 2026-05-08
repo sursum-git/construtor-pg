@@ -915,12 +915,12 @@
       summary: "Tela administrativa para gerenciar grupos e permissoes nos usuarios do sistema.",
       page: pagePath + "admin-permissoes.html",
       loadByScreenId: true,
-      screenId: "admin.usuarios",
+      screenId: "admin.permissoes",
       code: {
-        screenId: "admin.usuarios",
-        relatedScreens: ["admin.usuario-assinantes"],
-        productionUrl: "production/app.html?screenId=admin.usuarios",
-        description: "Reuso da tela de usuarios para controle de permissao e grupos por usuario."
+        screenId: "admin.permissoes",
+        relatedScreens: ["admin.usuario-assinantes", "admin.usuarios"],
+        productionUrl: "production/app.html?screenId=admin.permissoes",
+        description: "Tela dedicada para controle de permissoes e grupos por usuario."
       }
     },
     {

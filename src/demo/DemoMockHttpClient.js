@@ -1346,6 +1346,12 @@
           ],
           defaultSort: [{ field: "tenant_id", dir: "asc" }, { field: "username", dir: "asc" }]
         },
+        "admin.permissoes": Object.assign({}, {}, {
+          programId: "admin-permissoes",
+          entity: "auth_user",
+          title: "Permissoes",
+          subtitle: "Gerenciamento de grupos e permissoes dos usuarios.",
+        }),
         "admin.usuario-assinantes": {
           programId: "admin-usuario-assinantes",
           entity: "auth_user_subscriber",
@@ -1431,6 +1437,16 @@
           defaultSort: [{ field: "created_at", dir: "desc" }]
         }
       };
+      if (configs["admin.permissoes"]) {
+        const basePermissionConfig = configs["admin.usuarios"];
+        if (basePermissionConfig) {
+          Object.assign(configs["admin.permissoes"], basePermissionConfig, {
+            programId: "admin-permissoes",
+            title: "Permissoes",
+            subtitle: "Gerenciamento de grupos e permissoes dos usuarios."
+          });
+        }
+      }
       return configs[screenId] || null;
     }
 
@@ -1584,6 +1600,11 @@
           { id: 1, transaction_id: 1, event_type: "runtime.request", message: "Chamada runtime recebida.", before_data: "{}", after_data: "{}", diff_data: "{}", metadata: json({ screenId: "cadastros.clientes" }), created_at: now }
         ]
       };
+      if (!Array.isArray(rows["admin.permissoes"]) && Array.isArray(rows["admin.usuarios"])) {
+        rows["admin.permissoes"] = rows["admin.usuarios"].map(function(item) {
+          return global.CrudUtils.clone(item);
+        });
+      }
       return global.CrudUtils.clone(rows[screenId] || []);
     }
 
