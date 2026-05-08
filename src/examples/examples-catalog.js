@@ -867,6 +867,48 @@
       }
     },
     {
+      id: "admin-parametro-valores",
+      category: "Backend",
+      title: "Admin de valores de parametro",
+      summary: "Tela administrativa para manter valores vigentes por periodo e estabelecimento.",
+      page: pagePath + "admin-parametro-valores.html",
+      loadByScreenId: true,
+      screenId: "admin.parametro-valores",
+      code: {
+        screenId: "admin.parametro-valores",
+        relatedScreens: ["admin.parametros"],
+        productionUrl: "production/app.html?screenId=admin.parametro-valores"
+      }
+    },
+    {
+      id: "admin-listas-opcoes",
+      category: "Backend",
+      title: "Admin de listas de opcoes",
+      summary: "Tela administrativa para manter listas fechadas utilizadas por parametros.",
+      page: pagePath + "admin-listas-opcoes.html",
+      loadByScreenId: true,
+      screenId: "admin.listas-opcoes",
+      code: {
+        screenId: "admin.listas-opcoes",
+        relatedScreens: ["admin.parametros", "admin.opcoes"],
+        productionUrl: "production/app.html?screenId=admin.listas-opcoes"
+      }
+    },
+    {
+      id: "admin-opcoes",
+      category: "Backend",
+      title: "Admin de opcoes",
+      summary: "Tela administrativa para manter opcoes de listas e metadados auxiliares.",
+      page: pagePath + "admin-opcoes.html",
+      loadByScreenId: true,
+      screenId: "admin.opcoes",
+      code: {
+        screenId: "admin.opcoes",
+        relatedScreens: ["admin.listas-opcoes", "admin.parametros"],
+        productionUrl: "production/app.html?screenId=admin.opcoes"
+      }
+    },
+    {
       id: "admin-usuarios",
       category: "Backend",
       title: "Admin de usuarios",
@@ -920,6 +962,20 @@
         screenId: "admin.transacoes",
         relatedScreens: ["admin.logs-transacoes"],
         productionUrl: "production/app.html?screenId=admin.transacoes"
+      }
+    },
+    {
+      id: "admin-logs-transacoes",
+      category: "Backend",
+      title: "Admin de logs de transacoes",
+      summary: "Tela administrativa para consultar eventos, before, after, diff e metadata das transacoes.",
+      page: pagePath + "admin-logs-transacoes.html",
+      loadByScreenId: true,
+      screenId: "admin.logs-transacoes",
+      code: {
+        screenId: "admin.logs-transacoes",
+        relatedScreens: ["admin.transacoes"],
+        productionUrl: "production/app.html?screenId=admin.logs-transacoes"
       }
     },
     {
