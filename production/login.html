@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <title>Login - Construtor PG</title>
+  <link id="kendo-theme-link" rel="stylesheet" href="../kendo/styles/default-urban.css">
+  <link rel="stylesheet" href="../src/styles/crud-engine.css">
+  <link rel="stylesheet" href="../src/styles/login.css">
+</head>
+<body class="login-page">
+  <header class="login-appbar" aria-label="Cabecalho">
+    <a class="login-brand" href="home.html?screenId=home" aria-label="Construtor PG">
+      <span class="login-logo-mark" aria-hidden="true">CP</span>
+      <span class="login-brand-text">
+        <strong>Construtor PG</strong>
+        <span>Ambiente corporativo</span>
+      </span>
+    </a>
+    <div class="login-appbar-message" aria-label="Mensagem de acesso">
+      <p class="login-kicker">Acesso seguro</p>
+      <strong>Entre para acessar seus programas.</strong>
+      <span>A autenticacao pode usar senha local, LDAP, SSO ou OAuth/OIDC configurado no backend.</span>
+    </div>
+    <div class="login-appbar-actions">
+      <span class="login-env-badge">Producao</span>
+    </div>
+  </header>
+
+  <main class="login-shell">
+    <section class="login-visual" aria-label="Imagem institucional opcional">
+      <img src="../assets/login-panel.svg" alt="Painel administrativo do sistema">
+    </section>
+
+    <section class="login-card" aria-labelledby="login-title">
+      <div class="login-card-header">
+        <p class="login-kicker">Login</p>
+        <h2 id="login-title">Acesse sua conta</h2>
+        <p>Informe suas credenciais para continuar.</p>
+      </div>
+
+      <form id="login-form" class="login-form" novalidate>
+        <div class="login-field" data-login-credential="username">
+          <label for="login-user">Usuario</label>
+          <input id="login-user" name="username" type="text" autocomplete="username" required>
+        </div>
+
+        <div class="login-field" data-login-credential="password">
+          <label for="login-password">Senha</label>
+          <div class="login-password-control">
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required>
+            <button id="login-toggle-password" class="login-password-toggle" type="button" aria-label="Exibir senha" title="Exibir senha" aria-pressed="false"></button>
+          </div>
+        </div>
+
+        <div class="login-options">
+          <label class="login-remember">
+            <input id="login-remember" name="remember" type="checkbox">
+            <span>Manter logado</span>
+          </label>
+          <button id="login-forgot" class="login-link-button" type="button">Esqueci a senha</button>
+        </div>
+
+        <div class="login-actions">
+          <button id="login-submit" type="submit">Entrar</button>
+        </div>
+      </form>
+
+      <section id="login-external" class="login-external" hidden aria-label="Acessos externos">
+        <div class="login-separator"><span>ou acesse com</span></div>
+        <div id="login-external-actions" class="login-external-actions"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="login-notification" aria-live="polite"></div>
+
+  <script src="../vendor/jquery/jquery-4.0.0.min.js"></script>
+  <script src="../kendo/js/kendo.all.min.js"></script>
+  <script src="../kendo/kendo-license.js"></script>
+  <script src="../kendo/js/cultures/kendo.culture.pt-BR.min.js"></script>
+  <script src="../kendo/js/messages/kendo.messages.pt-BR.min.js"></script>
+  <script src="../src/bootstrap/kendo-ptbr.js"></script>
+  <script src="../src/login/production-login.js?v=5"></script>
+</body>
+</html>

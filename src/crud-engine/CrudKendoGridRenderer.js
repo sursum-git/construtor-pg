@@ -850,7 +850,7 @@
 
     buildMobileTemplateRow(row, alt) {
       const data = typeof row.toJSON === "function" ? row.toJSON() : row;
-      const template = this.getMobileConfig().template || {};
+      const template = this.getMobileTemplateConfig();
       const titleField = template.titleField || this.getFirstVisibleField();
       const subtitleField = template.subtitleField;
       const title = this.formatFieldValue(titleField, data);
@@ -905,6 +905,91 @@
           "<dd>" + this.formatFieldValue(fieldName, data) + "</dd>" +
         "</div>";
       }).join("") + "</dl>";
+    }
+
+    getMobileTemplateConfig() {
+      const base = Object.assign({}, this.getMobileConfig().template || {});
+      const userLayout = this.definition.userLayout || {};
+      const gridTemplate = userLayout.grid && userLayout.grid.mobileTemplate;
+      const templates = global.CrudUtils.ensureArray(userLayout.savedMobileTemplates);
+      const activeTemplate = templates.find(function(item) {
+        return item.isDefault;
+      }) || templates.find(function(item) {
+        return item.id === userLayout.activeMobileTemplateId;
+      });
+      const source = gridTemplate || activeTemplate && (activeTemplate.template || activeTemplate) || null;
+      if (!source) {
+        return base;
+      }
+
+      const normalized = this.normalizeMobileTemplateConfig(source);
+      return Object.assign(base, normalized);
+    }
+
+    normalizeMobileTemplateConfig(template) {
+      const source = template || {};
+      const normalized = {};
+      const titleField = this.normalizeMobileTemplateField(source.titleField);
+      const subtitleField = this.normalizeMobileTemplateField(source.subtitleField);
+      const badges = this.normalizeMobileTemplateFields(source.badges || source.badgeFields || []);
+      const fields = this.normalizeMobileTemplateFields(source.fields || source.fieldPositions || []);
+      const tabs = this.normalizeMobileTemplateTabs(source.tabs || {});
+
+      if (titleField) {
+        normalized.titleField = titleField;
+      }
+      if (subtitleField) {
+        normalized.subtitleField = subtitleField;
+      }
+      if (badges.length) {
+        normalized.badges = badges;
+      }
+      if (fields.length) {
+        normalized.fields = fields;
+      }
+      if (tabs.items.length) {
+        normalized.tabs = tabs;
+      }
+
+      return normalized;
+    }
+
+    normalizeMobileTemplateTabs(tabs) {
+      const source = tabs || {};
+      const items = global.CrudUtils.ensureArray(source.items).map((item) => {
+        const fields = this.normalizeMobileTemplateFields(item && item.fields || []);
+        if (!fields.length) {
+          return null;
+        }
+        return {
+          id: String(item.id || "tab").replace(/[^A-Za-z0-9_.:-]+/g, "-").slice(0, 80),
+          title: String(item.title || item.id || "Aba").slice(0, 120),
+          fields
+        };
+      }).filter(Boolean);
+
+      return {
+        enabled: Boolean(source.enabled) && items.length > 0,
+        items
+      };
+    }
+
+    normalizeMobileTemplateFields(fields) {
+      const known = {};
+      return global.CrudUtils.ensureArray(fields).map((fieldName) => {
+        return this.normalizeMobileTemplateField(fieldName);
+      }).filter(function(fieldName) {
+        if (!fieldName || known[fieldName]) {
+          return false;
+        }
+        known[fieldName] = true;
+        return true;
+      });
+    }
+
+    normalizeMobileTemplateField(fieldName) {
+      const value = String(fieldName || "").trim();
+      return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value) ? value : "";
     }
 
     initializeMobileTemplateTabs() {

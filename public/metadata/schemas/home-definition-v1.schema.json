@@ -64,6 +64,15 @@
         "favorites": {
           "type": "array",
           "items": { "type": "string" }
+        },
+        "availableSubscribers": {
+          "$ref": "#/$defs/subscriberList"
+        },
+        "subscribers": {
+          "$ref": "#/$defs/subscriberList"
+        },
+        "tenants": {
+          "$ref": "#/$defs/subscriberList"
         }
       },
       "additionalProperties": true
@@ -80,11 +89,34 @@
             "title": { "type": "string" },
             "code": { "type": "string" },
             "document": { "type": "string" },
-            "label": { "type": "string" }
+            "label": { "type": "string" },
+            "type": { "type": "string" },
+            "database": { "type": "string" },
+            "kind": { "type": "string" },
+            "principal": { "type": "boolean" },
+            "isPrincipal": { "type": "boolean" },
+            "options": {
+              "$ref": "#/$defs/subscriberList"
+            },
+            "subscribers": {
+              "$ref": "#/$defs/subscriberList"
+            },
+            "tenants": {
+              "$ref": "#/$defs/subscriberList"
+            }
           },
           "additionalProperties": true
         }
       ]
+    },
+    "availableSubscribers": {
+      "$ref": "#/$defs/subscriberList"
+    },
+    "subscribers": {
+      "$ref": "#/$defs/subscriberList"
+    },
+    "tenants": {
+      "$ref": "#/$defs/subscriberList"
     },
     "currentTenant": {
       "$ref": "#/properties/currentSubscriber"
@@ -117,6 +149,45 @@
             "showThemeSwitch": { "type": "boolean" },
             "showFavoriteToggle": { "type": "boolean" },
             "showCurrentSubscriber": { "type": "boolean" },
+            "subscriberSwitch": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "title": { "type": "string" },
+                "description": { "type": "string" },
+                "fieldLabel": { "type": "string" },
+                "confirmText": { "type": "string" },
+                "cancelText": { "type": "string" },
+                "openText": { "type": "string" },
+                "width": { "type": "number" },
+                "programId": { "type": "string" },
+                "changeProgramId": { "type": "string" },
+                "url": { "type": "string" },
+                "changeUrl": { "type": "string" },
+                "subscribers": {
+                  "$ref": "#/$defs/subscriberList"
+                },
+                "options": {
+                  "$ref": "#/$defs/subscriberList"
+                },
+                "endpoint": {
+                  "$ref": "#/$defs/endpoint"
+                },
+                "changeEndpoint": {
+                  "$ref": "#/$defs/endpoint"
+                },
+                "endpoints": {
+                  "type": "object",
+                  "properties": {
+                    "change": {
+                      "$ref": "#/$defs/endpoint"
+                    }
+                  },
+                  "additionalProperties": true
+                }
+              },
+              "additionalProperties": true
+            },
             "showUserMenu": { "type": "boolean" },
             "chat": {
               "type": "object",
@@ -351,6 +422,12 @@
             "requests": {
               "$ref": "#/$defs/appbarListConfig"
             },
+            "jobs": {
+              "$ref": "#/$defs/appbarListConfig"
+            },
+            "runtimeMessages": {
+              "$ref": "#/$defs/runtimeMessages"
+            },
             "userMenu": {
               "type": "object",
               "properties": {
@@ -450,7 +527,7 @@
           "subtitleTooltip": { "type": "string" },
           "version": { "type": "string" },
           "type": {
-            "enum": ["iframe", "crud", "html"]
+            "enum": ["iframe", "crud", "html", "process"]
           },
           "icon": { "type": "string" },
           "permission": { "type": "string" },
@@ -487,6 +564,32 @@
         }
       ]
     },
+    "subscriberList": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "displayName": { "type": "string" },
+              "title": { "type": "string" },
+              "code": { "type": "string" },
+              "document": { "type": "string" },
+              "label": { "type": "string" },
+              "type": { "type": "string" },
+              "database": { "type": "string" },
+              "kind": { "type": "string" },
+              "principal": { "type": "boolean" },
+              "isPrincipal": { "type": "boolean" }
+            },
+            "additionalProperties": true
+          }
+        ]
+      }
+    },
     "appbarListConfig": {
       "type": "object",
       "properties": {
@@ -497,6 +600,7 @@
         "permission": { "type": "string" },
         "width": { "type": "number" },
         "height": { "type": "number" },
+        "programId": { "type": "string" },
         "url": { "type": "string" },
         "listUrl": { "type": "string" },
         "endpoints": {
@@ -505,6 +609,37 @@
             "list": {
               "$ref": "#/$defs/endpoint"
             }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "runtimeMessages": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "pollIntervalSeconds": {
+          "type": "integer",
+          "minimum": 10
+        },
+        "events": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "url": { "type": "string" }
+          },
+          "additionalProperties": true
+        },
+        "eventSourceUrl": {
+          "type": "string"
+        },
+        "endpoints": {
+          "type": "object",
+          "properties": {
+            "poll": { "$ref": "#/$defs/endpoint" },
+            "ack": { "$ref": "#/$defs/endpoint" },
+            "forceLogout": { "$ref": "#/$defs/endpoint" }
           },
           "additionalProperties": true
         }

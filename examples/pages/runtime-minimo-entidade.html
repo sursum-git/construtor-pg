@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Minimo de entidade no runtime - CRUD Engine</title>
+  <link id="kendo-theme-link" rel="stylesheet" href="../../kendo/styles/default-urban.css">
+  <link rel="stylesheet" href="../../src/styles/crud-engine.css">
+  <link rel="stylesheet" href="../../src/styles/examples-guide.css">
+</head>
+<body>
+  <main class="example-page-shell">
+    <header class="example-page-header">
+      <div>
+        <p class="example-kicker">Backend</p>
+        <h1>Minimo de entidade no runtime</h1>
+        <p>Exemplo preenchido para criar a entidade `produto` com tabela fisica, metadados do construtor, situacoes opcionais, tela e endpoints fechados.</p>
+      </div>
+      <nav class="example-page-actions" aria-label="Navegacao do exemplo">
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../exemplos.html">Indice</a>
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../production/app.html?screenId=cadastros.produtos">Abrir tela</a>
+      </nav>
+    </header>
+
+    <section class="example-page-main">
+      <div class="example-code-panel">
+        <p class="example-tab-note">So existir classe Doctrine ou tabela nao basta. Para o frontend dinamico funcionar, o backend precisa destes cadastros minimos.</p>
+        <div class="examples-reference-table-wrap">
+          <table class="examples-reference-table">
+            <thead>
+              <tr>
+                <th>Ordem</th>
+                <th>Arquivo</th>
+                <th>O que preenche</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td><a href="../minimo-entidade/01-create-table-produto.sql">01-create-table-produto.sql</a></td>
+                <td>Tabela fisica PostgreSQL.</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td><a href="../minimo-entidade/02-builder-entity.json">02-builder-entity.json</a></td>
+                <td>Registro da entidade `produto` em `builder_entity`.</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td><a href="../minimo-entidade/03-builder-fields.json">03-builder-fields.json</a></td>
+                <td>Campos em `builder_field`, incluindo chave primaria e tipos.</td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td><a href="../minimo-entidade/04-screen-definition.json">04-screen-definition.json</a></td>
+                <td>JSON publicado da tela `cadastros.produtos`.</td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td><a href="../minimo-entidade/05-runtime-endpoints.json">05-runtime-endpoints.json</a></td>
+                <td>Endpoints `read`, `get`, `create`, `update` e `delete` com `handler="entity.crud"`.</td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td><a href="../minimo-entidade/06-test-runtime.http">06-test-runtime.http</a></td>
+                <td>Chamadas HTTP minimas para validar backend e frontend.</td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td><a href="../minimo-entidade/07-builder-situations.json">07-builder-situations.json</a></td>
+                <td>Situacoes e transicoes opcionais da entidade.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="example-code-panel">
+        <h2>1. Tabela fisica</h2>
+        <p class="example-tab-note">Arquivo: <a href="../minimo-entidade/01-create-table-produto.sql">examples/minimo-entidade/01-create-table-produto.sql</a></p>
+        <pre><code>CREATE TABLE IF NOT EXISTS produto (
+    id BIGSERIAL PRIMARY KEY,
+    codigo VARCHAR(30) NOT NULL,
+    nome VARCHAR(160) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'EM_DIGITACAO',
+    preco NUMERIC(14, 2),
+    created_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP(0) WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);</code></pre>
+      </div>
+
+      <div class="example-code-panel">
+        <h2>2. Entidade no construtor</h2>
+        <p class="example-tab-note">Arquivo: <a href="../minimo-entidade/02-builder-entity.json">examples/minimo-entidade/02-builder-entity.json</a></p>
+        <pre><code>{
+  "code": "produto",
+  "name": "Produto",
+  "entityType": "persistence",
+  "tableName": "produto",
+  "status": "published",
+  "situationEnabled": true,
+  "situationFieldCode": "status",
+  "metadata": {
+    "screenId": "cadastros.produtos",
+    "primaryKey": "id",
+    "situation": {
+      "enabled": true,
+      "field": "status",
+      "initial": "EM_DIGITACAO"
+    },
+    "audit": {
+      "enabled": true,
+      "doctrineClass": "App\\Entity\\Produto"
+    }
+  }
+}</code></pre>
+      </div>
+
+      <div class="example-code-panel">
+        <h2>3. Campos da entidade</h2>
+        <p class="example-tab-note">Arquivo: <a href="../minimo-entidade/03-builder-fields.json">examples/minimo-entidade/03-builder-fields.json</a></p>
+        <pre><code>[
+  {
+    "code": "id",
+    "label": "ID",
+    "dataType": "integer",
+    "databaseType": "bigint",
+    "required": true,
+    "primaryKey": true,
+    "options": {
+      "readable": true,
+      "writable": false,
+      "audit": false
+    }
+  },
+  {
+    "code": "nome",
+    "label": "Nome",
+    "dataType": "string",
+    "databaseType": "varchar",
+    "length": 160,
+    "required": true,
+    "primaryKey": false
+  }
+]</code></pre>
+      </div>
+
+      <div class="example-code-panel">
+        <h2>4. Tela entregue ao frontend</h2>
+        <p class="example-tab-note">Arquivo completo: <a href="../minimo-entidade/04-screen-definition.json">examples/minimo-entidade/04-screen-definition.json</a></p>
+        <pre><code>{
+  "screenId": "cadastros.produtos",
+  "pageType": "crud",
+  "status": "published",
+  "definition": {
+    "program": {
+      "id": "cadastros.produtos",
+      "title": "Produtos"
+    },
+    "dataSource": {
+      "api": {
+        "read": { "endpointId": "read", "method": "POST" },
+        "create": { "endpointId": "create", "method": "POST" },
+        "update": { "endpointId": "update", "method": "POST" },
+        "delete": { "endpointId": "delete", "method": "POST" }
+      }
+    },
+    "runtime": {
+      "entityCode": "produto",
+      "programId": "produtos-crud"
+    }
+  }
+}</code></pre>
+      </div>
+
+      <div class="example-code-panel">
+        <h2>5. Endpoints fechados</h2>
+        <p class="example-tab-note">Arquivo: <a href="../minimo-entidade/05-runtime-endpoints.json">examples/minimo-entidade/05-runtime-endpoints.json</a></p>
+        <pre><code>[
+  {
+    "screenId": "cadastros.produtos",
+    "endpointId": "create",
+    "handler": "entity.crud",
+    "enabled": true,
+    "config": {
+      "entityCode": "produto",
+      "programId": "produtos-crud",
+      "operation": "create"
+    }
+  }
+]</code></pre>
+      </div>
+
+      <div class="example-code-panel">
+        <h2>6. Situacoes e transicoes</h2>
+        <p class="example-tab-note">Arquivo: <a href="../minimo-entidade/07-builder-situations.json">examples/minimo-entidade/07-builder-situations.json</a></p>
+        <pre><code>{
+  "situations": [
+    { "code": "EM_DIGITACAO", "label": "Em digitacao", "initial": true },
+    { "code": "COMPLETO", "label": "Completo" },
+    { "code": "APROVADO", "label": "Aprovado", "final": true }
+  ],
+  "transitions": [
+    { "fromCode": null, "toCode": "EM_DIGITACAO", "actionId": "create" },
+    {
+      "fromCode": "EM_DIGITACAO",
+      "toCode": "COMPLETO",
+      "actionId": "update",
+      "guardConfig": { "requiredFields": ["codigo", "nome", "preco"] }
+    },
+    { "fromCode": "COMPLETO", "toCode": "APROVADO", "actionId": "update" }
+  ]
+}</code></pre>
+      </div>
+
+      <div class="example-code-panel">
+        <h2>7. Teste minimo</h2>
+        <p class="example-tab-note">Arquivo: <a href="../minimo-entidade/06-test-runtime.http">examples/minimo-entidade/06-test-runtime.http</a></p>
+        <pre><code>GET http://127.0.0.1:8000/api/runtime/screens/cadastros.produtos
+
+POST http://127.0.0.1:8000/api/runtime/screens/cadastros.produtos/endpoints/create
+Content-Type: application/json
+
+{
+  "values": {
+    "codigo": "P001",
+    "nome": "Produto Demonstracao",
+    "status": "EM_DIGITACAO",
+    "preco": 19.9
+  }
+}</code></pre>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

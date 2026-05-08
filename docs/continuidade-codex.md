@@ -26,6 +26,9 @@ node --check src\crud-engine\CrudKendoFormRenderer.js
 node --check src\home-engine\HomeEngine.js
 node --check src\home-engine\HomeDefinitionLoader.js
 node --check src\home-engine\HomeDefinitionValidator.js
+node --check src\process-engine\ProcessEngine.js
+node --check src\process-engine\ProcessDefinitionLoader.js
+node --check src\process-engine\ProcessDefinitionValidator.js
 ```
 
 Validar exemplos pelo catalogo:
@@ -44,7 +47,10 @@ require('./src/page-engine/PageDefinitionNormalizer.js');
 require('./src/crud-engine/CrudDefinitionLoader.js');
 require('./src/crud-engine/CrudDefinitionValidator.js');
 require('./src/home-engine/HomeDefinitionValidator.js');
+require('./src/process-engine/ProcessDefinitionLoader.js');
+require('./src/process-engine/ProcessDefinitionValidator.js');
 require('./src/demo/demo-embedded-data.js');
+require('./src/demo/process-embedded-data.js');
 require('./src/demo/home-embedded-data.js');
 require('./src/demo/DemoMockHttpClient.js');
 require('./src/examples/examples-catalog.js');
@@ -53,6 +59,7 @@ require('./src/examples/examples-catalog.js');
   const catalog = global.CrudExamplesCatalog;
   const crudValidator = new global.CrudDefinitionValidator();
   const homeValidator = new global.HomeDefinitionValidator();
+  const processValidator = new global.ProcessDefinitionValidator();
   const normalizer = new global.PageDefinitionNormalizer();
   const errors = [];
 
@@ -60,8 +67,12 @@ require('./src/examples/examples-catalog.js');
     try {
       const config = catalog.buildConfig(item.id);
       const policy = global.CrudUtils.normalizeSecurityPolicy(config, {});
-      if (item.id === 'home-engine') {
+      if (item.engine === 'home') {
         homeValidator.validate(catalog.buildHomeDefinition(item.id), { securityPolicy: policy });
+        continue;
+      }
+      if (item.engine === 'process') {
+        processValidator.validate(catalog.buildProcessDefinition(item.id), { securityPolicy: policy });
         continue;
       }
       if (item.loadByScreenId) {
@@ -94,11 +105,17 @@ Validar no browser:
 - Usar Playwright/Chromium headless quando possivel.
 - URLs principais:
   - `file:///C:/construtor-pg/index.html`
+  - `file:///C:/construtor-pg/login.html`
   - `file:///C:/construtor-pg/home.html`
   - `file:///C:/construtor-pg/exemplos.html`
   - `file:///C:/construtor-pg/theme-builder.html`
   - `file:///C:/construtor-pg/examples/pages/consulta-basica.html`
+  - `file:///C:/construtor-pg/examples/pages/processamento-parametros.html`
   - `file:///C:/construtor-pg/production/app.html?screenId=cadastros.clientes`
+  - `file:///C:/construtor-pg/production/app.html?screenId=admin.jobs`
+  - `file:///C:/construtor-pg/production/app.html?screenId=admin.parametros`
+  - `file:///C:/construtor-pg/production/app.html?screenId=admin.sessoes`
+  - `file:///C:/construtor-pg/production/app.html?screenId=admin.transacoes`
   - `file:///C:/construtor-pg/production/home.html?screenId=home`
 
 ## Quando implementar funcionalidade nova
@@ -131,18 +148,33 @@ Se a funcionalidade entrar primeiro na demo, registrar em `docs/paridade-demo-pr
 Implementado ate agora, em nivel demo/frontend:
 
 - CRUD de clientes com mock HTTP em memoria.
+- Modelo visual de login em `login.html`, com appbar, logo, manter logado, esqueci a senha, selecao simulada de assinante e imagem lateral opcional.
 - Kendo Grid com paginacao, ordenacao, filtros, acoes de linha e exportacao.
 - Filtro em janela, filtros salvos, filtros aplicados e edicao de filtro aplicado.
 - Leiautes, ordenacoes e agrupamentos salvos no mock.
 - Agrupamento com contagem/soma.
 - Congelamento de colunas opcional para desktop.
 - Mobile com modo colunas e modo template/card seguro.
-- Formulario popup com abas, etapas, situacao, eventos seguros, logs, impressao e outras acoes.
+- Formulario popup com abas, etapas, situacao, eventos seguros, aviso de concorrencia, logs, impressao e outras acoes.
+- Botoes e eventos do formulario enviam os valores atuais em `values`; o backend runtime normaliza somente campos permitidos da entidade.
+- Consistencias do backend usam contrato `validation` + `effects`, com modal Kendo, marcacao de campo e confirmacao por token quando necessario.
+- Backend possui caminho inicial de CRUD generico por `builder_entity`/`builder_field`, regras PHP registradas e subscriber Doctrine como fallback de auditoria.
+- Entidades podem ter situacao por `builder_entity_situation` e transicoes por `builder_entity_situation_transition`; o runtime valida situacao inicial, transicoes e regras fechadas por transicao.
+- O CRUD generico trata cadastro incompleto com erros fechados: se so existir classe/tabela e faltar metadado do construtor, retorna `ENTITY_METADATA_NOT_CONFIGURED` com `details.minimumRequired`.
+- Backend possui fila async inicial com Symfony Messenger/Doctrine em PostgreSQL, rastreamento em `runtime_async_job` e job fechado `cliente.email_confirmation`.
+- A decisao de enfileirar fica no backend por `builder_entity.metadata.jobs` ou `runtime_endpoint.config.jobs`; `mode="async"` usa worker, sem job configurado a acao segue na chamada normal.
+- Acoes manuais podem usar `handler="runtime.job.enqueue"`; exemplo atual: `sendWhatsapp` agenda `cliente.whatsapp_welcome`.
+- Tela `admin.jobs` consulta os jobs assincronos pelo runtime generico.
+- Telas administrativas runtime criadas pelo seed: `admin.parametros`, `admin.parametro-valores`, `admin.listas-opcoes`, `admin.opcoes`, `admin.sessoes`, `admin.transacoes` e `admin.logs-transacoes`.
 - Tema claro/escuro por configuracao global.
 - Pagina inicial por JSON com Kendo TreeView lateral, appbar e chamada de programas por `iframe`, `crud` e `html` sanitizado.
+- Pagina inicial por JSON com Kendo TreeView lateral, appbar e chamada de programas por `iframe`, `crud`, `process` e `html` sanitizado.
+- Motor de processamento por parametros em `src/process-engine`, com endpoint de inicio, acompanhamento por SSE/polling, retorno em mensagem, grid, relatorio ou job em segundo plano.
+- Appbar da Home pode exibir jobs concluidos e abrir a tela "Meus Jobs".
 - Assinante/tenant corrente opcional no cabecalho global da pagina inicial via `currentSubscriber`.
+- Troca opcional de assinante pelo badge do cabecalho global, com destaque para `Principal`, lista de assinantes e endpoint seguro configuravel; em producao, usar `endpointId` ou `actionId`.
 - Chat opcional no appbar da pagina inicial, usando Kendo Chat com ComboBox de usuarios e endpoints configurados no JSON.
-- Atendimento opcional no appbar da pagina inicial, com selecao de setor, chat quando houver atendente online no setor e solicitacao com setor travado quando nao houver disponibilidade.
+- Atendimento opcional no appbar da pagina inicial, com selecao de setor, chat quando houver atendente online no setor, solicitacao com setor travado quando nao houver disponibilidade e contexto do programa corrente nas chamadas.
 - Chat de IA opcional no appbar da pagina inicial, usando Kendo Chat sem selecao de usuario e endpoints configurados no JSON.
 - Alertas e solicitacoes opcionais no appbar da pagina inicial, com botoes compactos e janelas Kendo alimentadas por endpoints configurados no JSON.
 - Pagina de exemplos com PanelBar e aba de configuracao por exemplo.
@@ -150,10 +182,22 @@ Implementado ate agora, em nivel demo/frontend:
 - Guia PDF para orientar outra IA a padronizar projeto Kendo/PHP/Symfony.
 - Camada inicial de seguranca de producao: carregamento por `screenId`, bloqueio opcional de JSON/URL livre, gateway runtime por `endpointId/actionId` e exemplo `seguranca-producao`.
 - Entradas separadas de producao em `production/app.html` e `production/home.html`, com CSP em meta tag, sem inicializacao inline e sem fallback local no HTTP client.
+- Backend runtime Symfony/API Platform com auditoria, semaforo configuravel, heartbeat, mensagens runtime por SSE com polling fallback, derrubada de sessao e protecao contra perda de dados no frontend.
+- Permissoes reais no backend por tela e endpoint: `screen_definition.security`, `runtime_endpoint.permission`, grupos/permissoes da sessao e filtro do JSON autorizado da Home.
+- `runtime_user_session` e a fonte principal da identidade da sessao; `runtime_transaction` e `runtime_transaction_log` nao guardam mais usuario diretamente.
+- Autenticacao inicial no backend com `auth_user`, `auth_provider_config`, login por senha local, estruturas fechadas para LDAP, SSO e OAuth/OIDC, token Bearer vinculado a `runtime_user_session` e pagina `production/login.html`. O tipo de acesso do login por senha vem de `auth_user.authSource`; OAuth/OIDC aparece como botao externo quando habilitado. O "manter logado" usa `auth_remember_token` e `/api/auth/remember`.
+- Login com assinante usa `subscriber.enabled`; quando habilitado, o backend resolve `auth_subscriber`/`auth_user_subscriber` depois da senha e conclui a selecao em `/api/auth/select-subscriber`. A Home recebe `currentSubscriber` pela sessao selecionada.
+- Usuario administrador escolhe apos o login se entra na area principal ou administrativa; a area administrativa abre a Home com `initialProgramId=admin-parametros`.
+- Recuperacao de senha usa `/api/auth/password/request-reset` e `/api/auth/password/reset`, com tokens hash em `auth_password_reset_token`; no ambiente dev o token pode retornar na resposta e o `MAILER_DSN=null://null` apenas prepara/loga o envio.
+- Modulo simples de parametros com `system_parameter`, `system_parameter_value`, `system_option_list`, `system_option` e resolver tipado; seed cria `subscriber.enabled=false`.
+- Worker da fila: `php bin\console messenger:consume async -vv`.
 
 ## Pontos conhecidos para atencao
 
-- Persistencias de layout/filtro/ordenacao/agrupamento ainda sao mock em memoria.
-- Nao existe backend real, autenticacao, tenant ou banco de dados.
+- Persistencias de layout/filtro/ordenacao/agrupamento/template mobile existem no backend em tabelas dedicadas; a busca usa precedencia por assinante atual, preferencia global do usuario, padrao do programa e padrao do sistema. A demo ainda simula parte disso em `localStorage`.
+- `AUTH_REQUIRED=0` mantem compatibilidade local sem login obrigatorio. Para exigir autenticacao no runtime, configurar `AUTH_REQUIRED=1`.
+- LDAP, SSO e OAuth/OIDC ja possuem provedores fechados, mas dependem de cadastro real em `auth_provider_config` e infraestrutura externa.
+- Envio real de e-mail depende de configurar `MAILER_DSN`; no ambiente atual o envio fica preparado/logado com `null://null`.
+- `subscriber.enabled` fica `false` por padrao. Para testar selecao de assinante, altere o valor vigente em `system_parameter_value` para `true` e depois volte para `false` se quiser manter o fluxo local direto.
 - Antes de uma versao estavel, revisar `docs/backlog-v1-estavel.md`.
 - Push ainda depende de configurar remote Git.

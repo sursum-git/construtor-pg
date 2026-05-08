@@ -1,0 +1,62 @@
+[
+  {
+    "screenId": "cadastros.produtos",
+    "endpointId": "read",
+    "handler": "entity.crud",
+    "permission": "produto.read",
+    "enabled": true,
+    "config": {
+      "entityCode": "produto",
+      "programId": "produtos-crud",
+      "operation": "read"
+    }
+  },
+  {
+    "screenId": "cadastros.produtos",
+    "endpointId": "get",
+    "handler": "entity.crud",
+    "permission": "produto.read",
+    "enabled": true,
+    "config": {
+      "entityCode": "produto",
+      "programId": "produtos-crud",
+      "operation": "get"
+    }
+  },
+  {
+    "screenId": "cadastros.produtos",
+    "endpointId": "create",
+    "handler": "entity.crud",
+    "permission": "produto.create",
+    "enabled": true,
+    "config": {
+      "entityCode": "produto",
+      "programId": "produtos-crud",
+      "operation": "create"
+    }
+  },
+  {
+    "screenId": "cadastros.produtos",
+    "endpointId": "update",
+    "handler": "entity.crud",
+    "permission": "produto.update",
+    "enabled": true,
+    "config": {
+      "entityCode": "produto",
+      "programId": "produtos-crud",
+      "operation": "update"
+    }
+  },
+  {
+    "screenId": "cadastros.produtos",
+    "endpointId": "delete",
+    "handler": "entity.crud",
+    "permission": "produto.delete",
+    "enabled": true,
+    "config": {
+      "entityCode": "produto",
+      "programId": "produtos-crud",
+      "operation": "delete"
+    }
+  }
+]

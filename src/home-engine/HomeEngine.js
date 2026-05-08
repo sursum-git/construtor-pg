@@ -15,6 +15,16 @@
       this.currentProgram = null;
       this.currentProgramEngine = null;
       this.currentProgramFrame = null;
+      this.runtimeMessageTimer = null;
+      this.runtimeEventSource = null;
+      this.runtimeEventFallbackTimer = null;
+      this.jobsIndicatorTimer = null;
+      this.jobsIndicatorButton = null;
+      this.jobsIndicatorBadge = null;
+      this.completedJobsCount = 0;
+      this.completedJobIds = {};
+      this.sessionRevoked = false;
+      this.loggingOut = false;
       this.chatWindowElement = null;
       this.chatWindow = null;
       this.chatToolbar = null;
@@ -45,10 +55,12 @@
       this.supportRequestToggleButton = null;
       this.supportChatHost = null;
       this.supportChatWidget = null;
+      this.supportContextElement = null;
       this.supportOnlineUsers = [];
       this.supportSectors = [];
       this.currentSupportUser = null;
       this.currentSupportSectorId = "";
+      this.currentSupportContext = null;
       this.supportHistoryLoadedUserId = "";
       this.aiChatWindowElement = null;
       this.aiChatWindow = null;
@@ -56,6 +68,11 @@
       this.aiChatWidget = null;
       this.aiChatHistoryLoaded = false;
       this.appbarPanelWindows = {};
+      this.subscriberSwitchWindowElement = null;
+      this.subscriberSwitchWindow = null;
+      this.subscriberSwitchInput = null;
+      this.subscriberSwitchDropDown = null;
+      this.currentSubscriberElement = null;
       this.currentSidebarToggleIcon = "";
       this.allModulesId = "__all__";
       this.modules = [];
@@ -83,6 +100,7 @@
         this.modules = this.buildModuleList();
         this.currentModuleId = this.resolveInitialModuleId();
         this.render();
+        this.startRuntimeMessagePolling();
         return this.openInitialProgram().then(() => this);
       }).catch((error) => {
         this.renderError(global.CrudUtils.unwrapError(error, "Erro ao carregar pagina inicial."));
@@ -119,6 +137,9 @@
           showThemeSwitch: true,
           showFavoriteToggle: true,
           showCurrentSubscriber: true,
+          subscriberSwitch: {
+            enabled: false
+          },
           showUserMenu: true,
           chat: {
             enabled: false
@@ -133,6 +154,9 @@
             enabled: false
           },
           requests: {
+            enabled: false
+          },
+          jobs: {
             enabled: false
           },
           userMenu: {
@@ -152,6 +176,9 @@
         showThemeSwitch: true,
         showFavoriteToggle: true,
         showCurrentSubscriber: true,
+        subscriberSwitch: {
+          enabled: false
+        },
         showUserMenu: true,
         chat: {
           enabled: false
@@ -166,6 +193,9 @@
           enabled: false
         },
         requests: {
+          enabled: false
+        },
+        jobs: {
           enabled: false
         },
         userMenu: {
@@ -207,6 +237,17 @@
       }, screenId);
       this.applyEndpointGroupSecurity(appbar.requests || definition.requests, {
         list: "home.requests.list"
+      }, screenId);
+      this.applyEndpointGroupSecurity(appbar.jobs || definition.jobs, {
+        list: "home.jobs.list"
+      }, screenId);
+      this.applyEndpointGroupSecurity(appbar.subscriberSwitch || definition.subscriberSwitch, {
+        change: "home.subscriber.change"
+      }, screenId);
+      this.applyEndpointGroupSecurity(appbar.runtimeMessages || definition.runtimeMessages, {
+        poll: "runtime.messages.poll",
+        ack: "runtime.messages.ack",
+        forceLogout: "runtime.admin.forceLogout"
       }, screenId);
       return definition;
     }
@@ -262,6 +303,7 @@
       this.destroySupportWindow();
       this.destroyAiChatWindow();
       this.destroyAppbarPanelWindows();
+      this.destroySubscriberSwitchWindow();
       this.destroyCurrentProgram();
       kendo.destroy(this.root);
       this.root.empty();
@@ -289,10 +331,10 @@
       this.programTitleElement = $("<h1></h1>").text(this.definition.app.title).appendTo(titleLine);
       this.programVersionElement = $("<span class=\"home-program-version k-badge k-badge-solid k-badge-solid-base k-rounded-md\" hidden></span>").appendTo(titleLine);
       this.renderProgramFavoriteButton(titleLine);
+      this.programLastUpdatedElement = $("<span class=\"home-last-updated-text\"></span>").appendTo(titleLine);
       const meta = $("<div class=\"home-program-meta\"></div>").appendTo(center);
       this.programSubtitleElement = $("<button type=\"button\" class=\"home-program-subtitle\" hidden></button>").appendTo(meta);
       this.programSubtitleElement.on("click", () => this.openProgramSubtitleTooltip());
-      this.programLastUpdatedElement = $("<span class=\"crud-last-updated k-badge k-badge-solid k-badge-solid-primary k-rounded-md\"></span>").appendTo(meta);
       this.renderCurrentSubscriber(meta);
 
       const actions = $("<div class=\"home-appbar-actions\"></div>").appendTo(appbar);
@@ -302,6 +344,7 @@
       this.renderAiChatButton(actions);
       this.renderAppbarListButton(actions, "alerts");
       this.renderAppbarListButton(actions, "requests");
+      this.renderAppbarListButton(actions, "jobs");
       if (this.definition.layout.appbar.showRefresh !== false) {
         this.refreshButton = $("<button type=\"button\" class=\"home-icon-button\"></button>")
           .attr("title", "Atualizar")
@@ -703,13 +746,42 @@
     }
 
     buildChatContextPayload() {
-      const info = this.currentHeaderInfo || {};
+      const program = this.buildCurrentProgramPayload();
       return {
         appId: this.definition.app && this.definition.app.id || "",
         appTitle: this.definition.app && this.definition.app.title || "",
-        programId: info.id || this.currentProgram && this.currentProgram.id || "",
-        programTitle: info.title || this.currentProgram && this.currentProgram.title || ""
+        programId: program.id,
+        programCode: program.code,
+        programTitle: program.title,
+        programScreenId: program.screenId,
+        programType: program.type,
+        moduleId: program.moduleId,
+        currentProgram: program
       };
+    }
+
+    buildCurrentProgramPayload() {
+      const info = this.currentHeaderInfo || {};
+      const program = this.currentProgram || {};
+      const id = String(program.id || info.id || "").trim();
+      const code = String(program.code || program.programCode || info.code || id).trim();
+      const title = String(info.title || program.title || "").trim();
+      return {
+        id,
+        code,
+        programId: id,
+        programCode: code,
+        title,
+        screenId: String(program.screenId || info.screenId || "").trim(),
+        type: String(program.type || info.type || "").trim(),
+        moduleId: String(program.moduleId || this.findModuleIdByProgramId(id) || "").trim(),
+        version: String(info.version || program.version || program.programVersion || "").trim(),
+        subtitle: String(info.subtitle || program.subtitle || program.description || "").trim()
+      };
+    }
+
+    buildSupportContextPayload() {
+      return global.CrudUtils.clone(this.currentSupportContext || this.buildChatContextPayload());
     }
 
     normalizeChatResponseMessages(response, bot) {
@@ -840,10 +912,12 @@
         return;
       }
 
+      this.currentSupportContext = this.buildChatContextPayload();
       if (!this.supportWindowElement) {
         this.createSupportWindow(support);
       }
 
+      this.updateSupportContextView();
       this.resizeSupportWindow(support);
       this.supportWindow.center().open();
       this.loadSupportAvailability(support);
@@ -852,6 +926,7 @@
     createSupportWindow(support) {
       this.supportWindowElement = $("<div class=\"home-support-window\"></div>").appendTo(document.body);
       this.supportStatusElement = $("<div class=\"home-support-status\"></div>").appendTo(this.supportWindowElement);
+      this.supportContextElement = $("<div class=\"home-support-context\" hidden></div>").appendTo(this.supportWindowElement);
       this.renderSupportOnlineSection(support);
       this.renderSupportRequestSection(support);
       this.supportWindowElement.kendoWindow({
@@ -868,6 +943,25 @@
       });
       this.supportWindow = this.supportWindowElement.data("kendoWindow");
       this.initializeSupportChatWidget(support);
+    }
+
+    updateSupportContextView() {
+      if (!this.supportContextElement) {
+        return;
+      }
+      const context = this.buildSupportContextPayload();
+      const program = context.currentProgram || {};
+      const title = program.title || context.programTitle || "";
+      const code = program.code || context.programCode || context.programId || "";
+      if (!title && !code) {
+        this.supportContextElement.attr("hidden", true).text("");
+        return;
+      }
+      const text = "Programa: " + (title || code) + (code && code !== title ? " (" + code + ")" : "");
+      this.supportContextElement
+        .removeAttr("hidden")
+        .attr("title", text)
+        .text(text);
     }
 
     renderSupportOnlineSection(support) {
@@ -1047,7 +1141,7 @@
       this.supportRequestSection.attr("hidden", true);
       this.requestSupportEndpoint(endpoint, {
         user: this.buildChatUserPayload(),
-        context: this.buildChatContextPayload()
+        context: this.buildSupportContextPayload()
       }).then((response) => {
         this.bindSupportAvailability(support, response);
       }).catch(() => {
@@ -1270,7 +1364,7 @@
       this.requestSupportEndpoint(endpoint, {
         user: this.buildChatUserPayload(),
         attendant,
-        context: this.buildChatContextPayload()
+        context: this.buildSupportContextPayload()
       }).then((response) => {
         this.postSupportChatMessages(this.normalizeChatResponseMessages(response, {
           id: attendant.id,
@@ -1296,7 +1390,7 @@
         message,
         user: this.buildChatUserPayload(),
         attendant,
-        context: this.buildChatContextPayload()
+        context: this.buildSupportContextPayload()
       }).then((response) => {
         this.postSupportChatMessages(this.normalizeChatResponseMessages(response, {
           id: attendant.id,
@@ -1337,7 +1431,7 @@
         subject,
         description,
         user: this.buildChatUserPayload(),
-        context: this.buildChatContextPayload()
+        context: this.buildSupportContextPayload()
       }).then((response) => {
         const protocol = response && (response.protocol || response.id || response.requestId);
         this.setSupportStatus(protocol ? "Solicitacao criada: " + protocol + "." : "Solicitacao criada.", "success");
@@ -1432,10 +1526,12 @@
       this.supportRequestBackButton = null;
       this.supportChatHost = null;
       this.supportChatWidget = null;
+      this.supportContextElement = null;
       this.supportOnlineUsers = [];
       this.supportSectors = [];
       this.currentSupportUser = null;
       this.currentSupportSectorId = "";
+      this.currentSupportContext = null;
       this.supportHistoryLoadedUserId = "";
     }
 
@@ -1667,20 +1763,46 @@
       const config = this.getAppbarListConfig(kind);
       const defaults = this.getAppbarListDefaults(kind);
       const title = config.buttonTitle || config.title || defaults.title;
+      const wrapper = $("<span class=\"home-appbar-list-button-wrap\"></span>").appendTo(container);
       const button = $("<button type=\"button\" class=\"home-icon-button home-appbar-list-button\"></button>")
         .attr("title", title)
         .attr("aria-label", title)
-        .appendTo(container);
+        .appendTo(wrapper);
       button.kendoButton({ icon: config.icon || defaults.icon });
-      button.on("click", () => this.openAppbarListWindow(kind, button));
+      button.on("click", () => this.handleAppbarListButtonClick(kind, button));
+      if (kind === "jobs") {
+        this.jobsIndicatorButton = button;
+        this.jobsIndicatorBadge = $("<span class=\"home-appbar-count-badge\" hidden></span>").text("0").appendTo(wrapper);
+        this.startJobsIndicatorPolling();
+      }
     }
 
     shouldShowAppbarListButton(kind) {
       const config = this.getAppbarListConfig(kind);
-      return config.enabled === true && this.hasPermission(config.permission) && Boolean(this.getAppbarListEndpoint(config));
+      return config.enabled === true &&
+        this.hasPermission(config.permission) &&
+        (Boolean(this.getAppbarListEndpoint(config)) || Boolean(kind === "jobs" && config.programId));
+    }
+
+    handleAppbarListButtonClick(kind, button) {
+      const config = this.getAppbarListConfig(kind);
+      const endpoint = this.getAppbarListEndpoint(config);
+      if (!endpoint && kind === "jobs" && config.programId) {
+        this.setJobsIndicatorCount(0);
+        this.openProgram(config.programId);
+        return;
+      }
+      this.openAppbarListWindow(kind, button);
     }
 
     getAppbarListDefaults(kind) {
+      if (kind === "jobs") {
+        return {
+          title: "Jobs",
+          emptyText: "Nenhum job concluido.",
+          icon: "clock"
+        };
+      }
       if (kind === "requests") {
         return {
           title: "Solicitacoes",
@@ -1793,7 +1915,12 @@
       if (Array.isArray(response)) {
         return response.map((item) => this.normalizeAppbarListItem(item));
       }
-      const key = kind === "requests" ? "requests" : "alerts";
+      const keys = {
+        alerts: "alerts",
+        requests: "requests",
+        jobs: "jobs"
+      };
+      const key = keys[kind] || "items";
       const source = response && (response.items || response.data || response[key]);
       return global.CrudUtils.ensureArray(source).map((item) => this.normalizeAppbarListItem(item));
     }
@@ -1827,6 +1954,7 @@
         description: source.description || source.summary || source.body || "",
         meta: meta.join(" - "),
         linkUrl: source.linkUrl || source.url || "",
+        programId: source.programId || source.openProgramId || "",
         linkText: source.linkText || "Abrir"
       };
     }
@@ -1860,12 +1988,102 @@
             .text(item.linkText)
             .appendTo(element);
         }
+        if (item.programId && this.findProgram(item.programId)) {
+          const button = $("<button type=\"button\" class=\"home-appbar-list-link\"></button>")
+            .text(item.linkText || "Abrir")
+            .appendTo(element);
+          button.kendoButton({ icon: "folder-open" });
+          button.on("click", () => {
+            this.destroyAppbarPanelWindows();
+            this.setJobsIndicatorCount(0);
+            this.openProgram(item.programId);
+          });
+        }
       });
+    }
+
+    startJobsIndicatorPolling() {
+      const config = this.getAppbarListConfig("jobs");
+      const endpoint = this.getAppbarListEndpoint(config);
+      if (!endpoint || !endpoint.url || this.jobsIndicatorTimer || config.indicatorPolling === false) {
+        return;
+      }
+      const seconds = Math.max(10, Number(config.pollIntervalSeconds || 30));
+      this.refreshJobsIndicator();
+      this.jobsIndicatorTimer = window.setInterval(() => {
+        this.refreshJobsIndicator();
+      }, seconds * 1000);
+    }
+
+    stopJobsIndicatorPolling() {
+      if (this.jobsIndicatorTimer) {
+        window.clearInterval(this.jobsIndicatorTimer);
+        this.jobsIndicatorTimer = null;
+      }
+    }
+
+    refreshJobsIndicator() {
+      const config = this.getAppbarListConfig("jobs");
+      const endpoint = this.getAppbarListEndpoint(config);
+      if (!endpoint || !endpoint.url || !this.jobsIndicatorBadge) {
+        return Promise.resolve(0);
+      }
+      return this.requestAppbarListEndpoint(endpoint, {
+        user: this.buildChatUserPayload(),
+        context: this.buildChatContextPayload(),
+        onlyMine: true
+      }).then((response) => {
+        const items = this.normalizeAppbarListItems(response, "jobs");
+        const count = items.length;
+        this.setJobsIndicatorCount(Math.max(this.completedJobsCount, count));
+        return count;
+      }).catch(function() {
+        return 0;
+      });
+    }
+
+    handleProcessJobCompleted(event) {
+      const job = event && event.job || {};
+      const jobId = String(job.id || "");
+      if (jobId && this.completedJobIds[jobId]) {
+        return;
+      }
+      if (jobId) {
+        this.completedJobIds[jobId] = true;
+      }
+      this.completedJobsCount += 1;
+      this.setJobsIndicatorCount(this.completedJobsCount);
+      global.CrudUtils.showMessage("Processamento concluido.", "success");
+    }
+
+    setJobsIndicatorCount(count) {
+      this.completedJobsCount = Math.max(0, Number(count || 0));
+      if (!this.jobsIndicatorBadge) {
+        return;
+      }
+      if (this.completedJobsCount > 0) {
+        this.jobsIndicatorBadge.removeAttr("hidden").text(String(this.completedJobsCount));
+      } else {
+        this.jobsIndicatorBadge.attr("hidden", true).text("0");
+      }
     }
 
     destroyAppbarPanelWindows() {
       Object.keys(this.appbarPanelWindows || {}).forEach((kind) => this.destroyAppbarPanelWindow(kind));
       this.appbarPanelWindows = {};
+    }
+
+    destroySubscriberSwitchWindow() {
+      if (this.subscriberSwitchWindow) {
+        this.subscriberSwitchWindow.destroy();
+      }
+      if (this.subscriberSwitchWindowElement) {
+        this.subscriberSwitchWindowElement.remove();
+      }
+      this.subscriberSwitchWindowElement = null;
+      this.subscriberSwitchWindow = null;
+      this.subscriberSwitchInput = null;
+      this.subscriberSwitchDropDown = null;
     }
 
     destroyAppbarPanelWindow(kind) {
@@ -1949,10 +2167,19 @@
       const displayName = this.getSubscriberDisplayName(subscriber);
       const label = this.getSubscriberLabel(subscriber);
       const title = this.getSubscriberTitle(subscriber, displayName, label);
-      $("<span class=\"home-current-subscriber k-badge k-badge-solid k-badge-solid-base k-rounded-md\"></span>")
-        .attr("title", title)
-        .text(label ? label + ": " + displayName : displayName)
+      const switchable = this.isSubscriberSwitchable();
+      const element = $(switchable ? "<button type=\"button\"></button>" : "<span></span>")
+        .addClass("home-current-subscriber k-badge k-badge-solid k-badge-solid-base k-rounded-md")
+        .attr("title", switchable ? title + " | Clique para trocar" : title)
+        .text(this.getSubscriberBadgeText(subscriber, displayName, label))
+        .toggleClass("is-principal", this.isPrincipalSubscriber(subscriber))
+        .toggleClass("is-switchable", switchable)
         .appendTo(container);
+      if (switchable) {
+        element.attr("aria-label", "Trocar assinante atual: " + displayName);
+        element.on("click", () => this.openSubscriberSwitchWindow());
+      }
+      this.currentSubscriberElement = element;
     }
 
     shouldShowCurrentSubscriber(subscriber) {
@@ -1969,6 +2196,9 @@
     }
 
     getSubscriberDisplayName(subscriber) {
+      if (this.isPrincipalSubscriber(subscriber)) {
+        return String(subscriber.name || subscriber.displayName || subscriber.title || "Principal").trim();
+      }
       return String(subscriber.name || subscriber.displayName || subscriber.title || subscriber.code || subscriber.id || "").trim();
     }
 
@@ -1978,7 +2208,9 @@
 
     getSubscriberTitle(subscriber, displayName, label) {
       const details = [];
-      if (label) {
+      if (this.isPrincipalSubscriber(subscriber)) {
+        details.push("Principal");
+      } else if (label) {
         details.push(label + ": " + displayName);
       } else {
         details.push(displayName);
@@ -1990,6 +2222,301 @@
         details.push("ID: " + subscriber.id);
       }
       return details.join(" | ");
+    }
+
+    getSubscriberBadgeText(subscriber, displayName, label) {
+      if (this.isPrincipalSubscriber(subscriber)) {
+        return "Principal";
+      }
+      return label ? label + ": " + displayName : displayName;
+    }
+
+    isPrincipalSubscriber(subscriber) {
+      if (!subscriber) {
+        return false;
+      }
+      const id = String(subscriber.id || subscriber.code || "").toLowerCase();
+      const type = String(subscriber.type || subscriber.database || subscriber.kind || "").toLowerCase();
+      return subscriber.principal === true ||
+        subscriber.isPrincipal === true ||
+        id === "principal" ||
+        id === "main" ||
+        id === "master" ||
+        type === "principal" ||
+        type === "main" ||
+        type === "master";
+    }
+
+    getSubscriberSwitchConfig() {
+      const appbar = this.definition.layout && this.definition.layout.appbar ? this.definition.layout.appbar : {};
+      const config = appbar.subscriberSwitch || this.definition.subscriberSwitch || {};
+      return config && typeof config === "object" && !Array.isArray(config) ? config : {};
+    }
+
+    isSubscriberSwitchable() {
+      const config = this.getSubscriberSwitchConfig();
+      if (config.enabled === false) {
+        return false;
+      }
+      return this.getAvailableSubscribers().length > 1 ||
+        Boolean(this.getSubscriberSwitchEndpoint(config)) ||
+        Boolean(config.programId || config.changeProgramId || config.url || config.changeUrl);
+    }
+
+    openSubscriberSwitchWindow() {
+      const config = this.getSubscriberSwitchConfig();
+      if (!this.isSubscriberSwitchable()) {
+        return;
+      }
+      if (this.subscriberSwitchWindow) {
+        this.subscriberSwitchWindow.center().open();
+        return;
+      }
+      this.createSubscriberSwitchWindow(config);
+      this.subscriberSwitchWindow.center().open();
+    }
+
+    createSubscriberSwitchWindow(config) {
+      const subscribers = this.getAvailableSubscribers();
+      this.subscriberSwitchWindowElement = $("<div class=\"home-subscriber-window\"></div>").appendTo(document.body);
+      const body = $("<div class=\"home-subscriber-window-body\"></div>").appendTo(this.subscriberSwitchWindowElement);
+      $("<p class=\"home-subscriber-window-note\"></p>")
+        .text(config.description || "Selecione o assinante para continuar trabalhando no sistema.")
+        .appendTo(body);
+
+      if (subscribers.length) {
+        const field = $("<label class=\"home-subscriber-field\"></label>").appendTo(body);
+        $("<span></span>").text(config.fieldLabel || "Assinante").appendTo(field);
+        this.subscriberSwitchInput = $("<input type=\"text\">").appendTo(field);
+        this.subscriberSwitchInput.kendoDropDownList({
+          dataTextField: "displayText",
+          dataValueField: "id",
+          valueTemplate: "#: displayText #",
+          template: "# if (principal) { #<strong>Principal</strong># } else { #<span>#: displayText #</span># } #",
+          dataSource: subscribers
+        });
+        this.subscriberSwitchDropDown = this.subscriberSwitchInput.data("kendoDropDownList");
+        const current = this.getCurrentSubscriber();
+        const selected = subscribers.find((item) => this.isSameSubscriber(item, current)) || subscribers[0];
+        if (selected) {
+          this.subscriberSwitchDropDown.value(selected.id);
+        }
+      } else {
+        $("<div class=\"home-chat-empty\"></div>")
+          .text("Nenhum assinante disponivel para selecao.")
+          .appendTo(body);
+      }
+
+      const actions = $("<div class=\"home-subscriber-actions\"></div>").appendTo(body);
+      if (subscribers.length) {
+        const confirmButton = $("<button type=\"button\"></button>")
+          .text(config.confirmText || "Confirmar")
+          .appendTo(actions);
+        confirmButton.kendoButton({ icon: "check" });
+        confirmButton.on("click", () => this.confirmSubscriberSwitch(config));
+      }
+      if (config.programId || config.changeProgramId || config.url || config.changeUrl) {
+        const openButton = $("<button type=\"button\"></button>")
+          .text(config.openText || "Abrir tela de troca")
+          .appendTo(actions);
+        openButton.kendoButton({ icon: "window" });
+        openButton.on("click", () => this.openSubscriberSwitchTarget(config));
+      }
+      const cancelButton = $("<button type=\"button\"></button>")
+        .text(config.cancelText || "Cancelar")
+        .appendTo(actions);
+      cancelButton.kendoButton();
+      cancelButton.on("click", () => this.subscriberSwitchWindow && this.subscriberSwitchWindow.close());
+
+      this.subscriberSwitchWindowElement.kendoWindow({
+        title: config.title || "Trocar assinante",
+        modal: true,
+        visible: false,
+        width: Math.min(Number(config.width) || 430, Math.max(320, window.innerWidth - 24)),
+        maxHeight: Math.max(320, window.innerHeight - 24),
+        actions: ["Close"],
+        close: () => this.destroySubscriberSwitchWindow()
+      });
+      this.subscriberSwitchWindow = this.subscriberSwitchWindowElement.data("kendoWindow");
+    }
+
+    confirmSubscriberSwitch(config) {
+      const selected = this.getSelectedSubscriber();
+      if (!selected) {
+        global.CrudUtils.showMessage("Selecione um assinante.", "warning");
+        return;
+      }
+      const current = this.getCurrentSubscriber();
+      if (this.isSameSubscriber(selected, current)) {
+        if (this.subscriberSwitchWindow) {
+          this.subscriberSwitchWindow.close();
+        }
+        return;
+      }
+      this.requestSubscriberChange(config, selected)
+        .then((response) => {
+          const next = this.normalizeSubscriberOption(
+            response && (response.currentSubscriber || response.subscriber || response.data) || selected
+          );
+          this.applySubscriberChange(next);
+          if (this.subscriberSwitchWindow) {
+            this.subscriberSwitchWindow.close();
+          }
+          global.CrudUtils.showMessage("Assinante alterado.", "success");
+        })
+        .catch((error) => {
+          const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel trocar o assinante.");
+          global.CrudUtils.showMessage(normalized.message, "error");
+        });
+    }
+
+    requestSubscriberChange(config, subscriber) {
+      const endpoint = this.getSubscriberSwitchEndpoint(config);
+      if (!endpoint) {
+        return Promise.resolve({ currentSubscriber: subscriber });
+      }
+      return this.httpClient.request({
+        url: endpoint.url || endpoint,
+        method: endpoint.method || config.method || "POST",
+        data: {
+          subscriberId: subscriber.id,
+          subscriber,
+          currentUser: this.buildChatUserPayload()
+        }
+      });
+    }
+
+    getSubscriberSwitchEndpoint(config) {
+      const endpoints = config && config.endpoints ? config.endpoints : {};
+      const endpoint = endpoints.change || config.endpoint || config.changeEndpoint || "";
+      if (!endpoint) {
+        return null;
+      }
+      if (typeof endpoint === "string") {
+        return {
+          url: endpoint,
+          method: "POST"
+        };
+      }
+      if (typeof endpoint === "object" && endpoint.url) {
+        return {
+          url: endpoint.url,
+          method: String(endpoint.method || "POST").toUpperCase()
+        };
+      }
+      if (typeof endpoint === "object" && endpoint.endpointId && String(endpoint.endpointId).charAt(0) === "/") {
+        return {
+          url: endpoint.endpointId,
+          method: String(endpoint.method || "POST").toUpperCase()
+        };
+      }
+      return null;
+    }
+
+    getSelectedSubscriber() {
+      if (!this.subscriberSwitchDropDown) {
+        return null;
+      }
+      const dataItem = this.subscriberSwitchDropDown.dataItem();
+      if (dataItem) {
+        return this.normalizeSubscriberOption(dataItem);
+      }
+      const value = this.subscriberSwitchDropDown.value();
+      return this.getAvailableSubscribers().find(function(item) {
+        return String(item.id || "") === String(value || "");
+      }) || null;
+    }
+
+    applySubscriberChange(subscriber) {
+      this.definition.currentSubscriber = subscriber;
+      this.definition.currentTenant = subscriber;
+      this.definition.tenant = subscriber;
+      this.updateCurrentSubscriberBadge();
+    }
+
+    updateCurrentSubscriberBadge() {
+      if (!this.currentSubscriberElement || !this.currentSubscriberElement.length) {
+        return;
+      }
+      const subscriber = this.getCurrentSubscriber();
+      const displayName = this.getSubscriberDisplayName(subscriber);
+      const label = this.getSubscriberLabel(subscriber);
+      const switchable = this.isSubscriberSwitchable();
+      const title = this.getSubscriberTitle(subscriber, displayName, label);
+      this.currentSubscriberElement
+        .attr("title", switchable ? title + " | Clique para trocar" : title)
+        .attr("aria-label", switchable ? "Trocar assinante atual: " + displayName : null)
+        .toggleClass("is-principal", this.isPrincipalSubscriber(subscriber))
+        .toggleClass("is-switchable", switchable)
+        .text(this.getSubscriberBadgeText(subscriber, displayName, label));
+    }
+
+    openSubscriberSwitchTarget(config) {
+      const programId = config.programId || config.changeProgramId || "";
+      const url = config.url || config.changeUrl || "";
+      if (this.subscriberSwitchWindow) {
+        this.subscriberSwitchWindow.close();
+      }
+      if (programId) {
+        this.openProgram(programId);
+        return;
+      }
+      if (url) {
+        global.open(url, "_blank", "noopener,noreferrer");
+      }
+    }
+
+    getAvailableSubscribers() {
+      const config = this.getSubscriberSwitchConfig();
+      const user = this.getCurrentUser();
+      const current = this.getCurrentSubscriber();
+      const sources = []
+        .concat(global.CrudUtils.ensureArray(config.subscribers || config.options))
+        .concat(global.CrudUtils.ensureArray(this.definition.availableSubscribers || this.definition.subscribers || this.definition.tenants))
+        .concat(global.CrudUtils.ensureArray(user.availableSubscribers || user.subscribers || user.tenants))
+        .concat(global.CrudUtils.ensureArray(current.options || current.subscribers || current.tenants));
+      if (this.getSubscriberDisplayName(current)) {
+        sources.unshift(current);
+      }
+      const seen = {};
+      return sources.map((item) => this.normalizeSubscriberOption(item)).filter((item) => {
+        const key = String(item.id || item.name || "").trim();
+        if (!key || seen[key]) {
+          return false;
+        }
+        seen[key] = true;
+        return true;
+      });
+    }
+
+    normalizeSubscriberOption(source) {
+      if (typeof source === "string") {
+        return {
+          id: source,
+          name: source,
+          displayText: source,
+          principal: source.toLowerCase() === "principal"
+        };
+      }
+      const item = Object.assign({}, source || {});
+      const principal = this.isPrincipalSubscriber(item);
+      const id = String(item.id || item.code || (principal ? "principal" : item.name || item.displayName || "")).trim();
+      const name = String(item.name || item.displayName || item.title || item.code || id || (principal ? "Principal" : "")).trim();
+      item.id = id;
+      item.name = principal ? (name || "Principal") : name;
+      item.label = item.label || "Assinante";
+      item.principal = principal;
+      item.displayText = principal ? "Principal" : (item.document ? item.name + " - " + item.document : item.name);
+      return item;
+    }
+
+    isSameSubscriber(a, b) {
+      const left = this.normalizeSubscriberOption(a || {});
+      const right = this.normalizeSubscriberOption(b || {});
+      if (left.id && right.id) {
+        return String(left.id) === String(right.id);
+      }
+      return this.getSubscriberDisplayName(left) === this.getSubscriberDisplayName(right);
     }
 
     renderProgramFavoriteButton(container) {
@@ -2186,10 +2713,32 @@
         return;
       }
       if ((item.action || item.id) === "logout") {
-        global.CrudUtils.showMessage("Saida solicitada.", "info");
+        this.handleLogout();
         return;
       }
       global.CrudUtils.showMessage("Acao do usuario acionada: " + item.label + ".", "info");
+    }
+
+    handleLogout() {
+      if (this.loggingOut) {
+        return;
+      }
+      this.loggingOut = true;
+      const done = () => {
+        this.loggingOut = false;
+        if (this.httpClient && typeof this.httpClient.redirectToLogin === "function") {
+          this.httpClient.redirectToLogin(false);
+          return;
+        }
+        global.CrudUtils.showMessage("Saida solicitada.", "info");
+      };
+
+      if (this.httpClient && typeof this.httpClient.logout === "function") {
+        this.httpClient.logout().then(done).catch(done);
+        return;
+      }
+
+      done();
     }
 
     renderMain(shell) {
@@ -2504,6 +3053,11 @@
     }
 
     resolveInitialModuleId() {
+      const requestedProgramId = this.getRequestedInitialProgramId();
+      const requestedModuleId = this.findModuleIdByProgramId(requestedProgramId);
+      if (requestedModuleId && this.findModule(requestedModuleId)) {
+        return requestedModuleId;
+      }
       const navigation = this.definition.navigation || {};
       const configuredInitialId = String(navigation.initialModuleId || "").trim() || this.allModulesId;
       if (this.findModule(configuredInitialId)) {
@@ -2633,12 +3187,33 @@
     }
 
     openInitialProgram() {
-      const initialId = this.definition.layout.initialProgramId || (this.definition.programs[0] && this.definition.programs[0].id);
+      const initialId = this.getRequestedInitialProgramId() ||
+        this.definition.layout.initialProgramId ||
+        (this.definition.programs[0] && this.definition.programs[0].id);
       return this.openProgram(initialId, { syncModule: false });
+    }
+
+    getRequestedInitialProgramId() {
+      const programId = String(this.options.initialProgramId || "").trim();
+      if (!programId) {
+        return "";
+      }
+      return this.findProgram(programId) ? programId : "";
     }
 
     openProgram(programId, options) {
       const openOptions = options || {};
+      if (this.sessionRevoked) {
+        return Promise.resolve();
+      }
+      if (!openOptions.skipUnsavedCheck) {
+        return this.confirmCurrentProgramNavigation().then((confirmed) => {
+          if (!confirmed) {
+            return null;
+          }
+          return this.openProgram(programId, Object.assign({}, openOptions, { skipUnsavedCheck: true }));
+        });
+      }
       const program = this.findProgram(programId);
       if (!program) {
         this.renderContentMessage("Programa nao encontrado.", "error");
@@ -2660,6 +3235,9 @@
 
       if (program.type === "crud") {
         return this.renderCrudProgram(program);
+      }
+      if (program.type === "process") {
+        return this.renderProcessProgram(program);
       }
       if (program.type === "html") {
         return this.renderHtmlProgram(program);
@@ -2698,7 +3276,38 @@
         security: this.securityPolicy,
         hideHeader: true,
         hideThemeSwitch: true,
+        runtimeMessages: false,
         onLastUpdated: (date) => this.updateProgramLastUpdated(date),
+        httpClient: this.httpClient
+      });
+      this.currentProgramEngine = engine;
+      return engine.init().then((instance) => {
+        if (this.currentProgram && this.currentProgram.id === program.id) {
+          this.currentProgramEngine = instance;
+          this.updateProgramHeader(program, instance.definition);
+        }
+        return instance;
+      });
+    }
+
+    renderProcessProgram(program) {
+      this.contentRoot.empty();
+      const rootId = "home-process-program-" + this.normalizeDomId(program.id);
+      $("<main></main>")
+        .attr("id", rootId)
+        .addClass("home-process-root crud-app-shell")
+        .appendTo(this.contentRoot);
+
+      const engine = new global.ProcessEngine({
+        root: "#" + rootId,
+        screenId: program.screenId,
+        definitionUrl: program.definitionUrl,
+        definition: program.definition,
+        config: this.getEmbeddedProgramConfig(),
+        security: this.securityPolicy,
+        hideHeader: true,
+        onLastUpdated: (date) => this.updateProgramLastUpdated(date),
+        onJobCompleted: (event) => this.handleProcessJobCompleted(event),
         httpClient: this.httpClient
       });
       this.currentProgramEngine = engine;
@@ -2978,10 +3587,13 @@
       const fallback = program || {};
       return {
         id: source.id || programMeta.id || fallback.id || "",
+        code: source.code || programMeta.code || fallback.code || fallback.programCode || fallback.id || "",
         title: source.title || programMeta.title || fallback.title || this.definition.app.title,
         version: source.programVersion || programMeta.version || fallback.version || fallback.programVersion || "",
         subtitle: source.subtitle || programMeta.subtitle || fallback.subtitle || fallback.description || "",
         subtitleTooltip: source.subtitleTooltip || programMeta.subtitleTooltip || fallback.subtitleTooltip || "",
+        screenId: source.screenId || programMeta.screenId || fallback.screenId || "",
+        type: fallback.type || "",
         help: source.help || programMeta.help || fallback.help || null,
         logs: source.logs || programMeta.logs || fallback.logs || null
       };
@@ -3316,13 +3928,258 @@
       this.updateSidebarToggleState();
     }
 
+    confirmCurrentProgramNavigation() {
+      if (!this.currentProgramEngine || typeof this.currentProgramEngine.confirmDiscardChanges !== "function") {
+        return Promise.resolve(true);
+      }
+      return this.currentProgramEngine.confirmDiscardChanges();
+    }
+
+    startRuntimeMessagePolling() {
+      if (this.sessionRevoked) {
+        return;
+      }
+      this.stopRuntimeMessagePolling();
+      const appbar = this.definition && this.definition.layout && this.definition.layout.appbar || {};
+      const config = appbar.runtimeMessages || this.definition.runtimeMessages || {};
+      const seconds = Math.max(10, Number(config.pollIntervalSeconds || 30));
+      if (config.enabled === false) {
+        return;
+      }
+      if (this.startRuntimeMessageEvents(config, seconds)) {
+        return;
+      }
+      this.startRuntimeMessageTimer(seconds);
+    }
+
+    startRuntimeMessageTimer(seconds) {
+      const endpoint = this.getRuntimeMessageEndpoint("poll");
+      if (!endpoint || !endpoint.url || this.sessionRevoked) {
+        return;
+      }
+      this.pollRuntimeMessages();
+      this.runtimeMessageTimer = window.setInterval(() => {
+        this.pollRuntimeMessages();
+      }, seconds * 1000);
+    }
+
+    stopRuntimeMessagePolling() {
+      if (this.runtimeMessageTimer) {
+        window.clearInterval(this.runtimeMessageTimer);
+        this.runtimeMessageTimer = null;
+      }
+      this.stopRuntimeMessageEvents();
+    }
+
+    startRuntimeMessageEvents(config, fallbackSeconds) {
+      const events = config.events || {};
+      if (events.enabled === false || typeof global.EventSource !== "function" || global.location && global.location.protocol === "file:") {
+        return false;
+      }
+      const url = this.getRuntimeEventSourceUrl(config);
+      if (!url) {
+        return false;
+      }
+
+      let source = null;
+      try {
+        source = new global.EventSource(url);
+      } catch (_) {
+        return false;
+      }
+
+      this.runtimeEventSource = source;
+      source.onopen = () => {
+        if (this.runtimeEventFallbackTimer) {
+          window.clearTimeout(this.runtimeEventFallbackTimer);
+          this.runtimeEventFallbackTimer = null;
+        }
+        if (this.runtimeMessageTimer) {
+          window.clearInterval(this.runtimeMessageTimer);
+          this.runtimeMessageTimer = null;
+        }
+      };
+      source.addEventListener("runtime-messages", (event) => {
+        const payload = this.parseRuntimeEventPayload(event);
+        this.handleRuntimeMessages(payload.messages || []);
+      });
+      source.addEventListener("runtime-error", (event) => {
+        const payload = this.parseRuntimeEventPayload(event);
+        this.handleRuntimeEventError(payload.error || {});
+      });
+      source.onerror = () => {
+        if (this.sessionRevoked || this.runtimeEventFallbackTimer) {
+          return;
+        }
+        this.runtimeEventFallbackTimer = window.setTimeout(() => {
+          if (this.runtimeEventSource === source && source.readyState !== global.EventSource.OPEN && !this.sessionRevoked) {
+            this.stopRuntimeMessageEvents();
+            this.startRuntimeMessageTimer(fallbackSeconds);
+          }
+        }, 10000);
+      };
+
+      return true;
+    }
+
+    stopRuntimeMessageEvents() {
+      if (this.runtimeEventFallbackTimer) {
+        window.clearTimeout(this.runtimeEventFallbackTimer);
+        this.runtimeEventFallbackTimer = null;
+      }
+      if (this.runtimeEventSource) {
+        this.runtimeEventSource.onopen = null;
+        this.runtimeEventSource.onerror = null;
+        this.runtimeEventSource.close();
+        this.runtimeEventSource = null;
+      }
+    }
+
+    getRuntimeEventSourceUrl(config) {
+      const policyEndpoint = this.securityPolicy && this.securityPolicy.endpoints && this.securityPolicy.endpoints.runtimeEventsEndpoint || {};
+      const events = config && config.events || {};
+      const configuredUrl = this.securityPolicy && this.securityPolicy.production ? "" : (events.url || config && config.eventSourceUrl || "");
+      const url = configuredUrl || policyEndpoint.url || "";
+      if (!url) {
+        return "";
+      }
+      const screenId = this.getHomeScreenId();
+      const eventUrl = global.CrudUtils.replaceUrlParams(url, { screenId });
+      if (this.httpClient && typeof this.httpClient.buildRuntimeEventUrl === "function") {
+        return this.httpClient.buildRuntimeEventUrl(eventUrl, {
+          screenId,
+          channel: "home"
+        });
+      }
+      return eventUrl;
+    }
+
+    parseRuntimeEventPayload(event) {
+      try {
+        return JSON.parse(event && event.data || "{}");
+      } catch (_) {
+        return {};
+      }
+    }
+
+    handleRuntimeEventError(error) {
+      const normalized = error && error.code ? error : { code: "RUNTIME_EVENT_ERROR", message: "Canal de eventos indisponivel.", details: {} };
+      if (normalized.code === "SESSION_REVOKED" || normalized.code === "SESSION_EXPIRED") {
+        this.handleSessionRevoked(normalized.message, normalized.details || {});
+        return;
+      }
+      if (!this.runtimeMessageTimer && !this.sessionRevoked) {
+        this.stopRuntimeMessageEvents();
+        this.startRuntimeMessageTimer(30);
+      }
+    }
+
+    pollRuntimeMessages() {
+      const endpoint = this.getRuntimeMessageEndpoint("poll");
+      if (!endpoint || !endpoint.url || this.sessionRevoked) {
+        return Promise.resolve([]);
+      }
+      return this.httpClient.request({
+        url: endpoint.url,
+        method: endpoint.method || "POST",
+        data: {
+          context: this.buildChatContextPayload()
+        }
+      }).then((response) => {
+        const messages = global.CrudUtils.ensureArray(response && response.messages);
+        this.handleRuntimeMessages(messages);
+        return messages;
+      }).catch((error) => {
+        const normalized = global.CrudUtils.unwrapError(error, "");
+        if (normalized.code === "SESSION_REVOKED") {
+          this.handleSessionRevoked(normalized.message, normalized.details || {});
+        }
+        return [];
+      });
+    }
+
+    handleRuntimeMessages(messages) {
+      const ids = [];
+      global.CrudUtils.ensureArray(messages).forEach((message) => {
+        if (!message) {
+          return;
+        }
+        if (message.id != null) {
+          ids.push(message.id);
+        }
+        if (message.type === "force_logout") {
+          this.handleSessionRevoked(message.message || "Sua sessao foi encerrada.", message);
+          return;
+        }
+        global.CrudUtils.showMessage(message.message || message.title, message.severity || "info");
+      });
+      if (ids.length) {
+        this.ackRuntimeMessages(ids);
+      }
+    }
+
+    ackRuntimeMessages(ids) {
+      const endpoint = this.getRuntimeMessageEndpoint("ack");
+      if (!endpoint || !endpoint.url) {
+        return Promise.resolve(false);
+      }
+      return this.httpClient.request({
+        url: endpoint.url,
+        method: endpoint.method || "POST",
+        data: { ids }
+      }).catch(function() {
+        return false;
+      });
+    }
+
+    handleSessionRevoked(message, details) {
+      if (this.sessionRevoked) {
+        return;
+      }
+      this.sessionRevoked = true;
+      this.stopRuntimeMessagePolling();
+      if (this.currentProgramEngine && typeof this.currentProgramEngine.handleSessionRevoked === "function") {
+        this.currentProgramEngine.handleSessionRevoked(message, details || {});
+      }
+      if (this.shell) {
+        this.shell.addClass("home-session-revoked");
+      }
+      global.CrudUtils.blockingMessage("Sessao encerrada", message || "Sua sessao foi encerrada.", {
+        buttonText: "Sessao encerrada",
+        themeColor: "primary"
+      });
+    }
+
+    getRuntimeMessageEndpoint(name) {
+      const appbar = this.definition && this.definition.layout && this.definition.layout.appbar || {};
+      const group = appbar.runtimeMessages || this.definition.runtimeMessages || {};
+      const endpoints = group.endpoints || {};
+      if (endpoints[name]) {
+        return endpoints[name];
+      }
+      const endpointIds = {
+        poll: "runtime.messages.poll",
+        ack: "runtime.messages.ack",
+        forceLogout: "runtime.admin.forceLogout"
+      };
+      const endpointId = endpointIds[name];
+      if (!endpointId) {
+        return null;
+      }
+      return global.CrudUtils.resolveEndpointForPolicy({ endpointId, method: "POST" }, endpointId, this.getHomeScreenId(), this.securityPolicy);
+    }
+
     destroyCurrentProgram() {
       if (this.currentProgramEngine) {
-        if (this.currentProgramEngine.gridRenderer && typeof this.currentProgramEngine.gridRenderer.destroy === "function") {
-          this.currentProgramEngine.gridRenderer.destroy();
-        }
-        if (this.currentProgramEngine.filterRenderer && typeof this.currentProgramEngine.filterRenderer.destroy === "function") {
-          this.currentProgramEngine.filterRenderer.destroy();
+        if (typeof this.currentProgramEngine.destroy === "function") {
+          this.currentProgramEngine.destroy();
+        } else {
+          if (this.currentProgramEngine.gridRenderer && typeof this.currentProgramEngine.gridRenderer.destroy === "function") {
+            this.currentProgramEngine.gridRenderer.destroy();
+          }
+          if (this.currentProgramEngine.filterRenderer && typeof this.currentProgramEngine.filterRenderer.destroy === "function") {
+            this.currentProgramEngine.filterRenderer.destroy();
+          }
         }
       }
       if (this.contentRoot && this.contentRoot.length) {

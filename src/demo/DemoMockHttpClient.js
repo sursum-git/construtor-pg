@@ -8,6 +8,9 @@
       this.recordsStorageKey = "crud-demo-clientes-records-v4" + storageSuffix;
       this.layoutsStorageKey = "crud-demo-clientes-layouts-v2" + storageSuffix;
       this.helpSeenStorageKey = "crud-demo-help-seen-v1" + storageSuffix;
+      this.runtimeStorageKey = "crud-demo-runtime-v1" + storageSuffix;
+      this.adminStorageKey = "crud-demo-admin-runtime-v1" + storageSuffix;
+      this.processJobsStorageKey = "crud-demo-process-jobs-v1" + storageSuffix;
       this.records = this.loadInitialRecords();
       this.nextId = this.records.reduce(function(max, record) {
         return Math.max(max, Number(record.id) || 0);
@@ -18,6 +21,7 @@
       this.nextSortId = layoutState.nextSortId || 1;
       this.nextGroupId = layoutState.nextGroupId || 1;
       this.nextFilterId = layoutState.nextFilterId || 1;
+      this.nextMobileTemplateId = layoutState.nextMobileTemplateId || 1;
       this.savedLayouts = layoutState.savedLayouts || [];
       this.activeLayoutId = layoutState.activeLayoutId || null;
       this.savedSorts = layoutState.savedSorts || [];
@@ -26,13 +30,26 @@
       this.activeGroupId = layoutState.activeGroupId || null;
       this.savedFilters = layoutState.savedFilters || [];
       this.activeFilterId = layoutState.activeFilterId || null;
+      this.savedMobileTemplates = layoutState.savedMobileTemplates || [];
+      this.activeMobileTemplateId = layoutState.activeMobileTemplateId || null;
       this.helpSeen = this.loadJson(this.helpSeenStorageKey) || [];
+      this.runtimeState = this.loadJson(this.runtimeStorageKey) || {
+        locks: [],
+        messages: [],
+        revokedSessions: []
+      };
+      this.processJobs = this.loadJson(this.processJobsStorageKey) || [];
+      this.userId = settings.userId || this.resolveRuntimeUserId();
+      this.sessionId = settings.sessionId || this.resolveRuntimeSessionId();
+      this.tenantId = settings.tenantId || this.resolveRuntimeTenantId();
     }
 
     loadInitialRecords() {
       const stored = this.loadJson(this.recordsStorageKey);
       if (Array.isArray(stored) && stored.length) {
-        return stored;
+        const normalized = this.applyDefaultPhones(stored);
+        this.saveJson(this.recordsStorageKey, normalized);
+        return normalized;
       }
 
       const records = this.getDefaultRecords();
@@ -42,19 +59,45 @@
 
     getDefaultRecords() {
       return [
-        { id: 1, nome: "Acme Comercio", email: "contato@acme.test", status: "ATIVO", tipo_pessoa: "PJ", uf: "CE", cidade: "FORTALEZA", razao_social: "Acme Comercio Ltda", cnpj: "12.345.678/0001-90", data_cadastro: "2026-01-10", valor_total: 15420.5, qtde_pedidos: 12, observacao: "Cliente recorrente." },
-        { id: 2, nome: "Beta Servicos", email: "financeiro@beta.test", status: "ATIVO", tipo_pessoa: "PJ", uf: "SP", cidade: "SAO_PAULO", razao_social: "Beta Servicos Ltda", cnpj: "22.345.678/0001-90", data_cadastro: "2026-01-18", valor_total: 8450, qtde_pedidos: 5, observacao: "" },
-        { id: 3, nome: "Casa Norte", email: "compras@casanorte.test", status: "INATIVO", tipo_pessoa: "PJ", uf: "CE", cidade: "CAUCAIA", razao_social: "Casa Norte Comercio Ltda", cnpj: "32.345.678/0001-90", data_cadastro: "2026-02-02", valor_total: 2100, qtde_pedidos: 2, observacao: "Cadastro pausado." },
-        { id: 4, nome: "Delta Atacado", email: "operacoes@delta.test", status: "ATIVO", tipo_pessoa: "PJ", uf: "RJ", cidade: "RIO_DE_JANEIRO", razao_social: "Delta Atacado Ltda", cnpj: "42.345.678/0001-90", data_cadastro: "2026-02-14", valor_total: 32200.75, qtde_pedidos: 18, observacao: "" },
-        { id: 5, nome: "Escola Horizonte", email: "secretaria@horizonte.test", status: "ATIVO", tipo_pessoa: "PJ", uf: "SP", cidade: "CAMPINAS", razao_social: "Escola Horizonte Ltda", cnpj: "52.345.678/0001-90", data_cadastro: "2026-02-22", valor_total: 4780.3, qtde_pedidos: 4, observacao: "" },
-        { id: 6, nome: "Farma Popular", email: "ti@farmapopular.test", status: "INATIVO", tipo_pessoa: "PJ", uf: "CE", cidade: "SOBRAL", razao_social: "Farma Popular Ltda", cnpj: "62.345.678/0001-90", data_cadastro: "2026-03-03", valor_total: 975.9, qtde_pedidos: 1, observacao: "" },
-        { id: 7, nome: "Grupo Solar", email: "adm@gruposolar.test", status: "ATIVO", tipo_pessoa: "PJ", uf: "RJ", cidade: "NITEROI", razao_social: "Grupo Solar Ltda", cnpj: "72.345.678/0001-90", data_cadastro: "2026-03-11", valor_total: 18900, qtde_pedidos: 9, observacao: "" },
-        { id: 8, nome: "Hotel Central", email: "reservas@central.test", status: "ATIVO", tipo_pessoa: "PJ", uf: "CE", cidade: "FORTALEZA", razao_social: "Hotel Central Ltda", cnpj: "82.345.678/0001-90", data_cadastro: "2026-03-19", valor_total: 7600, qtde_pedidos: 6, observacao: "" },
-        { id: 9, nome: "Industria Vale", email: "suprimentos@vale.test", status: "ATIVO", tipo_pessoa: "PJ", uf: "SP", cidade: "SANTOS", razao_social: "Industria Vale Ltda", cnpj: "92.345.678/0001-90", data_cadastro: "2026-04-04", valor_total: 44100, qtde_pedidos: 21, observacao: "Contrato anual." },
-        { id: 10, nome: "Jardins Office", email: "contato@jardinsoffice.test", status: "INATIVO", tipo_pessoa: "PF", uf: "RJ", cidade: "PETROPOLIS", razao_social: "", cnpj: "", data_cadastro: "2026-04-12", valor_total: 1200, qtde_pedidos: 2, observacao: "" },
-        { id: 11, nome: "Kronos Logistica", email: "logistica@kronos.test", status: "ATIVO", tipo_pessoa: "PJ", uf: "CE", cidade: "JUAZEIRO_NORTE", razao_social: "Kronos Logistica Ltda", cnpj: "11.345.678/0001-90", data_cadastro: "2026-04-20", valor_total: 16780, qtde_pedidos: 8, observacao: "" },
-        { id: 12, nome: "Litoral Foods", email: "pedidos@litoralfoods.test", status: "ATIVO", tipo_pessoa: "PJ", uf: "SP", cidade: "SAO_PAULO", razao_social: "Litoral Foods Ltda", cnpj: "21.345.678/0001-90", data_cadastro: "2026-04-28", valor_total: 25300.4, qtde_pedidos: 11, observacao: "" }
+        { id: 1, nome: "Acme Comercio", email: "contato@acme.test", telefone: "(85) 98888-1001", status: "ATIVO", tipo_pessoa: "PJ", uf: "CE", cidade: "FORTALEZA", razao_social: "Acme Comercio Ltda", cnpj: "12.345.678/0001-90", data_cadastro: "2026-01-10", valor_total: 15420.5, qtde_pedidos: 12, observacao: "Cliente recorrente." },
+        { id: 2, nome: "Beta Servicos", email: "financeiro@beta.test", telefone: "(11) 97777-2002", status: "ATIVO", tipo_pessoa: "PJ", uf: "SP", cidade: "SAO_PAULO", razao_social: "Beta Servicos Ltda", cnpj: "22.345.678/0001-90", data_cadastro: "2026-01-18", valor_total: 8450, qtde_pedidos: 5, observacao: "" },
+        { id: 3, nome: "Casa Norte", email: "compras@casanorte.test", telefone: "(85) 96666-3003", status: "INATIVO", tipo_pessoa: "PJ", uf: "CE", cidade: "CAUCAIA", razao_social: "Casa Norte Comercio Ltda", cnpj: "32.345.678/0001-90", data_cadastro: "2026-02-02", valor_total: 2100, qtde_pedidos: 2, observacao: "Cadastro pausado." },
+        { id: 4, nome: "Delta Atacado", email: "operacoes@delta.test", telefone: "(21) 95555-4004", status: "ATIVO", tipo_pessoa: "PJ", uf: "RJ", cidade: "RIO_DE_JANEIRO", razao_social: "Delta Atacado Ltda", cnpj: "42.345.678/0001-90", data_cadastro: "2026-02-14", valor_total: 32200.75, qtde_pedidos: 18, observacao: "" },
+        { id: 5, nome: "Escola Horizonte", email: "secretaria@horizonte.test", telefone: "(11) 94444-5005", status: "ATIVO", tipo_pessoa: "PJ", uf: "SP", cidade: "CAMPINAS", razao_social: "Escola Horizonte Ltda", cnpj: "52.345.678/0001-90", data_cadastro: "2026-02-22", valor_total: 4780.3, qtde_pedidos: 4, observacao: "" },
+        { id: 6, nome: "Farma Popular", email: "ti@farmapopular.test", telefone: "(85) 93333-6006", status: "INATIVO", tipo_pessoa: "PJ", uf: "CE", cidade: "SOBRAL", razao_social: "Farma Popular Ltda", cnpj: "62.345.678/0001-90", data_cadastro: "2026-03-03", valor_total: 975.9, qtde_pedidos: 1, observacao: "" },
+        { id: 7, nome: "Grupo Solar", email: "adm@gruposolar.test", telefone: "(21) 92222-7007", status: "ATIVO", tipo_pessoa: "PJ", uf: "RJ", cidade: "NITEROI", razao_social: "Grupo Solar Ltda", cnpj: "72.345.678/0001-90", data_cadastro: "2026-03-11", valor_total: 18900, qtde_pedidos: 9, observacao: "" },
+        { id: 8, nome: "Hotel Central", email: "reservas@central.test", telefone: "(85) 91111-8008", status: "ATIVO", tipo_pessoa: "PJ", uf: "CE", cidade: "FORTALEZA", razao_social: "Hotel Central Ltda", cnpj: "82.345.678/0001-90", data_cadastro: "2026-03-19", valor_total: 7600, qtde_pedidos: 6, observacao: "" },
+        { id: 9, nome: "Industria Vale", email: "suprimentos@vale.test", telefone: "(13) 90000-9009", status: "ATIVO", tipo_pessoa: "PJ", uf: "SP", cidade: "SANTOS", razao_social: "Industria Vale Ltda", cnpj: "92.345.678/0001-90", data_cadastro: "2026-04-04", valor_total: 44100, qtde_pedidos: 21, observacao: "Contrato anual." },
+        { id: 10, nome: "Jardins Office", email: "contato@jardinsoffice.test", telefone: "(24) 98989-1010", status: "INATIVO", tipo_pessoa: "PF", uf: "RJ", cidade: "PETROPOLIS", razao_social: "", cnpj: "", data_cadastro: "2026-04-12", valor_total: 1200, qtde_pedidos: 2, observacao: "" },
+        { id: 11, nome: "Kronos Logistica", email: "logistica@kronos.test", telefone: "(88) 97878-1111", status: "ATIVO", tipo_pessoa: "PJ", uf: "CE", cidade: "JUAZEIRO_NORTE", razao_social: "Kronos Logistica Ltda", cnpj: "11.345.678/0001-90", data_cadastro: "2026-04-20", valor_total: 16780, qtde_pedidos: 8, observacao: "" },
+        { id: 12, nome: "Litoral Foods", email: "pedidos@litoralfoods.test", telefone: "(11) 96767-1212", status: "ATIVO", tipo_pessoa: "PJ", uf: "SP", cidade: "SAO_PAULO", razao_social: "Litoral Foods Ltda", cnpj: "21.345.678/0001-90", data_cadastro: "2026-04-28", valor_total: 25300.4, qtde_pedidos: 11, observacao: "" }
       ];
+    }
+
+    applyDefaultPhones(records) {
+      const phones = {
+        1: "(85) 98888-1001",
+        2: "(11) 97777-2002",
+        3: "(85) 96666-3003",
+        4: "(21) 95555-4004",
+        5: "(11) 94444-5005",
+        6: "(85) 93333-6006",
+        7: "(21) 92222-7007",
+        8: "(85) 91111-8008",
+        9: "(13) 90000-9009",
+        10: "(24) 98989-1010",
+        11: "(88) 97878-1111",
+        12: "(11) 96767-1212"
+      };
+      return global.CrudUtils.ensureArray(records).map(function(record) {
+        if (!record || record.telefone) {
+          return record;
+        }
+        const id = Number(record.id);
+        return Object.assign({}, record, {
+          telefone: phones[id] || ""
+        });
+      });
     }
 
     loadJson(key) {
@@ -90,6 +133,7 @@
         nextSortId: this.nextSortId,
         nextGroupId: this.nextGroupId,
         nextFilterId: this.nextFilterId,
+        nextMobileTemplateId: this.nextMobileTemplateId,
         savedLayouts: this.savedLayouts,
         activeLayoutId: this.activeLayoutId,
         savedSorts: this.savedSorts,
@@ -97,12 +141,52 @@
         savedGroups: this.savedGroups,
         activeGroupId: this.activeGroupId,
         savedFilters: this.savedFilters,
-        activeFilterId: this.activeFilterId
+        activeFilterId: this.activeFilterId,
+        savedMobileTemplates: this.savedMobileTemplates,
+        activeMobileTemplateId: this.activeMobileTemplateId
       });
     }
 
     persistHelpSeen() {
       this.saveJson(this.helpSeenStorageKey, this.helpSeen);
+    }
+
+    persistRuntimeState() {
+      this.saveJson(this.runtimeStorageKey, this.runtimeState);
+    }
+
+    persistProcessJobs() {
+      this.saveJson(this.processJobsStorageKey, this.processJobs);
+    }
+
+    resolveRuntimeUserId() {
+      const params = new URLSearchParams(global.location && global.location.search || "");
+      const queryUser = params.get("runtimeUserId") || params.get("demoUserId");
+      if (queryUser) {
+        this.saveJson("crud-demo-runtime-user", queryUser);
+        return queryUser;
+      }
+      return this.loadJson("crud-demo-runtime-user") || "demo";
+    }
+
+    resolveRuntimeSessionId() {
+      const stored = this.loadJson("crud-demo-runtime-session");
+      if (stored) {
+        return stored;
+      }
+      const value = "demo-sess-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+      this.saveJson("crud-demo-runtime-session", value);
+      return value;
+    }
+
+    resolveRuntimeTenantId() {
+      const params = new URLSearchParams(global.location && global.location.search || "");
+      const queryTenant = params.get("runtimeTenantId") || params.get("tenantId");
+      if (queryTenant) {
+        this.saveJson("crud-demo-runtime-tenant", queryTenant);
+        return queryTenant;
+      }
+      return this.loadJson("crud-demo-runtime-tenant") || "default";
     }
 
     request(options) {
@@ -160,6 +244,9 @@
       if (normalizedUrl.endsWith("examples/clientes.crud.json") && embedded.clientesDefinition) {
         return global.CrudUtils.clone(embedded.clientesDefinition);
       }
+      if (normalizedUrl.endsWith("examples/processamento-relatorio.process.json") && embedded.processamentoRelatorioDefinition) {
+        return global.CrudUtils.clone(embedded.processamentoRelatorioDefinition);
+      }
       if (normalizedUrl.endsWith("public/config/crud-engine.config.json") && embedded.config) {
         return global.CrudUtils.clone(embedded.config);
       }
@@ -194,7 +281,7 @@
         return this.update(this.extractId(url), data);
       }
       if (/^\/api\/cadastros\/clientes\/\d+$/.test(url) && method === "DELETE") {
-        return this.delete(this.extractId(url));
+        return this.delete(this.extractId(url), data || {});
       }
       if (url === "/api/cadastros/clientes/form-rules/status" && method === "POST") {
         return this.validateStatusRules(data);
@@ -214,7 +301,7 @@
       if (/^\/api\/cadastros\/clientes\/print\/(excel|pdf|csv)$/.test(url) && method === "POST") {
         return this.printClient(data && data.id, this.extractPrintFormat(url), data);
       }
-      if (/^\/api\/cadastros\/clientes\/\d+\/actions\/(check-credit|send-welcome)$/.test(url) && method === "POST") {
+      if (/^\/api\/cadastros\/clientes\/\d+\/actions\/(check-credit|send-welcome|send-whatsapp)$/.test(url) && method === "POST") {
         return this.executeClientAction(this.extractClientActionId(url), this.extractClientAction(url), data);
       }
       if (url === "/api/crud-layout/cadastros/clientes" && method === "POST") {
@@ -237,6 +324,12 @@
       }
       if (/^\/api\/crud-layout\/cadastros\/clientes\/filters\/[^\/]+$/.test(url) && method === "DELETE") {
         return this.deleteFilter(this.extractSortId(url));
+      }
+      if (url === "/api/crud-layout/cadastros/clientes/mobile-templates" && method === "POST") {
+        return this.saveMobileTemplate(data);
+      }
+      if (/^\/api\/crud-layout\/cadastros\/clientes\/mobile-templates\/[^\/]+$/.test(url) && method === "DELETE") {
+        return this.deleteMobileTemplate(this.extractSortId(url));
       }
       if (url === "/api/help/seen" && method === "POST") {
         return this.saveHelpSeen(data);
@@ -277,6 +370,18 @@
       if (url === "/api/home/requests" && method === "GET") {
         return this.getHomeRequests(data);
       }
+      if (url === "/api/home/jobs" && (method === "GET" || method === "POST")) {
+        return this.getHomeJobs(data);
+      }
+      if (url === "/api/processamento/clientes" && method === "POST") {
+        return this.startClientProcess(data);
+      }
+      if (url === "/api/processamento/clientes/status" && method === "POST") {
+        return this.getClientProcessStatus(data);
+      }
+      if (url === "/api/home/subscribers/change" && method === "POST") {
+        return this.changeHomeSubscriber(data);
+      }
       if (url === "/api/crud-layout/cadastros/clientes" && method === "DELETE") {
         this.activeLayoutId = null;
         this.persistLayouts();
@@ -291,6 +396,25 @@
       if (normalized === "cadastros.clientes.producao") {
         return this.buildProductionClientDefinition(normalized);
       }
+      const adminDefinition = this.buildAdminRuntimeDefinition(normalized);
+      if (adminDefinition) {
+        return adminDefinition;
+      }
+      if (normalized === "admin.jobs" || normalized === "runtime-jobs") {
+        return this.buildRuntimeJobsDefinition("admin.jobs");
+      }
+      if (normalized === "runtime.jobs.mine") {
+        return this.buildRuntimeJobsDefinition("runtime.jobs.mine");
+      }
+      if (normalized === "processamento.relatorio-clientes.producao") {
+        return this.buildProductionProcessDefinition(normalized);
+      }
+      if (normalized === "processamento.relatorio-clientes") {
+        const definition = global.CrudDemoEmbedded && global.CrudDemoEmbedded.processamentoRelatorioDefinition;
+        if (definition) {
+          return global.CrudUtils.clone(definition);
+        }
+      }
       if (normalized === "cadastros.clientes" || normalized === "clientes" || normalized === "clientes-crud") {
         const definition = global.CrudDemoEmbedded && global.CrudDemoEmbedded.clientesDefinition;
         if (definition) {
@@ -303,7 +427,359 @@
           return global.CrudUtils.clone(definition);
         }
       }
+      if (normalized === "home.producao") {
+        return this.buildProductionHomeDefinition(normalized);
+      }
+      if (normalized === "sistema.troca-assinante") {
+        return this.buildProductionSubscriberSwitchDefinition(normalized);
+      }
       throw global.CrudUtils.makeError("SCREEN_NOT_FOUND", "Tela nao encontrada no runtime mock.", { screenId });
+    }
+
+    buildProductionHomeDefinition(screenId) {
+      const source = global.HomeDemoEmbedded && global.HomeDemoEmbedded.homeDefinition;
+      const definition = global.CrudUtils.clone(source || {});
+      definition.screenId = screenId;
+      definition.currentSubscriber = {
+        id: "principal",
+        name: "Principal",
+        principal: true
+      };
+      definition.availableSubscribers = this.getHomeSubscriberOptions();
+      definition.layout = definition.layout || {};
+      definition.layout.initialProgramId = "clientes-crud";
+      definition.layout.appbar = Object.assign({}, definition.layout.appbar || {}, {
+        chat: {
+          enabled: true,
+          title: "Chat entre usuarios",
+          buttonTitle: "Conversar com usuario",
+          width: 420,
+          height: 560,
+          endpoints: {
+            contacts: { endpointId: "home.chat.contacts", method: "GET" },
+            history: { endpointId: "home.chat.history", method: "POST" },
+            send: { endpointId: "home.chat.send", method: "POST" }
+          }
+        },
+        support: {
+          enabled: true,
+          title: "Atendimento",
+          buttonTitle: "Abrir atendimento",
+          icon: "headset",
+          width: 540,
+          height: 620,
+          fallbackRequest: {
+            enabled: true,
+            defaultSectorId: "suporte"
+          },
+          sectors: [
+            { id: "suporte", name: "Suporte" },
+            { id: "financeiro", name: "Financeiro" }
+          ],
+          endpoints: {
+            onlineUsers: { endpointId: "home.support.onlineUsers", method: "GET" },
+            history: { endpointId: "home.support.history", method: "POST" },
+            send: { endpointId: "home.support.send", method: "POST" },
+            createRequest: { endpointId: "home.support.createRequest", method: "POST" },
+            requestStatus: { endpointId: "home.support.requestStatus", method: "GET" }
+          }
+        },
+        aiChat: {
+          enabled: true,
+          title: "Chat de IA",
+          buttonTitle: "Abrir chat de IA",
+          icon: "sparkles",
+          width: 460,
+          height: 560,
+          endpoints: {
+            history: { endpointId: "home.aiChat.history", method: "POST" },
+            send: { endpointId: "home.aiChat.send", method: "POST" }
+          }
+        },
+        alerts: {
+          enabled: true,
+          title: "Alertas",
+          buttonTitle: "Alertas de informacoes",
+          icon: "bell",
+          endpoints: {
+            list: { endpointId: "home.alerts.list", method: "POST" }
+          }
+        },
+        requests: {
+          enabled: true,
+          title: "Solicitacoes",
+          buttonTitle: "Solicitacoes recebidas ou atualizadas",
+          icon: "inbox",
+          endpoints: {
+            list: { endpointId: "home.requests.list", method: "POST" }
+          }
+        },
+        jobs: {
+          enabled: true,
+          title: "Jobs concluidos",
+          buttonTitle: "Jobs concluidos",
+          icon: "clock",
+          programId: "meus-jobs",
+          endpoints: {
+            list: { endpointId: "home.jobs.list", method: "POST" }
+          }
+        },
+        subscriberSwitch: {
+          enabled: true,
+          programId: "troca-assinante",
+          endpoints: {
+            change: {
+              endpointId: "home.subscriber.change",
+              method: "POST"
+            }
+          }
+        }
+      });
+      definition.navigation = {
+        initialModuleId: "",
+        modules: [
+          { id: "operacional", title: "Operacional" }
+        ],
+        groups: [
+          {
+            id: "principal",
+            title: "Principal",
+            moduleId: "operacional",
+            items: [
+              { programId: "clientes-crud", title: "Clientes" },
+              { programId: "processamento-clientes", title: "Processamento" },
+              { programId: "meus-jobs", title: "Meus Jobs" },
+              { programId: "troca-assinante", title: "Troca de assinante" }
+            ]
+          }
+        ]
+      };
+      definition.programs = [
+        {
+          id: "clientes-crud",
+          title: "Clientes",
+          subtitle: "CRUD seguro carregado por screenId",
+          type: "crud",
+          icon: "user",
+          permission: "clientes.read",
+          screenId: "cadastros.clientes.producao"
+        },
+        {
+          id: "troca-assinante",
+          title: "Troca de assinante",
+          subtitle: "Fluxo seguro carregado por screenId",
+          type: "crud",
+          icon: "building",
+          permission: "home.read",
+          screenId: "sistema.troca-assinante"
+        },
+        {
+          id: "processamento-clientes",
+          title: "Processamento de Clientes",
+          subtitle: "Processamento seguro carregado por screenId",
+          type: "process",
+          icon: "play",
+          permission: "processamento.read",
+          screenId: "processamento.relatorio-clientes.producao"
+        },
+        {
+          id: "meus-jobs",
+          title: "Meus Jobs",
+          subtitle: "Jobs iniciados pelo usuario corrente",
+          type: "crud",
+          icon: "clock",
+          permission: "jobs.read",
+          screenId: "runtime.jobs.mine"
+        }
+      ];
+      return definition;
+    }
+
+    buildProductionProcessDefinition(screenId) {
+      const source = global.CrudDemoEmbedded && global.CrudDemoEmbedded.processamentoRelatorioDefinition || {};
+      const definition = global.CrudUtils.clone(source);
+      definition.screenId = screenId;
+      definition.program = Object.assign({}, definition.program || {}, {
+        screenId,
+        title: "Processamento de Clientes - Producao segura",
+        subtitle: "Definicao carregada por screenId e endpoints resolvidos por endpointId."
+      });
+      definition.dataSource = definition.dataSource || {};
+      definition.dataSource.api = {
+        process: { endpointId: "process", method: "POST" },
+        status: { endpointId: "status", method: "POST" }
+      };
+      definition.api = definition.dataSource.api;
+      definition.process = definition.process || {};
+      definition.process.endpoints = {
+        process: { endpointId: "process", method: "POST" },
+        status: { endpointId: "status", method: "POST" }
+      };
+      return definition;
+    }
+
+    buildRuntimeJobsDefinition(screenId) {
+      const mine = screenId === "runtime.jobs.mine";
+      const statusOptions = [
+        { value: "queued", text: "Na fila" },
+        { value: "running", text: "Executando" },
+        { value: "succeeded", text: "Concluido" },
+        { value: "failed", text: "Falhou" }
+      ];
+      return {
+        schemaVersion: "1.0",
+        pageType: "crud",
+        screenId,
+        program: {
+          id: mine ? "meus-jobs" : "runtime-jobs",
+          module: "administracao",
+          entity: "runtime_async_job",
+          title: mine ? "Meus Jobs" : "Jobs Assincronos",
+          version: "1.0.0",
+          subtitle: mine ? "Consulta dos processamentos iniciados pelo usuario corrente" : "Consulta das acoes executadas por fila",
+          subtitleTooltip: mine ? "Tela de consulta para acompanhar somente os jobs iniciados pelo usuario corrente." : "Tela de consulta para acompanhar jobs assincronos, status, tentativas, payload, resultado e erro."
+        },
+        permissions: {
+          read: true,
+          create: false,
+          edit: false,
+          delete: false,
+          saveLayout: true
+        },
+        dataSource: {
+          api: {
+            read: { endpointId: "read", method: "POST" },
+            get: { endpointId: "get", method: "POST" },
+            saveLayout: { endpointId: "saveLayout", method: "POST" },
+            restoreLayout: { endpointId: "restoreLayout", method: "POST" },
+            saveSort: { endpointId: "saveSort", method: "POST" },
+            deleteSort: { endpointId: "deleteSort", method: "POST" },
+            saveGroup: { endpointId: "saveGroup", method: "POST" },
+            deleteGroup: { endpointId: "deleteGroup", method: "POST" },
+            saveFilter: { endpointId: "saveFilter", method: "POST" },
+            deleteFilter: { endpointId: "deleteFilter", method: "POST" },
+            "runtime.messages.poll": { endpointId: "runtime.messages.poll", method: "POST" },
+            "runtime.messages.ack": { endpointId: "runtime.messages.ack", method: "POST" }
+          }
+        },
+        runtime: {
+          entityCode: "runtime_async_job",
+          programId: mine ? "meus-jobs" : "runtime-jobs",
+          lock: { enabled: false, modes: [] },
+          messages: { enabled: true, pollIntervalSeconds: 30, events: { enabled: true } }
+        },
+        dataModel: {
+          primaryKey: "id",
+          fields: {
+            id: { type: "integer", label: "ID", editable: false, nullable: false },
+            job_type: { type: "string", label: "Tipo do job", editable: false, nullable: false },
+            status: { type: "enum", label: "Status", editable: false, nullable: false, options: statusOptions },
+            attempts: { type: "integer", label: "Tentativas", editable: false, nullable: false },
+            entity_code: { type: "string", label: "Entidade", editable: false, nullable: true },
+            record_id: { type: "string", label: "Registro", editable: false, nullable: true },
+            action_id: { type: "string", label: "Acao", editable: false, nullable: true },
+            transaction_id: { type: "integer", label: "Transacao", editable: false, nullable: true },
+            user_id: { type: "string", label: "Usuario", editable: false, nullable: false },
+            created_at: { type: "datetime", label: "Criado em", editable: false, nullable: false },
+            started_at: { type: "datetime", label: "Iniciado em", editable: false, nullable: true },
+            finished_at: { type: "datetime", label: "Finalizado em", editable: false, nullable: true },
+            last_error: { type: "text", label: "Ultimo erro", editable: false, nullable: true },
+            payload: { type: "json", label: "Payload", editable: false, nullable: false },
+            result: { type: "json", label: "Resultado", editable: false, nullable: false }
+          }
+        },
+        crud: {
+          query: {
+            pageSize: 20,
+            defaultSort: [{ field: "created_at", dir: "desc" }]
+          },
+          filter: {
+            type: "window",
+            mode: "basic",
+            title: "Filtros de jobs",
+            openOnLoad: false,
+            showAppliedFilters: true,
+            fields: [
+              { id: "job_type", field: "job_type", label: "Tipo do job", type: "text", operator: "contains" },
+              { id: "status", field: "status", label: "Status", type: "enum", operator: "eq", options: statusOptions },
+              { id: "entity_code", field: "entity_code", label: "Entidade", type: "text", operator: "contains" },
+              { id: "record_id", field: "record_id", label: "Registro", type: "text", operator: "contains" }
+            ]
+          },
+          grid: {
+            pageable: true,
+            sortable: true,
+            filterable: true,
+            resizable: true,
+            reorderable: true,
+            columnMenu: true,
+            toolbar: [
+              { id: "filters", label: "Filtros", action: "filters", icon: "filter" },
+              { id: "refresh", label: "Atualizar", action: "refresh", icon: "arrow-rotate-cw" },
+              { id: "layout", label: "Leiaute", action: "layout", icon: "columns", permission: "saveLayout" }
+            ],
+            columns: [
+              { field: "id", title: "ID", width: 80, align: "right" },
+              { field: "job_type", title: "Tipo do job", width: 230 },
+              { field: "status", title: "Status", width: 130 },
+              { field: "attempts", title: "Tentativas", width: 110, align: "right" },
+              { field: "entity_code", title: "Entidade", width: 140 },
+              { field: "record_id", title: "Registro", width: 110 },
+              { field: "user_id", title: "Usuario", width: 140 },
+              { field: "created_at", title: "Criado em", width: 180 },
+              { field: "finished_at", title: "Finalizado em", width: 180 },
+              { field: "last_error", title: "Ultimo erro", width: 260 }
+            ],
+            rowActions: [
+              { id: "view", label: "Visualizar", action: "view", icon: "eye", permission: "read" }
+            ],
+            bulkActions: { enabled: false, actions: [] },
+            print: { enabled: false, options: [] }
+          },
+          form: {
+            id: "runtime-job-form",
+            mode: "popup",
+            layout: "tabs",
+            maximizeForm: true,
+            title: { view: "Detalhe do job" },
+            behavior: { closeOnSave: true, closeOnCancel: true },
+            tabs: [
+              { id: "geral", title: "Geral", fields: ["id", "job_type", "status", "attempts", "entity_code", "record_id", "action_id", "transaction_id", "user_id", "created_at", "started_at", "finished_at"] },
+              { id: "dados", title: "Dados", fields: ["payload", "result", "last_error"] }
+            ],
+            fields: ["id", "job_type", "status", "attempts", "entity_code", "record_id", "action_id", "transaction_id", "user_id", "created_at", "started_at", "finished_at", "payload", "result", "last_error"].map(function(field) {
+              return { field, renderAs: "readonly" };
+            }),
+            logs: { enabled: false },
+            print: { enabled: false, options: [] },
+            otherActions: { enabled: false, actions: [] }
+          },
+          userLayout: {
+            enabled: true,
+            storageKey: "runtimeJobsLayout"
+          }
+        }
+      };
+    }
+
+    buildProductionSubscriberSwitchDefinition(screenId) {
+      const definition = this.buildProductionClientDefinition(screenId);
+      if (!definition || !definition.program) {
+        return definition;
+      }
+      definition.program.title = "Troca de assinante";
+      definition.program.subtitle = "Tela segura carregada por screenId para fluxo dedicado de troca.";
+      if (definition.crud && definition.crud.grid) {
+        definition.crud.grid.ai = { enabled: false };
+        definition.crud.grid.bulkActions = { enabled: false, actions: [] };
+        definition.crud.grid.print = { enabled: false, options: [] };
+      }
+      if (definition.crud && definition.crud.form) {
+        definition.crud.form.logs = { enabled: false };
+        definition.crud.form.print = { enabled: false, options: [] };
+        definition.crud.form.otherActions = { enabled: false, actions: [] };
+      }
+      return definition;
     }
 
     buildProductionClientDefinition(screenId) {
@@ -346,8 +822,33 @@
 
     routeRuntimeEndpoint(screenId, endpointId, data) {
       const normalizedScreenId = String(screenId || "");
-      if (normalizedScreenId === "home" || normalizedScreenId === "construtor-pg") {
+      if (normalizedScreenId === "home" || normalizedScreenId === "home.producao" || normalizedScreenId === "construtor-pg") {
         return this.routeHomeRuntimeEndpoint(normalizedScreenId, endpointId, data);
+      }
+      if (normalizedScreenId === "processamento.relatorio-clientes" || normalizedScreenId === "processamento.relatorio-clientes.producao") {
+        if (endpointId === "process") {
+          return this.startClientProcess(data || {});
+        }
+        if (endpointId === "status") {
+          return this.getClientProcessStatus(data || {});
+        }
+      }
+      if (this.isSessionRevoked()) {
+        throw global.CrudUtils.makeError("SESSION_REVOKED", "Sua sessao foi encerrada.", {
+          reason: "Sessao encerrada no mock."
+        });
+      }
+      const systemResponse = this.routeSystemRuntimeEndpoint(endpointId, data || {});
+      if (systemResponse) {
+        return systemResponse;
+      }
+      const jobsResponse = this.routeRuntimeJobsEndpoint(normalizedScreenId, endpointId, data || {});
+      if (jobsResponse) {
+        return jobsResponse;
+      }
+      const adminResponse = this.routeAdminRuntimeEndpoint(normalizedScreenId, endpointId, data || {});
+      if (adminResponse) {
+        return adminResponse;
       }
 
       const id = data && (data.id || data.clienteId);
@@ -361,7 +862,7 @@
         case "update":
           return this.update(id, data || {});
         case "delete":
-          return this.delete(id);
+          return this.delete(id, data || {});
         case "validateStatusCliente":
           return this.validateStatusRules(data || {});
         case "loadCidadesByUf":
@@ -380,6 +881,8 @@
           return this.executeClientAction(id, "check-credit", data || {});
         case "sendWelcome":
           return this.executeClientAction(id, "send-welcome", data || {});
+        case "sendWhatsapp":
+          return this.executeClientAction(id, "send-whatsapp", data || {});
         case "bulkActivate":
         case "bulkInactivate":
           return this.bulkUpdateStatus(data || {});
@@ -403,6 +906,10 @@
           return this.saveFilter(data || {});
         case "deleteFilter":
           return this.deleteFilter(data && data.id);
+        case "saveMobileTemplate":
+          return this.saveMobileTemplate(data || {});
+        case "deleteMobileTemplate":
+          return this.deleteMobileTemplate(data && data.id);
         case "help.markAsRead":
           return this.saveHelpSeen(data || {});
         default:
@@ -410,7 +917,1005 @@
       }
     }
 
+    routeRuntimeJobsEndpoint(screenId, endpointId, data) {
+      if (screenId !== "admin.jobs" && screenId !== "runtime-jobs" && screenId !== "runtime.jobs.mine") {
+        return null;
+      }
+
+      const id = data && (data.id || data.recordId);
+      switch (endpointId) {
+        case "read":
+          return this.listRuntimeJobs(Object.assign({}, data || {}, {
+            onlyMine: screenId === "runtime.jobs.mine"
+          }));
+        case "get":
+          return this.getRuntimeJob(id);
+        case "saveLayout":
+          return this.saveLayout(data || {});
+        case "restoreLayout":
+          this.activeLayoutId = null;
+          this.persistLayouts();
+          return { ok: true, userLayout: this.buildUserLayout() };
+        case "saveSort":
+          return this.saveSort(data || {});
+        case "deleteSort":
+          return this.deleteSort(data && data.id);
+        case "saveGroup":
+          return this.saveGroup(data || {});
+        case "deleteGroup":
+          return this.deleteGroup(data && data.id);
+        case "saveFilter":
+          return this.saveFilter(data || {});
+        case "deleteFilter":
+          return this.deleteFilter(data && data.id);
+        case "saveMobileTemplate":
+          return this.saveMobileTemplate(data || {});
+        case "deleteMobileTemplate":
+          return this.deleteMobileTemplate(data && data.id);
+        default:
+          return null;
+      }
+    }
+
+    routeAdminRuntimeEndpoint(screenId, endpointId, data) {
+      const config = this.getAdminRuntimeConfig(screenId);
+      if (!config) {
+        return null;
+      }
+      const id = data && (data.id || data.recordId);
+      switch (endpointId) {
+        case "read":
+          return this.listAdminRuntimeRows(screenId, data || {});
+        case "get":
+          return this.getAdminRuntimeRow(screenId, id);
+        case "create":
+          return this.createAdminRuntimeRow(screenId, data || {});
+        case "update":
+          return this.updateAdminRuntimeRow(screenId, id, data || {});
+        case "delete":
+          return this.deleteAdminRuntimeRow(screenId, id);
+        case "saveLayout":
+          return this.saveLayout(data || {});
+        case "restoreLayout":
+          this.activeLayoutId = null;
+          this.persistLayouts();
+          return { ok: true, userLayout: this.buildUserLayout() };
+        case "saveSort":
+          return this.saveSort(data || {});
+        case "deleteSort":
+          return this.deleteSort(data && data.id);
+        case "saveGroup":
+          return this.saveGroup(data || {});
+        case "deleteGroup":
+          return this.deleteGroup(data && data.id);
+        case "saveFilter":
+          return this.saveFilter(data || {});
+        case "deleteFilter":
+          return this.deleteFilter(data && data.id);
+        case "saveMobileTemplate":
+          return this.saveMobileTemplate(data || {});
+        case "deleteMobileTemplate":
+          return this.deleteMobileTemplate(data && data.id);
+        default:
+          return null;
+      }
+    }
+
+    buildAdminRuntimeDefinition(screenId) {
+      const config = this.getAdminRuntimeConfig(screenId);
+      if (!config) {
+        return null;
+      }
+      const editable = config.editable !== false;
+      const api = {
+        read: { endpointId: "read", method: "POST" },
+        get: { endpointId: "get", method: "POST" },
+        saveLayout: { endpointId: "saveLayout", method: "POST" },
+        restoreLayout: { endpointId: "restoreLayout", method: "POST" },
+        saveSort: { endpointId: "saveSort", method: "POST" },
+        deleteSort: { endpointId: "deleteSort", method: "POST" },
+        saveGroup: { endpointId: "saveGroup", method: "POST" },
+        deleteGroup: { endpointId: "deleteGroup", method: "POST" },
+        saveFilter: { endpointId: "saveFilter", method: "POST" },
+        deleteFilter: { endpointId: "deleteFilter", method: "POST" },
+        saveMobileTemplate: { endpointId: "saveMobileTemplate", method: "POST" },
+        deleteMobileTemplate: { endpointId: "deleteMobileTemplate", method: "POST" },
+        "runtime.messages.poll": { endpointId: "runtime.messages.poll", method: "POST" },
+        "runtime.messages.ack": { endpointId: "runtime.messages.ack", method: "POST" }
+      };
+      if (editable) {
+        api.create = { endpointId: "create", method: "POST" };
+        api.update = { endpointId: "update", method: "POST" };
+        api.delete = { endpointId: "delete", method: "POST" };
+        api["runtime.lock.acquire"] = { endpointId: "runtime.lock.acquire", method: "POST" };
+        api["runtime.lock.heartbeat"] = { endpointId: "runtime.lock.heartbeat", method: "POST" };
+        api["runtime.lock.release"] = { endpointId: "runtime.lock.release", method: "POST" };
+      }
+      if (screenId === "admin.sessoes") {
+        api["runtime.admin.forceLogout"] = { endpointId: "runtime.admin.forceLogout", method: "POST" };
+      }
+
+      const fields = config.fields;
+      const readonlyFields = Object.keys(fields).filter(function(field) {
+        return fields[field].editable === false;
+      });
+      return {
+        schemaVersion: "1.0",
+        pageType: "crud",
+        screenId,
+        program: {
+          id: config.programId,
+          module: "administracao",
+          entity: config.entity,
+          title: config.title,
+          version: "1.0.0",
+          subtitle: config.subtitle
+        },
+        permissions: {
+          read: true,
+          create: editable,
+          edit: editable,
+          delete: editable,
+          saveLayout: true
+        },
+        dataSource: { api },
+        runtime: {
+          entityCode: config.entity,
+          programId: config.programId,
+          lock: { enabled: editable, modes: editable ? ["edit", "delete"] : [] },
+          messages: { enabled: true, pollIntervalSeconds: 30, events: { enabled: true } }
+        },
+        dataModel: {
+          primaryKey: "id",
+          fields
+        },
+        crud: {
+          query: { pageSize: 20, defaultSort: config.defaultSort || [{ field: "id", dir: "desc" }] },
+          filter: {
+            type: "window",
+            mode: "basic",
+            title: "Filtros",
+            openOnLoad: false,
+            showAppliedFilters: true,
+            fields: config.filters.map(function(field) {
+              const item = fields[field] || {};
+              return {
+                id: field,
+                field,
+                label: item.label || field,
+                type: item.type === "boolean" || item.type === "enum" || item.type === "integer" ? item.type : "text",
+                operator: item.type === "boolean" || item.type === "enum" || item.type === "integer" ? "eq" : "contains",
+                options: item.options
+              };
+            })
+          },
+          grid: {
+            pageable: true,
+            sortable: true,
+            filterable: true,
+            resizable: true,
+            reorderable: true,
+            columnMenu: true,
+            toolbar: (editable ? [{ id: "create", label: "Incluir", action: "create", icon: "plus", permission: "create" }] : []).concat([
+              { id: "filters", label: "Filtros", action: "filters", icon: "filter" },
+              { id: "refresh", label: "Atualizar", action: "refresh", icon: "arrow-rotate-cw" },
+              { id: "layout", label: "Leiaute", action: "layout", icon: "columns", permission: "saveLayout" }
+            ]),
+            columns: config.columns.map(function(field) {
+              const item = fields[field] || {};
+              const column = { field, title: item.label || field, width: item.width || (item.type === "datetime" || item.type === "json" || item.type === "text" ? 220 : 150) };
+              if (item.type === "integer") {
+                column.align = "right";
+              }
+              return column;
+            }),
+            rowActions: [{ id: "view", label: "Visualizar", action: "view", icon: "eye", permission: "read" }].concat(editable ? [
+              { id: "edit", label: "Alterar", action: "edit", icon: "pencil", permission: "edit" },
+              { id: "delete", label: "Excluir", action: "delete", icon: "trash", permission: "delete" }
+            ] : []),
+            bulkActions: { enabled: false, actions: [] },
+            print: { enabled: false, options: [] }
+          },
+          form: {
+            id: screenId.replace(/\./g, "-") + "-form",
+            mode: "popup",
+            layout: "tabs",
+            maximizeForm: true,
+            title: { create: "Incluir " + config.title.toLowerCase(), view: "Detalhe de " + config.title.toLowerCase(), edit: "Alterar " + config.title.toLowerCase(), delete: "Excluir " + config.title.toLowerCase() },
+            behavior: { closeOnSave: true, closeOnCancel: true },
+            tabs: config.tabs,
+            fields: Object.keys(fields).map(function(field) {
+              const result = { field };
+              if (readonlyFields.indexOf(field) !== -1) {
+                result.renderAs = "readonly";
+              }
+              return result;
+            }),
+            logs: { enabled: false },
+            print: { enabled: false, options: [] },
+            otherActions: config.otherActions || { enabled: false, actions: [] }
+          },
+          userLayout: { enabled: true, storageKey: screenId.replace(/\./g, "-") + "-layout" }
+        }
+      };
+    }
+
+    getAdminRuntimeConfig(screenId) {
+      const typeOptions = ["string", "text", "integer", "decimal", "boolean", "date", "datetime", "json", "option", "multi_option"].map(function(value) {
+        return { value, text: value };
+      });
+      const statusOptions = [
+        { value: "active", text: "Ativa" },
+        { value: "revoked", text: "Revogada" },
+        { value: "expired", text: "Expirada" }
+      ];
+      const userStatusOptions = [
+        { value: "active", text: "Ativo" },
+        { value: "inactive", text: "Inativo" },
+        { value: "blocked", text: "Bloqueado" }
+      ];
+      const authSourceOptions = [
+        { value: "local", text: "Local" },
+        { value: "ldap", text: "LDAP" },
+        { value: "sso", text: "SSO" },
+        { value: "oauth", text: "OAuth" }
+      ];
+      const f = function(type, label, editable, nullable, extra) {
+        return Object.assign({ type, label, editable: editable !== false, nullable: nullable !== false }, extra || {});
+      };
+      const commonDates = {
+        created_at: f("datetime", "Criado em", false, false),
+        updated_at: f("datetime", "Atualizado em", false, false)
+      };
+      const configs = {
+        "admin.parametros": {
+          programId: "admin-parametros",
+          entity: "system_parameter",
+          title: "Parametros",
+          subtitle: "Cadastro dos parametros do sistema.",
+          editable: true,
+          fields: Object.assign({
+            id: f("integer", "ID", false, false, { width: 80 }),
+            code: f("string", "Codigo", true, false),
+            name: f("string", "Nome", true, false),
+            description: f("text", "Descricao", true, true, { editor: "textarea" }),
+            data_type: f("enum", "Tipo", true, false, { options: typeOptions }),
+            option_list_id: f("integer", "Lista de opcoes", true, true),
+            required: f("boolean", "Obrigatorio", true, false),
+            default_value: f("json", "Valor padrao", true, true, { editor: "textarea" }),
+            enabled: f("boolean", "Ativo", true, false)
+          }, commonDates),
+          filters: ["code", "name", "data_type", "enabled"],
+          columns: ["id", "code", "name", "data_type", "required", "enabled", "updated_at"],
+          tabs: [
+            { id: "geral", title: "Geral", fields: ["id", "code", "name", "data_type", "required", "enabled", "option_list_id"] },
+            { id: "detalhes", title: "Detalhes", fields: ["description", "default_value"] },
+            { id: "auditoria", title: "Auditoria", fields: ["created_at", "updated_at"] }
+          ],
+          defaultSort: [{ field: "code", dir: "asc" }]
+        },
+        "admin.parametro-valores": {
+          programId: "admin-parametro-valores",
+          entity: "system_parameter_value",
+          title: "Valores de Parametros",
+          subtitle: "Valores vigentes por periodo e estabelecimento.",
+          editable: true,
+          fields: Object.assign({
+            id: f("integer", "ID", false, false, { width: 80 }),
+            parameter_id: f("integer", "Parametro", true, false),
+            establishment_code: f("string", "Estabelecimento", true, true),
+            starts_at: f("datetime", "Inicio", true, false),
+            ends_at: f("datetime", "Fim", true, true),
+            value: f("json", "Valor", true, true, { editor: "textarea" }),
+            enabled: f("boolean", "Ativo", true, false)
+          }, commonDates),
+          filters: ["parameter_id", "establishment_code", "enabled"],
+          columns: ["id", "parameter_id", "establishment_code", "starts_at", "ends_at", "value", "enabled"],
+          tabs: [
+            { id: "geral", title: "Geral", fields: ["id", "parameter_id", "establishment_code", "starts_at", "ends_at", "enabled"] },
+            { id: "valor", title: "Valor", fields: ["value"] },
+            { id: "auditoria", title: "Auditoria", fields: ["created_at", "updated_at"] }
+          ],
+          defaultSort: [{ field: "starts_at", dir: "desc" }]
+        },
+        "admin.listas-opcoes": {
+          programId: "admin-listas-opcoes",
+          entity: "system_option_list",
+          title: "Listas de Opcoes",
+          subtitle: "Cadastro de listas fechadas usadas por parametros.",
+          editable: true,
+          fields: Object.assign({
+            id: f("integer", "ID", false, false, { width: 80 }),
+            code: f("string", "Codigo", true, false),
+            name: f("string", "Nome", true, false),
+            description: f("text", "Descricao", true, true, { editor: "textarea" }),
+            enabled: f("boolean", "Ativo", true, false)
+          }, commonDates),
+          filters: ["code", "name", "enabled"],
+          columns: ["id", "code", "name", "enabled", "updated_at"],
+          tabs: [
+            { id: "geral", title: "Geral", fields: ["id", "code", "name", "enabled"] },
+            { id: "detalhes", title: "Detalhes", fields: ["description"] },
+            { id: "auditoria", title: "Auditoria", fields: ["created_at", "updated_at"] }
+          ],
+          defaultSort: [{ field: "code", dir: "asc" }]
+        },
+        "admin.opcoes": {
+          programId: "admin-opcoes",
+          entity: "system_option",
+          title: "Opcoes",
+          subtitle: "Cadastro das opcoes de cada lista.",
+          editable: true,
+          fields: Object.assign({
+            id: f("integer", "ID", false, false, { width: 80 }),
+            option_list_id: f("integer", "Lista", true, false),
+            code: f("string", "Codigo", true, false),
+            description: f("string", "Descricao", true, false),
+            position: f("integer", "Posicao", true, false),
+            enabled: f("boolean", "Ativo", true, false),
+            metadata: f("json", "Metadata", true, false, { editor: "textarea" })
+          }, commonDates),
+          filters: ["option_list_id", "code", "description", "enabled"],
+          columns: ["id", "option_list_id", "code", "description", "position", "enabled"],
+          tabs: [
+            { id: "geral", title: "Geral", fields: ["id", "option_list_id", "code", "description", "position", "enabled"] },
+            { id: "metadata", title: "Metadata", fields: ["metadata"] },
+            { id: "auditoria", title: "Auditoria", fields: ["created_at", "updated_at"] }
+          ],
+          defaultSort: [{ field: "option_list_id", dir: "asc" }, { field: "position", dir: "asc" }]
+        },
+        "admin.sessoes": {
+          programId: "admin-sessoes",
+          entity: "runtime_user_session",
+          title: "Sessoes",
+          subtitle: "Consulta das sessoes ativas, revogadas e dados do dispositivo.",
+          editable: false,
+          fields: Object.assign({
+            id: f("integer", "ID", false, false, { width: 80 }),
+            tenant_id: f("string", "Assinante", false, false),
+            user_id: f("string", "Usuario", false, false),
+            user_name: f("string", "Nome do usuario", false, true),
+            session_id: f("string", "Sessao runtime", false, false),
+            php_session_id: f("string", "Sessao PHP", false, true),
+            status: f("enum", "Status", false, false, { options: statusOptions }),
+            entered_at: f("datetime", "Entrada", false, false),
+            device_name: f("string", "Dispositivo", false, true),
+            user_agent: f("text", "User agent", false, true),
+            operating_system: f("string", "Sistema operacional", false, true),
+            browser: f("string", "Navegador", false, true),
+            is_mobile: f("boolean", "Mobile", false, false),
+            session_properties: f("json", "Propriedades da sessao", false, false),
+            permission_snapshot: f("json", "Permissoes da sessao", false, false),
+            revoked_by: f("string", "Revogado por", false, true),
+            revoked_at: f("datetime", "Revogado em", false, true),
+            revoke_reason: f("string", "Motivo", false, true),
+            last_seen_at: f("datetime", "Ultima atividade", false, false)
+          }, commonDates),
+          filters: ["tenant_id", "user_id", "user_name", "session_id", "status"],
+          columns: ["id", "status", "tenant_id", "user_id", "user_name", "session_id", "device_name", "is_mobile", "entered_at", "last_seen_at"],
+          tabs: [
+            { id: "identidade", title: "Identidade", fields: ["id", "tenant_id", "user_id", "user_name", "session_id", "php_session_id", "status"] },
+            { id: "dispositivo", title: "Dispositivo", fields: ["device_name", "operating_system", "browser", "is_mobile", "user_agent"] },
+            { id: "permissoes", title: "Permissoes", fields: ["session_properties", "permission_snapshot"] },
+            { id: "revogacao", title: "Revogacao", fields: ["revoked_by", "revoked_at", "revoke_reason", "entered_at", "last_seen_at", "created_at", "updated_at"] }
+          ],
+          defaultSort: [{ field: "last_seen_at", dir: "desc" }],
+          otherActions: {
+            enabled: true,
+            label: "Acoes",
+            icon: "more-vertical",
+            actions: [{
+              id: "forceLogout",
+              label: "Derrubar sessao",
+              icon: "logout",
+              endpointId: "runtime.admin.forceLogout",
+              visibleIn: ["view"],
+              refreshGrid: true,
+              confirm: { title: "Derrubar sessao", message: "Deseja derrubar a sessao {session_id} do usuario {user_id}?", confirmText: "Derrubar", confirmIcon: "logout" },
+              successMessage: "Sessao revogada."
+            }]
+          }
+        },
+        "admin.usuarios": {
+          programId: "admin-usuarios",
+          entity: "auth_user",
+          title: "Usuarios",
+          subtitle: "Cadastro de usuarios do sistema, grupos e permissoes.",
+          editable: true,
+          fields: Object.assign({
+            id: f("integer", "ID", false, false, { width: 80 }),
+            tenant_id: f("string", "Tenant", false, false),
+            username: f("string", "Usuario", false, false),
+            display_name: f("string", "Nome", true, true),
+            email: f("string", "E-mail", true, true),
+            status: f("enum", "Status", true, false, { options: userStatusOptions }),
+            groups: f("json", "Grupos", true, true, { editor: "textarea" }),
+            permissions: f("json", "Permissoes", true, true, { editor: "textarea" }),
+            auth_source: f("enum", "Origem de acesso", true, false, { options: authSourceOptions }),
+            last_login_at: f("datetime", "Ultimo login", false, true),
+            created_at: f("datetime", "Criado em", false, false),
+            updated_at: f("datetime", "Atualizado em", false, false)
+          }, commonDates),
+          filters: ["tenant_id", "username", "status", "auth_source"],
+          columns: ["id", "tenant_id", "username", "display_name", "status", "auth_source", "last_login_at", "updated_at"],
+          tabs: [
+            { id: "geral", title: "Geral", fields: ["id", "tenant_id", "username", "display_name", "email", "status", "auth_source"] },
+            { id: "permissoes", title: "Permissoes", fields: ["groups", "permissions"] },
+            { id: "seguranca", title: "Seguranca", fields: ["last_login_at"] },
+            { id: "auditoria", title: "Auditoria", fields: ["created_at", "updated_at"] }
+          ],
+          defaultSort: [{ field: "tenant_id", dir: "asc" }, { field: "username", dir: "asc" }]
+        },
+        "admin.usuario-assinantes": {
+          programId: "admin-usuario-assinantes",
+          entity: "auth_user_subscriber",
+          title: "Usuarios por Assinante",
+          subtitle: "Relacao usuario-assinante e sobrescritas de permissao por contexto.",
+          editable: true,
+          fields: Object.assign({
+            id: f("integer", "ID", false, false, { width: 80 }),
+            user_tenant_id: f("string", "Tenant do usuario", false, false),
+            username: f("string", "Usuario", false, false),
+            subscriber_code: f("string", "Assinante", true, false),
+            default_subscriber: f("boolean", "Assinante padrao", true, false),
+            enabled: f("boolean", "Ativo", true, false),
+            permission_overrides: f("json", "Sobrescrita de permissoes", true, true, { editor: "textarea" }),
+            metadata: f("json", "Metadados", true, true, { editor: "textarea" }),
+            created_at: f("datetime", "Criado em", false, false),
+            updated_at: f("datetime", "Atualizado em", false, false)
+          }, commonDates),
+          filters: ["user_tenant_id", "username", "subscriber_code", "enabled"],
+          columns: ["id", "user_tenant_id", "username", "subscriber_code", "default_subscriber", "enabled", "updated_at"],
+          tabs: [
+            { id: "geral", title: "Geral", fields: ["id", "user_tenant_id", "username", "subscriber_code", "default_subscriber", "enabled"] },
+            { id: "permissoes", title: "Permissoes", fields: ["permission_overrides"] },
+            { id: "metadados", title: "Metadata", fields: ["metadata"] },
+            { id: "auditoria", title: "Auditoria", fields: ["created_at", "updated_at"] }
+          ],
+          defaultSort: [{ field: "user_tenant_id", dir: "asc" }, { field: "username", dir: "asc" }, { field: "subscriber_code", dir: "asc" }]
+        },
+        "admin.transacoes": {
+          programId: "admin-transacoes",
+          entity: "runtime_transaction",
+          title: "Transacoes",
+          subtitle: "Consulta das transacoes executadas pelo runtime.",
+          editable: false,
+          fields: {
+            id: f("integer", "ID", false, false, { width: 80 }),
+            tenant_id: f("string", "Assinante", false, false),
+            session_id: f("string", "Sessao", false, false),
+            screen_id: f("string", "Tela", false, false),
+            program_id: f("string", "Programa", false, true),
+            entity_code: f("string", "Entidade", false, true),
+            record_id: f("string", "Registro", false, true),
+            endpoint_id: f("string", "Endpoint", false, false),
+            action_id: f("string", "Acao", false, true),
+            operation: f("string", "Operacao", false, false),
+            status: f("string", "Status", false, false),
+            request_context: f("json", "Contexto da requisicao", false, false),
+            started_at: f("datetime", "Inicio", false, false),
+            finished_at: f("datetime", "Fim", false, true)
+          },
+          filters: ["session_id", "screen_id", "entity_code", "record_id", "status"],
+          columns: ["id", "status", "screen_id", "entity_code", "record_id", "session_id", "endpoint_id", "started_at", "finished_at"],
+          tabs: [
+            { id: "geral", title: "Geral", fields: ["id", "tenant_id", "session_id", "screen_id", "program_id", "entity_code", "record_id"] },
+            { id: "acao", title: "Acao", fields: ["endpoint_id", "action_id", "operation", "status", "started_at", "finished_at"] },
+            { id: "contexto", title: "Contexto", fields: ["request_context"] }
+          ],
+          defaultSort: [{ field: "started_at", dir: "desc" }]
+        },
+        "admin.logs-transacoes": {
+          programId: "admin-logs-transacoes",
+          entity: "runtime_transaction_log",
+          title: "Logs de Transacoes",
+          subtitle: "Consulta dos eventos, before, after, diff e metadata das transacoes.",
+          editable: false,
+          fields: {
+            id: f("integer", "ID", false, false, { width: 80 }),
+            transaction_id: f("integer", "Transacao", false, false),
+            event_type: f("string", "Evento", false, false),
+            message: f("text", "Mensagem", false, true),
+            before_data: f("json", "Before", false, false),
+            after_data: f("json", "After", false, false),
+            diff_data: f("json", "Diff", false, false),
+            metadata: f("json", "Metadata", false, false),
+            created_at: f("datetime", "Criado em", false, false)
+          },
+          filters: ["transaction_id", "event_type", "message"],
+          columns: ["id", "transaction_id", "event_type", "message", "created_at"],
+          tabs: [
+            { id: "geral", title: "Geral", fields: ["id", "transaction_id", "event_type", "message", "created_at"] },
+            { id: "dados", title: "Dados", fields: ["before_data", "after_data", "diff_data", "metadata"] }
+          ],
+          defaultSort: [{ field: "created_at", dir: "desc" }]
+        }
+      };
+      return configs[screenId] || null;
+    }
+
+    getAdminRuntimeRows(screenId) {
+      const state = this.loadJson(this.adminStorageKey) || {};
+      if (!Array.isArray(state[screenId])) {
+        state[screenId] = this.getDefaultAdminRuntimeRows(screenId);
+        this.saveJson(this.adminStorageKey, state);
+      }
+      return state[screenId];
+    }
+
+    saveAdminRuntimeRows(screenId, rows) {
+      const state = this.loadJson(this.adminStorageKey) || {};
+      state[screenId] = rows;
+      this.saveJson(this.adminStorageKey, state);
+    }
+
+    listAdminRuntimeRows(screenId, data) {
+      let rows = this.getAdminRuntimeRows(screenId).slice();
+      global.CrudUtils.ensureArray(data && data.filters).forEach(function(filter) {
+        const field = filter && filter.field;
+        const value = filter && filter.value;
+        if (!field || value == null || value === "") {
+          return;
+        }
+        rows = rows.filter(function(row) {
+          return String(row[field] == null ? "" : row[field]).toLowerCase().indexOf(String(value).toLowerCase()) !== -1;
+        });
+      });
+      const sort = Array.isArray(data && data.sort) && data.sort[0] || { field: "id", dir: "desc" };
+      rows.sort(function(left, right) {
+        const direction = sort.dir === "asc" ? 1 : -1;
+        return String(left[sort.field] == null ? "" : left[sort.field]).localeCompare(String(right[sort.field] == null ? "" : right[sort.field])) * direction;
+      });
+      const skip = Number(data && data.skip || 0);
+      const take = Number(data && (data.take || data.pageSize) || 20);
+      return { data: rows.slice(skip, skip + take).map((row) => this.decorateAdminRuntimeRow(row, screenId)), total: rows.length };
+    }
+
+    getAdminRuntimeRow(screenId, id) {
+      const row = this.getAdminRuntimeRows(screenId).find(function(item) {
+        return String(item.id) === String(id);
+      });
+      if (!row) {
+        throw global.CrudUtils.makeError("RECORD_NOT_FOUND", "Registro administrativo nao encontrado.", { id });
+      }
+      return this.decorateAdminRuntimeRow(row, screenId);
+    }
+
+    createAdminRuntimeRow(screenId, data) {
+      const rows = this.getAdminRuntimeRows(screenId).slice();
+      const values = Object.assign({}, data && data.values || data || {});
+      const now = this.nowText();
+      const nextId = rows.reduce(function(max, row) { return Math.max(max, Number(row.id) || 0); }, 0) + 1;
+      const row = Object.assign({ id: nextId, created_at: now, updated_at: now }, values);
+      rows.push(row);
+      this.saveAdminRuntimeRows(screenId, rows);
+      return this.decorateAdminRuntimeRow(row, screenId);
+    }
+
+    updateAdminRuntimeRow(screenId, id, data) {
+      const rows = this.getAdminRuntimeRows(screenId).slice();
+      const values = Object.assign({}, data && data.values || {});
+      const index = rows.findIndex(function(item) { return String(item.id) === String(id); });
+      if (index === -1) {
+        throw global.CrudUtils.makeError("RECORD_NOT_FOUND", "Registro administrativo nao encontrado.", { id });
+      }
+      rows[index] = Object.assign({}, rows[index], values, { updated_at: this.nowText() });
+      this.saveAdminRuntimeRows(screenId, rows);
+      return this.decorateAdminRuntimeRow(rows[index], screenId);
+    }
+
+    deleteAdminRuntimeRow(screenId, id) {
+      const rows = this.getAdminRuntimeRows(screenId).slice();
+      this.saveAdminRuntimeRows(screenId, rows.filter(function(item) {
+        return String(item.id) !== String(id);
+      }));
+      return { ok: true };
+    }
+
+    decorateAdminRuntimeRow(row, screenId) {
+      const result = global.CrudUtils.clone(row || {});
+      result._runtime = result._runtime || {
+        version: "demo-" + screenId + "-" + result.id + "-" + String(result.updated_at || result.created_at || ""),
+        lastModifiedAt: result.updated_at || result.created_at || null
+      };
+      return result;
+    }
+
+    nowText() {
+      return new Date().toISOString().slice(0, 19).replace("T", " ");
+    }
+
+    getDefaultAdminRuntimeRows(screenId) {
+      const now = this.nowText();
+      const json = function(value) {
+        return JSON.stringify(value, null, 2);
+      };
+      const rows = {
+        "admin.parametros": [
+          { id: 1, code: "subscriber.enabled", name: "Habilitar conceito de assinante", description: "Controla selecao de assinante apos login.", data_type: "boolean", option_list_id: null, required: true, default_value: "false", enabled: true, created_at: "2026-05-08 09:00:00", updated_at: "2026-05-08 09:00:00" }
+        ],
+        "admin.parametro-valores": [
+          { id: 1, parameter_id: 1, establishment_code: "", starts_at: "2000-01-01 00:00:00", ends_at: null, value: "false", enabled: true, created_at: "2026-05-08 09:00:00", updated_at: "2026-05-08 09:00:00" }
+        ],
+        "admin.listas-opcoes": [
+          { id: 1, code: "sim_nao", name: "Sim/Nao", description: "Lista demonstrativa.", enabled: true, created_at: now, updated_at: now }
+        ],
+        "admin.opcoes": [
+          { id: 1, option_list_id: 1, code: "S", description: "Sim", position: 1, enabled: true, metadata: "{}", created_at: now, updated_at: now },
+          { id: 2, option_list_id: 1, code: "N", description: "Nao", position: 2, enabled: true, metadata: "{}", created_at: now, updated_at: now }
+        ],
+        "admin.sessoes": [
+          { id: 1, tenant_id: this.tenantId, user_id: this.userId, user_name: "Usuario Demo", session_id: this.sessionId, php_session_id: "php-demo", status: "active", entered_at: now, device_name: "Desktop Windows", user_agent: "DemoMockHttpClient", operating_system: "Windows", browser: "Chromium", is_mobile: false, session_properties: json({ demo: true }), permission_snapshot: json({ user: { groups: ["admin"], permissions: ["*"] } }), revoked_by: null, revoked_at: null, revoke_reason: null, last_seen_at: now, created_at: now, updated_at: now }
+        ],
+        "admin.usuarios": [
+          {
+            id: 1,
+            tenant_id: this.tenantId,
+            username: "admin",
+            display_name: "Administrador",
+            email: "admin@construtorpg.local",
+            status: "active",
+            groups: json({ items: ["admin"], default: ["admin.read", "admin.write"] }),
+            permissions: json({ all: true }),
+            auth_source: "local",
+            last_login_at: now,
+            created_at: now,
+            updated_at: now
+          }
+        ],
+        "admin.usuario-assinantes": [
+          {
+            id: 1,
+            user_tenant_id: this.tenantId,
+            username: "admin",
+            subscriber_code: "assinante-demo",
+            default_subscriber: true,
+            enabled: true,
+            permission_overrides: json({ clientes: { read: true }, usuarios: { read: true } }),
+            metadata: json({ observacao: "Assinante principal para administradores" }),
+            created_at: now,
+            updated_at: now
+          }
+        ],
+        "admin.transacoes": [
+          { id: 1, tenant_id: this.tenantId, session_id: this.sessionId, screen_id: "cadastros.clientes", program_id: "clientes-crud", entity_code: "cliente", record_id: "1", endpoint_id: "read", action_id: "read", operation: "entity.crud", status: "succeeded", lock_token: "", request_context: json({ take: 20 }), started_at: now, finished_at: now }
+        ],
+        "admin.logs-transacoes": [
+          { id: 1, transaction_id: 1, event_type: "runtime.request", message: "Chamada runtime recebida.", before_data: "{}", after_data: "{}", diff_data: "{}", metadata: json({ screenId: "cadastros.clientes" }), created_at: now }
+        ]
+      };
+      return global.CrudUtils.clone(rows[screenId] || []);
+    }
+
+    listRuntimeJobs(data) {
+      let rows = this.getDefaultRuntimeJobs().concat(this.getProcessRuntimeJobs());
+      if (data && data.onlyMine) {
+        rows = rows.filter((row) => String(row.user_id || "") === String(this.userId || "demo"));
+      }
+      const filters = Array.isArray(data && data.filters) ? data.filters : [];
+      filters.forEach(function(filter) {
+        const field = filter && filter.field;
+        const value = filter && filter.value;
+        if (!field || value == null || value === "") {
+          return;
+        }
+        rows = rows.filter(function(row) {
+          return String(row[field] || "").toLowerCase().indexOf(String(value).toLowerCase()) !== -1;
+        });
+      });
+
+      const sort = Array.isArray(data && data.sort) && data.sort[0] || { field: "created_at", dir: "desc" };
+      rows = rows.slice().sort(function(left, right) {
+        const direction = sort.dir === "asc" ? 1 : -1;
+        return String(left[sort.field] || "").localeCompare(String(right[sort.field] || "")) * direction;
+      });
+      const skip = Number(data && data.skip || 0);
+      const take = Number(data && data.take || data && data.pageSize || 20);
+      return {
+        data: rows.slice(skip, skip + take),
+        total: rows.length
+      };
+    }
+
+    getRuntimeJob(id) {
+      const record = this.getDefaultRuntimeJobs().concat(this.getProcessRuntimeJobs()).find(function(item) {
+        return String(item.id) === String(id);
+      });
+      if (!record) {
+        throw global.CrudUtils.makeError("RECORD_NOT_FOUND", "Job nao encontrado.", { id });
+      }
+      return global.CrudUtils.clone(record);
+    }
+
+    getDefaultRuntimeJobs() {
+      return [
+        {
+          id: 101,
+          job_type: "cliente.email_confirmation",
+          status: "succeeded",
+          attempts: 1,
+          entity_code: "cliente",
+          record_id: "12",
+          action_id: "create",
+          transaction_id: 501,
+          user_id: "demo",
+          created_at: "2026-05-07 14:05:22",
+          started_at: "2026-05-07 14:05:30",
+          finished_at: "2026-05-07 14:05:31",
+          last_error: "",
+          payload: "{\n  \"clienteId\": 12,\n  \"email\": \"pedidos@litoralfoods.test\"\n}",
+          result: "{\n  \"delivery\": \"mailer\",\n  \"mode\": \"prepared\"\n}"
+        },
+        {
+          id: 102,
+          job_type: "cliente.email_confirmation",
+          status: "failed",
+          attempts: 2,
+          entity_code: "cliente",
+          record_id: "6",
+          action_id: "create",
+          transaction_id: 502,
+          user_id: "demo",
+          created_at: "2026-05-07 14:12:10",
+          started_at: "2026-05-07 14:13:00",
+          finished_at: "2026-05-07 14:13:01",
+          last_error: "E-mail do cliente invalido para confirmacao.",
+          payload: "{\n  \"clienteId\": 6,\n  \"email\": \"\"\n}",
+          result: "{\n  \"exception\": \"RuntimeException\"\n}"
+        },
+        {
+          id: 103,
+          job_type: "cliente.whatsapp_welcome",
+          status: "succeeded",
+          attempts: 1,
+          entity_code: "cliente",
+          record_id: "1",
+          action_id: "sendWhatsapp",
+          transaction_id: 503,
+          user_id: "demo",
+          created_at: "2026-05-07 15:20:00",
+          started_at: "2026-05-07 15:20:05",
+          finished_at: "2026-05-07 15:20:05",
+          last_error: "",
+          payload: "{\n  \"clienteId\": 1,\n  \"telefone\": \"(85) 98888-1001\"\n}",
+          result: "{\n  \"delivery\": \"whatsapp\",\n  \"mode\": \"prepared\"\n}"
+        }
+      ];
+    }
+
+    startClientProcess(data) {
+      const parameters = data && data.parameters || {};
+      const resultType = String(parameters.resultado || parameters.resultType || "grid");
+      const now = new Date();
+      const job = {
+        id: "proc-" + now.getTime().toString(36) + "-" + Math.random().toString(36).slice(2, 7),
+        job_type: "clientes.processamento",
+        status: "queued",
+        attempts: 0,
+        entity_code: "cliente",
+        record_id: "",
+        action_id: "process",
+        transaction_id: "",
+        user_id: this.userId || "demo",
+        created_at: now.toISOString(),
+        started_at: "",
+        finished_at: "",
+        payload: parameters,
+        resultType,
+        result: null,
+        last_error: "",
+        notified: false
+      };
+      this.processJobs.unshift(job);
+      this.persistProcessJobs();
+
+      if (resultType === "job") {
+        return {
+          ok: true,
+          status: "queued",
+          message: "Job iniciado. Acompanhe o termino pelo icone de jobs no appbar.",
+          job: this.toProcessJobSummary(job),
+          wait: { mode: "none" },
+          result: {
+            type: "job",
+            message: "O job foi iniciado e seguira em segundo plano.",
+            job: this.toProcessJobSummary(job)
+          }
+        };
+      }
+
+      return {
+        ok: true,
+        status: "queued",
+        message: "Processamento iniciado.",
+        job: this.toProcessJobSummary(job),
+        wait: {
+          mode: "polling",
+          pollIntervalSeconds: 1
+        }
+      };
+    }
+
+    getClientProcessStatus(data) {
+      this.updateProcessJobsProgress();
+      const id = String(data && (data.jobId || data.id) || "");
+      const job = this.processJobs.find(function(item) {
+        return String(item.id) === id;
+      });
+      if (!job) {
+        throw global.CrudUtils.makeError("PROCESS_JOB_NOT_FOUND", "Job de processamento nao encontrado.", { id });
+      }
+
+      if (job.status !== "succeeded" && job.status !== "failed") {
+        return {
+          ok: true,
+          status: job.status,
+          message: job.status === "running" ? "Processamento em andamento." : "Job aguardando execucao.",
+          job: this.toProcessJobSummary(job)
+        };
+      }
+
+      return {
+        ok: true,
+        status: job.status,
+        message: job.status === "succeeded" ? "Processamento concluido." : "Processamento falhou.",
+        job: this.toProcessJobSummary(job),
+        result: job.result || this.buildClientProcessResult(job)
+      };
+    }
+
+    updateProcessJobsProgress() {
+      const now = Date.now();
+      let changed = false;
+      this.processJobs.forEach((job) => {
+        const created = new Date(job.created_at).getTime();
+        const elapsed = Number.isNaN(created) ? 0 : now - created;
+        if (job.status === "queued" && elapsed >= 500) {
+          job.status = "running";
+          job.attempts = Math.max(1, Number(job.attempts || 0));
+          job.started_at = job.started_at || new Date(now).toISOString();
+          changed = true;
+        }
+        if ((job.status === "queued" || job.status === "running") && elapsed >= 1800) {
+          job.status = "succeeded";
+          job.finished_at = job.finished_at || new Date(now).toISOString();
+          job.result = this.buildClientProcessResult(job);
+          changed = true;
+        }
+      });
+      if (changed) {
+        this.persistProcessJobs();
+      }
+    }
+
+    buildClientProcessResult(job) {
+      const parameters = job && job.payload || {};
+      const resultType = String(job && job.resultType || parameters.resultado || "grid");
+      if (resultType === "message") {
+        return {
+          type: "message",
+          message: "Nenhuma inconsistencia encontrada para os parametros informados."
+        };
+      }
+      if (resultType === "report") {
+        return {
+          type: "report",
+          title: "Relatorio preparado",
+          message: "O relatorio foi gerado em uma pagina separada.",
+          url: "examples/reports/clientes-processamento.html?jobId=" + encodeURIComponent(job.id),
+          linkText: "Abrir relatorio"
+        };
+      }
+      if (resultType === "job") {
+        return {
+          type: "job",
+          message: "Job concluido em segundo plano.",
+          job: this.toProcessJobSummary(job)
+        };
+      }
+
+      const status = String(parameters.status || "TODOS");
+      const rows = this.records.filter(function(record) {
+        return status === "TODOS" || String(record.status) === status;
+      }).slice(0, 6).map(function(record) {
+        return {
+          id: record.id,
+          nome: record.nome,
+          status: record.status,
+          uf: record.uf,
+          valor_total: record.valor_total,
+          qtde_pedidos: record.qtde_pedidos
+        };
+      });
+      return {
+        type: "grid",
+        title: "Clientes processados",
+        columns: [
+          { field: "id", title: "ID", width: 80 },
+          { field: "nome", title: "Nome", width: 220 },
+          { field: "status", title: "Status", width: 120 },
+          { field: "uf", title: "UF", width: 80 },
+          { field: "valor_total", title: "Valor total", width: 140, format: "{0:c2}" },
+          { field: "qtde_pedidos", title: "Pedidos", width: 110 }
+        ],
+        data: rows,
+        total: rows.length,
+        pageSize: 5
+      };
+    }
+
+    getProcessRuntimeJobs() {
+      this.updateProcessJobsProgress();
+      return this.processJobs.map((job) => {
+        return {
+          id: job.id,
+          job_type: job.job_type,
+          status: job.status,
+          attempts: job.attempts || 0,
+          entity_code: job.entity_code || "cliente",
+          record_id: job.record_id || "",
+          action_id: job.action_id || "process",
+          transaction_id: job.transaction_id || "",
+          user_id: job.user_id || this.userId || "demo",
+          created_at: this.formatRuntimeDate(job.created_at),
+          started_at: this.formatRuntimeDate(job.started_at),
+          finished_at: this.formatRuntimeDate(job.finished_at),
+          last_error: job.last_error || "",
+          payload: JSON.stringify(job.payload || {}, null, 2),
+          result: JSON.stringify(job.result || {}, null, 2)
+        };
+      });
+    }
+
+    toProcessJobSummary(job) {
+      return {
+        id: job.id,
+        status: job.status,
+        type: job.job_type,
+        title: "Processamento de clientes"
+      };
+    }
+
+    formatRuntimeDate(value) {
+      if (!value) {
+        return "";
+      }
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return String(value);
+      }
+      return kendo.toString(date, "yyyy-MM-dd HH:mm:ss");
+    }
+
+    routeSystemRuntimeEndpoint(endpointId, data) {
+      switch (endpointId) {
+        case "runtime.lock.acquire":
+          return this.acquireRuntimeLock(data || {});
+        case "runtime.lock.heartbeat":
+          return this.heartbeatRuntimeLock(data || {});
+        case "runtime.lock.release":
+          return this.releaseRuntimeLock(data || {});
+        case "runtime.messages.poll":
+          return this.pollRuntimeMessages();
+        case "runtime.messages.ack":
+          return this.ackRuntimeMessages(data || {});
+        case "runtime.admin.forceLogout":
+          return this.forceLogoutRuntimeUser(data || {});
+        default:
+          return null;
+      }
+    }
+
     routeHomeRuntimeEndpoint(screenId, endpointId, data) {
+      if (this.isSessionRevoked() && endpointId !== "runtime.messages.poll") {
+        throw global.CrudUtils.makeError("SESSION_REVOKED", "Sua sessao foi encerrada.", {
+          reason: "Sessao encerrada no mock."
+        });
+      }
+      const systemResponse = this.routeSystemRuntimeEndpoint(endpointId, data || {});
+      if (systemResponse) {
+        return systemResponse;
+      }
       switch (endpointId) {
         case "home.chat.contacts":
           return this.getHomeChatContacts(data || {});
@@ -436,9 +1941,234 @@
           return this.getHomeAlerts(data || {});
         case "home.requests.list":
           return this.getHomeRequests(data || {});
+        case "home.jobs.list":
+          return this.getHomeJobs(data || {});
+        case "home.subscriber.change":
+          return this.changeHomeSubscriber(data || {});
         default:
           throw global.CrudUtils.makeError("HOME_RUNTIME_ENDPOINT_NOT_FOUND", "Endpoint runtime da Home nao encontrado.", { screenId, endpointId });
       }
+    }
+
+    acquireRuntimeLock(data) {
+      this.expireRuntimeLocks();
+      const entityCode = String(data.entityCode || "cliente");
+      const recordId = String(data.recordId || data.id || "");
+      const actionId = String(data.actionId || data.mode || "edit");
+      if (!recordId) {
+        throw global.CrudUtils.makeError("LOCK_TARGET_REQUIRED", "Informe o registro para controlar o semaforo.");
+      }
+      const existing = this.runtimeState.locks.find((item) => {
+        return item.status === "active" && item.entityCode === entityCode && item.recordId === recordId;
+      });
+      if (existing && existing.sessionId !== this.sessionId) {
+        throw global.CrudUtils.makeError("RECORD_LOCKED", "Este registro esta sendo alterado por outro usuario.", {
+          ownerName: existing.userName,
+          expiresAt: existing.expiresAt
+        });
+      }
+
+      const now = Date.now();
+      const lock = existing || {
+        token: "demo-lock-" + now.toString(36) + "-" + Math.random().toString(36).slice(2, 8),
+        entityCode,
+        recordId,
+        actionId,
+        userId: this.userId,
+        userName: this.userId === "demo" ? "Usuario Demo" : this.userId,
+        sessionId: this.sessionId,
+        status: "active",
+        acquiredAt: new Date(now).toISOString()
+      };
+      lock.lastSeenAt = new Date(now).toISOString();
+      lock.expiresAt = new Date(now + 300000).toISOString();
+      if (!existing) {
+        this.runtimeState.locks.push(lock);
+      }
+      this.persistRuntimeState();
+      return {
+        lock: {
+          status: "acquired",
+          mode: "block",
+          token: lock.token,
+          transactionId: "demo-transaction",
+          expiresAt: lock.expiresAt,
+          heartbeatIntervalSeconds: 60,
+          owner: null,
+          policy: {
+            source: "program_entity_action",
+            mode: "block",
+            stalePolicy: "block",
+            lockTtlSeconds: 300,
+            heartbeatIntervalSeconds: 60
+          }
+        },
+        _runtime: {
+          lockToken: lock.token,
+          transactionId: "demo-transaction"
+        }
+      };
+    }
+
+    heartbeatRuntimeLock(data) {
+      const token = String(data.lockToken || data._runtime && data._runtime.lockToken || "");
+      const lock = this.runtimeState.locks.find((item) => item.status === "active" && item.token === token);
+      if (!lock || lock.sessionId !== this.sessionId) {
+        throw global.CrudUtils.makeError("LOCK_EXPIRED", "O semaforo deste registro expirou.");
+      }
+      const now = Date.now();
+      lock.lastSeenAt = new Date(now).toISOString();
+      lock.expiresAt = new Date(now + 300000).toISOString();
+      this.persistRuntimeState();
+      return {
+        lock: {
+          status: "active",
+          mode: "block",
+          token: lock.token,
+          expiresAt: lock.expiresAt,
+          heartbeatIntervalSeconds: 60,
+          policy: {
+            source: "program_entity_action",
+            lockTtlSeconds: 300
+          }
+        }
+      };
+    }
+
+    releaseRuntimeLock(data) {
+      const token = String(data.lockToken || data._runtime && data._runtime.lockToken || "");
+      this.runtimeState.locks.forEach((lock) => {
+        if (lock.status === "active" && lock.token === token && lock.sessionId === this.sessionId) {
+          lock.status = "released";
+          lock.releasedAt = new Date().toISOString();
+        }
+      });
+      this.persistRuntimeState();
+      return { ok: true, released: true };
+    }
+
+    pollRuntimeMessages() {
+      const messages = this.runtimeState.messages.filter((message) => {
+        return (message.status === "pending" || message.status === "delivered") &&
+          (message.targetUserId === this.userId || message.targetSessionId === this.sessionId);
+      });
+      messages.forEach(function(message) {
+        message.status = "delivered";
+        message.deliveredAt = new Date().toISOString();
+      });
+      this.persistRuntimeState();
+      return {
+        messages: messages.map(function(message) {
+          return {
+            id: message.id,
+            type: message.type,
+            severity: message.severity,
+            title: message.title,
+            message: message.message,
+            metadata: message.metadata || {},
+            actionRequired: message.actionRequired === true,
+            createdAt: message.createdAt
+          };
+        })
+      };
+    }
+
+    ackRuntimeMessages(data) {
+      const ids = global.CrudUtils.ensureArray(data.ids || (data.id ? [data.id] : [])).map(String);
+      this.runtimeState.messages.forEach(function(message) {
+        if (ids.indexOf(String(message.id)) !== -1) {
+          message.status = "acknowledged";
+          message.acknowledgedAt = new Date().toISOString();
+        }
+      });
+      this.persistRuntimeState();
+      return { ok: true, count: ids.length };
+    }
+
+    forceLogoutRuntimeUser(data) {
+      const targetUserId = String(data.targetUserId || data.userId || this.userId);
+      const targetSessionId = String(data.targetSessionId || data.sessionId || "");
+      const reason = String(data.reason || "Sessao encerrada pelo administrador.");
+      this.runtimeState.revokedSessions.push({
+        userId: targetUserId,
+        sessionId: targetSessionId,
+        reason,
+        revokedAt: new Date().toISOString()
+      });
+      this.runtimeState.locks.forEach(function(lock) {
+        if (lock.status === "active" && (lock.userId === targetUserId || lock.sessionId === targetSessionId)) {
+          lock.status = "revoked";
+          lock.releasedAt = new Date().toISOString();
+        }
+      });
+      this.runtimeState.messages.push({
+        id: "msg-" + Date.now().toString(36),
+        targetUserId,
+        targetSessionId: targetSessionId || null,
+        type: "force_logout",
+        severity: "error",
+        title: "Sessao encerrada",
+        message: reason,
+        actionRequired: true,
+        status: "pending",
+        metadata: { reason },
+        createdAt: new Date().toISOString()
+      });
+      this.persistRuntimeState();
+      return { ok: true, revokedSessions: 1, releasedLocks: 1 };
+    }
+
+    isSessionRevoked() {
+      return this.runtimeState.revokedSessions.some((item) => {
+        return item.sessionId === this.sessionId || (!item.sessionId && item.userId === this.userId);
+      });
+    }
+
+    expireRuntimeLocks() {
+      const now = Date.now();
+      this.runtimeState.locks.forEach(function(lock) {
+        if (lock.status === "active" && new Date(lock.expiresAt).getTime() < now) {
+          lock.status = "expired";
+          lock.releasedAt = new Date().toISOString();
+        }
+      });
+    }
+
+    getHomeSubscriberOptions() {
+      return [
+        {
+          id: "principal",
+          name: "Principal",
+          principal: true
+        },
+        {
+          id: "assinante-demo",
+          name: "Empresa Demonstracao",
+          document: "00.000.000/0001-00",
+          label: "Assinante"
+        },
+        {
+          id: "assinante-filial",
+          name: "Empresa Filial",
+          document: "11.111.111/0001-11",
+          label: "Assinante"
+        }
+      ];
+    }
+
+    changeHomeSubscriber(data) {
+      const subscriberId = String(data && (data.subscriberId || data.id) || "").trim();
+      const selected = this.getHomeSubscriberOptions().find(function(item) {
+        return String(item.id) === subscriberId;
+      }) || data && data.subscriber || null;
+      if (!selected) {
+        throw global.CrudUtils.makeError("SUBSCRIBER_NOT_FOUND", "Assinante nao encontrado.", { subscriberId });
+      }
+      return {
+        ok: true,
+        currentSubscriber: global.CrudUtils.clone(selected),
+        changedAt: new Date().toISOString()
+      };
     }
 
     list(query) {
@@ -454,7 +2184,7 @@
       rows = rows.slice(skip, skip + take);
 
       return {
-        data: rows,
+        data: rows.map((row) => this.decorateRuntimeRecord(row)),
         total
       };
     }
@@ -717,6 +2447,28 @@
       };
     }
 
+    getHomeJobs() {
+      this.updateProcessJobsProgress();
+      const finished = this.processJobs.filter((job) => {
+        return String(job.user_id || "") === String(this.userId || "demo") &&
+          ["succeeded", "failed"].indexOf(String(job.status || "")) >= 0;
+      });
+      return {
+        items: finished.map((job) => {
+          return {
+            id: job.id,
+            title: "Processamento de clientes " + (job.status === "succeeded" ? "concluido" : "falhou"),
+            description: "Job " + job.id + " iniciado pelo usuario corrente.",
+            type: "Job",
+            status: job.status === "succeeded" ? "Concluido" : "Falhou",
+            updatedAt: job.finished_at || job.created_at,
+            programId: "meus-jobs",
+            linkText: "Abrir meus jobs"
+          };
+        })
+      };
+    }
+
     printClient(id, format, data) {
       this.ensureRecords();
       const recordId = Number(id || data && data.id);
@@ -746,6 +2498,31 @@
         throw global.CrudUtils.makeError("CLIENT_NOT_FOUND", "Cliente nao encontrado para executar acao.");
       }
 
+      if (action === "send-whatsapp") {
+        return {
+          ok: true,
+          id: recordId,
+          action,
+          receivedValues: global.CrudUtils.clone(data && data.values || {}),
+          requestedAt: new Date().toISOString(),
+          _runtime: {
+            asyncJobs: [
+              {
+                type: "cliente.whatsapp_welcome",
+                status: "queued"
+              }
+            ]
+          },
+          effects: [
+            {
+              action: "showMessage",
+              type: "info",
+              message: "WhatsApp agendado."
+            }
+          ]
+        };
+      }
+
       return {
         ok: true,
         id: recordId,
@@ -764,19 +2541,18 @@
         definitionHash: data.definitionHash || "clientes-demo-v1",
         grid: global.CrudUtils.clone(data.grid)
       };
+      this.decoratePreferenceScope(layout, data);
 
       if (!data.id) {
         this.nextLayoutId += 1;
       }
 
       if (layout.isDefault) {
-        this.savedLayouts.forEach(function(item) {
-          item.isDefault = false;
-        });
+        this.clearDefaultPreference(this.savedLayouts, layout);
       }
 
       const index = this.savedLayouts.findIndex(function(item) {
-        return item.id === layout.id;
+        return item.id === layout.id && item.tenantId === layout.tenantId;
       });
       if (index >= 0) {
         this.savedLayouts[index] = layout;
@@ -810,19 +2586,18 @@
         isDefault: Boolean(data.isDefault),
         sort: global.CrudUtils.clone(sort)
       };
+      this.decoratePreferenceScope(preset, data);
 
       if (!data.id) {
         this.nextSortId += 1;
       }
 
       if (preset.isDefault) {
-        this.savedSorts.forEach(function(item) {
-          item.isDefault = false;
-        });
+        this.clearDefaultPreference(this.savedSorts, preset);
       }
 
       const index = this.savedSorts.findIndex(function(item) {
-        return item.id === preset.id;
+        return item.id === preset.id && item.tenantId === preset.tenantId;
       });
       if (index >= 0) {
         this.savedSorts[index] = preset;
@@ -830,9 +2605,7 @@
         this.savedSorts.push(preset);
       }
 
-      const defaultSort = this.savedSorts.find(function(item) {
-        return item.isDefault;
-      });
+      const defaultSort = this.findActivePreference(this.savedSorts, this.activeSortId);
       if (preset.isDefault || !defaultSort) {
         this.activeSortId = preset.id;
       }
@@ -847,8 +2620,8 @@
     deleteSort(sortId) {
       const id = String(sortId || "");
       this.savedSorts = this.savedSorts.filter(function(item) {
-        return item.id !== id;
-      });
+        return !this.matchesPreferenceForDelete(item, id);
+      }, this);
       if (this.activeSortId === id) {
         this.activeSortId = null;
       }
@@ -883,19 +2656,18 @@
         group: global.CrudUtils.clone(group),
         aggregates: global.CrudUtils.clone(aggregates)
       };
+      this.decoratePreferenceScope(preset, data);
 
       if (!data.id) {
         this.nextGroupId += 1;
       }
 
       if (preset.isDefault) {
-        this.savedGroups.forEach(function(item) {
-          item.isDefault = false;
-        });
+        this.clearDefaultPreference(this.savedGroups, preset);
       }
 
       const index = this.savedGroups.findIndex(function(item) {
-        return item.id === preset.id;
+        return item.id === preset.id && item.tenantId === preset.tenantId;
       });
       if (index >= 0) {
         this.savedGroups[index] = preset;
@@ -903,9 +2675,7 @@
         this.savedGroups.push(preset);
       }
 
-      const defaultGroup = this.savedGroups.find(function(item) {
-        return item.isDefault;
-      });
+      const defaultGroup = this.findActivePreference(this.savedGroups, this.activeGroupId);
       if (preset.isDefault || !defaultGroup) {
         this.activeGroupId = preset.id;
       }
@@ -920,8 +2690,8 @@
     deleteGroup(groupId) {
       const id = String(groupId || "");
       this.savedGroups = this.savedGroups.filter(function(item) {
-        return item.id !== id;
-      });
+        return !this.matchesPreferenceForDelete(item, id);
+      }, this);
       if (this.activeGroupId === id) {
         this.activeGroupId = null;
       }
@@ -949,19 +2719,18 @@
         isDefault: Boolean(data.isDefault),
         filters: global.CrudUtils.clone(filters)
       };
+      this.decoratePreferenceScope(preset, data);
 
       if (!data.id) {
         this.nextFilterId += 1;
       }
 
       if (preset.isDefault) {
-        this.savedFilters.forEach(function(item) {
-          item.isDefault = false;
-        });
+        this.clearDefaultPreference(this.savedFilters, preset);
       }
 
       const index = this.savedFilters.findIndex(function(item) {
-        return item.id === preset.id;
+        return item.id === preset.id && item.tenantId === preset.tenantId;
       });
       if (index >= 0) {
         this.savedFilters[index] = preset;
@@ -969,9 +2738,7 @@
         this.savedFilters.push(preset);
       }
 
-      const defaultFilter = this.savedFilters.find(function(item) {
-        return item.isDefault;
-      });
+      const defaultFilter = this.findActivePreference(this.savedFilters, this.activeFilterId);
       if (preset.isDefault || !defaultFilter) {
         this.activeFilterId = preset.id;
       }
@@ -986,10 +2753,71 @@
     deleteFilter(filterId) {
       const id = String(filterId || "");
       this.savedFilters = this.savedFilters.filter(function(item) {
-        return item.id !== id;
-      });
+        return !this.matchesPreferenceForDelete(item, id);
+      }, this);
       if (this.activeFilterId === id) {
         this.activeFilterId = null;
+      }
+      this.persistLayouts();
+      return {
+        ok: true,
+        userLayout: this.buildUserLayout()
+      };
+    }
+
+    saveMobileTemplate(data) {
+      const template = this.normalizeMobileTemplate(data.template || data.mobileTemplate || data);
+      if (!data.name || !String(data.name).trim()) {
+        throw global.CrudUtils.makeError("MOBILE_TEMPLATE_NAME_REQUIRED", "Informe o nome do template mobile.");
+      }
+      if (!template) {
+        throw global.CrudUtils.makeError("MOBILE_TEMPLATE_REQUIRED", "Informe ao menos um campo para o template mobile.");
+      }
+
+      const preset = {
+        id: data.id || "mobile-template-" + this.nextMobileTemplateId,
+        name: String(data.name).trim(),
+        isDefault: Boolean(data.isDefault),
+        template
+      };
+      this.decoratePreferenceScope(preset, data);
+
+      if (!data.id) {
+        this.nextMobileTemplateId += 1;
+      }
+
+      if (preset.isDefault) {
+        this.clearDefaultPreference(this.savedMobileTemplates, preset);
+      }
+
+      const index = this.savedMobileTemplates.findIndex(function(item) {
+        return item.id === preset.id && item.tenantId === preset.tenantId;
+      });
+      if (index >= 0) {
+        this.savedMobileTemplates[index] = preset;
+      } else {
+        this.savedMobileTemplates.push(preset);
+      }
+
+      const defaultTemplate = this.findActivePreference(this.savedMobileTemplates, this.activeMobileTemplateId);
+      if (preset.isDefault || !defaultTemplate) {
+        this.activeMobileTemplateId = preset.id;
+      }
+      this.persistLayouts();
+      return {
+        ok: true,
+        mobileTemplatePreset: preset,
+        userLayout: this.buildUserLayout()
+      };
+    }
+
+    deleteMobileTemplate(templateId) {
+      const id = String(templateId || "");
+      this.savedMobileTemplates = this.savedMobileTemplates.filter(function(item) {
+        return !this.matchesPreferenceForDelete(item, id);
+      }, this);
+      if (this.activeMobileTemplateId === id) {
+        this.activeMobileTemplateId = null;
       }
       this.persistLayouts();
       return {
@@ -1001,27 +2829,28 @@
     buildUserLayout(baseUserLayout) {
       const base = global.CrudUtils.clone(baseUserLayout || {
         enabled: true,
-        version: 1,
+        version: 2,
         source: "default",
         definitionHash: "clientes-demo-v1",
         grid: this.emptyGridLayout()
       });
 
-      base.savedLayouts = global.CrudUtils.clone(this.savedLayouts);
-      base.savedSorts = global.CrudUtils.clone(this.savedSorts);
-      base.savedGroups = global.CrudUtils.clone(this.savedGroups);
-      base.savedFilters = global.CrudUtils.clone(this.savedFilters);
+      base.preferenceScopes = {
+        currentTenantId: this.tenantId,
+        globalScope: "global",
+        fallbackOrder: ["tenant", "global", "program", "system"]
+      };
+      base.savedLayouts = global.CrudUtils.clone(this.visiblePreferences(this.savedLayouts));
+      base.savedSorts = global.CrudUtils.clone(this.visiblePreferences(this.savedSorts));
+      base.savedGroups = global.CrudUtils.clone(this.visiblePreferences(this.savedGroups));
+      base.savedFilters = global.CrudUtils.clone(this.visiblePreferences(this.savedFilters));
+      base.savedMobileTemplates = global.CrudUtils.clone(this.visiblePreferences(this.savedMobileTemplates));
 
-      let active = this.savedLayouts.find((item) => item.id === this.activeLayoutId);
-      if (!active) {
-        active = this.savedLayouts.find(function(item) {
-          return item.isDefault;
-        });
-      }
+      let active = this.findActivePreference(this.savedLayouts, this.activeLayoutId);
 
       if (active) {
         base.activeLayoutId = active.id;
-        base.source = "user";
+        base.source = active.scope === "global" ? "user_global" : "user";
         base.grid = global.CrudUtils.clone(active.grid);
       } else {
         base.activeLayoutId = null;
@@ -1029,9 +2858,7 @@
         base.grid = this.emptyGridLayout();
       }
 
-      const activeSort = this.savedSorts.find(function(item) {
-        return item.isDefault;
-      }) || this.savedSorts.find((item) => item.id === this.activeSortId);
+      const activeSort = this.findActivePreference(this.savedSorts, this.activeSortId);
       if (activeSort) {
         base.activeSortId = activeSort.id;
         base.grid.sort = global.CrudUtils.clone(activeSort.sort);
@@ -1039,9 +2866,7 @@
         base.activeSortId = null;
       }
 
-      const activeGroup = this.savedGroups.find(function(item) {
-        return item.isDefault;
-      }) || this.savedGroups.find((item) => item.id === this.activeGroupId);
+      const activeGroup = this.findActivePreference(this.savedGroups, this.activeGroupId);
       if (activeGroup) {
         base.activeGroupId = activeGroup.id;
         base.grid.group = global.CrudUtils.clone(activeGroup.group);
@@ -1051,10 +2876,17 @@
         base.grid.groupAggregates = global.CrudUtils.ensureArray(base.grid.groupAggregates);
       }
 
-      const activeFilter = this.savedFilters.find(function(item) {
-        return item.isDefault;
-      }) || this.savedFilters.find((item) => item.id === this.activeFilterId);
+      const activeFilter = this.findActivePreference(this.savedFilters, this.activeFilterId);
       base.activeFilterId = activeFilter ? activeFilter.id : null;
+
+      const activeMobileTemplate = this.findActivePreference(this.savedMobileTemplates, this.activeMobileTemplateId);
+      if (activeMobileTemplate) {
+        base.activeMobileTemplateId = activeMobileTemplate.id;
+        base.grid.mobileTemplate = global.CrudUtils.clone(activeMobileTemplate.template);
+      } else {
+        base.activeMobileTemplateId = null;
+        base.grid.mobileTemplate = base.grid.mobileTemplate || null;
+      }
 
       return base;
     }
@@ -1071,8 +2903,160 @@
         sort: [],
         filter: null,
         group: [],
-        groupAggregates: []
+        groupAggregates: [],
+        mobileTemplate: null
       };
+    }
+
+    decoratePreferenceScope(preference, data) {
+      const scope = this.resolvePreferenceScope(data);
+      preference.scope = scope;
+      preference.tenantId = scope === "global" ? "__global__" : this.tenantId;
+      preference.inherited = false;
+      return preference;
+    }
+
+    resolvePreferenceScope(data) {
+      const source = data || {};
+      const scope = String(source.scope || source.tenantScope || "").toLowerCase();
+      if (scope === "global" || scope === "all" || scope === "todos" || source.applyToAllTenants || source.allSubscribers) {
+        return "global";
+      }
+      return "tenant";
+    }
+
+    visiblePreferences(items) {
+      const globalItems = [];
+      const tenantItems = [];
+      global.CrudUtils.ensureArray(items).forEach((item) => {
+        const normalized = this.normalizePreferenceScope(item);
+        if (normalized.tenantId === "__global__") {
+          globalItems.push(Object.assign({}, normalized, {
+            inherited: true
+          }));
+          return;
+        }
+        if (normalized.tenantId === this.tenantId) {
+          tenantItems.push(Object.assign({}, normalized, {
+            inherited: false
+          }));
+        }
+      });
+
+      const merged = {};
+      globalItems.forEach(function(item) {
+        merged[item.id] = item;
+      });
+      tenantItems.forEach(function(item) {
+        merged[item.id] = item;
+      });
+      return Object.keys(merged).map(function(key) {
+        return merged[key];
+      });
+    }
+
+    findActivePreference(items, activeId) {
+      const visible = this.visiblePreferences(items);
+      const tenantItems = visible.filter(function(item) {
+        return item.scope !== "global";
+      });
+      const globalItems = visible.filter(function(item) {
+        return item.scope === "global";
+      });
+
+      return tenantItems.find(function(item) {
+        return item.isDefault;
+      }) || globalItems.find(function(item) {
+        return item.isDefault;
+      }) || tenantItems.find(function(item) {
+        return item.id === activeId;
+      }) || globalItems.find(function(item) {
+        return item.id === activeId;
+      }) || null;
+    }
+
+    normalizePreferenceScope(item) {
+      const copy = Object.assign({}, item || {});
+      if (!copy.tenantId) {
+        copy.tenantId = copy.scope === "global" ? "__global__" : this.tenantId;
+      }
+      copy.scope = copy.tenantId === "__global__" ? "global" : "tenant";
+      return copy;
+    }
+
+    clearDefaultPreference(items, current) {
+      global.CrudUtils.ensureArray(items).forEach((item) => {
+        const normalized = this.normalizePreferenceScope(item);
+        if (normalized.tenantId === current.tenantId && item.id !== current.id) {
+          item.isDefault = false;
+        }
+      });
+    }
+
+    matchesPreferenceForDelete(item, id) {
+      const normalized = this.normalizePreferenceScope(item);
+      if (normalized.id !== id) {
+        return false;
+      }
+      return normalized.tenantId === this.tenantId || normalized.tenantId === "__global__";
+    }
+
+    normalizeMobileTemplate(template) {
+      const source = template || {};
+      const fields = this.normalizeFieldList(source.fields || source.fieldPositions || []);
+      const badges = this.normalizeFieldList(source.badges || source.badgeFields || []);
+      const tabs = this.normalizeMobileTabs(source.tabs || {});
+      const normalized = {
+        titleField: this.normalizeFieldName(source.titleField),
+        subtitleField: this.normalizeFieldName(source.subtitleField),
+        badges,
+        fields,
+        tabs
+      };
+
+      if (!normalized.titleField && !normalized.subtitleField && !badges.length && !fields.length && !tabs.items.length) {
+        return null;
+      }
+
+      return normalized;
+    }
+
+    normalizeMobileTabs(tabs) {
+      const source = tabs || {};
+      const items = global.CrudUtils.ensureArray(source.items).map((item) => {
+        const fields = this.normalizeFieldList(item && item.fields || []);
+        if (!fields.length) {
+          return null;
+        }
+        return {
+          id: String(item.id || "tab").replace(/[^A-Za-z0-9_.:-]+/g, "-").slice(0, 80),
+          title: String(item.title || item.id || "Aba").slice(0, 120),
+          fields
+        };
+      }).filter(Boolean);
+
+      return {
+        enabled: Boolean(source.enabled) && items.length > 0,
+        items
+      };
+    }
+
+    normalizeFieldList(fields) {
+      const known = {};
+      return global.CrudUtils.ensureArray(fields).map((fieldName) => {
+        return this.normalizeFieldName(fieldName);
+      }).filter(function(fieldName) {
+        if (!fieldName || known[fieldName]) {
+          return false;
+        }
+        known[fieldName] = true;
+        return true;
+      });
+    }
+
+    normalizeFieldName(fieldName) {
+      const value = String(fieldName || "").trim();
+      return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value) ? value : "";
     }
 
     normalizeGroupAggregates(aggregates) {
@@ -1096,17 +3080,82 @@
       });
     }
 
+    decorateRuntimeRecord(record) {
+      const copy = global.CrudUtils.clone(record || {});
+      const updatedAt = copy.updated_at || copy.updatedAt || copy.data_cadastro || "";
+      copy._runtime = Object.assign({}, copy._runtime || {}, {
+        version: this.runtimeRecordVersion(copy),
+        lastModifiedAt: updatedAt
+      });
+      return copy;
+    }
+
+    decorateAsyncCreateResponse(record) {
+      if (!record || !record.email) {
+        return record;
+      }
+      const email = String(record.email || "").trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return record;
+      }
+
+      record._runtime = Object.assign({}, record._runtime || {}, {
+        asyncJobs: [
+          {
+            type: "cliente.email_confirmation",
+            status: "queued"
+          }
+        ]
+      });
+      record.effects = [
+        {
+          action: "showMessage",
+          type: "info",
+          message: "E-mail de confirmacao agendado."
+        }
+      ];
+      return record;
+    }
+
+    runtimeRecordVersion(record) {
+      return "demo-" + String(record.id || "") + "-" + String(record.updated_at || record.updatedAt || record.data_cadastro || "");
+    }
+
+    validateRuntimeWrite(record, data) {
+      const runtime = data && data._runtime || {};
+      const expectedVersion = runtime.version || data && data.expectedVersion;
+      if (expectedVersion && expectedVersion !== this.runtimeRecordVersion(record)) {
+        throw global.CrudUtils.makeError("STALE_RECORD", "Este registro foi alterado por outro usuario. Recarregue antes de gravar.", {
+          expectedVersion,
+          currentVersion: this.runtimeRecordVersion(record)
+        });
+      }
+      const lockToken = runtime.lockToken || data && data.lockToken;
+      if (!lockToken) {
+        throw global.CrudUtils.makeError("LOCK_REQUIRED", "Este registro exige semaforo ativo para gravar.");
+      }
+      const lock = this.runtimeState.locks.find((item) => {
+        return item.status === "active" && item.token === lockToken && item.sessionId === this.sessionId;
+      });
+      if (!lock) {
+        throw global.CrudUtils.makeError("LOCK_EXPIRED", "O semaforo deste registro expirou ou pertence a outra sessao.");
+      }
+    }
+
     create(data) {
-      const record = Object.assign({}, data, {
+      const values = this.normalizeRuntimeValues(data);
+      this.validateBusinessConsistency(values);
+      const record = Object.assign({}, values, {
         id: this.nextId,
         data_cadastro: new Date().toISOString().slice(0, 10),
-        valor_total: Number(data.valor_total || 0),
-        qtde_pedidos: Number(data.qtde_pedidos || 0)
+        valor_total: Number(values.valor_total || 0),
+        qtde_pedidos: Number(values.qtde_pedidos || 0),
+        updated_at: new Date().toISOString()
       });
       this.nextId += 1;
       this.records.push(record);
       this.persistRecords();
-      return record;
+      return this.decorateAsyncCreateResponse(this.decorateRuntimeRecord(record));
     }
 
     get(id) {
@@ -1114,7 +3163,7 @@
       if (!record) {
         throw global.CrudUtils.makeError("RECORD_NOT_FOUND", "Registro nao encontrado.", { id });
       }
-      return global.CrudUtils.clone(record);
+      return this.decorateRuntimeRecord(record);
     }
 
     update(id, data) {
@@ -1123,17 +3172,21 @@
         throw global.CrudUtils.makeError("RECORD_NOT_FOUND", "Registro nao encontrado.", { id });
       }
       const current = this.records[index];
-      const next = Object.assign({}, current, data, { id });
+      this.validateRuntimeWrite(current, data);
+      const values = this.normalizeRuntimeValues(data);
+      this.validateBusinessConsistency(Object.assign({}, current, values));
+      const next = Object.assign({}, current, values, { id, updated_at: new Date().toISOString() });
       this.records[index] = next;
       this.persistRecords();
-      return next;
+      return this.decorateRuntimeRecord(next);
     }
 
-    delete(id) {
+    delete(id, data) {
       const index = this.records.findIndex(function(item) { return item.id === id; });
       if (index === -1) {
         throw global.CrudUtils.makeError("RECORD_NOT_FOUND", "Registro nao encontrado.", { id });
       }
+      this.validateRuntimeWrite(this.records[index], data || {});
       this.records.splice(index, 1);
       this.persistRecords();
       return { ok: true };
@@ -1205,6 +3258,50 @@
           }
         ]
       };
+    }
+
+    normalizeRuntimeValues(data) {
+      const source = data && data.values && typeof data.values === "object" ? data.values : data || {};
+      const allowed = ["id", "nome", "email", "telefone", "status", "tipo_pessoa", "uf", "cidade", "razao_social", "cnpj", "data_cadastro", "valor_total", "qtde_pedidos", "observacao"];
+      return allowed.reduce(function(result, field) {
+        if (Object.prototype.hasOwnProperty.call(source, field)) {
+          result[field] = source[field];
+        }
+        return result;
+      }, {});
+    }
+
+    validateBusinessConsistency(values) {
+      if (!values || values.status !== "INATIVO" || String(values.observacao || "").trim()) {
+        return;
+      }
+
+      const error = global.CrudUtils.makeError("CLIENTE_OBSERVACAO_REQUIRED", "Existem inconsistencias no formulario.", {});
+      error.payload.error.severity = "error";
+      error.payload.validation = {
+        status: "blocked",
+        title: "Inconsistencias encontradas",
+        messages: [
+          {
+            field: "observacao",
+            type: "error",
+            message: "Observacao e obrigatoria para cliente inativo."
+          }
+        ]
+      };
+      error.payload.effects = [
+        {
+          action: "required",
+          target: "observacao",
+          value: true
+        },
+        {
+          action: "showMessage",
+          type: "warning",
+          message: "Informe uma observacao ao inativar o cliente."
+        }
+      ];
+      throw error;
     }
 
     listCitiesByState(data) {

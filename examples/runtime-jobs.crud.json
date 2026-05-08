@@ -1,0 +1,351 @@
+{
+  "schemaVersion": "1.0",
+  "pageType": "crud",
+  "screenId": "admin.jobs",
+  "program": {
+    "id": "runtime-jobs",
+    "module": "administracao",
+    "entity": "runtime_async_job",
+    "title": "Jobs Assincronos",
+    "version": "1.0.0",
+    "subtitle": "Consulta das acoes executadas por fila",
+    "subtitleTooltip": "Tela de consulta para acompanhar jobs assincronos, status, tentativas, payload, resultado e erro."
+  },
+  "permissions": {
+    "read": true,
+    "create": false,
+    "edit": false,
+    "delete": false,
+    "saveLayout": true
+  },
+  "security": {
+    "userGroups": ["admin"]
+  },
+  "dataSource": {
+    "api": {
+      "read": {
+        "endpointId": "read",
+        "method": "POST"
+      },
+      "get": {
+        "endpointId": "get",
+        "method": "POST"
+      },
+      "saveLayout": {
+        "endpointId": "saveLayout",
+        "method": "POST"
+      },
+      "restoreLayout": {
+        "endpointId": "restoreLayout",
+        "method": "POST"
+      },
+      "saveSort": {
+        "endpointId": "saveSort",
+        "method": "POST"
+      },
+      "deleteSort": {
+        "endpointId": "deleteSort",
+        "method": "POST"
+      },
+      "saveGroup": {
+        "endpointId": "saveGroup",
+        "method": "POST"
+      },
+      "deleteGroup": {
+        "endpointId": "deleteGroup",
+        "method": "POST"
+      },
+      "saveFilter": {
+        "endpointId": "saveFilter",
+        "method": "POST"
+      },
+      "deleteFilter": {
+        "endpointId": "deleteFilter",
+        "method": "POST"
+      },
+      "saveMobileTemplate": {
+        "endpointId": "saveMobileTemplate",
+        "method": "POST"
+      },
+      "deleteMobileTemplate": {
+        "endpointId": "deleteMobileTemplate",
+        "method": "POST"
+      },
+      "runtime.messages.poll": {
+        "endpointId": "runtime.messages.poll",
+        "method": "POST"
+      },
+      "runtime.messages.ack": {
+        "endpointId": "runtime.messages.ack",
+        "method": "POST"
+      },
+      "runtime.admin.forceLogout": {
+        "endpointId": "runtime.admin.forceLogout",
+        "method": "POST"
+      }
+    }
+  },
+  "runtime": {
+    "entityCode": "runtime_async_job",
+    "programId": "runtime-jobs",
+    "lock": {
+      "enabled": false,
+      "modes": []
+    },
+    "messages": {
+      "enabled": true,
+      "pollIntervalSeconds": 30,
+      "events": {
+        "enabled": true
+      }
+    }
+  },
+  "dataModel": {
+    "primaryKey": "id",
+    "fields": {
+      "id": {
+        "type": "integer",
+        "label": "ID",
+        "editable": false,
+        "nullable": false
+      },
+      "job_type": {
+        "type": "string",
+        "label": "Tipo do job",
+        "editable": false,
+        "nullable": false
+      },
+      "status": {
+        "type": "enum",
+        "label": "Status",
+        "editable": false,
+        "nullable": false,
+        "options": [
+          { "value": "queued", "text": "Na fila" },
+          { "value": "running", "text": "Executando" },
+          { "value": "succeeded", "text": "Concluido" },
+          { "value": "failed", "text": "Falhou" }
+        ]
+      },
+      "attempts": {
+        "type": "integer",
+        "label": "Tentativas",
+        "editable": false,
+        "nullable": false
+      },
+      "entity_code": {
+        "type": "string",
+        "label": "Entidade",
+        "editable": false,
+        "nullable": true
+      },
+      "record_id": {
+        "type": "string",
+        "label": "Registro",
+        "editable": false,
+        "nullable": true
+      },
+      "action_id": {
+        "type": "string",
+        "label": "Acao",
+        "editable": false,
+        "nullable": true
+      },
+      "transaction_id": {
+        "type": "integer",
+        "label": "Transacao",
+        "editable": false,
+        "nullable": true
+      },
+      "user_id": {
+        "type": "string",
+        "label": "Usuario",
+        "editable": false,
+        "nullable": false
+      },
+      "created_at": {
+        "type": "datetime",
+        "label": "Criado em",
+        "editable": false,
+        "nullable": false
+      },
+      "started_at": {
+        "type": "datetime",
+        "label": "Iniciado em",
+        "editable": false,
+        "nullable": true
+      },
+      "finished_at": {
+        "type": "datetime",
+        "label": "Finalizado em",
+        "editable": false,
+        "nullable": true
+      },
+      "last_error": {
+        "type": "text",
+        "label": "Ultimo erro",
+        "editable": false,
+        "nullable": true
+      },
+      "payload": {
+        "type": "json",
+        "label": "Payload",
+        "editable": false,
+        "nullable": false
+      },
+      "result": {
+        "type": "json",
+        "label": "Resultado",
+        "editable": false,
+        "nullable": false
+      }
+    }
+  },
+  "crud": {
+    "query": {
+      "pageSize": 20,
+      "defaultSort": [
+        {
+          "field": "created_at",
+          "dir": "desc"
+        }
+      ]
+    },
+    "filter": {
+      "type": "window",
+      "mode": "basic",
+      "title": "Filtros de jobs",
+      "openOnLoad": false,
+      "showAppliedFilters": true,
+      "fields": [
+        {
+          "id": "job_type",
+          "field": "job_type",
+          "label": "Tipo do job",
+          "type": "text",
+          "operator": "contains"
+        },
+        {
+          "id": "status",
+          "field": "status",
+          "label": "Status",
+          "type": "enum",
+          "operator": "eq",
+          "options": [
+            { "value": "queued", "text": "Na fila" },
+            { "value": "running", "text": "Executando" },
+            { "value": "succeeded", "text": "Concluido" },
+            { "value": "failed", "text": "Falhou" }
+          ]
+        },
+        {
+          "id": "entity_code",
+          "field": "entity_code",
+          "label": "Entidade",
+          "type": "text",
+          "operator": "contains"
+        },
+        {
+          "id": "record_id",
+          "field": "record_id",
+          "label": "Registro",
+          "type": "text",
+          "operator": "contains"
+        }
+      ]
+    },
+    "grid": {
+      "pageable": true,
+      "sortable": true,
+      "filterable": true,
+      "resizable": true,
+      "reorderable": true,
+      "columnMenu": true,
+      "toolbar": [
+        { "id": "filters", "label": "Filtros", "action": "filters", "icon": "filter" },
+        { "id": "refresh", "label": "Atualizar", "action": "refresh", "icon": "arrow-rotate-cw" },
+        { "id": "layout", "label": "Leiaute", "action": "layout", "icon": "columns", "permission": "saveLayout" }
+      ],
+      "columns": [
+        { "field": "id", "title": "ID", "width": 80, "align": "right" },
+        { "field": "job_type", "title": "Tipo do job", "width": 230 },
+        { "field": "status", "title": "Status", "width": 130 },
+        { "field": "attempts", "title": "Tentativas", "width": 110, "align": "right" },
+        { "field": "entity_code", "title": "Entidade", "width": 140 },
+        { "field": "record_id", "title": "Registro", "width": 110 },
+        { "field": "user_id", "title": "Usuario", "width": 140 },
+        { "field": "created_at", "title": "Criado em", "width": 180 },
+        { "field": "finished_at", "title": "Finalizado em", "width": 180 },
+        { "field": "last_error", "title": "Ultimo erro", "width": 260 }
+      ],
+      "rowActions": [
+        { "id": "view", "label": "Visualizar", "action": "view", "icon": "eye", "permission": "read" }
+      ],
+      "bulkActions": {
+        "enabled": false,
+        "actions": []
+      },
+      "print": {
+        "enabled": false,
+        "options": []
+      }
+    },
+    "form": {
+      "id": "runtime-job-form",
+      "mode": "popup",
+      "layout": "tabs",
+      "maximizeForm": true,
+      "title": {
+        "view": "Detalhe do job"
+      },
+      "behavior": {
+        "closeOnSave": true,
+        "closeOnCancel": true
+      },
+      "tabs": [
+        {
+          "id": "geral",
+          "title": "Geral",
+          "fields": ["id", "job_type", "status", "attempts", "entity_code", "record_id", "action_id", "transaction_id", "user_id", "created_at", "started_at", "finished_at"]
+        },
+        {
+          "id": "dados",
+          "title": "Dados",
+          "fields": ["payload", "result", "last_error"]
+        }
+      ],
+      "fields": [
+        { "field": "id", "renderAs": "readonly" },
+        { "field": "job_type", "renderAs": "readonly" },
+        { "field": "status", "renderAs": "readonly" },
+        { "field": "attempts", "renderAs": "readonly" },
+        { "field": "entity_code", "renderAs": "readonly" },
+        { "field": "record_id", "renderAs": "readonly" },
+        { "field": "action_id", "renderAs": "readonly" },
+        { "field": "transaction_id", "renderAs": "readonly" },
+        { "field": "user_id", "renderAs": "readonly" },
+        { "field": "created_at", "renderAs": "readonly" },
+        { "field": "started_at", "renderAs": "readonly" },
+        { "field": "finished_at", "renderAs": "readonly" },
+        { "field": "payload", "renderAs": "readonly" },
+        { "field": "result", "renderAs": "readonly" },
+        { "field": "last_error", "renderAs": "readonly" }
+      ],
+      "logs": {
+        "enabled": false
+      },
+      "print": {
+        "enabled": false,
+        "options": []
+      },
+      "otherActions": {
+        "enabled": false,
+        "actions": []
+      }
+    },
+    "userLayout": {
+      "enabled": true,
+      "storageKey": "runtimeJobsLayout"
+    }
+  }
+}

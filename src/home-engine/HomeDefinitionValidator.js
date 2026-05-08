@@ -1,7 +1,7 @@
 (function(global) {
   "use strict";
 
-  const ALLOWED_PROGRAM_TYPES = ["iframe", "crud", "html"];
+  const ALLOWED_PROGRAM_TYPES = ["iframe", "crud", "html", "process"];
   const ALL_MODULES_ID = "__all__";
   const UNSAFE_KEY_PATTERN = /^(on[A-Z]|on_|script|eval|template|handler)$/i;
   const UNSAFE_HTML_PATTERN = /<\s*script|javascript\s*:|on[a-z]+\s*=|<\s*(object|embed|base|meta|link)\b/i;
@@ -42,6 +42,7 @@
       }
       this.validateAppLogo(definition.app || {}, errors);
       this.validateCurrentSubscriber(definition.currentSubscriber || definition.currentTenant || definition.tenant || definition.subscriber, errors);
+      this.validateSubscriberList(definition.availableSubscribers || definition.subscribers || definition.tenants, "availableSubscribers", errors, false);
       if (!Array.isArray(definition.programs) || !definition.programs.length) {
         errors.push("programs deve informar ao menos um programa.");
       }
@@ -79,9 +80,55 @@
         errors.push("currentSubscriber precisa ser texto ou objeto.");
         return;
       }
-      ["id", "name", "displayName", "title", "code", "document", "label"].forEach(function(property) {
+      ["id", "name", "displayName", "title", "code", "document", "label", "type", "database", "kind"].forEach(function(property) {
         if (subscriber[property] != null && typeof subscriber[property] !== "string") {
           errors.push("currentSubscriber." + property + " precisa ser texto.");
+        }
+      });
+      ["principal", "isPrincipal"].forEach(function(property) {
+        if (subscriber[property] != null && typeof subscriber[property] !== "boolean") {
+          errors.push("currentSubscriber." + property + " precisa ser booleano.");
+        }
+      });
+      this.validateSubscriberList(subscriber.options || subscriber.subscribers || subscriber.tenants, "currentSubscriber.options", errors, false);
+    }
+
+    validateSubscriberList(source, label, errors, required) {
+      if (source == null) {
+        if (required) {
+          errors.push(label + " e obrigatorio.");
+        }
+        return;
+      }
+      if (!Array.isArray(source)) {
+        errors.push(label + " precisa ser uma lista.");
+        return;
+      }
+      source.forEach((item, index) => this.validateSubscriberItem(item, label + "[" + index + "]", errors));
+    }
+
+    validateSubscriberItem(item, label, errors) {
+      if (typeof item === "string") {
+        if (!item.trim()) {
+          errors.push(label + " nao pode ser vazio.");
+        }
+        return;
+      }
+      if (!item || typeof item !== "object" || Array.isArray(item)) {
+        errors.push(label + " precisa ser texto ou objeto.");
+        return;
+      }
+      if (!item.id && !item.name && !item.displayName && !item.title && !item.code) {
+        errors.push(label + " precisa informar id, name, displayName, title ou code.");
+      }
+      ["id", "name", "displayName", "title", "code", "document", "label", "type", "database", "kind"].forEach(function(property) {
+        if (item[property] != null && typeof item[property] !== "string") {
+          errors.push(label + "." + property + " precisa ser texto.");
+        }
+      });
+      ["principal", "isPrincipal"].forEach(function(property) {
+        if (item[property] != null && typeof item[property] !== "boolean") {
+          errors.push(label + "." + property + " precisa ser booleano.");
         }
       });
     }
@@ -107,6 +154,8 @@
       this.validateAiChatConfig(appbar.aiChat || appbar.iaChat || definition.aiChat || definition.iaChat, errors);
       this.validateAppbarListConfig(appbar.alerts || definition.alerts, "layout.appbar.alerts", errors);
       this.validateAppbarListConfig(appbar.requests || definition.requests, "layout.appbar.requests", errors);
+      this.validateAppbarListConfig(appbar.jobs || definition.jobs, "layout.appbar.jobs", errors);
+      this.validateSubscriberSwitchConfig(appbar.subscriberSwitch || definition.subscriberSwitch, errors);
       global.CrudUtils.ensureArray(appbar.userMenu && appbar.userMenu.items).forEach((item, index) => {
         const label = "layout.appbar.userMenu.items[" + index + "]";
         if (!item || !item.id || !item.label) {
@@ -115,6 +164,34 @@
         }
         this.validateUrl(item.url, label + ".url", errors, false);
       });
+    }
+
+    validateSubscriberSwitchConfig(config, errors) {
+      if (!config) {
+        return;
+      }
+      const label = "layout.appbar.subscriberSwitch";
+      if (typeof config !== "object" || Array.isArray(config)) {
+        errors.push(label + " precisa ser um objeto.");
+        return;
+      }
+      if (config.enabled != null && typeof config.enabled !== "boolean") {
+        errors.push(label + ".enabled precisa ser booleano.");
+      }
+      ["programId", "changeProgramId", "title", "description", "fieldLabel", "confirmText", "cancelText", "openText"].forEach(function(property) {
+        if (config[property] != null && typeof config[property] !== "string") {
+          errors.push(label + "." + property + " precisa ser texto.");
+        }
+      });
+      ["width"].forEach(function(property) {
+        if (config[property] != null && (typeof config[property] !== "number" || config[property] <= 0)) {
+          errors.push(label + "." + property + " precisa ser numerico positivo.");
+        }
+      });
+      this.validateUrl(config.url || config.changeUrl, label + ".url", errors, false);
+      this.validateSubscriberList(config.subscribers || config.options, label + ".subscribers", errors, false);
+      const endpoints = config.endpoints || {};
+      this.validateChatEndpoint(endpoints.change || config.endpoint || config.changeEndpoint, label + ".endpoints.change", errors, false);
     }
 
     validateChatConfig(chat, errors) {
@@ -385,6 +462,18 @@
           }
           this.validateDocumentUrl(program.definitionUrl, label + ".definitionUrl", errors, false);
         }
+        if (type === "process") {
+          if (!program.definition && !program.definitionUrl && !program.screenId) {
+            errors.push(label + " precisa informar definition, definitionUrl ou screenId quando type=process.");
+          }
+          if (program.definition && this.securityPolicy.definitionSource.allowDirectDefinition === false) {
+            errors.push(label + ".definition nao pode ser usado em modo producao. Use screenId.");
+          }
+          if (program.definitionUrl && this.securityPolicy.definitionSource.allowDefinitionUrl === false) {
+            errors.push(label + ".definitionUrl nao pode ser usado em modo producao. Use screenId.");
+          }
+          this.validateDocumentUrl(program.definitionUrl, label + ".definitionUrl", errors, false);
+        }
         if (type === "html") {
           if (!program.html && !program.htmlUrl) {
             errors.push(label + " precisa informar html ou htmlUrl quando type=html.");
@@ -498,6 +587,7 @@
       inspect(appbar.aiChat || appbar.iaChat || definition.aiChat || definition.iaChat, "layout.appbar.aiChat");
       inspect(appbar.alerts || definition.alerts, "layout.appbar.alerts");
       inspect(appbar.requests || definition.requests, "layout.appbar.requests");
+      inspect(appbar.jobs || definition.jobs, "layout.appbar.jobs");
     }
 
     validateUrl(url, label, errors, required) {

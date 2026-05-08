@@ -1,0 +1,11 @@
+nelmio_cors:
+    defaults:
+        origin_regex: true
+        allow_origin: ['%env(CORS_ALLOW_ORIGIN)%']
+        allow_methods: ['GET', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE']
+        allow_headers: ['Content-Type', 'Authorization', 'X-Runtime-Tenant-Id', 'X-Runtime-User-Id', 'X-Runtime-User-Name', 'X-Runtime-Session-Id', 'X-Runtime-Auth-Token', 'X-Runtime-Device-Name', 'X-Device-Name', 'X-Requested-With']
+        expose_headers: ['Link']
+        allow_credentials: true
+        max_age: 3600
+    paths:
+        '^/': null

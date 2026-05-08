@@ -97,6 +97,70 @@
       },
       "additionalProperties": true
     },
+    "runtime": {
+      "type": "object",
+      "properties": {
+        "entityCode": {
+          "type": "string"
+        },
+        "programId": {
+          "type": "string"
+        },
+        "lock": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "lockTtlSeconds": {
+              "type": "integer",
+              "minimum": 30
+            },
+            "heartbeatIntervalSeconds": {
+              "type": "integer",
+              "minimum": 10
+            },
+            "modes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": ["edit", "update", "delete"]
+              }
+            }
+          },
+          "additionalProperties": true
+        },
+        "messages": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "pollIntervalSeconds": {
+              "type": "integer",
+              "minimum": 10
+            },
+            "events": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "url": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": true
+            },
+            "eventSourceUrl": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
     "dataSource": {
       "type": "object",
       "required": ["api"],
@@ -284,6 +348,14 @@
         "method": {
           "type": "string",
           "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+        },
+        "pageMethod": {
+          "type": "string",
+          "enum": ["GET", "POST"]
+        },
+        "submitMethod": {
+          "type": "string",
+          "enum": ["GET", "POST"]
         },
         "target": {
           "type": "string",
@@ -895,6 +967,13 @@
           },
           "additionalProperties": false
         },
+        "concurrencyWarning": {
+          "$ref": "#/$defs/formConcurrencyWarning"
+        },
+        "concurrentWarning": {
+          "$ref": "#/$defs/formConcurrencyWarning",
+          "description": "Alias de concurrencyWarning."
+        },
         "logs": {
           "$ref": "#/$defs/logs"
         },
@@ -954,6 +1033,177 @@
           }
         }
       }
+    },
+    "formConcurrencyWarning": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "actions": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["edit", "delete"]
+                  }
+                }
+              ]
+            },
+            "visibleIn": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["edit", "delete"]
+                  }
+                }
+              ]
+            },
+            "modes": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": ["edit", "delete"]
+                  }
+                }
+              ]
+            },
+            "title": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            },
+            "editMessage": {
+              "type": "string"
+            },
+            "deleteMessage": {
+              "type": "string"
+            },
+            "confirm": {
+              "type": "boolean",
+              "default": true
+            },
+            "blocking": {
+              "type": "boolean",
+              "default": true
+            },
+            "confirmText": {
+              "type": "string"
+            },
+            "cancelText": {
+              "type": "string"
+            },
+            "confirmIcon": {
+              "type": "string"
+            },
+            "themeColor": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": ["success", "error", "info", "warning"]
+            },
+            "width": {
+              "type": "integer"
+            },
+            "messages": {
+              "type": "object",
+              "properties": {
+                "edit": {
+                  "type": "string"
+                },
+                "delete": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "edit": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/formConcurrencyWarningAction"
+                }
+              ]
+            },
+            "delete": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/formConcurrencyWarningAction"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "formConcurrencyWarningAction": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "message": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "confirm": {
+          "type": "boolean"
+        },
+        "blocking": {
+          "type": "boolean"
+        },
+        "confirmText": {
+          "type": "string"
+        },
+        "cancelText": {
+          "type": "string"
+        },
+        "confirmIcon": {
+          "type": "string"
+        },
+        "themeColor": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["success", "error", "info", "warning"]
+        },
+        "width": {
+          "type": "integer"
+        }
+      },
+      "additionalProperties": false
     },
     "formSituation": {
       "type": "object",
@@ -1338,6 +1588,14 @@
           "type": "string",
           "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
         },
+        "pageMethod": {
+          "type": "string",
+          "enum": ["GET", "POST"]
+        },
+        "submitMethod": {
+          "type": "string",
+          "enum": ["GET", "POST"]
+        },
         "target": {
           "type": "string",
           "enum": ["request", "window", "newTab"]
@@ -1361,6 +1619,21 @@
         "data": {
           "type": "object"
         },
+        "passFormValues": {
+          "type": "boolean"
+        },
+        "sendFormValues": {
+          "type": "boolean"
+        },
+        "includeFormValues": {
+          "type": "boolean"
+        },
+        "formValues": {
+          "$ref": "#/$defs/formButtonValues"
+        },
+        "valuesPayload": {
+          "$ref": "#/$defs/formButtonValues"
+        },
         "confirm": {
           "type": "object"
         },
@@ -1382,6 +1655,80 @@
         }
       },
       "additionalProperties": false
+    },
+    "formButtonValues": {
+      "oneOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "source": {
+              "type": "string",
+              "enum": ["record", "values", "data"],
+              "default": "record"
+            },
+            "transport": {
+              "type": "string",
+              "enum": ["auto", "query", "post", "form", "body", "querystring", "get"]
+            },
+            "mode": {
+              "type": "string",
+              "enum": ["auto", "query", "post", "form", "body", "querystring", "get"]
+            },
+            "submitAs": {
+              "type": "string",
+              "enum": ["auto", "query", "post", "form", "body", "querystring", "get"]
+            },
+            "fields": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "include": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "exclude": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "excludes": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "prefix": {
+              "type": "string"
+            },
+            "payloadParam": {
+              "type": "string"
+            },
+            "includeRuntime": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "formButtonEndpoint": {
       "oneOf": [

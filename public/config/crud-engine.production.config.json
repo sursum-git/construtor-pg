@@ -18,6 +18,10 @@
       "runtimeEndpoint": {
         "url": "/api/runtime/screens/{screenId}/endpoints/{endpointId}",
         "method": "POST"
+      },
+      "runtimeEventsEndpoint": {
+        "url": "/api/runtime/events",
+        "method": "GET"
       }
     },
     "documents": {

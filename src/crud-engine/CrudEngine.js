@@ -13,6 +13,12 @@
       this.config = this.applyRuntimeConfigOptions(this.normalizeConfig(this.options.config));
       this.securityPolicy = global.CrudUtils.normalizeSecurityPolicy(this.config, this.options);
       this.currentTheme = this.resolveInitialTheme();
+      this.currentRuntimeLock = null;
+      this.runtimeHeartbeatTimer = null;
+      this.runtimeMessageTimer = null;
+      this.runtimeEventSource = null;
+      this.runtimeEventFallbackTimer = null;
+      this.sessionRevoked = false;
       this.applyTheme(this.currentTheme, { persist: false });
     }
 
@@ -32,6 +38,9 @@
         this.validator.validate(this.definition, { securityPolicy: this.securityPolicy });
         global.CrudUtils.applyEndpointSecurity(this.definition, this.securityPolicy);
         this.render();
+        if (this.options.runtimeMessages !== false) {
+          this.startRuntimeMessagePolling();
+        }
         return this;
       }).catch((error) => {
         this.renderError(global.CrudUtils.unwrapError(error, "Erro ao carregar tela."));
@@ -97,9 +106,12 @@
         onSaved: (record, mode) => this.afterRecordSaved(record, mode),
         onCreate: () => this.openCreate(),
         onEdit: (record) => this.openRecord("edit", record[this.definition.dataModel.primaryKey]),
-        onDelete: (record, options) => this.deleteRecord(record[this.definition.dataModel.primaryKey], options),
+        onDelete: (record, options) => this.deleteRecord(record[this.definition.dataModel.primaryKey], Object.assign({ record }, options || {})),
         onLogs: (record, logs) => this.openLogsWindow(record, logs),
         onButtonAction: (button, record, context) => this.executeFormButtonAction(button, record, context),
+        onBeforeAction: (mode, record, options) => this.prepareRecordAction(mode, record, options),
+        onActionCanceled: () => this.releaseRuntimeLock(),
+        onClosed: () => this.releaseRuntimeLock(),
         onNavigate: (record, direction) => this.navigateFormRecord(record, direction),
         getNavigationState: (record) => this.getFormNavigationState(record)
       });
@@ -1082,8 +1094,13 @@
 
     openRecord(mode, id) {
       return this.fetchRecord(id).then((record) => {
-        this.formRenderer.open(mode, record);
-        return record;
+        return this.prepareRecordAction(mode, record).then((allowed) => {
+          if (allowed === false) {
+            return null;
+          }
+          this.formRenderer.open(mode, record);
+          return record;
+        });
       }).catch((error) => {
         const normalized = global.CrudUtils.unwrapError(error, "Erro ao carregar registro.");
         global.CrudUtils.showMessage(normalized.message, "error");
@@ -1100,6 +1117,197 @@
         method: endpoint.method || "GET",
         data: { [primaryKey]: id, id }
       });
+    }
+
+    prepareRecordAction(mode, record, options) {
+      const normalizedMode = String(mode || "").toLowerCase();
+      if (["edit", "delete"].indexOf(normalizedMode) === -1 || this.sessionRevoked) {
+        return Promise.resolve(!this.sessionRevoked);
+      }
+
+      return this.showRecordConcurrencyWarning(normalizedMode, record || {}, options).then((confirmed) => {
+        if (confirmed === false) {
+          return false;
+        }
+
+        const endpoint = this.getRuntimeApiEndpoint("runtime.lock.acquire");
+        if (!endpoint || !endpoint.url || !this.isRuntimeLockEnabled(normalizedMode)) {
+          return true;
+        }
+
+        const payload = this.buildLockPayload(normalizedMode, record || {});
+        return this.httpClient.request({
+          url: endpoint.url,
+          method: endpoint.method || "POST",
+          data: payload
+        }).then((response) => {
+          const lock = response && response.lock || {};
+          if (lock.status === "warn") {
+            const owner = lock.owner && lock.owner.name ? lock.owner.name : "outro usuario";
+            return global.CrudUtils.confirm("Este registro esta sendo alterado por " + owner + ". Deseja continuar mesmo assim?", {
+              title: "Registro em uso",
+              confirmText: "Continuar",
+              cancelText: "Cancelar",
+              confirmIcon: "exclamation-circle",
+              themeColor: "warning"
+            });
+          }
+
+          if (lock.status === "acquired" || lock.status === "active") {
+            this.setRuntimeLock(lock, response && response._runtime, record);
+          }
+          return true;
+        }).catch((error) => {
+          if (this.handleRuntimeError(error)) {
+            return false;
+          }
+          const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel controlar o semaforo do registro.");
+          global.CrudUtils.showMessage(normalized.message, "error");
+          return false;
+        });
+      });
+    }
+
+    showRecordConcurrencyWarning(mode, record, options) {
+      const settings = options || {};
+      if (settings.skipConcurrencyWarning === true || settings.concurrencyWarningShown === true) {
+        return Promise.resolve(true);
+      }
+      if (!this.formRenderer || typeof this.formRenderer.showConcurrencyWarning !== "function") {
+        return Promise.resolve(true);
+      }
+      return this.formRenderer.showConcurrencyWarning(mode, global.CrudUtils.clone(record || {}));
+    }
+
+    buildLockPayload(mode, record) {
+      const primaryKey = this.definition.dataModel.primaryKey;
+      const runtime = this.definition.runtime || {};
+      const program = this.definition.program || {};
+      return {
+        entityCode: runtime.entityCode || this.definition.entity || "cliente",
+        programId: runtime.programId || program.id || program.code || "",
+        actionId: mode === "edit" ? "update" : mode,
+        mode,
+        recordId: record && (record[primaryKey] || record.id),
+        expectedVersion: record && record._runtime && record._runtime.version,
+        _runtime: record && record._runtime || {}
+      };
+    }
+
+    isRuntimeLockEnabled(mode) {
+      const runtime = this.definition.runtime || {};
+      const lock = runtime.lock || {};
+      if (lock.enabled === false) {
+        return false;
+      }
+      const modes = global.CrudUtils.ensureArray(lock.modes);
+      return !modes.length || modes.indexOf(mode) !== -1 || modes.indexOf(mode === "edit" ? "update" : mode) !== -1;
+    }
+
+    setRuntimeLock(lock, runtime, record) {
+      this.releaseRuntimeLock({ silent: true });
+      this.currentRuntimeLock = Object.assign({}, lock || {});
+      if (record) {
+        record._runtime = Object.assign({}, record._runtime || {}, runtime || {}, {
+          lockToken: lock.token,
+          transactionId: lock.transactionId
+        });
+      }
+      if (this.formRenderer && typeof this.formRenderer.setRuntimeContext === "function") {
+        this.formRenderer.setRuntimeContext(record && record._runtime || runtime || {});
+      }
+      this.startRuntimeHeartbeat();
+    }
+
+    startRuntimeHeartbeat() {
+      this.stopRuntimeHeartbeat();
+      const lock = this.currentRuntimeLock;
+      if (!lock || !lock.token) {
+        return;
+      }
+      const seconds = Math.max(10, Number(lock.heartbeatIntervalSeconds || 60));
+      this.runtimeHeartbeatTimer = window.setInterval(() => {
+        this.sendRuntimeHeartbeat();
+      }, seconds * 1000);
+    }
+
+    stopRuntimeHeartbeat() {
+      if (this.runtimeHeartbeatTimer) {
+        window.clearInterval(this.runtimeHeartbeatTimer);
+        this.runtimeHeartbeatTimer = null;
+      }
+    }
+
+    sendRuntimeHeartbeat() {
+      const lock = this.currentRuntimeLock;
+      const endpoint = this.getRuntimeApiEndpoint("runtime.lock.heartbeat");
+      if (!lock || !lock.token || !endpoint || !endpoint.url || this.sessionRevoked) {
+        return Promise.resolve(false);
+      }
+
+      return this.httpClient.request({
+        url: endpoint.url,
+        method: endpoint.method || "POST",
+        data: { lockToken: lock.token, _runtime: { lockToken: lock.token } }
+      }).then((response) => {
+        if (response && response.lock) {
+          this.currentRuntimeLock = Object.assign({}, this.currentRuntimeLock || {}, response.lock);
+        }
+        return true;
+      }).catch((error) => {
+        this.handleRuntimeError(error);
+        return false;
+      });
+    }
+
+    releaseRuntimeLock(options) {
+      const settings = options || {};
+      const lock = this.currentRuntimeLock;
+      this.stopRuntimeHeartbeat();
+      this.currentRuntimeLock = null;
+      if (!lock || !lock.token || this.sessionRevoked) {
+        return Promise.resolve(false);
+      }
+      const endpoint = this.getRuntimeApiEndpoint("runtime.lock.release");
+      if (!endpoint || !endpoint.url) {
+        return Promise.resolve(false);
+      }
+      if (settings.silent) {
+        this.httpClient.request({
+          url: endpoint.url,
+          method: endpoint.method || "POST",
+          data: { lockToken: lock.token, _runtime: { lockToken: lock.token } }
+        }).catch(function() {});
+        return Promise.resolve(true);
+      }
+      return this.httpClient.request({
+        url: endpoint.url,
+        method: endpoint.method || "POST",
+        data: { lockToken: lock.token, _runtime: { lockToken: lock.token } }
+      }).then(function() {
+        return true;
+      }).catch(function() {
+        return false;
+      });
+    }
+
+    buildRuntimeWritePayload(payload) {
+      const data = Object.assign({}, payload || {});
+      data._runtime = Object.assign({}, data._runtime || {});
+      if (this.currentRuntimeLock && this.currentRuntimeLock.token) {
+        data._runtime.lockToken = this.currentRuntimeLock.token;
+        data._runtime.transactionId = this.currentRuntimeLock.transactionId;
+      }
+      return data;
+    }
+
+    getRuntimeApiEndpoint(endpointId) {
+      const api = this.definition && this.definition.api || {};
+      if (api[endpointId]) {
+        return api[endpointId];
+      }
+      const screenId = global.CrudUtils.getDefinitionScreenId(this.definition);
+      return global.CrudUtils.resolveEndpointForPolicy({ endpointId, method: "POST" }, endpointId, screenId, this.securityPolicy);
     }
 
     navigateFormRecord(record, direction) {
@@ -1138,33 +1346,53 @@
 
       const executeDelete = () => {
         const primaryKey = this.definition.dataModel.primaryKey;
-        const record = { [primaryKey]: id };
+        const record = Object.assign({ [primaryKey]: id }, settings.record || {});
         const endpoint = this.resolveActionEndpoint(settings.action, "delete") || this.definition.api.delete;
         const url = global.CrudUtils.replaceUrlParams(endpoint.url, this.buildRecordActionParams(record));
         return this.httpClient.request({
           url,
           method: endpoint.method || "DELETE",
-          data: this.buildRecordActionParams(record)
+          data: this.buildRuntimeWritePayload(this.buildRecordActionParams(record))
         }).then(() => {
           this.refresh();
+          this.releaseRuntimeLock();
           return true;
         }).catch((error) => {
+          if (this.handleBackendValidation(error)) {
+            this.releaseRuntimeLock();
+            return false;
+          }
           const normalized = global.CrudUtils.unwrapError(error, "Erro ao excluir registro.");
           global.CrudUtils.showMessage(normalized.message, "error");
+          this.releaseRuntimeLock();
           return false;
         });
       };
 
       if (settings.confirm === false) {
-        return executeDelete();
+        if (settings.skipRecordPreparation === true) {
+          return executeDelete();
+        }
+        return this.prepareRecordAction("delete", settings.record || { id }, settings).then((allowed) => {
+          return allowed === false ? false : executeDelete();
+        });
       }
 
-      return global.CrudUtils.confirm(message, {
-        title: "Confirmar exclusao",
-        confirmText: "Excluir",
-        confirmIcon: "trash"
-      }).then((confirmed) => {
-        return confirmed ? executeDelete() : false;
+      return this.prepareRecordAction("delete", settings.record || { id }, settings).then((allowed) => {
+        if (allowed === false) {
+          return false;
+        }
+        return global.CrudUtils.confirm(message, {
+          title: "Confirmar exclusao",
+          confirmText: "Excluir",
+          confirmIcon: "trash"
+        }).then((confirmed) => {
+          if (!confirmed) {
+            this.releaseRuntimeLock();
+            return false;
+          }
+          return executeDelete();
+        });
       });
     }
 
@@ -1221,6 +1449,9 @@
           }
           this.updateLastUpdated();
         }).catch((error) => {
+          if (this.handleBackendValidation(error)) {
+            return;
+          }
           const normalized = global.CrudUtils.unwrapError(error, "Erro ao executar acao em massa.");
           global.CrudUtils.showMessage(normalized.message, "error");
         });
@@ -1274,7 +1505,11 @@
 
       const url = this.resolveRecordUrl(endpoint.url, record || {});
       if (this.shouldOpenFormActionUrl(action, endpoint)) {
-        this.openActionUrlWindow(action, url);
+        this.openActionUrlWindow(action, url, {
+          endpoint,
+          record,
+          context
+        });
         return Promise.resolve(true);
       }
 
@@ -1283,8 +1518,21 @@
           url,
           method: endpoint.method || action.method || "POST",
           data: this.buildFormActionPayload(action, record, context)
-        }).then(() => {
-          if (action.successMessage) {
+        }).then((response) => {
+          if (this.handleBackendValidation(response, (token) => {
+            const retryAction = Object.assign({}, action, {
+              data: Object.assign({}, action.data || {}, {
+                _runtime: Object.assign({}, action.data && action.data._runtime || {}, {
+                  validationConfirmationToken: token
+                })
+              })
+            });
+            return this.executeFormButtonAction(retryAction, record, context);
+          })) {
+            return false;
+          }
+          const showedEffectMessage = this.applyFormActionResponseEffects(response);
+          if (action.successMessage && !showedEffectMessage) {
             global.CrudUtils.showMessage(action.successMessage, "success");
           }
           if (action.refreshGrid === true && this.gridRenderer) {
@@ -1293,6 +1541,18 @@
           }
           return true;
         }).catch((error) => {
+          if (this.handleBackendValidation(error, (token) => {
+            const retryAction = Object.assign({}, action, {
+              data: Object.assign({}, action.data || {}, {
+                _runtime: Object.assign({}, action.data && action.data._runtime || {}, {
+                  validationConfirmationToken: token
+                })
+              })
+            });
+            return this.executeFormButtonAction(retryAction, record, context);
+          })) {
+            return false;
+          }
           const normalized = global.CrudUtils.unwrapError(error, action.errorMessage || "Erro ao executar acao do formulario.");
           global.CrudUtils.showMessage(normalized.message, "error");
           return false;
@@ -1321,25 +1581,39 @@
       return Boolean(action.url && !action.method && !action.endpointId && !action.endpoint && !action.api && !endpoint.method);
     }
 
-    openActionUrlWindow(action, url) {
+    openActionUrlWindow(action, url, options) {
+      const settings = options || {};
       const target = action.target || action.openAs || action.openIn;
+      const request = this.buildFormActionPageRequest(action, url, settings);
       if (target === "newTab") {
-        window.open(url, "_blank", "noopener,noreferrer");
+        if (request.method === "POST") {
+          this.submitActionPageForm(request.url, "_blank", request.values);
+        } else {
+          window.open(request.url, "_blank", "noopener,noreferrer");
+        }
         return;
       }
 
       const wrapper = $("<div></div>").appendTo(document.body);
       const content = $("<div class=\"crud-log-window-content\"></div>").appendTo(wrapper);
+      const frameName = "crud_action_frame_" + kendo.guid().replace(/-/g, "_");
       $("<iframe class=\"crud-log-frame\"></iframe>")
         .attr("title", action.title || action.label || "Conteudo")
-        .attr("src", url)
+        .attr("name", frameName)
+        .attr("src", request.method === "POST" ? "about:blank" : request.url)
         .appendTo(content);
 
       const actions = $("<div class=\"crud-log-actions\"></div>").appendTo(content);
-      $("<a class=\"crud-log-link\" target=\"_blank\" rel=\"noopener noreferrer\"></a>")
-        .attr("href", url)
+      const openLink = $("<a class=\"crud-log-link\" target=\"_blank\" rel=\"noopener noreferrer\"></a>")
+        .attr("href", request.method === "POST" ? "#" : request.url)
         .text(action.linkText || "Abrir em nova aba")
         .appendTo(actions);
+      if (request.method === "POST") {
+        openLink.on("click", (event) => {
+          event.preventDefault();
+          this.submitActionPageForm(request.url, "_blank", request.values);
+        });
+      }
       const closeButton = $("<button type=\"button\">Fechar</button>").appendTo(actions);
       closeButton.kendoButton();
 
@@ -1361,6 +1635,153 @@
         windowWidget.close();
       });
       windowWidget.center().open();
+      if (request.method === "POST") {
+        this.submitActionPageForm(request.url, frameName, request.values);
+      }
+    }
+
+    buildFormActionPageRequest(action, url, options) {
+      const settings = options || {};
+      const endpoint = settings.endpoint || {};
+      const method = String(action.pageMethod || action.submitMethod || endpoint.method || action.method || "GET").toUpperCase();
+      const values = this.buildFormActionPageValues(action, settings.record, settings.context);
+      const transport = this.resolveFormValuesTransport(action, method);
+      if (transport === "query" && Object.keys(values).length) {
+        return {
+          url: this.appendQueryParams(url, values),
+          method: "GET",
+          values: {}
+        };
+      }
+      return {
+        url,
+        method: method === "POST" || transport === "post" ? "POST" : "GET",
+        values: transport === "post" ? values : {}
+      };
+    }
+
+    resolveFormValuesTransport(action, method) {
+      const config = this.getFormActionValuesConfig(action);
+      if (!config) {
+        return "none";
+      }
+      const transport = String(config.transport || config.mode || config.submitAs || "").toLowerCase();
+      if (transport === "post" || transport === "form" || transport === "body") {
+        return "post";
+      }
+      if (transport === "query" || transport === "querystring" || transport === "get") {
+        return "query";
+      }
+      return method === "POST" ? "post" : "query";
+    }
+
+    getFormActionValuesConfig(action) {
+      if (!action) {
+        return null;
+      }
+      const raw = action.formValues != null
+        ? action.formValues
+        : action.valuesPayload != null
+          ? action.valuesPayload
+          : action.passFormValues != null
+            ? action.passFormValues
+            : action.sendFormValues != null
+              ? action.sendFormValues
+              : action.includeFormValues;
+      if (raw === false || raw == null) {
+        return null;
+      }
+      if (raw === true) {
+        return { enabled: true };
+      }
+      if (Array.isArray(raw)) {
+        return { enabled: true, fields: raw };
+      }
+      if (typeof raw === "object") {
+        return raw.enabled === false ? null : Object.assign({ enabled: true }, raw);
+      }
+      return null;
+    }
+
+    buildFormActionPageValues(action, record, context) {
+      const config = this.getFormActionValuesConfig(action);
+      if (!config) {
+        return {};
+      }
+      const sourceName = String(config.source || "record").toLowerCase();
+      const source = sourceName === "values"
+        ? context && context.values || {}
+        : sourceName === "data"
+          ? action.data || {}
+          : record || {};
+      const fields = global.CrudUtils.ensureArray(config.fields || config.include);
+      const excludes = global.CrudUtils.ensureArray(config.exclude || config.excludes);
+      const result = {};
+      const putValue = (key, value) => {
+        if (!key || value == null || typeof value === "function") {
+          return;
+        }
+        if (key.charAt(0) === "_" && config.includeRuntime !== true) {
+          return;
+        }
+        if (excludes.indexOf(key) !== -1) {
+          return;
+        }
+        const targetKey = config.prefix ? config.prefix + key : key;
+        result[targetKey] = this.serializePageValue(value);
+      };
+      if (fields.length) {
+        fields.forEach((fieldName) => {
+          const key = String(fieldName || "").trim();
+          putValue(key, global.CrudUtils.getByPath(source, key));
+        });
+      } else {
+        Object.keys(source || {}).forEach((key) => putValue(key, source[key]));
+      }
+      if (config.payloadParam) {
+        return {
+          [config.payloadParam]: JSON.stringify(result)
+        };
+      }
+      return result;
+    }
+
+    serializePageValue(value) {
+      if (value instanceof Date) {
+        return value.toISOString();
+      }
+      if (typeof value === "object") {
+        return JSON.stringify(value);
+      }
+      return String(value);
+    }
+
+    appendQueryParams(url, values) {
+      const query = Object.keys(values || {}).map(function(key) {
+        return encodeURIComponent(key) + "=" + encodeURIComponent(values[key]);
+      }).join("&");
+      if (!query) {
+        return url;
+      }
+      return String(url || "") + (String(url || "").indexOf("?") === -1 ? "?" : "&") + query;
+    }
+
+    submitActionPageForm(url, target, values) {
+      const form = $("<form method=\"post\"></form>")
+        .attr("action", url)
+        .attr("target", target || "_blank")
+        .css("display", "none")
+        .appendTo(document.body);
+      Object.keys(values || {}).forEach(function(key) {
+        $("<input type=\"hidden\">")
+          .attr("name", key)
+          .val(values[key])
+          .appendTo(form);
+      });
+      form[0].submit();
+      window.setTimeout(function() {
+        form.remove();
+      }, 0);
     }
 
     buildFormActionPayload(action, record, context) {
@@ -1379,6 +1800,11 @@
         data.values = global.CrudUtils.clone(context.values);
       }
       data.record = currentRecord;
+      data._runtime = Object.assign({}, currentRecord._runtime || {}, data._runtime || {});
+      if (this.currentRuntimeLock && this.currentRuntimeLock.token) {
+        data._runtime.lockToken = this.currentRuntimeLock.token;
+        data._runtime.transactionId = this.currentRuntimeLock.transactionId;
+      }
       return data;
     }
 
@@ -1415,6 +1841,7 @@
     }
 
     afterRecordSaved(record, mode) {
+      this.releaseRuntimeLock();
       global.CrudUtils.showMessage(mode === "create" ? "Cliente criado." : "Cliente salvo.", "success");
       if (mode === "create") {
         if (this.filterRenderer) {
@@ -1426,6 +1853,284 @@
         this.gridRenderer.goToFirstPageAndRefresh();
       }
       this.updateLastUpdated();
+    }
+
+    startRuntimeMessagePolling() {
+      const runtime = this.definition && this.definition.runtime || {};
+      const messages = runtime.messages || {};
+      if (messages.enabled === false || this.sessionRevoked) {
+        return;
+      }
+      this.stopRuntimeMessagePolling();
+      const seconds = Math.max(10, Number(messages.pollIntervalSeconds || 30));
+      if (this.startRuntimeMessageEvents(messages, seconds)) {
+        return;
+      }
+      this.startRuntimeMessageTimer(seconds);
+    }
+
+    startRuntimeMessageTimer(seconds) {
+      const endpoint = this.getRuntimeApiEndpoint("runtime.messages.poll");
+      if (!endpoint || !endpoint.url || this.sessionRevoked) {
+        return;
+      }
+      this.pollRuntimeMessages();
+      this.runtimeMessageTimer = window.setInterval(() => {
+        this.pollRuntimeMessages();
+      }, seconds * 1000);
+    }
+
+    stopRuntimeMessagePolling() {
+      if (this.runtimeMessageTimer) {
+        window.clearInterval(this.runtimeMessageTimer);
+        this.runtimeMessageTimer = null;
+      }
+      this.stopRuntimeMessageEvents();
+    }
+
+    startRuntimeMessageEvents(messages, fallbackSeconds) {
+      const events = messages.events || {};
+      if (events.enabled === false || typeof global.EventSource !== "function" || global.location && global.location.protocol === "file:") {
+        return false;
+      }
+      const url = this.getRuntimeEventSourceUrl(messages);
+      if (!url) {
+        return false;
+      }
+
+      let source = null;
+      try {
+        source = new global.EventSource(url);
+      } catch (_) {
+        return false;
+      }
+
+      this.runtimeEventSource = source;
+      source.onopen = () => {
+        if (this.runtimeEventFallbackTimer) {
+          window.clearTimeout(this.runtimeEventFallbackTimer);
+          this.runtimeEventFallbackTimer = null;
+        }
+        if (this.runtimeMessageTimer) {
+          window.clearInterval(this.runtimeMessageTimer);
+          this.runtimeMessageTimer = null;
+        }
+      };
+      source.addEventListener("runtime-messages", (event) => {
+        const payload = this.parseRuntimeEventPayload(event);
+        this.handleRuntimeMessages(payload.messages || []);
+      });
+      source.addEventListener("runtime-error", (event) => {
+        const payload = this.parseRuntimeEventPayload(event);
+        this.handleRuntimeEventError(payload.error || {});
+      });
+      source.onerror = () => {
+        if (this.sessionRevoked || this.runtimeEventFallbackTimer) {
+          return;
+        }
+        this.runtimeEventFallbackTimer = window.setTimeout(() => {
+          if (this.runtimeEventSource === source && source.readyState !== global.EventSource.OPEN && !this.sessionRevoked) {
+            this.stopRuntimeMessageEvents();
+            this.startRuntimeMessageTimer(fallbackSeconds);
+          }
+        }, 10000);
+      };
+
+      return true;
+    }
+
+    applyFormActionResponseEffects(response) {
+      const effects = global.CrudUtils.ensureArray(response && response.effects);
+      let showedMessage = false;
+      effects.forEach(function(effect) {
+        if (!effect || effect.action !== "showMessage") {
+          return;
+        }
+        showedMessage = true;
+        global.CrudUtils.showMessage(effect.message || effect.title || "", effect.type || "info");
+      });
+
+      return showedMessage;
+    }
+
+    stopRuntimeMessageEvents() {
+      if (this.runtimeEventFallbackTimer) {
+        window.clearTimeout(this.runtimeEventFallbackTimer);
+        this.runtimeEventFallbackTimer = null;
+      }
+      if (this.runtimeEventSource) {
+        this.runtimeEventSource.onopen = null;
+        this.runtimeEventSource.onerror = null;
+        this.runtimeEventSource.close();
+        this.runtimeEventSource = null;
+      }
+    }
+
+    getRuntimeEventSourceUrl(messages) {
+      const policyEndpoint = this.securityPolicy && this.securityPolicy.endpoints && this.securityPolicy.endpoints.runtimeEventsEndpoint || {};
+      const events = messages && messages.events || {};
+      const configuredUrl = this.securityPolicy && this.securityPolicy.production ? "" : (events.url || messages && messages.eventSourceUrl || "");
+      const url = configuredUrl || policyEndpoint.url || "";
+      if (!url) {
+        return "";
+      }
+      const screenId = global.CrudUtils.getDefinitionScreenId(this.definition);
+      const eventUrl = global.CrudUtils.replaceUrlParams(url, { screenId });
+      if (this.httpClient && typeof this.httpClient.buildRuntimeEventUrl === "function") {
+        return this.httpClient.buildRuntimeEventUrl(eventUrl, {
+          screenId,
+          channel: "crud"
+        });
+      }
+      return eventUrl;
+    }
+
+    parseRuntimeEventPayload(event) {
+      try {
+        return JSON.parse(event && event.data || "{}");
+      } catch (_) {
+        return {};
+      }
+    }
+
+    handleRuntimeEventError(error) {
+      const normalized = error && error.code ? error : { code: "RUNTIME_EVENT_ERROR", message: "Canal de eventos indisponivel.", details: {} };
+      if (normalized.code === "SESSION_REVOKED" || normalized.code === "SESSION_EXPIRED") {
+        this.handleSessionRevoked(normalized.message, normalized.details || {});
+        return;
+      }
+      if (!this.runtimeMessageTimer && !this.sessionRevoked) {
+        this.stopRuntimeMessageEvents();
+        this.startRuntimeMessageTimer(30);
+      }
+    }
+
+    pollRuntimeMessages() {
+      const endpoint = this.getRuntimeApiEndpoint("runtime.messages.poll");
+      if (!endpoint || !endpoint.url || this.sessionRevoked) {
+        return Promise.resolve([]);
+      }
+      return this.httpClient.request({
+        url: endpoint.url,
+        method: endpoint.method || "POST",
+        data: {}
+      }).then((response) => {
+        const messages = global.CrudUtils.ensureArray(response && response.messages);
+        this.handleRuntimeMessages(messages);
+        return messages;
+      }).catch((error) => {
+        this.handleRuntimeError(error);
+        return [];
+      });
+    }
+
+    handleRuntimeMessages(messages) {
+      const ids = [];
+      global.CrudUtils.ensureArray(messages).forEach((message) => {
+        if (!message) {
+          return;
+        }
+        if (message.id != null) {
+          ids.push(message.id);
+        }
+        if (message.type === "force_logout") {
+          this.handleSessionRevoked(message.message || "Sua sessao foi encerrada.", message);
+          return;
+        }
+        const type = message.severity || "info";
+        global.CrudUtils.showMessage(message.message || message.title, type);
+      });
+      if (ids.length) {
+        this.ackRuntimeMessages(ids);
+      }
+    }
+
+    ackRuntimeMessages(ids) {
+      const endpoint = this.getRuntimeApiEndpoint("runtime.messages.ack");
+      if (!endpoint || !endpoint.url) {
+        return Promise.resolve(false);
+      }
+      return this.httpClient.request({
+        url: endpoint.url,
+        method: endpoint.method || "POST",
+        data: { ids }
+      }).catch(function() {
+        return false;
+      });
+    }
+
+    handleRuntimeError(error) {
+      const normalized = global.CrudUtils.unwrapError(error, "");
+      if (normalized.code === "SESSION_REVOKED") {
+        this.handleSessionRevoked(normalized.message, normalized.details || {});
+        return true;
+      }
+      return false;
+    }
+
+    handleBackendValidation(error, retryCallback) {
+      const normalized = global.CrudUtils.normalizeBackendValidation(error, "Existem inconsistencias na acao.");
+      if (!normalized.hasValidation) {
+        return false;
+      }
+
+      global.CrudUtils.showBackendValidation(normalized.validation || {}, {
+        themeColor: normalized.validation && normalized.validation.status === "warning" ? "warning" : "primary"
+      }).then((confirmed) => {
+        const validation = normalized.validation || {};
+        if (confirmed && validation.requiresConfirmation && validation.confirmationToken && typeof retryCallback === "function") {
+          retryCallback(validation.confirmationToken);
+        }
+      });
+      return true;
+    }
+
+    handleSessionRevoked(message, details) {
+      if (this.sessionRevoked) {
+        return;
+      }
+      this.sessionRevoked = true;
+      this.stopRuntimeHeartbeat();
+      this.stopRuntimeMessagePolling();
+      this.root.addClass("crud-session-revoked");
+      global.CrudUtils.blockingMessage("Sessao encerrada", message || "Sua sessao foi encerrada.", {
+        buttonText: "Sessao encerrada",
+        themeColor: "primary"
+      });
+      if (details && details.reason) {
+        global.CrudUtils.showMessage(details.reason, "warning");
+      }
+    }
+
+    hasUnsavedChanges() {
+      return Boolean(this.formRenderer && typeof this.formRenderer.hasUnsavedChanges === "function" && this.formRenderer.hasUnsavedChanges());
+    }
+
+    confirmDiscardChanges() {
+      if (!this.hasUnsavedChanges()) {
+        return Promise.resolve(true);
+      }
+      return global.CrudUtils.confirm("Existem dados alterados e nao salvos. Deseja sair da tela e perder essas alteracoes?", {
+        title: "Descartar alteracoes",
+        confirmText: "Sair da tela",
+        cancelText: "Continuar editando",
+        confirmIcon: "exclamation-circle",
+        themeColor: "warning"
+      });
+    }
+
+    destroy() {
+      this.stopRuntimeMessagePolling();
+      this.releaseRuntimeLock({ silent: true });
+      if (this.gridRenderer && typeof this.gridRenderer.destroy === "function") {
+        this.gridRenderer.destroy();
+      }
+      if (this.filterRenderer) {
+        this.filterRenderer.destroy();
+      }
+      if (this.formRenderer && typeof this.formRenderer.close === "function") {
+        this.formRenderer.close(true);
+      }
     }
 
     applyFilters(filters) {
@@ -1627,6 +2332,7 @@
       const defaultField = $("<label class=\"crud-checkbox-field\"></label>").appendTo(form);
       const defaultInput = $("<input type=\"checkbox\" id=\"crud-sort-default\">").appendTo(defaultField);
       $("<span>Usar como ordenacao padrao</span>").appendTo(defaultField);
+      const scopeInput = this.renderPreferenceScopeField(form, "crud-sort-global");
 
       const rowsContainer = $("<div class=\"crud-sort-rows\"></div>").appendTo(form);
       const formActions = $("<div class=\"crud-form-actions\"></div>").appendTo(form);
@@ -1700,6 +2406,7 @@
         editingSortId = preset ? preset.id : null;
         nameInput.data("kendoTextBox").value(preset ? preset.name : "");
         defaultInput.prop("checked", Boolean(preset && preset.isDefault));
+        scopeInput.prop("checked", Boolean(preset && preset.scope === "global"));
         const sort = preset
           ? preset.sort
           : useCurrent
@@ -1782,6 +2489,7 @@
           id: editingSortId,
           name: nameInput.data("kendoTextBox").value(),
           isDefault: defaultInput.is(":checked"),
+          scope: this.getPreferenceScope(scopeInput),
           sort
         }).then(() => {
           windowWidget.close();
@@ -1837,9 +2545,10 @@
         id: "",
         name: "Padrao do sistema"
       }].concat(this.getSavedSorts().map(function(item) {
+        const suffix = (item.isDefault ? " (padrao)" : "") + (item.scope === "global" ? " (todos)" : "");
         return {
           id: item.id,
-          name: item.name + (item.isDefault ? " (padrao)" : "")
+          name: item.name + suffix
         };
       }));
     }
@@ -1921,6 +2630,7 @@
       const defaultField = $("<label class=\"crud-checkbox-field\"></label>").appendTo(form);
       const defaultInput = $("<input type=\"checkbox\" id=\"crud-group-default\">").appendTo(defaultField);
       $("<span>Usar como agrupamento padrao</span>").appendTo(defaultField);
+      const scopeInput = this.renderPreferenceScopeField(form, "crud-group-global");
 
       const rowsContainer = $("<div class=\"crud-group-rows\"></div>").appendTo(form);
       $("<h3 class=\"crud-group-section-title\">Totais do agrupamento</h3>").appendTo(form);
@@ -2069,6 +2779,7 @@
         editingGroupId = preset ? preset.id : null;
         nameInput.data("kendoTextBox").value(preset ? preset.name : "");
         defaultInput.prop("checked", Boolean(preset && preset.isDefault));
+        scopeInput.prop("checked", Boolean(preset && preset.scope === "global"));
         const group = preset
           ? preset.group
           : useCurrent
@@ -2170,6 +2881,7 @@
           id: editingGroupId,
           name: nameInput.data("kendoTextBox").value(),
           isDefault: defaultInput.is(":checked"),
+          scope: this.getPreferenceScope(scopeInput),
           group,
           aggregates
         }).then(() => {
@@ -2292,9 +3004,10 @@
         id: "",
         name: "Sem agrupamento"
       }].concat(this.getSavedGroups().map(function(item) {
+        const suffix = (item.isDefault ? " (padrao)" : "") + (item.scope === "global" ? " (todos)" : "");
         return {
           id: item.id,
-          name: item.name + (item.isDefault ? " (padrao)" : "")
+          name: item.name + suffix
         };
       }));
     }
@@ -2415,9 +3128,10 @@
         id: "",
         name: "Padrao do sistema"
       }].concat(layouts.map(function(layout) {
+        const suffix = (layout.isDefault ? " (padrao)" : "") + (layout.scope === "global" ? " (todos)" : "");
         return {
           id: layout.id,
-          name: layout.name + (layout.isDefault ? " (padrao)" : "")
+          name: layout.name + suffix
         };
       }));
 
@@ -2540,6 +3254,7 @@
       const defaultField = $("<label class=\"crud-checkbox-field\"></label>").appendTo(form);
       const defaultInput = $("<input type=\"checkbox\" id=\"crud-layout-default\">").appendTo(defaultField);
       $("<span>Usar como leiaute padrao</span>").appendTo(defaultField);
+      const scopeInput = this.renderPreferenceScopeField(form, "crud-layout-global");
 
       if (this.isColumnFreezeEnabled()) {
         $("<p class=\"crud-layout-note\"></p>")
@@ -2575,7 +3290,8 @@
         const metadata = {
           id: null,
           name: nameInput.data("kendoTextBox").value(),
-          isDefault: defaultInput.is(":checked")
+          isDefault: defaultInput.is(":checked"),
+          scope: this.getPreferenceScope(scopeInput)
         };
         const frozenColumns = this.getSelectedFrozenColumns();
         if (frozenColumns) {
@@ -2611,6 +3327,17 @@
         const normalized = global.CrudUtils.unwrapError(error, "Erro ao restaurar layout.");
         global.CrudUtils.showMessage(normalized.message, "error");
       });
+    }
+
+    renderPreferenceScopeField(container, inputId) {
+      const scopeField = $("<label class=\"crud-checkbox-field crud-preference-scope-field\"></label>").appendTo(container);
+      const scopeInput = $("<input type=\"checkbox\">").attr("id", inputId).appendTo(scopeField);
+      $("<span>Usar em todos os assinantes</span>").appendTo(scopeField);
+      return scopeInput;
+    }
+
+    getPreferenceScope(scopeInput) {
+      return scopeInput && scopeInput.is(":checked") ? "global" : "tenant";
     }
   }
 

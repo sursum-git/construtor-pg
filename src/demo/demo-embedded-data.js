@@ -230,6 +230,10 @@
         "url": "/api/cadastros/clientes/{id}/actions/send-welcome",
         "method": "POST"
       },
+      "sendWhatsapp": {
+        "url": "/api/cadastros/clientes/{id}/actions/send-whatsapp",
+        "method": "POST"
+      },
       "bulkActivate": {
         "url": "/api/cadastros/clientes/bulk/status",
         "method": "POST"
@@ -273,6 +277,58 @@
       "deleteFilter": {
         "url": "/api/crud-layout/cadastros/clientes/filters/{id}",
         "method": "DELETE"
+      },
+      "saveMobileTemplate": {
+        "url": "/api/crud-layout/cadastros/clientes/mobile-templates",
+        "method": "POST"
+      },
+      "deleteMobileTemplate": {
+        "url": "/api/crud-layout/cadastros/clientes/mobile-templates/{id}",
+        "method": "DELETE"
+      },
+      "runtime.lock.acquire": {
+        "url": "/api/runtime/screens/cadastros.clientes/endpoints/runtime.lock.acquire",
+        "method": "POST"
+      },
+      "runtime.lock.heartbeat": {
+        "url": "/api/runtime/screens/cadastros.clientes/endpoints/runtime.lock.heartbeat",
+        "method": "POST"
+      },
+      "runtime.lock.release": {
+        "url": "/api/runtime/screens/cadastros.clientes/endpoints/runtime.lock.release",
+        "method": "POST"
+      },
+      "runtime.messages.poll": {
+        "url": "/api/runtime/screens/cadastros.clientes/endpoints/runtime.messages.poll",
+        "method": "POST"
+      },
+      "runtime.messages.ack": {
+        "url": "/api/runtime/screens/cadastros.clientes/endpoints/runtime.messages.ack",
+        "method": "POST"
+      },
+      "runtime.admin.forceLogout": {
+        "url": "/api/runtime/screens/cadastros.clientes/endpoints/runtime.admin.forceLogout",
+        "method": "POST"
+      }
+    }
+  },
+  "runtime": {
+    "entityCode": "cliente",
+    "programId": "clientes-crud",
+    "lock": {
+      "enabled": true,
+      "lockTtlSeconds": 300,
+      "heartbeatIntervalSeconds": 60,
+      "modes": [
+        "edit",
+        "delete"
+      ]
+    },
+    "messages": {
+      "enabled": true,
+      "pollIntervalSeconds": 30,
+      "events": {
+        "enabled": true
       }
     }
   },
@@ -303,6 +359,16 @@
         "validation": {
           "required": false,
           "maxLength": 150
+        }
+      },
+      "telefone": {
+        "type": "string",
+        "label": "Telefone",
+        "editable": true,
+        "nullable": true,
+        "validation": {
+          "required": false,
+          "maxLength": 30
         }
       },
       "status": {
@@ -718,6 +784,14 @@
           "sortable": true
         },
         {
+          "field": "telefone",
+          "title": "Telefone",
+          "width": 150,
+          "visible": true,
+          "filterable": true,
+          "sortable": true
+        },
+        {
           "field": "status",
           "title": "Status",
           "width": 120,
@@ -838,6 +912,18 @@
         "breakpoint": 720,
         "showHeaderActions": false
       },
+      "concurrencyWarning": {
+        "enabled": true,
+        "actions": [
+          "edit",
+          "delete"
+        ],
+        "title": "Aviso de concorrência",
+        "editMessage": "Este cliente pode estar em uso por outro usuário. Ao continuar, o sistema validará se o registro ainda pode ser alterado.",
+        "deleteMessage": "Este cliente pode estar em uso por outro usuário. Ao continuar, o sistema validará se o registro ainda pode ser excluído.",
+        "confirmText": "Continuar",
+        "cancelText": "Cancelar"
+      },
       "logs": {
         "enabled": true,
         "title": "Logs do Cliente",
@@ -903,6 +989,21 @@
               "message": "Deseja enviar boas-vindas para este cliente?"
             },
             "successMessage": "Envio de boas-vindas solicitado."
+          },
+          {
+            "id": "sendWhatsapp",
+            "label": "Enviar WhatsApp",
+            "icon": "comment",
+            "endpointId": "sendWhatsapp",
+            "permission": "edit",
+            "visibleIn": [
+              "view",
+              "edit"
+            ],
+            "confirm": {
+              "message": "Deseja enviar WhatsApp para este cliente?"
+            },
+            "successMessage": "WhatsApp agendado."
           }
         ]
       },
@@ -962,6 +1063,10 @@
                 {
                   "field": "email",
                   "colSpan": 2
+                },
+                {
+                  "field": "telefone",
+                  "colSpan": 1
                 },
                 {
                   "field": "status",
@@ -1069,6 +1174,10 @@
                 {
                   "field": "email",
                   "colSpan": 2
+                },
+                {
+                  "field": "telefone",
+                  "colSpan": 1
                 },
                 {
                   "field": "status",

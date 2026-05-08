@@ -643,6 +643,38 @@ body .k-notification:has(.crud-toast) .k-svg-icon {
   color: var(--crud-danger);
 }
 
+.crud-field-backend-invalid,
+.crud-field-backend-warning {
+  padding: 8px;
+  border: 1px solid var(--crud-danger);
+  border-radius: 6px;
+  background: var(--crud-error-bg);
+}
+
+.crud-field-backend-warning {
+  border-color: #f79009;
+}
+
+.crud-field-validation-message {
+  color: var(--crud-danger);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.crud-validation-dialog {
+  display: grid;
+  gap: 14px;
+}
+
+.crud-validation-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--crud-text);
+}
+
 .crud-filter-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1305,6 +1337,10 @@ body .k-window:has(.crud-form) {
 .crud-checkbox-field input {
   width: 16px;
   height: 16px;
+}
+
+.crud-preference-scope-field {
+  color: var(--crud-muted);
 }
 
 .crud-section {

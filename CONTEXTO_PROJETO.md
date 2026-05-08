@@ -5,6 +5,7 @@ Este projeto e um motor frontend dinamico para telas CRUD usando JSON, Kendo UI 
 Objetivo principal:
 
 - Renderizar telas CRUD a partir de uma definicao JSON.
+- Renderizar telas de processamento por parametros a partir de uma definicao JSON.
 - Manter um padrao visual e comportamental reutilizavel.
 - Servir como base futura para migrar sistemas existentes para telas configuradas por metadados.
 
@@ -15,26 +16,31 @@ Decisoes fechadas:
 - Kendo local em `kendo/`.
 - jQuery local em `vendor/jquery/jquery-4.0.0.min.js`.
 - Tema atual principal: `kendo/styles/default-urban.css`.
-- Nao existe backend real nesta etapa.
-- Dados e persistencias sao mockados em memoria por `DemoMockHttpClient`.
+- Existe backend inicial em `backend/` com Symfony, API Platform, PostgreSQL, runtime por metadados, auditoria, fila, sessao, autenticacao, permissoes reais por tela/acao, selecao de assinante, manter logado e escolha de area para administrador.
+- Existem telas administrativas runtime para parametros, sessoes, transacoes, logs de transacoes e jobs.
+- As demos ainda podem usar dados mockados em memoria por `DemoMockHttpClient`.
 - A pasta `kendo/` nao deve ser alterada.
 
 Paginas principais:
 
 - `home.html`: demo de pagina inicial por JSON, com appbar, seletor de sistema/modulo, Kendo TreeView lateral e abertura de programas.
+- `login.html`: demo visual de login com appbar, logo, lembrar acesso, selecao simulada de assinante, escolha de area para administrador e recuperacao de senha.
 - `index.html`: demo principal de clientes.
 - `exemplos.html`: indice central de exemplos.
 - `theme-builder.html`: pagina de teste/geracao visual de temas.
 - `examples/pages/*.html`: paginas isoladas por variacao de configuracao.
 - `production/app.html`: entrada de producao para CRUD por `screenId`.
 - `production/home.html`: entrada de producao para Home por `screenId`.
+- `production/login.html`: entrada de producao para login, manter logado, selecao de assinante, escolha de area para administrador e recuperacao de senha.
 
 Arquivos de configuracao e dados:
 
 - `examples/home.home.json`: JSON completo da demo da pagina inicial.
 - `examples/clientes.crud.json`: JSON completo da demo.
+- `examples/processamento-relatorio.process.json`: JSON completo da demo de processamento por parametros.
 - `public/metadata/schemas/home-definition-v1.schema.json`: schema inicial da home.
 - `public/metadata/schemas/crud-definition-v1.schema.json`: schema inicial.
+- `public/metadata/schemas/process-definition-v1.schema.json`: schema inicial de processamento.
 - `public/config/crud-engine.production.config.json`: configuracao segura para primeira versao de producao.
 - `src/demo/demo-embedded-data.js`: dados e configuracao embutidos para uso via `file://`.
 - `src/demo/DemoMockHttpClient.js`: mock HTTP em memoria.

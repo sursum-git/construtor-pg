@@ -11,6 +11,10 @@
       this.onDelete = options.onDelete || function() {};
       this.onLogs = options.onLogs || function() {};
       this.onButtonAction = options.onButtonAction || function() { return Promise.resolve(true); };
+      this.onBeforeAction = options.onBeforeAction || function() { return Promise.resolve(true); };
+      this.onActionCanceled = options.onActionCanceled || function() {};
+      this.onClosed = options.onClosed || function() {};
+      this.onDirtyChange = options.onDirtyChange || function() {};
       this.onNavigate = options.onNavigate || function() { return Promise.resolve(null); };
       this.getNavigationState = options.getNavigationState || function() {
         return { previous: false, next: false };
@@ -37,6 +41,7 @@
       this.inputs = {};
 
       this.renderForm();
+      this.resetDirtyState();
 
       wrapper.kendoWindow({
         title: this.getTitle(mode),
@@ -51,7 +56,18 @@
         restore: function() {
           wrapper.removeClass("crud-form-window-maximized");
         },
-        close: function() {
+        close: (event) => {
+          if (!this.forceClosing && this.hasUnsavedChanges()) {
+            event.preventDefault();
+            this.confirmDiscardChanges().then((confirmed) => {
+              if (confirmed) {
+                this.forceClosing = true;
+                this.close(true);
+              }
+            });
+            return;
+          }
+          this.onClosed();
           wrapper.data("kendoWindow").destroy();
           wrapper.remove();
         }
@@ -65,8 +81,9 @@
       this.executeFormLifecycleEvents("open");
     }
 
-    close() {
+    close(force) {
       if (this.window) {
+        this.forceClosing = force === true;
         this.window.close();
       }
     }
@@ -109,6 +126,7 @@
       this.actionMode = this.getActionMode(nextMode);
       this.data = nextMode === "create" ? {} : global.CrudUtils.clone(this.passiveData || this.data || {});
       this.renderForm();
+      this.resetDirtyState();
     }
 
     deactivateAction() {
@@ -116,6 +134,8 @@
       this.actionMode = null;
       this.data = global.CrudUtils.clone(this.passiveData || {});
       this.renderForm();
+      this.resetDirtyState();
+      this.onActionCanceled();
     }
 
     renderHeaderAppbar(container) {
@@ -656,13 +676,99 @@
 
     activateActionFromButton(mode) {
       const buttonConfig = this.getFormButton(mode);
-      this.executeConfiguredButton(buttonConfig, {
-        event: "beforeActivate",
-        action: mode
+      this.showConcurrencyWarning(mode).then((confirmed) => {
+        if (!confirmed) {
+          return false;
+        }
+        return Promise.resolve(this.onBeforeAction(mode, global.CrudUtils.clone(this.passiveData || this.data || {}), {
+          concurrencyWarningShown: true
+        }));
+      }).then((allowed) => {
+        if (allowed === false) {
+          return false;
+        }
+        return this.executeConfiguredButton(buttonConfig, {
+          event: "beforeActivate",
+          action: mode
+        });
       }).then((shouldContinue) => {
         if (shouldContinue !== false) {
           this.activateAction(mode);
         }
+      });
+    }
+
+    showConcurrencyWarning(action, record) {
+      const config = this.getConcurrencyWarningConfig(action);
+      if (!config) {
+        return Promise.resolve(true);
+      }
+      const message = this.replaceRecordTokens(this.getConcurrencyWarningMessage(config, action), record || this.passiveData || this.data || {});
+      if (!message) {
+        return Promise.resolve(true);
+      }
+      if (config.confirm === false || config.blocking === false) {
+        global.CrudUtils.showMessage(message, config.type || "warning");
+        return Promise.resolve(true);
+      }
+      return global.CrudUtils.confirm(message, {
+        title: config.title || "Aviso de concorrencia",
+        confirmText: config.confirmText || "Continuar",
+        cancelText: config.cancelText || "Cancelar",
+        confirmIcon: config.confirmIcon || "exclamation-circle",
+        themeColor: config.themeColor || "warning",
+        width: config.width || 460
+      });
+    }
+
+    getConcurrencyWarningConfig(action) {
+      const form = this.getFormConfig();
+      const source = form.concurrencyWarning || form.concurrentWarning;
+      if (!source) {
+        return null;
+      }
+      const base = typeof source === "string" ? { message: source } : Object.assign({}, source || {});
+      if (base.enabled === false) {
+        return null;
+      }
+      const specificSource = base[action];
+      const specific = typeof specificSource === "string" ? { message: specificSource } : Object.assign({}, specificSource || {});
+      if (specific.enabled === false) {
+        return null;
+      }
+      const actions = this.normalizeWarningActions(specific.actions || base.actions || base.visibleIn || base.modes);
+      if (actions.length && actions.indexOf(action) === -1) {
+        return null;
+      }
+      return Object.assign({}, base, specific);
+    }
+
+    normalizeWarningActions(value) {
+      if (value == null) {
+        return ["edit", "delete"];
+      }
+      if (typeof value === "string") {
+        return value.split(",").map(function(item) {
+          return item.trim();
+        }).filter(Boolean);
+      }
+      return global.CrudUtils.ensureArray(value).map(function(item) {
+        return String(item || "").trim();
+      }).filter(Boolean);
+    }
+
+    getConcurrencyWarningMessage(config, action) {
+      const messages = config.messages || {};
+      return config.message ||
+        config[action + "Message"] ||
+        messages[action] ||
+        "Este registro pode estar em uso por outro usuario. Antes de continuar, o sistema deve validar se a operacao ainda pode ser realizada.";
+    }
+
+    replaceRecordTokens(text, record) {
+      return String(text || "").replace(/\{([^}]+)\}/g, function(_, key) {
+        const value = global.CrudUtils.getByPath(record || {}, key);
+        return value == null ? "" : String(value);
       });
     }
 
@@ -1645,6 +1751,22 @@
 
         inputState.input.off(eventName + ".crudFormEvent." + eventConfig.id).on(eventName + ".crudFormEvent." + eventConfig.id, handler);
       });
+      this.bindDirtyEvents();
+    }
+
+    bindDirtyEvents() {
+      Object.keys(this.inputs || {}).forEach((fieldName) => {
+        const item = this.inputs[fieldName];
+        if (!item || !item.input) {
+          return;
+        }
+        const handler = () => this.updateDirtyState();
+        item.input.off("input.crudDirty change.crudDirty").on("input.crudDirty change.crudDirty", handler);
+        const widget = this.getInputWidget(item.input);
+        if (widget && typeof widget.bind === "function") {
+          widget.bind("change", handler);
+        }
+      });
     }
 
     bindWidgetChange(input, handler) {
@@ -1697,10 +1819,25 @@
         method: endpoint.method || eventConfig.method || "POST",
         data: this.buildEventPayload(eventConfig, context)
       }).then((response) => {
+        if (this.handleBackendValidationResponse(response, function() { return Promise.resolve(false); })) {
+          return false;
+        }
         const responseContext = this.buildEventContext(response);
         this.applyEffects(this.getResponseEventEffects(eventConfig, response), responseContext);
         return true;
       }).catch((error) => {
+        if (this.handleBackendValidationResponse(error, (token) => {
+          const retryConfig = Object.assign({}, eventConfig, {
+            data: Object.assign({}, eventConfig.data || {}, {
+              _runtime: Object.assign({}, eventConfig.data && eventConfig.data._runtime || {}, {
+                validationConfirmationToken: token
+              })
+            })
+          });
+          return this.executeFormEvent(retryConfig);
+        })) {
+          return false;
+        }
         const normalized = global.CrudUtils.unwrapError(error, eventConfig.errorMessage || "Erro ao executar evento do formulario.");
         global.CrudUtils.showMessage(normalized.message, "error");
         return false;
@@ -1773,6 +1910,56 @@
       return values;
     }
 
+    setRuntimeContext(runtime) {
+      this.data = Object.assign({}, this.data || {}, {
+        _runtime: Object.assign({}, this.data && this.data._runtime || {}, runtime || {})
+      });
+      this.passiveData = Object.assign({}, this.passiveData || {}, {
+        _runtime: Object.assign({}, this.passiveData && this.passiveData._runtime || {}, runtime || {})
+      });
+    }
+
+    resetDirtyState() {
+      this.initialValuesSnapshot = this.buildDirtySnapshot();
+      this.isDirty = false;
+      this.onDirtyChange(false);
+    }
+
+    updateDirtyState() {
+      const dirty = this.hasUnsavedChanges();
+      if (dirty === this.isDirty) {
+        return;
+      }
+      this.isDirty = dirty;
+      this.onDirtyChange(dirty);
+    }
+
+    hasUnsavedChanges() {
+      if (["create", "edit"].indexOf(this.actionMode) === -1) {
+        return false;
+      }
+      return this.buildDirtySnapshot() !== this.initialValuesSnapshot;
+    }
+
+    confirmDiscardChanges() {
+      if (!this.hasUnsavedChanges()) {
+        return Promise.resolve(true);
+      }
+      return global.CrudUtils.confirm("Existem dados alterados e nao salvos. Deseja sair da tela e perder essas alteracoes?", {
+        title: "Descartar alteracoes",
+        confirmText: "Sair da tela",
+        cancelText: "Continuar editando",
+        confirmIcon: "exclamation-circle",
+        themeColor: "warning"
+      });
+    }
+
+    buildDirtySnapshot() {
+      const values = this.collectAllValues();
+      delete values._runtime;
+      return JSON.stringify(values);
+    }
+
     readFieldCurrentValue(fieldName) {
       const item = this.inputs[fieldName];
       if (!item) {
@@ -1810,6 +1997,87 @@
       } finally {
         this.applyingEffects = false;
       }
+    }
+
+    handleBackendValidationResponse(payload, retryCallback) {
+      const normalized = global.CrudUtils.normalizeBackendValidation(payload, "Existem inconsistencias no formulario.");
+      if (!normalized.hasValidation) {
+        return false;
+      }
+
+      const validation = normalized.validation || {};
+      const responseContext = this.buildEventContext({
+        validation,
+        error: normalized.error || {},
+        effects: normalized.effects || []
+      });
+      this.applyEffects(normalized.effects, responseContext);
+      this.applyBackendValidationMessages(validation.messages || []);
+
+      global.CrudUtils.showBackendValidation(validation, {
+        themeColor: validation.status === "warning" ? "warning" : "primary"
+      }).then((confirmed) => {
+        if (confirmed && validation.requiresConfirmation && validation.confirmationToken && typeof retryCallback === "function") {
+          retryCallback(validation.confirmationToken);
+        }
+      });
+
+      return true;
+    }
+
+    clearBackendValidation() {
+      Object.keys(this.inputs || {}).forEach((fieldName) => {
+        const item = this.inputs[fieldName];
+        if (!item || !item.wrapper) {
+          return;
+        }
+        item.wrapper.removeClass("crud-field-backend-invalid crud-field-backend-warning");
+        item.wrapper.find(".crud-field-validation-message").remove();
+        if (item.input) {
+          item.input.attr("aria-invalid", "false");
+        }
+      });
+    }
+
+    applyBackendValidationMessages(messages) {
+      this.clearBackendValidation();
+      let firstInvalid = null;
+      global.CrudUtils.ensureArray(messages).forEach((message) => {
+        const fieldName = message && (message.field || message.target);
+        if (!fieldName || !this.inputs[fieldName]) {
+          return;
+        }
+        const item = this.inputs[fieldName];
+        const type = message.type === "warning" ? "warning" : "error";
+        item.wrapper
+          .addClass(type === "warning" ? "crud-field-backend-warning" : "crud-field-backend-invalid")
+          .append($("<div class=\"crud-field-validation-message\"></div>").text(message.message || "Campo invalido."));
+        if (item.input) {
+          item.input.attr("aria-invalid", "true");
+        }
+        if (!firstInvalid) {
+          firstInvalid = item;
+        }
+      });
+      if (firstInvalid) {
+        this.focusField(firstInvalid);
+      }
+    }
+
+    focusField(item) {
+      if (!item) {
+        return;
+      }
+      const target = item.input || item.readonlyElement;
+      if (!target || !target.length) {
+        return;
+      }
+      const widget = item.input ? this.getInputWidget(item.input) : null;
+      if (widget && widget.element && typeof widget.element.focus === "function") {
+        widget.element.focus();
+        return;
+      }
+      target.trigger("focus");
     }
 
     applyEffect(effect, context) {
@@ -2226,18 +2494,23 @@
           if (!canCancel) {
             return;
           }
-          this.executeConfiguredButton(cancelButtonConfig, {
-            event: "cancel",
-            action: "cancel"
-          }).then((shouldContinue) => {
-            if (shouldContinue === false) {
+          this.confirmDiscardChanges().then((confirmed) => {
+            if (!confirmed) {
               return;
             }
-            if (closeOnCancel) {
-              this.close();
-            } else {
-              this.deactivateAction();
-            }
+            this.executeConfiguredButton(cancelButtonConfig, {
+              event: "cancel",
+              action: "cancel"
+            }).then((shouldContinue) => {
+              if (shouldContinue === false) {
+                return;
+              }
+              if (closeOnCancel) {
+                this.close(true);
+              } else {
+                this.deactivateAction();
+              }
+            });
           });
         });
       this.renderConfiguredButtons(actions, "footer");
@@ -2279,7 +2552,9 @@
         const deleteButtonConfig = this.getFormButton("delete");
         Promise.resolve(this.onDelete(global.CrudUtils.clone(this.data), {
           confirm: false,
-          action: deleteButtonConfig
+          action: deleteButtonConfig,
+          concurrencyWarningShown: true,
+          skipRecordPreparation: true
         })).then((deleted) => {
           if (deleted) {
             this.close();
@@ -2292,6 +2567,7 @@
 
     save(buttonConfig) {
       const payload = this.collectValues();
+      payload._runtime = Object.assign({}, this.data && this.data._runtime || {}, payload._runtime || {});
       const validationErrors = this.validatePayload(payload);
       if (validationErrors.length) {
         global.CrudUtils.showMessage(validationErrors.join("\n"), "error");
@@ -2306,26 +2582,55 @@
       });
       const url = global.CrudUtils.replaceUrlParams(endpoint.url, urlParams);
 
-      this.httpClient.request({
+      const send = (requestPayload) => this.httpClient.request({
         url,
         method: endpoint.method || (isCreate ? "POST" : "PUT"),
-        data: payload
+        data: requestPayload
       }).then((response) => {
+        if (this.handleBackendValidationResponse(response, (token) => {
+          const retryPayload = global.CrudUtils.clone(requestPayload);
+          retryPayload._runtime = Object.assign({}, retryPayload._runtime || {}, {
+            validationConfirmationToken: token
+          });
+          return send(retryPayload);
+        })) {
+          return;
+        }
         const savedMode = this.mode;
+        this.clearBackendValidation();
+        this.applyEffects(response && response.effects, {
+          event: "save",
+          values: requestPayload,
+          response: response || {},
+          effects: response && response.effects || []
+        });
+        this.resetDirtyState();
         if (this.shouldCloseOnSave()) {
-          this.window.close();
+          this.close(true);
         } else {
           this.passiveData = global.CrudUtils.clone(response);
           this.data = global.CrudUtils.clone(response);
           this.mode = "view";
           this.actionMode = null;
           this.renderForm();
+          this.resetDirtyState();
         }
         this.onSaved(response, savedMode);
       }).catch((error) => {
+        if (this.handleBackendValidationResponse(error, (token) => {
+          const retryPayload = global.CrudUtils.clone(requestPayload);
+          retryPayload._runtime = Object.assign({}, retryPayload._runtime || {}, {
+            validationConfirmationToken: token
+          });
+          return send(retryPayload);
+        })) {
+          return;
+        }
         const normalized = global.CrudUtils.unwrapError(error, "Erro ao salvar.");
         global.CrudUtils.showMessage(normalized.message, "error");
       });
+
+      send(payload);
     }
 
     resolveButtonEndpoint(buttonConfig, mode) {

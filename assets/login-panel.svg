@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="920" height="720" viewBox="0 0 920 720" role="img" aria-labelledby="title desc">
+  <title id="title">Painel de acesso seguro</title>
+  <desc id="desc">Ilustracao abstrata de painel administrativo para tela de login.</desc>
+  <rect width="920" height="720" rx="36" fill="#f8fafc"/>
+  <rect x="82" y="78" width="756" height="564" rx="28" fill="#ffffff" stroke="#d9e2ef" stroke-width="3"/>
+  <rect x="122" y="122" width="676" height="74" rx="16" fill="#eef6ff"/>
+  <rect x="156" y="148" width="188" height="20" rx="10" fill="#0f5f9f"/>
+  <rect x="632" y="142" width="92" height="32" rx="16" fill="#ffffff" stroke="#bfdaf8" stroke-width="2"/>
+  <rect x="742" y="142" width="32" height="32" rx="16" fill="#0f5f9f"/>
+  <rect x="122" y="232" width="282" height="164" rx="18" fill="#ffffff" stroke="#d9e2ef" stroke-width="3"/>
+  <rect x="156" y="266" width="92" height="16" rx="8" fill="#667085"/>
+  <rect x="156" y="308" width="176" height="18" rx="9" fill="#0f5f9f"/>
+  <rect x="156" y="346" width="214" height="16" rx="8" fill="#d9e2ef"/>
+  <rect x="438" y="232" width="360" height="164" rx="18" fill="#ffffff" stroke="#d9e2ef" stroke-width="3"/>
+  <rect x="472" y="266" width="126" height="16" rx="8" fill="#667085"/>
+  <rect x="472" y="310" width="280" height="18" rx="9" fill="#d9e2ef"/>
+  <rect x="472" y="350" width="218" height="18" rx="9" fill="#0f5f9f"/>
+  <rect x="122" y="430" width="676" height="160" rx="18" fill="#ffffff" stroke="#d9e2ef" stroke-width="3"/>
+  <rect x="156" y="466" width="136" height="16" rx="8" fill="#667085"/>
+  <rect x="156" y="510" width="548" height="20" rx="10" fill="#eef6ff"/>
+  <rect x="156" y="510" width="326" height="20" rx="10" fill="#0f5f9f"/>
+  <rect x="156" y="552" width="480" height="16" rx="8" fill="#d9e2ef"/>
+  <circle cx="726" cy="512" r="30" fill="#eef6ff" stroke="#0f5f9f" stroke-width="3"/>
+  <path d="M712 513l10 10 20-24" fill="none" stroke="#0f5f9f" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -71,7 +71,8 @@
           sort: this.grid.dataSource.sort() || [],
           filter: this.grid.dataSource.filter() || null,
           group: this.grid.dataSource.group() || [],
-          groupAggregates: this.grid.dataSource.aggregate ? this.grid.dataSource.aggregate() || [] : []
+          groupAggregates: this.grid.dataSource.aggregate ? this.grid.dataSource.aggregate() || [] : [],
+          mobileTemplate: this.getMobileTemplatePreference()
         }
       };
     }
@@ -92,6 +93,10 @@
       return global.CrudUtils.ensureArray(this.definition.userLayout && this.definition.userLayout.savedFilters);
     }
 
+    getSavedMobileTemplates() {
+      return global.CrudUtils.ensureArray(this.definition.userLayout && this.definition.userLayout.savedMobileTemplates);
+    }
+
     save(options) {
       const endpoint = this.definition.api && this.definition.api.saveLayout;
       if (!endpoint) {
@@ -105,7 +110,8 @@
       const payload = Object.assign(this.capture(), {
         id: metadata.id || null,
         name: String(metadata.name).trim(),
-        isDefault: Boolean(metadata.isDefault)
+        isDefault: Boolean(metadata.isDefault),
+        scope: this.resolvePreferenceScope(metadata)
       });
       if (Array.isArray(metadata.frozenColumns)) {
         payload.grid.columns.frozen = metadata.frozenColumns;
@@ -148,6 +154,7 @@
           id: metadata.id || null,
           name: String(metadata.name).trim(),
           isDefault: Boolean(metadata.isDefault),
+          scope: this.resolvePreferenceScope(metadata),
           sort
         }
       }).then((response) => {
@@ -172,7 +179,7 @@
       return this.httpClient.request({
         url,
         method: endpoint.method || "DELETE",
-        data: { id: sortId }
+        data: { id: sortId, scope: this.resolvePreferenceScope({ scope: "tenant" }) }
       }).then((response) => {
         if (response && response.userLayout) {
           this.definition.userLayout = response.userLayout;
@@ -216,6 +223,7 @@
           id: metadata.id || null,
           name: String(metadata.name).trim(),
           isDefault: Boolean(metadata.isDefault),
+          scope: this.resolvePreferenceScope(metadata),
           group,
           aggregates
         }
@@ -272,7 +280,7 @@
       return this.httpClient.request({
         url,
         method: endpoint.method || "DELETE",
-        data: { id: groupId }
+        data: { id: groupId, scope: this.resolvePreferenceScope({ scope: "tenant" }) }
       }).then((response) => {
         if (response && response.userLayout) {
           this.definition.userLayout = response.userLayout;
@@ -306,6 +314,7 @@
           id: metadata.id || null,
           name: String(metadata.name).trim(),
           isDefault: Boolean(metadata.isDefault),
+          scope: this.resolvePreferenceScope(metadata),
           filters: global.CrudUtils.clone(filters)
         }
       }).then((response) => {
@@ -330,7 +339,64 @@
       return this.httpClient.request({
         url,
         method: endpoint.method || "DELETE",
-        data: { id: filterId }
+        data: { id: filterId, scope: this.resolvePreferenceScope({ scope: "tenant" }) }
+      }).then((response) => {
+        if (response && response.userLayout) {
+          this.definition.userLayout = response.userLayout;
+        }
+        this.setDirty(false);
+        return response;
+      });
+    }
+
+    saveMobileTemplatePreset(options) {
+      const endpoint = this.definition.api && this.definition.api.saveMobileTemplate;
+      if (!endpoint) {
+        return Promise.reject(global.CrudUtils.makeError("ENDPOINT_MISSING", "Endpoint de salvamento do template mobile nao configurado."));
+      }
+
+      const metadata = options || {};
+      const template = this.normalizeMobileTemplate(metadata.template || metadata.mobileTemplate || metadata);
+      if (!metadata.name || !String(metadata.name).trim()) {
+        return Promise.reject(global.CrudUtils.makeError("MOBILE_TEMPLATE_NAME_REQUIRED", "Informe o nome do template mobile."));
+      }
+      if (!template) {
+        return Promise.reject(global.CrudUtils.makeError("MOBILE_TEMPLATE_REQUIRED", "Informe ao menos um campo para o template mobile."));
+      }
+
+      return this.httpClient.request({
+        url: endpoint.url,
+        method: endpoint.method || "POST",
+        data: {
+          id: metadata.id || null,
+          name: String(metadata.name).trim(),
+          isDefault: Boolean(metadata.isDefault),
+          scope: this.resolvePreferenceScope(metadata),
+          template
+        }
+      }).then((response) => {
+        if (response && response.userLayout) {
+          this.definition.userLayout = response.userLayout;
+        }
+        this.setDirty(false);
+        return response;
+      });
+    }
+
+    deleteMobileTemplatePreset(templateId) {
+      const endpoint = this.definition.api && this.definition.api.deleteMobileTemplate;
+      if (!endpoint) {
+        return Promise.reject(global.CrudUtils.makeError("ENDPOINT_MISSING", "Endpoint de exclusao do template mobile nao configurado."));
+      }
+      if (!templateId) {
+        return Promise.reject(global.CrudUtils.makeError("MOBILE_TEMPLATE_ID_REQUIRED", "Template mobile nao informado."));
+      }
+
+      const url = global.CrudUtils.replaceUrlParams(endpoint.url, { id: templateId });
+      return this.httpClient.request({
+        url,
+        method: endpoint.method || "DELETE",
+        data: { id: templateId, scope: this.resolvePreferenceScope({ scope: "tenant" }) }
       }).then((response) => {
         if (response && response.userLayout) {
           this.definition.userLayout = response.userLayout;
@@ -357,7 +423,7 @@
       }
 
       this.definition.userLayout.activeLayoutId = layout.id;
-      this.definition.userLayout.source = "user";
+      this.definition.userLayout.source = layout.scope === "global" ? "user_global" : "user";
       this.definition.userLayout.grid = global.CrudUtils.clone(layout.grid);
       this.setDirty(false);
       return true;
@@ -397,8 +463,93 @@
         sort: [],
         filter: null,
         group: [],
-        groupAggregates: []
+        groupAggregates: [],
+        mobileTemplate: null
       };
+    }
+
+    getMobileTemplatePreference() {
+      const userLayout = this.definition.userLayout || {};
+      const gridTemplate = userLayout.grid && userLayout.grid.mobileTemplate;
+      if (gridTemplate) {
+        return this.normalizeMobileTemplate(gridTemplate);
+      }
+
+      const templates = this.getSavedMobileTemplates();
+      const active = templates.find(function(item) {
+        return item.isDefault;
+      }) || templates.find(function(item) {
+        return item.id === userLayout.activeMobileTemplateId;
+      });
+
+      return active ? this.normalizeMobileTemplate(active.template || active) : null;
+    }
+
+    normalizeMobileTemplate(template) {
+      const source = template || {};
+      const fields = this.normalizeFieldList(source.fields || source.fieldPositions || []);
+      const badges = this.normalizeFieldList(source.badges || source.badgeFields || []);
+      const tabs = this.normalizeMobileTabs(source.tabs || {});
+      const normalized = {
+        titleField: this.normalizeFieldName(source.titleField),
+        subtitleField: this.normalizeFieldName(source.subtitleField),
+        badges,
+        fields,
+        tabs
+      };
+
+      if (!normalized.titleField && !normalized.subtitleField && !badges.length && !fields.length && !tabs.items.length) {
+        return null;
+      }
+
+      return normalized;
+    }
+
+    normalizeMobileTabs(tabs) {
+      const source = tabs || {};
+      const items = global.CrudUtils.ensureArray(source.items).map((item) => {
+        const fields = this.normalizeFieldList(item && item.fields || []);
+        if (!fields.length) {
+          return null;
+        }
+        return {
+          id: String(item.id || "tab").replace(/[^A-Za-z0-9_.:-]+/g, "-").slice(0, 80),
+          title: String(item.title || item.id || "Aba").slice(0, 120),
+          fields
+        };
+      }).filter(Boolean);
+
+      return {
+        enabled: Boolean(source.enabled) && items.length > 0,
+        items
+      };
+    }
+
+    normalizeFieldList(fields) {
+      const known = {};
+      return global.CrudUtils.ensureArray(fields).map((fieldName) => {
+        return this.normalizeFieldName(fieldName);
+      }).filter(function(fieldName) {
+        if (!fieldName || known[fieldName]) {
+          return false;
+        }
+        known[fieldName] = true;
+        return true;
+      });
+    }
+
+    normalizeFieldName(fieldName) {
+      const value = String(fieldName || "").trim();
+      return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value) ? value : "";
+    }
+
+    resolvePreferenceScope(metadata) {
+      const source = metadata || {};
+      const scope = String(source.scope || source.tenantScope || "").toLowerCase();
+      if (scope === "global" || scope === "all" || scope === "todos" || source.applyToAllTenants || source.allSubscribers) {
+        return "global";
+      }
+      return "tenant";
     }
   }
 

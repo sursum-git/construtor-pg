@@ -1,0 +1,64 @@
+{
+  "situations": [
+    {
+      "code": "EM_DIGITACAO",
+      "label": "Em digitacao",
+      "description": "Cadastro ainda pode ser editado livremente.",
+      "position": 0,
+      "initial": true,
+      "final": false,
+      "enabled": true
+    },
+    {
+      "code": "COMPLETO",
+      "label": "Completo",
+      "description": "Cadastro preenchido e pronto para uso.",
+      "position": 1,
+      "initial": false,
+      "final": false,
+      "enabled": true
+    },
+    {
+      "code": "APROVADO",
+      "label": "Aprovado",
+      "description": "Produto aprovado para operacao.",
+      "position": 2,
+      "initial": false,
+      "final": true,
+      "enabled": true
+    }
+  ],
+  "transitions": [
+    {
+      "fromCode": null,
+      "toCode": "EM_DIGITACAO",
+      "actionId": "create",
+      "label": "Criar em digitacao",
+      "enabled": true
+    },
+    {
+      "fromCode": "EM_DIGITACAO",
+      "toCode": "COMPLETO",
+      "actionId": "update",
+      "label": "Completar cadastro",
+      "guardConfig": {
+        "requiredFields": ["codigo", "nome", "preco"]
+      },
+      "enabled": true
+    },
+    {
+      "fromCode": "COMPLETO",
+      "toCode": "APROVADO",
+      "actionId": "update",
+      "label": "Aprovar produto",
+      "enabled": true,
+      "effects": [
+        {
+          "action": "showMessage",
+          "type": "success",
+          "message": "Produto aprovado."
+        }
+      ]
+    }
+  ]
+}

@@ -9,6 +9,9 @@
 
     const params = readParams();
     const screenId = getParam(params, "screenId") || root.getAttribute("data-screen-id") || "home";
+    const accessArea = getParam(params, "accessArea");
+    const initialProgramId = getParam(params, "initialProgramId") ||
+      (accessArea === "admin" ? "admin-parametros" : "");
     const configUrl = getParam(params, "configUrl") ||
       root.getAttribute("data-config-url") ||
       "../public/config/crud-engine.production.config.json";
@@ -16,6 +19,7 @@
     const engine = new global.HomeEngine({
       root: "#home-production-root",
       screenId,
+      initialProgramId,
       configUrl,
       productionErrors: true,
       httpClient: new global.CrudHttpClient({

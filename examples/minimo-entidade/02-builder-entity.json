@@ -1,0 +1,24 @@
+{
+  "code": "produto",
+  "name": "Produto",
+  "entityType": "persistence",
+  "tableName": "produto",
+  "sourceName": null,
+  "status": "published",
+  "situationEnabled": true,
+  "situationFieldCode": "status",
+  "metadata": {
+    "screenId": "cadastros.produtos",
+    "primaryKey": "id",
+    "situation": {
+      "enabled": true,
+      "field": "status",
+      "initial": "EM_DIGITACAO"
+    },
+    "audit": {
+      "enabled": true,
+      "doctrineClass": "App\\Entity\\Produto"
+    },
+    "rules": []
+  }
+}

@@ -1,0 +1,382 @@
+.login-page {
+  min-height: 100vh;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(244, 245, 247, 0.96)),
+    var(--crud-bg);
+}
+
+.login-appbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  min-height: 64px;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--crud-border);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 1px 2px var(--crud-shadow);
+}
+
+.login-brand {
+  display: inline-flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  gap: 10px;
+  align-items: center;
+  color: var(--crud-text);
+  text-decoration: none;
+}
+
+.login-logo-mark {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--crud-accent-border);
+  border-radius: 8px;
+  background: var(--crud-accent-soft);
+  color: var(--crud-accent);
+  font-weight: 700;
+}
+
+.login-brand-text {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.login-brand-text strong {
+  color: var(--crud-title);
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.login-brand-text span {
+  color: var(--crud-muted);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.login-appbar-actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.login-appbar-message {
+  display: grid;
+  flex: 1 1 360px;
+  min-width: 280px;
+  gap: 2px;
+  text-align: center;
+}
+
+.login-appbar-message .login-kicker {
+  font-size: 11px;
+  text-transform: none;
+}
+
+.login-appbar-message strong {
+  color: var(--crud-title);
+  font-size: 15px;
+  line-height: 1.2;
+}
+
+.login-appbar-message span {
+  color: var(--crud-muted);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.login-env-badge {
+  padding: 4px 9px;
+  border: 1px solid var(--crud-accent-border);
+  border-radius: 999px;
+  background: var(--crud-accent-soft);
+  color: var(--crud-accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.login-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  width: min(1180px, 100%);
+  min-height: calc(100vh - 64px);
+  margin: 0 auto;
+  padding: clamp(16px, 4vh, 34px) 18px 18px;
+  align-items: start;
+}
+
+.login-visual {
+  display: none;
+}
+
+.login-card {
+  display: grid;
+  width: min(100%, 440px);
+  gap: 22px;
+  justify-self: center;
+  padding: 22px;
+  border: 1px solid var(--crud-border);
+  border-radius: 8px;
+  background: var(--crud-surface);
+  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.12);
+}
+
+.login-card-header {
+  display: grid;
+  gap: 6px;
+}
+
+.login-kicker {
+  margin: 0;
+  color: var(--crud-accent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.login-card h2 {
+  margin: 0;
+  color: var(--crud-title);
+  line-height: 1.2;
+}
+
+.login-card h2 {
+  font-size: 24px;
+}
+
+.login-card p {
+  margin: 0;
+  color: var(--crud-muted);
+  line-height: 1.45;
+}
+
+.login-form {
+  display: grid;
+  gap: 16px;
+}
+
+.login-field {
+  display: grid;
+  gap: 6px;
+}
+
+.login-field label {
+  color: var(--crud-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.login-field .k-input,
+.login-field .k-picker,
+.login-field input {
+  width: 100%;
+}
+
+.login-password-control {
+  position: relative;
+}
+
+.login-password-control .k-input-inner,
+.login-password-control input {
+  padding-right: 44px;
+}
+
+.login-password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  z-index: 2;
+  width: 32px;
+  height: 32px;
+  transform: translateY(-50%);
+}
+
+.login-password-toggle.k-button {
+  color: var(--crud-button-text);
+}
+
+.login-options {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.login-remember {
+  display: inline-flex;
+  min-width: 0;
+  gap: 8px;
+  align-items: center;
+  color: var(--crud-text);
+}
+
+.login-link-button {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--crud-accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.login-link-button:hover,
+.login-link-button:focus {
+  color: var(--crud-title);
+  text-decoration: underline;
+}
+
+.login-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.login-actions .k-button {
+  width: 100%;
+}
+
+.login-external {
+  display: grid;
+  gap: 12px;
+}
+
+.login-separator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--crud-muted);
+  font-size: 12px;
+}
+
+.login-separator::before,
+.login-separator::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: var(--crud-border);
+}
+
+.login-external-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.login-external-actions .k-button {
+  width: 100%;
+}
+
+.login-dialog-form {
+  display: grid;
+  gap: 14px;
+  padding: 4px;
+}
+
+.login-dialog-form p {
+  margin: 0;
+  color: var(--crud-muted);
+  line-height: 1.45;
+}
+
+.login-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-start;
+  padding-top: 4px;
+}
+
+.login-dialog-actions .k-button {
+  min-width: 112px;
+}
+
+.login-notification {
+  padding: 12px 14px;
+  border-color: var(--crud-accent-border);
+  border-radius: 6px;
+  background: var(--crud-surface);
+  color: var(--crud-text);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18);
+  line-height: 1.4;
+}
+
+@media (min-width: 840px) {
+  .login-shell {
+    grid-template-columns: minmax(280px, 0.78fr) minmax(360px, 430px);
+    gap: 24px;
+    padding: 32px 28px 28px;
+  }
+
+  .login-visual {
+    display: grid;
+    min-height: 430px;
+    align-content: start;
+    gap: 16px;
+    padding: 12px 10px 18px 0;
+  }
+
+  .login-visual img {
+    width: min(100%, 500px);
+    height: auto;
+    border-radius: 12px;
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.12);
+  }
+
+  .login-card {
+    justify-self: end;
+    margin-top: 10px;
+    padding: 28px;
+  }
+}
+
+@media (max-width: 520px) {
+  .login-appbar {
+    align-items: center;
+  }
+
+  .login-brand-text span,
+  .login-env-badge {
+    display: none;
+  }
+
+  .login-appbar-message {
+    order: 3;
+    flex-basis: 100%;
+    min-width: 0;
+    text-align: left;
+  }
+
+  .login-appbar-message span {
+    font-size: 11px;
+  }
+
+  .login-shell {
+    align-items: start;
+    padding: 14px;
+  }
+
+  .login-card {
+    padding: 18px;
+  }
+
+  .login-options {
+    display: grid;
+    justify-content: stretch;
+  }
+
+  .login-link-button {
+    width: fit-content;
+  }
+}

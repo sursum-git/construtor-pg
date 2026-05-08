@@ -176,7 +176,8 @@
           "properties": {
             "allowInlineUrls": { "type": "boolean" },
             "requireEndpointIds": { "type": "boolean" },
-            "runtimeEndpoint": { "$ref": "#/$defs/runtimeEndpoint" }
+            "runtimeEndpoint": { "$ref": "#/$defs/runtimeEndpoint" },
+            "runtimeEventsEndpoint": { "$ref": "#/$defs/runtimeEndpoint" }
           },
           "additionalProperties": false
         },

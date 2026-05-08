@@ -1,0 +1,30 @@
+### Carregar metadados da tela
+GET http://127.0.0.1:8000/api/runtime/screens/cadastros.produtos
+
+### Listar produtos
+POST http://127.0.0.1:8000/api/runtime/screens/cadastros.produtos/endpoints/read
+Content-Type: application/json
+
+{
+  "take": 10,
+  "skip": 0,
+  "sort": [
+    { "field": "nome", "dir": "asc" }
+  ]
+}
+
+### Criar produto
+POST http://127.0.0.1:8000/api/runtime/screens/cadastros.produtos/endpoints/create
+Content-Type: application/json
+
+{
+  "values": {
+    "codigo": "P001",
+    "nome": "Produto Demonstracao",
+    "status": "EM_DIGITACAO",
+    "preco": 19.9
+  }
+}
+
+### Abrir no frontend
+GET http://127.0.0.1:8081/production/app.html?screenId=cadastros.produtos

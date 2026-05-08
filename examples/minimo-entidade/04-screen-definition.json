@@ -1,0 +1,207 @@
+{
+  "screenId": "cadastros.produtos",
+  "schemaVersion": "1.0",
+  "pageType": "crud",
+  "status": "published",
+  "version": "1.0.0",
+  "definition": {
+    "schemaVersion": "1.0",
+    "pageType": "crud",
+    "screenId": "cadastros.produtos",
+    "program": {
+      "id": "cadastros.produtos",
+      "screenId": "cadastros.produtos",
+      "module": "cadastros",
+      "entity": "produto",
+      "title": "Produtos",
+      "version": "1.0.0",
+      "subtitle": "Cadastro minimo de produtos"
+    },
+    "permissions": {
+      "read": true,
+      "create": true,
+      "edit": true,
+      "delete": true,
+      "saveLayout": true
+    },
+    "dataSource": {
+      "api": {
+        "read": { "endpointId": "read", "method": "POST" },
+        "get": { "endpointId": "get", "method": "POST" },
+        "create": { "endpointId": "create", "method": "POST" },
+        "update": { "endpointId": "update", "method": "POST" },
+        "delete": { "endpointId": "delete", "method": "POST" }
+      }
+    },
+    "runtime": {
+      "entityCode": "produto",
+      "programId": "produtos-crud",
+      "lock": {
+        "enabled": true,
+        "lockTtlSeconds": 300,
+        "heartbeatIntervalSeconds": 60,
+        "modes": ["edit", "delete"]
+      },
+      "messages": {
+        "enabled": true,
+        "pollIntervalSeconds": 30,
+        "events": { "enabled": true }
+      }
+    },
+    "dataModel": {
+      "primaryKey": "id",
+      "fields": {
+        "id": {
+          "type": "integer",
+          "label": "ID",
+          "editable": false,
+          "nullable": false
+        },
+        "codigo": {
+          "type": "string",
+          "label": "Codigo",
+          "editable": true,
+          "nullable": false,
+          "validation": {
+            "required": true,
+            "maxLength": 30
+          }
+        },
+        "nome": {
+          "type": "string",
+          "label": "Nome",
+          "editable": true,
+          "nullable": false,
+          "validation": {
+            "required": true,
+            "maxLength": 160
+          }
+        },
+        "status": {
+          "type": "enum",
+          "label": "Status",
+          "editable": true,
+          "nullable": false,
+          "options": [
+            { "value": "EM_DIGITACAO", "text": "Em digitacao" },
+            { "value": "COMPLETO", "text": "Completo" },
+            { "value": "APROVADO", "text": "Aprovado" }
+          ],
+          "validation": {
+            "required": true
+          }
+        },
+        "preco": {
+          "type": "decimal",
+          "label": "Preco",
+          "editable": true,
+          "nullable": true,
+          "format": "currency"
+        }
+      }
+    },
+    "crud": {
+      "query": {
+        "defaultPageSize": 10,
+        "pageSizes": [10, 20, 50],
+        "defaultSort": [
+          { "field": "nome", "dir": "asc" }
+        ]
+      },
+      "filter": {
+        "type": "window",
+        "title": "Consulta de Produtos",
+        "openOnLoad": false,
+        "waitForSubmitOnLoad": true,
+        "showAppliedFilters": true,
+        "fields": [
+          {
+            "id": "busca",
+            "label": "Busca",
+            "type": "search",
+            "placeholder": "Codigo ou nome",
+            "fields": ["codigo", "nome"],
+            "operator": "contains"
+          },
+          {
+            "id": "status",
+            "field": "status",
+            "label": "Status",
+            "type": "enum",
+            "operator": "eq"
+          }
+        ]
+      },
+      "grid": {
+        "columns": [
+          { "field": "id", "title": "ID", "width": 80, "visible": false },
+          { "field": "codigo", "title": "Codigo", "width": 120 },
+          { "field": "nome", "title": "Nome", "width": 260 },
+          { "field": "status", "title": "Status", "width": 120 },
+          { "field": "preco", "title": "Preco", "width": 120, "format": "currency", "align": "right" }
+        ],
+        "toolbar": [
+          { "id": "create", "label": "Novo", "icon": "plus", "action": "create", "permission": "create" },
+          { "id": "filters", "label": "Filtros", "icon": "filter", "action": "filters", "permission": "read" },
+          { "id": "refresh", "label": "Atualizar", "icon": "arrow-rotate-cw", "action": "refresh", "permission": "read" }
+        ],
+        "rowActions": [
+          { "id": "view", "label": "Visualizar", "action": "view", "permission": "read" },
+          { "id": "edit", "label": "Editar", "action": "edit", "permission": "edit" },
+          { "id": "delete", "label": "Excluir", "action": "delete", "permission": "delete" }
+        ]
+      },
+      "form": {
+        "id": "produtoForm",
+        "mode": "popup",
+        "width": 760,
+        "layout": "tabs",
+        "title": {
+          "create": "Novo Produto",
+          "edit": "Editar Produto",
+          "view": "Visualizar Produto"
+        },
+        "behavior": {
+          "closeOnSave": true,
+          "closeOnCancel": false
+        },
+        "situation": {
+          "enabled": true,
+          "field": "status",
+          "label": "Situacao",
+          "display": "stepper",
+          "steps": [
+            { "value": "EM_DIGITACAO", "text": "Em digitacao" },
+            { "value": "COMPLETO", "text": "Completo" },
+            { "value": "APROVADO", "text": "Aprovado" }
+          ]
+        },
+        "tabs": [
+          {
+            "id": "geral",
+            "title": "Geral",
+            "sections": [
+              {
+                "id": "dados",
+                "title": "Dados do Produto",
+                "columns": 2,
+                "fields": [
+                  { "field": "codigo", "colSpan": 1 },
+                  { "field": "status", "colSpan": 1 },
+                  { "field": "nome", "colSpan": 2 },
+                  { "field": "preco", "colSpan": 1 }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "userLayout": {
+        "savedLayouts": [],
+        "savedSorts": [],
+        "savedGroups": [],
+        "savedFilters": []
+      }
+    }
+  }
+}

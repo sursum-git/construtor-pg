@@ -17,8 +17,11 @@
   "permissions": {
     "home.read": true,
     "clientes.read": true,
+    "processamento.read": true,
+    "jobs.read": true,
     "examples.read": true,
     "theme.read": true,
+    "admin.read": true,
     "user.profile": true,
     "user.preferences": true,
     "user.logout": true
@@ -36,6 +39,25 @@
     "document": "00.000.000/0001-00",
     "label": "Assinante"
   },
+  "availableSubscribers": [
+    {
+      "id": "principal",
+      "name": "Principal",
+      "principal": true
+    },
+    {
+      "id": "assinante-demo",
+      "name": "Empresa Demonstracao",
+      "document": "00.000.000/0001-00",
+      "label": "Assinante"
+    },
+    {
+      "id": "assinante-filial",
+      "name": "Empresa Filial",
+      "document": "11.111.111/0001-11",
+      "label": "Assinante"
+    }
+  ],
   "layout": {
     "initialProgramId": "painel",
     "sidebar": {
@@ -50,6 +72,17 @@
       "showThemeSwitch": true,
       "showFavoriteToggle": true,
       "showCurrentSubscriber": true,
+      "subscriberSwitch": {
+        "enabled": true,
+        "title": "Trocar assinante",
+        "programId": "troca-assinante",
+        "endpoints": {
+          "change": {
+            "url": "/api/home/subscribers/change",
+            "method": "POST"
+          }
+        }
+      },
       "showUserMenu": true,
       "chat": {
         "enabled": false,
@@ -129,6 +162,38 @@
           "list": "/api/home/requests"
         }
       },
+      "jobs": {
+        "enabled": true,
+        "title": "Jobs concluidos",
+        "buttonTitle": "Jobs concluidos",
+        "icon": "clock",
+        "programId": "meus-jobs",
+        "pollIntervalSeconds": 15,
+        "endpoints": {
+          "list": "/api/home/jobs"
+        }
+      },
+        "runtimeMessages": {
+          "enabled": true,
+          "pollIntervalSeconds": 30,
+          "events": {
+            "enabled": true
+          },
+          "endpoints": {
+          "poll": {
+            "url": "/api/runtime/screens/home/endpoints/runtime.messages.poll",
+            "method": "POST"
+          },
+          "ack": {
+            "url": "/api/runtime/screens/home/endpoints/runtime.messages.ack",
+            "method": "POST"
+          },
+          "forceLogout": {
+            "url": "/api/runtime/screens/home/endpoints/runtime.admin.forceLogout",
+            "method": "POST"
+          }
+        }
+      },
       "userMenu": {
         "items": [
           {
@@ -166,6 +231,10 @@
       {
         "id": "ferramentas",
         "title": "Ferramentas"
+      },
+      {
+        "id": "administracao",
+        "title": "Administracao"
       }
     ],
     "groups": [
@@ -182,6 +251,10 @@
             "programId": "clientes-crud",
             "title": "Clientes",
             "favorite": true
+          },
+          {
+            "programId": "processamento-clientes",
+            "title": "Processamento"
           }
         ]
       },
@@ -204,7 +277,54 @@
             "title": "Editor de tema"
           }
         ]
-      }
+      },
+      {
+        "id": "admin-runtime",
+        "title": "Administracao",
+        "moduleId": "administracao",
+        "items": [
+          {
+            "programId": "admin-parametros",
+            "title": "Parametros"
+          },
+          {
+            "programId": "admin-parametro-valores",
+            "title": "Valores de Parametros"
+          },
+          {
+            "programId": "admin-listas-opcoes",
+            "title": "Listas de Opcoes"
+          },
+          {
+            "programId": "admin-opcoes",
+            "title": "Opcoes"
+          },
+          {
+            "programId": "admin-usuarios",
+            "title": "Usuarios"
+          },
+          {
+            "programId": "admin-usuario-assinantes",
+            "title": "Usuarios por Assinante"
+          },
+          {
+            "programId": "admin-sessoes",
+            "title": "Sessoes"
+          },
+          {
+            "programId": "admin-transacoes",
+            "title": "Transacoes"
+          },
+              {
+                "programId": "admin-logs-transacoes",
+                "title": "Logs de Transacoes"
+              },
+              {
+                "programId": "meus-jobs",
+                "title": "Meus Jobs"
+              }
+            ]
+          }
     ]
   },
   "programs": [
@@ -226,6 +346,16 @@
       "permission": "clientes.read",
       "openUrl": "index.html",
       "definitionUrl": "examples/clientes.crud.json"
+    },
+    {
+      "id": "processamento-clientes",
+      "title": "Processamento de Clientes",
+      "subtitle": "Parametros com processamento assincrono",
+      "type": "process",
+      "icon": "play",
+      "permission": "processamento.read",
+      "openUrl": "examples/pages/processamento-parametros.html",
+      "definitionUrl": "examples/processamento-relatorio.process.json"
     },
     {
       "id": "clientes-iframe",
@@ -266,6 +396,105 @@
       "icon": "palette",
       "permission": "theme.read",
       "url": "theme-builder.html"
+    },
+    {
+      "id": "troca-assinante",
+      "title": "Troca de assinante",
+      "subtitle": "Programa dedicado para troca de contexto",
+      "type": "html",
+      "icon": "building",
+      "permission": "home.read",
+      "html": "<section class=\"home-dashboard\"><div class=\"home-dashboard-hero\"><h2>Troca de assinante</h2><p>Este programa demonstra que o JSON pode informar um programId ou uma URL para um fluxo dedicado de troca de assinante.</p></div></section>"
+    },
+    {
+      "id": "admin-parametros",
+      "title": "Parametros",
+      "subtitle": "Cadastro administrativo de parametros do sistema",
+      "type": "crud",
+      "icon": "gear",
+      "permission": "admin.read",
+      "screenId": "admin.parametros"
+    },
+    {
+      "id": "admin-parametro-valores",
+      "title": "Valores de Parametros",
+      "subtitle": "Valores vigentes por estabelecimento",
+      "type": "crud",
+      "icon": "sliders",
+      "permission": "admin.read",
+      "screenId": "admin.parametro-valores"
+    },
+    {
+      "id": "admin-listas-opcoes",
+      "title": "Listas de Opcoes",
+      "subtitle": "Listas usadas por parametros e cadastros",
+      "type": "crud",
+      "icon": "list-unordered",
+      "permission": "admin.read",
+      "screenId": "admin.listas-opcoes"
+    },
+    {
+      "id": "admin-opcoes",
+      "title": "Opcoes",
+      "subtitle": "Opcoes disponiveis em cada lista",
+      "type": "crud",
+      "icon": "check-outline",
+      "permission": "admin.read",
+      "screenId": "admin.opcoes"
+    },
+    {
+      "id": "admin-usuarios",
+      "title": "Usuarios",
+      "subtitle": "Usuarios do sistema e seus grupos",
+      "type": "crud",
+      "icon": "users",
+      "permission": "admin.read",
+      "screenId": "admin.usuarios"
+    },
+    {
+      "id": "admin-usuario-assinantes",
+      "title": "Usuarios por Assinante",
+      "subtitle": "Relacao de usuarios com assinantes e permissoes por contexto",
+      "type": "crud",
+      "icon": "users",
+      "permission": "admin.read",
+      "screenId": "admin.usuario-assinantes"
+    },
+    {
+      "id": "admin-sessoes",
+      "title": "Sessoes",
+      "subtitle": "Consulta e derrubada de sessoes",
+      "type": "crud",
+      "icon": "user",
+      "permission": "admin.read",
+      "screenId": "admin.sessoes"
+    },
+    {
+      "id": "admin-transacoes",
+      "title": "Transacoes",
+      "subtitle": "Transacoes gravadas pelo runtime",
+      "type": "crud",
+      "icon": "arrows-swap",
+      "permission": "admin.read",
+      "screenId": "admin.transacoes"
+    },
+    {
+      "id": "admin-logs-transacoes",
+      "title": "Logs de Transacoes",
+      "subtitle": "Logs vinculados as transacoes",
+      "type": "crud",
+      "icon": "list-ordered",
+      "permission": "admin.read",
+      "screenId": "admin.logs-transacoes"
+    },
+    {
+      "id": "meus-jobs",
+      "title": "Meus Jobs",
+      "subtitle": "Jobs iniciados pelo usuario corrente",
+      "type": "crud",
+      "icon": "clock",
+      "permission": "jobs.read",
+      "screenId": "runtime.jobs.mine"
     }
   ]
 }

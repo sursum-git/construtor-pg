@@ -7,7 +7,7 @@ Registro para fechar a primeira versao estavel do motor CRUD dinamico.
 - Implementado no frontend: modo `security.mode="production"` para bloquear JSON direto e `definitionUrl` livre.
 - Implementado no frontend: motor pode iniciar por `screenId`, por exemplo `cadastros.clientes`.
 - Implementado no frontend: entradas separadas em `production/`, sem mock e sem JSON local de `examples/`.
-- O backend deve autenticar o usuario, validar tenant e permissoes, e somente entao devolver o JSON autorizado da tela.
+- Implementado no backend: autentica usuario, valida tenant/sessao e filtra o JSON autorizado por grupos/permissoes da sessao.
 - A demo pode continuar usando `definitionUrl` e JSON local.
 - Implementado no frontend: a configuracao de producao pode desabilitar `definition` direto e `definitionUrl` livre.
 
@@ -15,8 +15,8 @@ Registro para fechar a primeira versao estavel do motor CRUD dinamico.
 
 - Implementado no frontend: URL livre no JSON pode ser bloqueada em producao.
 - Implementado no frontend: `endpointId` e `actionId` podem ser resolvidos por gateway runtime.
-- O backend deve validar se a acao pertence a tela solicitada.
-- O backend deve validar permissao por acao: consultar, criar, editar, excluir, exportar, acoes em massa, salvar layout, salvar filtros, ajuda lida e logs.
+- Implementado no backend: valida se a acao pertence a tela solicitada via `runtime_endpoint`.
+- Implementado no backend: valida permissao por endpoint em `runtime_endpoint.permission`, incluindo consultar, criar, editar, excluir, acoes em massa, preferencias, ajuda lida e administracao.
 - Implementado no frontend: o endpoint de novidades lidas aceita identificador controlado, por exemplo `help.markAsRead`.
 
 ## Validacao no backend

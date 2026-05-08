@@ -601,6 +601,7 @@
         }
         this.validateActionEndpointReferences(definition, button, this.path(definition, "form.buttons"), errors);
       });
+      this.validateFormConcurrencyWarning(definition, form, errors);
       this.validateFormOtherActions(definition, form, errors);
 
       if (form.logs && form.logs.enabled !== false) {
@@ -619,6 +620,64 @@
       this.validateFormSituation(definition, form, errors);
       this.validatePrintConfig(definition, form.print, this.path(definition, "form.print"), true, errors);
       this.validateFormEvents(definition, form, errors);
+    }
+
+    validateFormConcurrencyWarning(definition, form, errors) {
+      const config = form.concurrencyWarning || form.concurrentWarning;
+      if (!config) {
+        return;
+      }
+      if (typeof config === "string") {
+        return;
+      }
+      if (typeof config !== "object" || Array.isArray(config)) {
+        errors.push(this.path(definition, "form.concurrencyWarning") + " precisa ser texto ou objeto.");
+        return;
+      }
+      const validateConfig = (item, label) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) {
+          return;
+        }
+        ["enabled", "confirm", "blocking"].forEach((property) => {
+          if (item[property] != null && typeof item[property] !== "boolean") {
+            errors.push(label + "." + property + " precisa ser booleano.");
+          }
+        });
+        ["message", "editMessage", "deleteMessage", "title", "confirmText", "cancelText", "confirmIcon", "themeColor", "type"].forEach((property) => {
+          if (item[property] != null && typeof item[property] !== "string") {
+            errors.push(label + "." + property + " precisa ser texto.");
+          }
+        });
+        if (item.width != null && (typeof item.width !== "number" || item.width <= 0)) {
+          errors.push(label + ".width precisa ser numerico positivo.");
+        }
+        const actions = item.actions || item.visibleIn || item.modes;
+        if (actions != null) {
+          const list = typeof actions === "string" ? actions.split(",") : actions;
+          if (!Array.isArray(list)) {
+            errors.push(label + ".actions precisa ser lista ou texto separado por virgula.");
+          } else {
+            list.forEach((action) => {
+              const value = String(action || "").trim();
+              if (["edit", "delete"].indexOf(value) === -1) {
+                errors.push(label + ".actions deve conter apenas edit ou delete.");
+              }
+            });
+          }
+        }
+      };
+      validateConfig(config, this.path(definition, "form.concurrencyWarning"));
+      ["edit", "delete"].forEach((action) => {
+        const item = config[action];
+        if (typeof item === "string" || item == null) {
+          return;
+        }
+        if (typeof item !== "object" || Array.isArray(item)) {
+          errors.push(this.path(definition, "form.concurrencyWarning." + action) + " precisa ser texto ou objeto.");
+          return;
+        }
+        validateConfig(item, this.path(definition, "form.concurrencyWarning." + action));
+      });
     }
 
     getStepFieldItems(step) {
@@ -928,9 +987,80 @@
       if (action.url && !global.CrudUtils.isAllowedDocumentUrl(action.url)) {
         errors.push(label + " possui url invalida: " + action.url + ".");
       }
+      this.validateFormButtonValues(definition, action, label, errors);
 
       global.CrudUtils.ensureArray(Object.keys(action.endpoints || action.endpointByMode || {})).forEach((key) => {
         this.validateActionEndpointReferences(definition, (action.endpoints || action.endpointByMode)[key], label + "." + key, errors);
+      });
+    }
+
+    validateFormButtonValues(definition, action, label, errors) {
+      if (!action || typeof action !== "object") {
+        return;
+      }
+      ["passFormValues", "sendFormValues", "includeFormValues"].forEach(function(property) {
+        if (action[property] != null && typeof action[property] !== "boolean") {
+          errors.push(label + "." + property + " precisa ser booleano.");
+        }
+      });
+      ["pageMethod", "submitMethod"].forEach(function(property) {
+        const value = action[property] == null ? "" : String(action[property]).toUpperCase();
+        if (value && ["GET", "POST"].indexOf(value) === -1) {
+          errors.push(label + "." + property + " deve ser GET ou POST.");
+        }
+      });
+      const config = action.formValues != null ? action.formValues : action.valuesPayload;
+      if (config == null) {
+        return;
+      }
+      if (typeof config === "boolean") {
+        return;
+      }
+      const fields = definition.dataModel && definition.dataModel.fields ? definition.dataModel.fields : {};
+      const validateFieldList = (items, property) => {
+        global.CrudUtils.ensureArray(items).forEach((item) => {
+          const fieldName = String(item || "").trim();
+          const rootField = fieldName.split(".")[0];
+          if (!fieldName || !fields[rootField]) {
+            errors.push(label + "." + property + " referencia campo inexistente: " + (fieldName || "(vazio)") + ".");
+          }
+        });
+      };
+      if (Array.isArray(config)) {
+        validateFieldList(config, "formValues");
+        return;
+      }
+      if (typeof config !== "object") {
+        errors.push(label + ".formValues precisa ser booleano, lista ou objeto.");
+        return;
+      }
+      if (config.enabled != null && typeof config.enabled !== "boolean") {
+        errors.push(label + ".formValues.enabled precisa ser booleano.");
+      }
+      if (config.includeRuntime != null && typeof config.includeRuntime !== "boolean") {
+        errors.push(label + ".formValues.includeRuntime precisa ser booleano.");
+      }
+      ["source", "transport", "mode", "submitAs", "prefix", "payloadParam"].forEach(function(property) {
+        if (config[property] != null && typeof config[property] !== "string") {
+          errors.push(label + ".formValues." + property + " precisa ser texto.");
+        }
+      });
+      if (config.source && ["record", "values", "data"].indexOf(String(config.source).toLowerCase()) === -1) {
+        errors.push(label + ".formValues.source deve ser record, values ou data.");
+      }
+      ["transport", "mode", "submitAs"].forEach(function(property) {
+        const value = config[property] == null ? "" : String(config[property]).toLowerCase();
+        if (value && ["auto", "query", "post", "form", "body", "querystring", "get"].indexOf(value) === -1) {
+          errors.push(label + ".formValues." + property + " possui valor invalido.");
+        }
+      });
+      validateFieldList(config.fields, "formValues.fields");
+      validateFieldList(config.include, "formValues.include");
+      ["exclude", "excludes"].forEach(function(property) {
+        const value = config[property];
+        if (value != null && !Array.isArray(value)) {
+          errors.push(label + ".formValues." + property + " precisa ser lista.");
+        }
       });
     }
 

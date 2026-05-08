@@ -125,6 +125,115 @@
       };
     },
 
+    normalizeBackendValidation(payload, fallbackMessage) {
+      const source = payload && payload.payload ? payload.payload : payload || {};
+      const error = this.unwrapError(source, fallbackMessage || "Existem inconsistencias no formulario.");
+      const details = error && error.details || {};
+      const validation = source.validation || error.validation || details.validation || null;
+      const effects = this.ensureArray(source.effects || error.effects || details.effects);
+      const messages = this.ensureArray(validation && validation.messages).map(function(item) {
+        if (typeof item === "string") {
+          return { message: item, type: "error" };
+        }
+        return Object.assign({
+          type: item && item.type || validation.status || error.severity || "error"
+        }, item || {});
+      });
+
+      if (!validation && !effects.length) {
+        return {
+          hasValidation: false,
+          error,
+          effects: []
+        };
+      }
+
+      return {
+        hasValidation: true,
+        error,
+        effects,
+        validation: Object.assign({
+          status: error.severity || "error",
+          title: error.message || "Inconsistencias encontradas",
+          messages
+        }, validation || {}, {
+          messages
+        })
+      };
+    },
+
+    showBackendValidation(validation, options) {
+      const settings = options || {};
+      const normalized = validation || {};
+      const messages = this.ensureArray(normalized.messages);
+      const status = normalized.status || "blocked";
+      const requiresConfirmation = normalized.requiresConfirmation === true;
+      const $ = global.jQuery || global.$;
+      const title = normalized.title || (requiresConfirmation ? "Aviso de consistencia" : "Inconsistencias encontradas");
+
+      if (!$ || !global.kendo || !$.fn || !$.fn.kendoWindow) {
+        const text = messages.map(function(item) { return item && item.message || ""; }).filter(Boolean).join("\n") || title;
+        this.showMessage(text, status === "warning" ? "warning" : "error");
+        return Promise.resolve(false);
+      }
+
+      return new Promise((resolve) => {
+        const wrapper = $("<div></div>").appendTo(global.document.body);
+        const content = $("<div class=\"crud-validation-dialog\"></div>").appendTo(wrapper);
+        if (normalized.message && !messages.length) {
+          $("<p></p>").text(normalized.message).appendTo(content);
+        }
+        if (messages.length) {
+          const list = $("<ul class=\"crud-validation-list\"></ul>").appendTo(content);
+          messages.forEach(function(item) {
+            const li = $("<li></li>").appendTo(list);
+            const text = item && item.message ? item.message : String(item || "");
+            if (item && item.field) {
+              $("<strong></strong>").text(item.field + ": ").appendTo(li);
+            }
+            $("<span></span>").text(text).appendTo(li);
+          });
+        }
+        const actions = $("<div class=\"crud-form-actions\"></div>").appendTo(content);
+        const confirmButton = requiresConfirmation
+          ? $("<button type=\"button\"></button>").text(normalized.confirmText || "Continuar").appendTo(actions)
+          : null;
+        const closeButton = $("<button type=\"button\"></button>")
+          .text(requiresConfirmation ? (normalized.cancelText || "Cancelar") : (settings.closeText || "Fechar"))
+          .appendTo(actions);
+
+        const windowElement = wrapper.kendoWindow({
+          title,
+          modal: true,
+          visible: false,
+          width: settings.width || 520,
+          resizable: false,
+          close: function() {
+            windowElement.destroy();
+            wrapper.remove();
+          }
+        }).data("kendoWindow");
+
+        const finish = function(value) {
+          resolve(value);
+          windowElement.close();
+        };
+
+        if (confirmButton) {
+          confirmButton.kendoButton({
+            icon: settings.confirmIcon || "check",
+            themeColor: settings.themeColor || "warning",
+            click: function() { finish(true); }
+          });
+        }
+        closeButton.kendoButton({
+          icon: requiresConfirmation ? "cancel" : "check",
+          click: function() { finish(false); }
+        });
+        windowElement.center().open();
+      });
+    },
+
     showMessage(message, type) {
       const text = String(message == null ? "" : message);
       if (!text) {
@@ -245,6 +354,45 @@
       });
     },
 
+    blockingMessage(title, message, options) {
+      const settings = options || {};
+      const $ = global.jQuery || global.$;
+      if (!$ || !global.kendo || !$.fn || !$.fn.kendoWindow) {
+        this.showMessage(message || title, settings.type || "error");
+        return null;
+      }
+
+      const wrapper = $("<div></div>").appendTo(global.document.body);
+      const content = $("<div class=\"crud-confirm-content crud-blocking-message\"></div>").appendTo(wrapper);
+      $("<p></p>").text(message || title || "Operacao bloqueada.").appendTo(content);
+      const actions = $("<div class=\"crud-form-actions\"></div>").appendTo(content);
+      const button = $("<button type=\"button\"></button>")
+        .text(settings.buttonText || "Entendi")
+        .appendTo(actions);
+      button.kendoButton({ themeColor: settings.themeColor || "primary", icon: settings.icon || "lock" });
+
+      wrapper.kendoWindow({
+        title: title || "Aviso",
+        modal: true,
+        actions: [],
+        width: Math.min(settings.width || 460, Math.max(300, global.innerWidth - 24)),
+        visible: false,
+        close: function() {
+          wrapper.data("kendoWindow").destroy();
+          wrapper.remove();
+        }
+      });
+
+      const windowWidget = wrapper.data("kendoWindow");
+      button.on("click", function() {
+        if (settings.closeOnButton === true) {
+          windowWidget.close();
+        }
+      });
+      windowWidget.center().open();
+      return windowWidget;
+    },
+
     buildFieldLabel(definition, fieldName) {
       const field = definition.dataModel && definition.dataModel.fields
         ? definition.dataModel.fields[fieldName]
@@ -290,6 +438,10 @@
           runtimeEndpoint: endpoints.runtimeEndpoint || source.runtimeEndpoint || {
             url: "/api/runtime/screens/{screenId}/endpoints/{endpointId}",
             method: "POST"
+          },
+          runtimeEventsEndpoint: endpoints.runtimeEventsEndpoint || source.runtimeEventsEndpoint || {
+            url: "/api/runtime/events",
+            method: "GET"
           }
         },
         documents: {

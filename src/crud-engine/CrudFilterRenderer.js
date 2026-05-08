@@ -194,9 +194,10 @@
         id: "",
         name: "Livre"
       }].concat(this.getSavedFilters().map(function(item) {
+        const suffix = (item.isDefault ? " (padrao)" : "") + (item.scope === "global" ? " (todos)" : "");
         return {
           id: item.id,
-          name: item.name + (item.isDefault ? " (padrao)" : "")
+          name: item.name + suffix
         };
       }));
     }
@@ -231,6 +232,9 @@
       $("<span>Usar como filtro padrao</span>").appendTo(defaultField);
       defaultInput.prop("checked", Boolean(currentPreset && currentPreset.isDefault));
 
+      const scopeInput = this.renderPreferenceScopeField(form, "crud-filter-save-global");
+      scopeInput.prop("checked", Boolean(currentPreset && currentPreset.scope === "global"));
+
       const actions = $("<div class=\"crud-form-actions\"></div>").appendTo(form);
       const saveButton = $("<button type=\"button\">Salvar</button>").appendTo(actions);
       const cancelButton = $("<button type=\"button\">Cancelar</button>").appendTo(actions);
@@ -254,6 +258,7 @@
           filters: this.getValues(),
           name: nameInput.data("kendoTextBox").value(),
           isDefault: defaultInput.is(":checked"),
+          scope: this.getPreferenceScope(scopeInput),
           windowWidget
         });
       });
@@ -270,6 +275,7 @@
         id: this.editingFilterId,
         name: settings.name,
         isDefault: Boolean(settings.isDefault),
+        scope: settings.scope === "global" ? "global" : "tenant",
         filters: settings.filters || this.getValues()
       })).then((response) => {
         if (response && response.filterPreset) {
@@ -284,6 +290,17 @@
         const normalized = global.CrudUtils.unwrapError(error, "Erro ao salvar filtro.");
         this.showMessage(normalized.message, "error");
       });
+    }
+
+    renderPreferenceScopeField(container, inputId) {
+      const scopeField = $("<label class=\"crud-checkbox-field crud-preference-scope-field\"></label>").appendTo(container);
+      const scopeInput = $("<input type=\"checkbox\">").attr("id", inputId).appendTo(scopeField);
+      $("<span>Usar em todos os assinantes</span>").appendTo(scopeField);
+      return scopeInput;
+    }
+
+    getPreferenceScope(scopeInput) {
+      return scopeInput && scopeInput.is(":checked") ? "global" : "tenant";
     }
 
     deletePreset() {

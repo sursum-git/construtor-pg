@@ -16,8 +16,22 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - Mostrar versao apenas se informada no JSON.
 - Mostrar ajuda apenas se informada no JSON/config global.
 - Mostrar logs apenas se houver URL/path configurado.
-- Data/hora da ultima atualizacao deve ficar em badge compacto, sem texto longo.
+- Data/hora da ultima atualizacao deve ficar compacta, sem texto longo, ao lado do botao de favorito quando houver espaco.
 - Botoes de ajuda, log e tema devem ser compactos, com icone e tooltip.
+
+## Login
+
+- Tela de login deve ter appbar superior com logo/nome da empresa.
+- Frase de seguranca e texto de apresentacao do login devem ficar no appbar e continuar visiveis no mobile.
+- O formulario deve ficar em painel simples, com labels acima dos campos.
+- Campos minimos: usuario, senha, manter logado, esqueci a senha e entrar.
+- Campo de senha deve ter opcao compacta para exibir/ocultar a senha.
+- O campo de assinante nao aparece no login; quando `subscriber.enabled=true`, a selecao ocorre apos validar usuario/senha e somente se o usuario tiver mais de um assinante ou for administrador.
+- Usuario administrador deve escolher, apos autenticar e apos eventual selecao de assinante, se entra na area principal ou na area administrativa.
+- Recuperacao de senha deve abrir janela Kendo para solicitar token/instrucoes e redefinir senha, sem `alert`, `confirm` ou `prompt`.
+- OAuth/OIDC pode aparecer como botao externo quando o provedor estiver habilitado no backend; LDAP/SSO/local sao resolvidos pelo cadastro do usuario.
+- A imagem lateral e opcional e deve desaparecer no mobile para priorizar o formulario.
+- Nao usar `alert`, `confirm` ou `prompt`; mensagens de validacao e recuperacao usam Kendo.
 
 ## Pagina inicial
 
@@ -35,20 +49,39 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - Favorito marcado deve usar fundo amarelo no botao da pagina corrente; os itens do menu nao exibem marcador de favorito.
 - A appbar global deve ter botao compacto para expandir/recolher o menu lateral quando `layout.sidebar.collapsible` permitir.
 - A appbar global pode exibir o assinante corrente como badge compacto quando `currentSubscriber` existir e `layout.appbar.showCurrentSubscriber` nao for `false`.
+- Se o assinante corrente representar o banco principal, o badge deve exibir `Principal` com cor mais destacada.
+- Quando `layout.appbar.subscriberSwitch.enabled` estiver habilitado, clicar no badge do assinante abre uma janela Kendo para troca de assinante.
+- A troca de assinante pode usar lista `availableSubscribers`, endpoint `layout.appbar.subscriberSwitch.endpoints.change` e opcionalmente `programId` ou `url` para fluxo dedicado.
+- Em producao, o endpoint da troca de assinante deve usar `endpointId` ou `actionId`, nunca URL livre.
 - Quando `layout.appbar.chat.enabled=true`, a appbar global deve exibir botao compacto de chat e abrir o componente Kendo Chat em janela com ComboBox para selecionar o usuario destinatario.
 - Quando `layout.appbar.support.enabled=true`, a appbar global deve exibir botao compacto de atendimento; a janela deve ter ComboBox de setor, abrir chat quando houver atendente online no setor selecionado e exibir formulario de solicitacao com setor travado quando nao houver disponibilidade.
+- Ao clicar no suporte, a janela e as APIs devem receber o programa corrente no contexto para permitir atendimento de erro por codigo de programa.
 - Quando `layout.appbar.aiChat.enabled=true`, a appbar global deve exibir outro botao compacto para chat de IA, sem ComboBox de destinatario.
 - Quando `layout.appbar.alerts.enabled=true`, a appbar global deve exibir botao compacto de sino e abrir alertas em janela.
 - Quando `layout.appbar.requests.enabled=true`, a appbar global deve exibir botao compacto de solicitacoes e abrir solicitacoes em janela.
+- Quando `layout.appbar.jobs.enabled=true`, a appbar global deve exibir botao compacto de jobs concluidos, com badge de quantidade e janela/lista apontando para "Meus Jobs" quando houver `programId`.
 - Menu do usuario logado fica no canto direito da appbar global, com avatar/iniciais e opcoes vindas do JSON.
 - Ao clicar em programa que abre na area central, recolher o menu lateral.
 - Em viewport mobile, iniciar o menu lateral recolhido.
 - Cada programa do TreeView deve ter botao compacto para abrir em nova aba.
-- Programas podem abrir por modos fechados: `iframe`, `crud` ou `html`.
+- Programas podem abrir por modos fechados: `iframe`, `crud`, `process` ou `html`.
 - `crud` deve instanciar o `CrudEngine` dentro da area central.
+- `process` deve instanciar o `ProcessEngine` dentro da area central.
 - Programas abertos dentro da Home nao devem duplicar cabecalho interno; a appbar global mostra titulo, versao, subtitulo, ultima atualizacao, ajuda, logs, atualizar e tema.
 - `html` deve ser sanitizado e nao pode executar scripts/eventos vindos do JSON.
 - `iframe` deve usar URL configurada e titulo acessivel.
+
+## Processamento
+
+- Tela de processamento deve ser separada do CRUD.
+- Parametros devem ser declarativos, com labels acima dos campos.
+- O botao principal deve ser `Processar`, com icone.
+- Ao processar, exibir mensagem de andamento.
+- O acompanhamento deve usar SSE quando disponivel e polling como fallback.
+- Retornos fechados permitidos: mensagem, grid Kendo, link de relatorio ou job iniciado em segundo plano.
+- O appbar global da Home deve avisar quando um job terminar e permitir abrir "Meus Jobs".
+- Em producao, endpoints de processamento e status devem usar `endpointId` ou `actionId`.
+- Nao aceitar template livre, `eval`, `Function` ou JavaScript vindo do JSON.
 
 ## Toolbar do grid
 
@@ -58,6 +91,7 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - Acoes em massa so aparecem se existirem acoes cadastradas.
 - Imprimir/exportar so aparece se existirem opcoes.
 - Opcoes de leiaute, ordenacao e agrupamento devem abrir em janela, nao ocupar espaco fixo na toolbar.
+- Janelas de salvar leiaute, filtro, ordenacao e agrupamento devem permitir marcar "Usar em todos os assinantes" quando a preferencia puder ser global do usuario.
 - No mobile, a toolbar do grid deve recolher filtros, atualizar, ordenacao, agrupamento, leiaute, imprimir e acoes em massa atras de um botao compacto.
 
 ## Grid
@@ -106,6 +140,10 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - Confirmar e Cancelar ficam desabilitados na consulta por duplo clique.
 - Botoes Anterior/Proximo usam apenas icones.
 - Navegacao e comportamento de fechar ao salvar/cancelar sao opcionais no JSON.
+- `crud.form.concurrencyWarning` pode exibir aviso Kendo antes de ativar Alterar ou Excluir no formulario ou direto pelo grid, para orientar sobre controle de uso concorrente do registro antes do semaforo real.
+- Quando o formulario estiver em inclusao/alteracao com dados modificados e nao salvos, qualquer fechamento ou troca de programa deve pedir confirmacao em janela Kendo antes de descartar alteracoes.
+- Quando o backend retornar semaforo de registro, o formulario deve respeitar `block`, avisar em `warn`, renovar heartbeat e liberar o lock ao salvar, cancelar ou fechar.
+- Botoes configurados do formulario podem abrir pagina do backend em janela/nova aba e enviar valores atuais do formulario por `query` ou `post`, usando apenas campos declarados no JSON.
 
 ## Campos do formulario
 
@@ -165,9 +203,12 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 
 - Nao usar `alert`, `confirm` ou `prompt` nativos.
 - Usar mensagens/janelas Kendo.
+- Consistencias retornadas pelo backend em `validation` devem usar janela Kendo quando bloqueantes ou confirmaveis, marcar campos informados em `validation.messages[].field` e aplicar apenas `effects` seguros.
+- Gravacoes bem sucedidas tambem podem retornar `effects` seguros, como `showMessage`, por exemplo para informar que um job assincrono foi agendado.
 - Evitar mensagens sobrepostas.
 - Evitar verde forte com azul forte.
 - Botoes em janelas devem ficar alinhados a esquerda.
+- Mensagens runtime como `notice`, `request_logout` e `force_logout` devem ser interceptadas pelo shell/CRUD; preferir SSE com polling como fallback. `force_logout` bloqueia a interface e para heartbeats.
 
 ## Seguranca
 
@@ -177,3 +218,4 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - URLs livres em APIs e acoes devem ser substituidas por `endpointId` ou `actionId`.
 - O backend e quem valida usuario, tenant, permissao, campos permitidos e acao solicitada.
 - O JSON continua apenas declarativo: sem JavaScript, `eval`, `Function`, `template` livre ou HTML bruto inseguro.
+- Valores enviados para paginas do backend por botoes do formulario sao conveniencia de UI; o backend deve revalidar permissao, tenant e quais campos pode aceitar.

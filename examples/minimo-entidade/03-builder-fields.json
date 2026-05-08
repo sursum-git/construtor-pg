@@ -1,0 +1,92 @@
+[
+  {
+    "code": "id",
+    "label": "ID",
+    "dataType": "integer",
+    "databaseType": "bigint",
+    "length": null,
+    "precisionValue": null,
+    "scaleValue": null,
+    "required": true,
+    "primaryKey": true,
+    "position": 10,
+    "options": {
+      "readable": true,
+      "writable": false,
+      "audit": false
+    }
+  },
+  {
+    "code": "codigo",
+    "label": "Codigo",
+    "dataType": "string",
+    "databaseType": "varchar",
+    "length": 30,
+    "precisionValue": null,
+    "scaleValue": null,
+    "required": true,
+    "primaryKey": false,
+    "position": 20,
+    "options": {
+      "readable": true,
+      "writable": true,
+      "audit": true
+    }
+  },
+  {
+    "code": "nome",
+    "label": "Nome",
+    "dataType": "string",
+    "databaseType": "varchar",
+    "length": 160,
+    "precisionValue": null,
+    "scaleValue": null,
+    "required": true,
+    "primaryKey": false,
+    "position": 30,
+    "options": {
+      "readable": true,
+      "writable": true,
+      "audit": true
+    }
+  },
+  {
+    "code": "status",
+    "label": "Status",
+    "dataType": "string",
+    "databaseType": "varchar",
+    "length": 20,
+    "precisionValue": null,
+    "scaleValue": null,
+    "required": true,
+    "primaryKey": false,
+    "position": 40,
+    "options": {
+      "readable": true,
+      "writable": true,
+      "audit": true,
+      "options": [
+        { "value": "EM_DIGITACAO", "text": "Em digitacao" },
+        { "value": "COMPLETO", "text": "Completo" },
+        { "value": "APROVADO", "text": "Aprovado" }
+      ]
+    }
+  },
+  {
+    "code": "preco",
+    "label": "Preco",
+    "dataType": "decimal",
+    "databaseType": "numeric",
+    "length": null,
+    "precisionValue": 14,
+    "scaleValue": 2,
+    "required": false,
+    "primaryKey": false,
+    "position": 50,
+    "options": {
+      "readable": true,
+      "writable": true,
+      "audit": true
+    }
+  }
+]

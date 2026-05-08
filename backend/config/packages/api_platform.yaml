@@ -1,0 +1,9 @@
+api_platform:
+    title: Construtor PG API
+    version: 0.1.0
+    enable_swagger_ui: true
+    enable_scalar: true
+    defaults:
+        stateless: true
+        cache_headers:
+            vary: ['Content-Type', 'Authorization', 'Origin']
