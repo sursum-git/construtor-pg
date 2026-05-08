@@ -909,6 +909,21 @@
       }
     },
     {
+      id: "admin-permissoes",
+      category: "Backend",
+      title: "Admin de permissoes",
+      summary: "Tela administrativa para gerenciar grupos e permissoes nos usuarios do sistema.",
+      page: pagePath + "admin-permissoes.html",
+      loadByScreenId: true,
+      screenId: "admin.usuarios",
+      code: {
+        screenId: "admin.usuarios",
+        relatedScreens: ["admin.usuario-assinantes"],
+        productionUrl: "production/app.html?screenId=admin.usuarios",
+        description: "Reuso da tela de usuarios para controle de permissao e grupos por usuario."
+      }
+    },
+    {
       id: "admin-usuarios",
       category: "Backend",
       title: "Admin de usuarios",
