@@ -10,8 +10,10 @@ Frontend renderiza.
 Esse mesmo principio tambem existe para a pagina inicial via `HomeEngine`.
 O `HomeEngine` e separado do `CrudEngine`: ele monta o shell global e pode chamar um CRUD como um dos tipos fechados de programa.
 Para paginas de processamento por parametros existe tambem o `ProcessEngine`, separado do CRUD para evitar misturar consultas com execucoes de jobs.
+Para geracao visual de novos programas existe uma interface administrativa separada, que gera definicoes CRUD a partir de `builder_entity` e publica o resultado no runtime.
 
-Nesta etapa ainda nao existe backend real. O JSON vem de arquivo/local embed e as chamadas passam pelo mock HTTP.
+Na demo, o JSON pode vir de arquivo/local embed e as chamadas podem passar pelo mock HTTP.
+Na producao inicial, o backend Symfony ja entrega telas por `screenId`, endpoints por `endpointId` e documentos autorizados pelo runtime.
 
 Para uma primeira versao de producao, o motor tambem aceita carregar a tela por `screenId`.
 Nesse modo o frontend nao recebe uma URL livre de JSON: ele pede ao backend uma tela conhecida, e o backend devolve somente a definicao autorizada para o usuario.
@@ -60,6 +62,10 @@ src/bootstrap/
 production/
   app.html
   home.html
+  program-builder.html
+
+src/program-builder/
+  program-builder.js
 
 src/examples/
   examples-catalog.js
@@ -104,6 +110,7 @@ src/examples/
 
 - Monta formulario em popup Kendo.
 - Suporta abas, etapas, appbars, navegacao, logs, impressao, outras acoes, eventos seguros e situacao.
+- Renderiza tambem `editor="customCode"` com assistente declarativo para propriedades da codificacao.
 
 `CrudLayoutManager.js`
 
@@ -179,6 +186,7 @@ Para producao, usar entradas separadas:
 - `production/app.html?screenId=cadastros.clientes`: abre um CRUD por `screenId`.
 - `production/home.html?screenId=home`: abre a Home por `screenId`; se ausente, usa `home`.
 - Programas `type="process"` podem ser abertos pela Home usando `screenId` em producao.
+- O backend ja publica `screenId=processamento.relatorio-clientes`, com endpoints `process` e `status`.
 
 Essas entradas:
 
@@ -281,6 +289,147 @@ O CRUD generico usa DBAL com identificadores validados, filtra `values`, aplica 
 
 Regras simples ficam nos metadados. Regras complexas devem ser handlers PHP registrados no backend, nunca codigo livre vindo do banco.
 O Doctrine Subscriber fica apenas como fallback de auditoria para alteracoes via Doctrine fora do fluxo runtime.
+
+As regras configuradas por entidade ficam em `builder_entity.metadata.rules`.
+Cada regra pode informar:
+
+- `type`: `requiredWhen` ou `class_method`;
+- `phase`: `beforeValidate`, `beforePersist`, `afterPersist` ou `afterCommit`;
+- `order`: ordem crescente de execucao;
+- `continueOnError`: se `true`, agrega o erro e segue para a proxima regra configurada;
+- `className` e `methodName` quando usar classe, restritos a `App\Runtime\BusinessRule\*`;
+- `params`: objeto JSON com configuracao adicional para o metodo.
+
+Toda regra configurada gera log em `runtime_transaction_log`.
+Regras por classe/metodo tambem podem registrar logs proprios usando `RuntimeBusinessRuleContext::log(...)`.
+Nesta etapa, classes configuradas precisam ter construtor sem argumentos obrigatorios.
+
+## Construtor visual de programas
+
+O backend possui um fluxo inicial para modelar entidades persistentes e gerar programas CRUD novos a partir delas.
+
+Esse fluxo usa:
+
+- `builder_entity` e `builder_field`: metadados da entidade e dos campos;
+- `builder_entity_version`: historico imutavel das revisoes da modelagem, com snapshot completo e rollback;
+- `builder_program_version`: historico imutavel das versoes salvas;
+- `runtime_entity_record_version`: snapshots imutaveis de registros de cadastros mestres versionados;
+- `builder_program`: programa publicado corrente;
+- `screen_definition`: tela publicada corrente;
+- `runtime_endpoint`: endpoints fechados criados automaticamente no publish;
+- `ProgramBuilderService` e `ProgramBuilderController`: servico e API do construtor.
+
+Endpoints atuais:
+
+- `GET /api/admin/program-builder/bootstrap`: lista modulos estruturais, entidades e programas existentes;
+- `POST /api/admin/program-builder/modules`: cadastra ou atualiza modulo estrutural com abreviacao e faixa numerica inicial/final;
+- `GET /api/admin/program-builder/entities/{entityCode}`: carrega a modelagem atual da entidade;
+- `POST /api/admin/program-builder/entity-versions/{id}/restore`: restaura a modelagem da entidade e tenta voltar o schema fisico para a revisao escolhida;
+- `POST /api/admin/program-builder/entities`: salva metadados da entidade e, quando pedido, cria ou complementa a tabela fisica;
+- `GET /api/admin/program-builder/programs/{programCode}`: carrega o historico de versoes do programa;
+- `POST /api/admin/program-builder/preview`: gera preview real da definicao sem persistir;
+- `POST /api/admin/program-builder/drafts`: salva ou atualiza um rascunho;
+- `POST /api/admin/program-builder/versions/{id}/publish`: publica a versao selecionada;
+- `POST /api/admin/program-builder/versions/{id}/duplicate`: cria novo rascunho com incremento de versao.
+
+Primeiro escopo suportado:
+
+- somente `pageType="crud"`;
+- modelagem visual de entidade persistente;
+- selecao visual de `entityType` (`persistence`, `query`, `io`);
+- cadastro visual de modulo estrutural com abreviacao e faixa numerica inicial/final sem sobreposicao;
+- criacao inicial da tabela fisica e inclusao de colunas novas;
+- rename de tabela e de coluna quando a sincronizacao fisica estiver habilitada;
+- alteracao de tipo, tamanho, precision/scale, obrigatoriedade e default de colunas existentes;
+- exclusao controlada de colunas removidas quando o usuario habilitar essa opcao;
+- historico proprio da modelagem da entidade, com revisoes numeradas e restauracao explicita;
+- rollback estrutural de tabela, colunas e constraints gerenciadas pelo construtor;
+- cadastro mestre versionado com snapshot JSON imutavel por registro;
+- referencia automatica para a versao corrente do cadastro mestre em entidades transacionais;
+- campo virtual para leitura de dado historico via snapshot, sem criar coluna fisica extra;
+- cadastro visual de regras de negocio da entidade, com ordem, fase, continuidade apos erro e classe/metodo;
+- chaves unicas compostas no nivel da entidade, alem de `unique` por campo;
+- campo marcado como nao editavel, refletindo em `readonly/writable`;
+- dependencias/FKs com classificacao, `onDelete` e `onUpdate`;
+- classificacao estrutural de tabela (`main`, `composition`, `specific_relation`, `aggregation`, `recursive`, `multi_level`, `view`);
+- sugestao visual do nome fisico da tabela a partir do modulo, numero base e relacionamentos estruturais;
+- validacao do codigo do programa informado manualmente por modulo, no formato `abreviacao + 4 digitos`, como `cd0101`;
+- validacao de nomenclatura para tabela e coluna fisica conforme padrao Genesis-ERP;
+- preview backend do JSON real;
+- historico com `draft`, `published` e `archived`;
+- re-publicacao de versoes anteriores pela mesma acao de publish;
+- duplicacao de qualquer versao para continuar a evolucao sem perder historico.
+
+Limites atuais:
+
+- `query` e `io` ja podem ser cadastrados na modelagem, mas o fluxo completo de tabela fisica + geracao CRUD continua fechado em `persistence`;
+- os snapshots historicos ficam em tabela generica `runtime_entity_record_version`, nao em uma tabela `_version` separada por entidade;
+- situacao/transicoes avancadas ainda nao possuem editor visual dedicado nessa tela.
+
+A interface visual fica em `program-builder.html` e `production/program-builder.html`.
+Ela usa `CrudHttpClient`, portanto respeita token, sessao e tenant ja usados nas outras entradas do projeto.
+Antes de usar a interface, o backend precisa ter as migrations `Version20260509093000`, `Version20260510113000`, `Version20260510143000` e `Version20260510170000` aplicadas; sem isso a API responde `PROGRAM_BUILDER_STORAGE_NOT_READY`.
+
+O construtor agora tambem possui um assistente visual de historico para entidades transacionais:
+
+- escolhe um cadastro mestre versionado;
+- escolhe o campo origem, como `produto_id` ou `cliente_id`;
+- gera automaticamente o campo fisico `*_version_id`;
+- gera automaticamente campos virtuais `*_historico` lendo o snapshot salvo;
+- usa `runtime_entity_record_version` como tabela fisica de referencia da versao.
+
+O construtor tambem passou a aceitar o tipo de campo `custom_code`.
+
+Para esse tipo, a modelagem guarda um contrato fechado:
+
+- `customCode.mode`: `pattern` ou `static_method`;
+- `customCode.prefix`: prefixo literal opcional;
+- `customCode.pattern`: padrao declarativo com tokens como `{YYYY}`, `{MM}`, `{DD}`, `{SEQ:4}`, `{ENTITY:campo}` e `{PROMPT:propriedade}`;
+- `customCode.sequenceEnabled`, `customCode.sequenceScope` e `customCode.sequencePadding`;
+- `customCode.staticClass` e `customCode.staticMethod`, restritos a classes `App\Runtime\CustomCode\*`;
+- `customCode.assistantScreenId`: tela auxiliar segura carregada por `screenId`, usando `pageType="process"` para coletar propriedades e devolver `result.type="properties"`;
+- `customCode.promptTitle` e `customCode.promptFields[]` para abrir um assistente declarativo antes do salvar.
+
+O frontend apenas coleta propriedades extras do assistente e envia em `_customCode`. Esse assistente pode ser um popup declarativo simples ou uma tela auxiliar segura aberta por `screenId`. A tela auxiliar tambem pode devolver `previewCode`, para o usuario confirmar a previsao do codigo antes de aplicar as propriedades. O valor final continua sendo gerado no backend. Para controlar a sequencia, o backend usa a tabela `runtime_custom_code_sequence`.
+
+O primeiro assistente seguro fechado no backend e `screenId=assistente.codificacao.produto-pdm`, com endpoint `process` e handler `process.customCode.pdm`. Ele devolve `result.type="properties"`, `previewTitle`, `previewCode` e `values` saneados para o formulario.
+
+Para regras por classe/metodo, existe uma classe de exemplo em [ConfiguredEntityRuleMethods.php](C:/construtor-pg/backend/src/Runtime/BusinessRule/ConfiguredEntityRuleMethods.php).
+
+Padrao de nomenclatura agora validado no construtor:
+
+- tabelas persistentes novas/renomeadas: `t1`, `t1c1`, `t1e1`, `t1r`, `t1m`, `t1e2at2e3`;
+- views novas/renomeadas: `v1`;
+- colunas novas/renomeadas:
+  - `dt_` para data;
+  - `dt_hr_` para data/hora;
+  - `si_`, `i_` ou `bi_` para inteiro sem FK;
+  - sufixo `_id` para FK;
+  - `log_` para logico;
+  - `c_` para texto curto;
+  - `t_` para texto longo;
+  - `d_` para decimal;
+  - `u_` ou `id_` para campos participantes de chave unica.
+
+### Modelo para historico sem replicacao
+
+Para entidades mestre como pessoa, endereco e produto, o construtor agora pode marcar a entidade como `cadastro versionado`.
+
+Quando isso estiver ativo:
+
+- cada `create` ou `update` feito pelo runtime gera snapshot imutavel em `runtime_entity_record_version`;
+- se o snapshot relevante ficar identico ao ultimo e `deduplicate=true`, a versao existente e reaproveitada;
+- entidades transacionais podem gravar apenas a FK do cadastro atual e a FK da versao historica capturada no momento da operacao.
+
+Padrao recomendado:
+
+- mestre: `produto`, `pessoa`, `endereco`;
+- transacional: `nota_fiscal`, `nota_fiscal_item`, `pedido_item`;
+- campo de referencia atual: `produto_id`;
+- campo de referencia historica: `produto_version_id`;
+- campo virtual de leitura historica: por exemplo `produto_nome_historico`, usando `versionSnapshot.versionField=produto_version_id` e `versionSnapshot.path=nome`.
+
+Assim a tabela transacional nao replica o cadastro inteiro, mas continua exibindo os dados da epoca corretamente.
 
 ### Preferencias de usuario
 

@@ -103,6 +103,8 @@
       this.formRenderer = new global.CrudKendoFormRenderer({
         definition: this.definition,
         httpClient: this.httpClient,
+        config: this.config,
+        securityPolicy: this.securityPolicy,
         onSaved: (record, mode) => this.afterRecordSaved(record, mode),
         onCreate: () => this.openCreate(),
         onEdit: (record) => this.openRecord("edit", record[this.definition.dataModel.primaryKey]),

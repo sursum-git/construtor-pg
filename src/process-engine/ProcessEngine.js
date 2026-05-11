@@ -611,6 +611,10 @@
         this.renderJobResult(normalized);
         return;
       }
+      if (normalized.type === "properties") {
+        this.renderPropertiesResult(normalized);
+        return;
+      }
       this.renderMessageResult(normalized);
     }
 
@@ -639,6 +643,19 @@
           .text("Job " + result.job.id)
           .appendTo(card);
       }
+    }
+
+    renderPropertiesResult(result) {
+      if (typeof this.options.onResult === "function") {
+        this.options.onResult({
+          type: "properties",
+          values: Object.assign({}, result.values || result.properties || {}),
+          result: result
+        });
+      }
+      $("<div class=\"process-result-message\"></div>")
+        .text(result.message || "Propriedades aplicadas.")
+        .appendTo(this.resultContent);
     }
 
     renderReportResult(result) {
@@ -855,11 +872,11 @@
     }
 
     buildContextPayload() {
-      return {
+      return Object.assign({
         screenId: this.getScreenId(),
         programId: this.definition.program && (this.definition.program.id || this.definition.program.code) || "",
         programTitle: this.definition.program && this.definition.program.title || ""
-      };
+      }, this.options.contextPayload || {});
     }
 
     getScreenId() {

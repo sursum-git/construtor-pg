@@ -247,6 +247,9 @@
       if (normalizedUrl.endsWith("examples/processamento-relatorio.process.json") && embedded.processamentoRelatorioDefinition) {
         return global.CrudUtils.clone(embedded.processamentoRelatorioDefinition);
       }
+      if (normalizedUrl.endsWith("examples/codificacao-assistente-pdm.process.json") && embedded.codificacaoAssistentePdmDefinition) {
+        return global.CrudUtils.clone(embedded.codificacaoAssistentePdmDefinition);
+      }
       if (normalizedUrl.endsWith("public/config/crud-engine.config.json") && embedded.config) {
         return global.CrudUtils.clone(embedded.config);
       }
@@ -376,6 +379,9 @@
       if (url === "/api/processamento/clientes" && method === "POST") {
         return this.startClientProcess(data);
       }
+      if (url === "/api/processamento/codificacao/pdm" && method === "POST") {
+        return this.runCustomCodePdmAssistant(data);
+      }
       if (url === "/api/processamento/clientes/status" && method === "POST") {
         return this.getClientProcessStatus(data);
       }
@@ -411,6 +417,12 @@
       }
       if (normalized === "processamento.relatorio-clientes") {
         const definition = global.CrudDemoEmbedded && global.CrudDemoEmbedded.processamentoRelatorioDefinition;
+        if (definition) {
+          return global.CrudUtils.clone(definition);
+        }
+      }
+      if (normalized === "assistente.codificacao.produto-pdm") {
+        const definition = global.CrudDemoEmbedded && global.CrudDemoEmbedded.codificacaoAssistentePdmDefinition;
         if (definition) {
           return global.CrudUtils.clone(definition);
         }
@@ -1782,6 +1794,36 @@
         message: job.status === "succeeded" ? "Processamento concluido." : "Processamento falhou.",
         job: this.toProcessJobSummary(job),
         result: job.result || this.buildClientProcessResult(job)
+      };
+    }
+
+    runCustomCodePdmAssistant(data) {
+      const parameters = data && data.parameters && typeof data.parameters === "object" ? data.parameters : {};
+      const familia = parameters.familia || "";
+      const grupo = parameters.grupo || "";
+      const linha = parameters.linha || "";
+      const previewCode = [
+        "PDM",
+        this.normalizeCodeSegment(familia || "GERAL"),
+        this.normalizeCodeSegment(grupo || "PADRAO"),
+        this.normalizeCodeSegment(linha || "ITEM"),
+        "0001"
+      ].join("-");
+      return {
+        ok: true,
+        status: "completed",
+        message: "Confira a previsao do codigo antes de aplicar.",
+        result: {
+          type: "properties",
+          message: "Confira a previsao do codigo antes de aplicar.",
+          previewTitle: "Previsao do codigo PDM",
+          previewCode: previewCode,
+          values: {
+            familia: familia,
+            grupo: grupo,
+            linha: linha
+          }
+        }
       };
     }
 
@@ -3164,7 +3206,7 @@
     }
 
     create(data) {
-      const values = this.normalizeRuntimeValues(data);
+      const values = this.applyDemoCustomCodes(this.normalizeRuntimeValues(data), data, this.nextId);
       this.validateBusinessConsistency(values);
       const record = Object.assign({}, values, {
         id: this.nextId,
@@ -3194,7 +3236,7 @@
       }
       const current = this.records[index];
       this.validateRuntimeWrite(current, data);
-      const values = this.normalizeRuntimeValues(data);
+      const values = this.applyDemoCustomCodes(this.normalizeRuntimeValues(data), data, id);
       this.validateBusinessConsistency(Object.assign({}, current, values));
       const next = Object.assign({}, current, values, { id, updated_at: new Date().toISOString() });
       this.records[index] = next;
@@ -3283,13 +3325,56 @@
 
     normalizeRuntimeValues(data) {
       const source = data && data.values && typeof data.values === "object" ? data.values : data || {};
-      const allowed = ["id", "nome", "email", "telefone", "status", "tipo_pessoa", "uf", "cidade", "razao_social", "cnpj", "data_cadastro", "valor_total", "qtde_pedidos", "observacao"];
+      const allowed = ["id", "nome", "codigo_customizado", "email", "telefone", "status", "tipo_pessoa", "uf", "cidade", "razao_social", "cnpj", "data_cadastro", "valor_total", "qtde_pedidos", "observacao"];
       return allowed.reduce(function(result, field) {
         if (Object.prototype.hasOwnProperty.call(source, field)) {
           result[field] = source[field];
         }
         return result;
       }, {});
+    }
+
+    applyDemoCustomCodes(values, data, sequenceValue) {
+      const source = data && data.values && typeof data.values === "object" ? data.values : data || {};
+      const customCode = source._customCode && typeof source._customCode === "object" ? source._customCode : {};
+      Object.keys(customCode).forEach(function(fieldName) {
+        if (values[fieldName]) {
+          return;
+        }
+        const entry = customCode[fieldName] || {};
+        const config = entry.config || {};
+        const properties = entry.properties || {};
+        values[fieldName] = this.buildDemoCustomCode(config, properties, sequenceValue);
+      }, this);
+      return values;
+    }
+
+    buildDemoCustomCode(config, properties, sequenceValue) {
+      const now = new Date();
+      const seq = String(sequenceValue || 1).padStart(Number(config.sequencePadding || 4), "0");
+      const prefix = String(config.prefix || "");
+      if (config.mode === "static_method") {
+        const familia = this.normalizeCodeSegment(properties.familia || "GERAL");
+        const grupo = this.normalizeCodeSegment(properties.grupo || "PADRAO");
+        const linha = this.normalizeCodeSegment(properties.linha || "ITEM");
+        return prefix + [familia, grupo, linha, seq].join("-");
+      }
+      const pattern = String(config.pattern || "{YYYY}{MM}{DD}-{SEQ:4}");
+      return prefix + pattern
+        .replace(/\{YYYY\}/g, String(now.getFullYear()))
+        .replace(/\{YY\}/g, String(now.getFullYear()).slice(-2))
+        .replace(/\{MM\}/g, String(now.getMonth() + 1).padStart(2, "0"))
+        .replace(/\{DD\}/g, String(now.getDate()).padStart(2, "0"))
+        .replace(/\{SEQ(?::(\d+))?\}/g, function(match, padding) {
+          return String(sequenceValue || 1).padStart(Number(padding || config.sequencePadding || 4), "0");
+        })
+        .replace(/\{PROMPT:([^}]+)\}/g, function(match, name) {
+          return this.normalizeCodeSegment(properties[name] || "");
+        }.bind(this));
+    }
+
+    normalizeCodeSegment(value) {
+      return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "ITEM";
     }
 
     validateBusinessConsistency(values) {

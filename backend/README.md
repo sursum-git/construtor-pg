@@ -133,6 +133,10 @@ Situacao de entidade e opcional. Quando usada:
 - `builder_entity.situationFieldCode` aponta para um campo cadastrado em `builder_field`;
 - `builder_entity_situation` cadastra os valores permitidos, como `EM_DIGITACAO`, `COMPLETO`, `PENDENTE_APROVACAO` e `APROVADO`;
 - `builder_entity_situation_transition` cadastra de/para, `actionId`, regras fechadas e efeitos seguros.
+- `builder_entity.metadata.rules` cadastra regras configuradas da entidade, com ordem, fase, continuidade apos erro, tipo `requiredWhen` ou `class_method`, parametros JSON e log automatico em `runtime_transaction_log`.
+- `builder_entity.metadata.uniqueKeys` cadastra chaves unicas compostas; `builder_field.options.unique` continua cobrindo chave unica de um unico campo.
+- `builder_field.options.readonly/writable` permite marcar campo nao editavel no CRUD gerado.
+- `builder_field.options.foreignKey` agora tambem pode carregar `dependencyType`, `onDelete` e `onUpdate`.
 
 O runtime generico valida se a situacao existe, aplica a situacao inicial no `create` quando o campo vier vazio, bloqueia transicoes nao cadastradas quando houver fluxo definido e grava log `*.situation.transition`.
 

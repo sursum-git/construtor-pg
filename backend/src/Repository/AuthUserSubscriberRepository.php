@@ -29,4 +29,18 @@ class AuthUserSubscriberRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    public function findOneEnabledForUserAndSubscriber(string $userTenantId, string $username, string $subscriberCode): ?AuthUserSubscriber
+    {
+        return $this->createQueryBuilder('a')
+            ->andWhere('a.userTenantId = :tenantId')
+            ->andWhere('a.username = :username')
+            ->andWhere('a.subscriberCode = :subscriberCode')
+            ->andWhere('a.enabled = true')
+            ->setParameter('tenantId', $userTenantId)
+            ->setParameter('username', mb_strtolower(trim($username)))
+            ->setParameter('subscriberCode', $subscriberCode)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 }

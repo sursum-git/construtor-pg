@@ -2,8 +2,10 @@
 
 namespace App\Tests\Runtime;
 
+use App\Auth\AuthenticatedSessionResolver;
 use App\Entity\RuntimeEndpoint;
 use App\Entity\ScreenDefinition;
+use App\Entity\RuntimeUserSession;
 use App\Runtime\PermissionResolver;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\HttpFoundation\Request;
@@ -88,6 +90,101 @@ class PermissionResolverTest extends TestCase
         self::assertTrue($filtered['permissions']['saveLayout']);
     }
 
+    public function testDefinitionPermissionsRespectDeniedPermission(): void
+    {
+        $definition = [
+            'pageType' => 'crud',
+            'screenId' => 'cadastros.clientes',
+            'runtime' => [
+                'entityCode' => 'cliente',
+                'programId' => 'clientes-crud',
+            ],
+            'program' => [
+                'id' => 'clientes-crud',
+                'entity' => 'clientes',
+            ],
+            'permissions' => [
+                'read' => true,
+                'edit' => true,
+                'delete' => true,
+            ],
+        ];
+
+        $filtered = $this->resolverFromSession(['vendas'], [
+            'clientes.read' => true,
+            'clientes.delete' => false,
+        ])->applyDefinitionPermissions($definition);
+
+        self::assertTrue($filtered['permissions']['read']);
+        self::assertFalse($filtered['permissions']['edit']);
+        self::assertFalse($filtered['permissions']['delete']);
+    }
+
+    public function testDefinitionPermissionsRespectNestedDeniedPermission(): void
+    {
+        $definition = [
+            'pageType' => 'crud',
+            'screenId' => 'cadastros.clientes',
+            'runtime' => [
+                'entityCode' => 'cliente',
+                'programId' => 'clientes-crud',
+            ],
+            'program' => [
+                'id' => 'clientes-crud',
+                'entity' => 'clientes',
+            ],
+            'permissions' => [
+                'read' => true,
+                'edit' => true,
+                'delete' => true,
+            ],
+        ];
+
+        $filtered = $this->resolverFromSession(['vendas'], [
+            'clientes' => [
+                'read' => true,
+                'delete' => false,
+            ],
+            'admin' => [
+                'read' => true,
+            ],
+        ])->applyDefinitionPermissions($definition);
+
+        self::assertTrue($filtered['permissions']['read']);
+        self::assertFalse($filtered['permissions']['edit']);
+        self::assertFalse($filtered['permissions']['delete']);
+    }
+
+    public function testNestedPermissionDenialWinsOverNestedAllow(): void
+    {
+        $resolver = $this->resolverFromSession(['vendas'], [
+            'clientes' => [
+                '*' => true,
+                'delete' => false,
+            ],
+        ]);
+
+        self::assertFalse($resolver->hasPermission('clientes.delete'));
+        self::assertTrue($resolver->hasPermission('clientes.read'));
+    }
+
+    public function testDeniedPermissionWinsOverAllowedPermission(): void
+    {
+        $endpoint = (new RuntimeEndpoint())
+            ->setScreenId('cadastros.clientes')
+            ->setEndpointId('delete')
+            ->setHandler('entity.crud')
+            ->setPermission('clientes.delete')
+            ->setEnabled(true);
+
+        $resolver = $this->resolverFromSession(['vendas'], [
+            'clientes.*' => true,
+            'clientes.delete' => false,
+        ]);
+
+        self::assertFalse($resolver->canExecuteEndpoint($endpoint));
+    }
+
     public function testHomeProgramsAreFilteredByPermission(): void
     {
         $definition = [
@@ -143,5 +240,38 @@ class PermissionResolverTest extends TestCase
         $stack->push($request);
 
         return new PermissionResolver($stack);
+    }
+
+    /**
+     * @param string[] $groups
+     * @param array<string, mixed> $permissions
+     */
+    private function resolverFromSession(array $groups, array $permissions): PermissionResolver
+    {
+        $request = Request::create('/api/runtime/screens/cadastros.clientes', 'GET', [
+            'runtimeGroups' => implode(',', $groups),
+        ]);
+        $session = (new RuntimeUserSession())
+            ->setTenantId('default')
+            ->setUserId('user-1')
+            ->setUserName('Usuario Teste')
+            ->setSessionId('sess-test')
+            ->setSessionProperties([])
+            ->setPermissionSnapshot([
+                'groups' => $groups,
+                'permissions' => $permissions,
+                'user' => [
+                    'id' => 'user-1',
+                    'name' => 'Usuario Teste',
+                ],
+            ]);
+
+        $authenticatedSessionResolver = $this->createMock(AuthenticatedSessionResolver::class);
+        $authenticatedSessionResolver->method('resolve')->willReturn($session);
+
+        $stack = new RequestStack();
+        $stack->push($request);
+
+        return new PermissionResolver($stack, $authenticatedSessionResolver);
     }
 }

@@ -22,10 +22,12 @@
       "api": {
         "process": {
           "url": "/api/processamento/clientes",
+          "endpointId": "process",
           "method": "POST"
         },
         "status": {
           "url": "/api/processamento/clientes/status",
+          "endpointId": "status",
           "method": "POST"
         }
       }
@@ -97,6 +99,78 @@
       "result": {
         "type": "grid",
         "openReportInNewTab": false
+      }
+    }
+  };
+
+  embedded.codificacaoAssistentePdmDefinition = {
+    "$schema": "../public/metadata/schemas/process-definition-v1.schema.json",
+    "schemaVersion": "1.0",
+    "pageType": "process",
+    "screenId": "assistente.codificacao.produto-pdm",
+    "program": {
+      "id": "assistente-codificacao-produto-pdm",
+      "screenId": "assistente.codificacao.produto-pdm",
+      "title": "Assistente de codificacao PDM",
+      "subtitle": "Informe as propriedades do produto para montar o codigo.",
+      "version": "1.0.0"
+    },
+    "permissions": {
+      "process": true
+    },
+    "dataSource": {
+      "api": {
+        "process": {
+          "url": "/api/processamento/codificacao/pdm",
+          "endpointId": "process",
+          "method": "POST"
+        }
+      }
+    },
+    "process": {
+      "parameters": {
+        "title": "Propriedades da codificacao",
+        "fields": [
+          {
+            "id": "familia",
+            "field": "familia",
+            "label": "Familia",
+            "type": "dropdown",
+            "required": true,
+            "options": [
+              { "value": "ELE", "text": "Eletrica" },
+              { "value": "HID", "text": "Hidraulica" },
+              { "value": "EST", "text": "Estrutural" }
+            ]
+          },
+          {
+            "id": "grupo",
+            "field": "grupo",
+            "label": "Grupo",
+            "type": "string",
+            "required": true
+          },
+          {
+            "id": "linha",
+            "field": "linha",
+            "label": "Linha",
+            "type": "string",
+            "required": true
+          }
+        ]
+      },
+      "actions": {
+        "process": {
+          "label": "Aplicar propriedades",
+          "icon": "check",
+          "permission": "process"
+        }
+      },
+      "wait": {
+        "mode": "none"
+      },
+      "result": {
+        "type": "properties"
       }
     }
   };

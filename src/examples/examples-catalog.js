@@ -186,8 +186,8 @@
         },
         dataSource: {
           api: {
-            process: { url: "/api/processamento/clientes", method: "POST" },
-            status: { url: "/api/processamento/clientes/status", method: "POST" }
+            process: { url: "/api/processamento/clientes", endpointId: "process", method: "POST" },
+            status: { url: "/api/processamento/clientes/status", endpointId: "status", method: "POST" }
           }
         }
       }
@@ -756,6 +756,119 @@
       }
     },
     {
+      id: "formulario-codificacao-customizada",
+      category: "Formulario",
+      title: "Codificacao customizada",
+      summary: "Mostra campo com codificacao fechada, assistente de propriedades e geracao segura no backend.",
+      page: pagePath + "formulario-codificacao-customizada.html",
+      initialAction: "openCreate",
+      code: {
+        dataModel: {
+          fields: {
+            codigo_customizado: {
+              label: "Codigo customizado",
+              type: "string",
+              editor: "customCode",
+              nullable: true,
+              customCode: {
+                mode: "static_method",
+                prefix: "PDM-",
+                sequenceEnabled: true,
+                sequenceScope: "day",
+                sequencePadding: 4,
+                staticClass: "App\\Runtime\\CustomCode\\ProdutoPdmCodeGenerator",
+                staticMethod: "generate",
+                assistantScreenId: "assistente.codificacao.produto-pdm",
+                promptTitle: "Propriedades do codigo PDM",
+                promptFields: [
+                  {
+                    name: "familia",
+                    label: "Familia",
+                    type: "dropdown",
+                    required: true,
+                    options: [
+                      { value: "ELE", text: "Eletrica" },
+                      { value: "HID", text: "Hidraulica" },
+                      { value: "EST", text: "Estrutural" }
+                    ]
+                  },
+                  {
+                    name: "grupo",
+                    label: "Grupo",
+                    type: "string",
+                    required: true
+                  },
+                  {
+                    name: "linha",
+                    label: "Linha",
+                    type: "string",
+                    required: true
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      apply: function(definition) {
+        definition.dataModel.fields.codigo_customizado = {
+          label: "Codigo customizado",
+          type: "string",
+          editor: "customCode",
+          nullable: true,
+          customCode: {
+            mode: "static_method",
+            prefix: "PDM-",
+            sequenceEnabled: true,
+            sequenceScope: "day",
+            sequencePadding: 4,
+            staticClass: "App\\Runtime\\CustomCode\\ProdutoPdmCodeGenerator",
+            staticMethod: "generate",
+            promptTitle: "Propriedades do codigo PDM",
+            promptFields: [
+              {
+                name: "familia",
+                label: "Familia",
+                type: "dropdown",
+                required: true,
+                options: [
+                  { value: "ELE", text: "Eletrica" },
+                  { value: "HID", text: "Hidraulica" },
+                  { value: "EST", text: "Estrutural" }
+                ]
+              },
+              {
+                name: "grupo",
+                label: "Grupo",
+                type: "string",
+                required: true
+              },
+              {
+                name: "linha",
+                label: "Linha",
+                type: "string",
+                required: true
+              }
+            ]
+          }
+        };
+        definition.crud.form.fields = global.CrudUtils.ensureArray(definition.crud.form.fields);
+        definition.crud.form.fields.splice(1, 0, { field: "codigo_customizado" });
+        if (definition.crud.form.tabs && definition.crud.form.tabs[0] && Array.isArray(definition.crud.form.tabs[0].sections)) {
+          const section = definition.crud.form.tabs[0].sections[0];
+          if (section && Array.isArray(section.fields)) {
+            section.fields.splice(0, 0, { field: "codigo_customizado", colSpan: 2 });
+          }
+        }
+        definition.crud.grid.columns = global.CrudUtils.ensureArray(definition.crud.grid.columns);
+        definition.crud.grid.columns.splice(1, 0, {
+          field: "codigo_customizado",
+          title: "Codigo",
+          width: 190
+        });
+      }
+    },
+    {
       id: "formulario-fila-assincrona",
       category: "Backend",
       title: "Fila de trabalho assincrona",
@@ -1271,6 +1384,10 @@
     option("Formulario", "crud.form.concurrencyWarning.editMessage", "texto com tokens {campo}", "vazio", "Mensagem especifica para o botao Alterar."),
     option("Formulario", "crud.form.concurrencyWarning.deleteMessage", "texto com tokens {campo}", "vazio", "Mensagem especifica para o botao Excluir."),
     option("Formulario", "crud.form.concurrencyWarning.confirm/blocking", "true | false", "true", "Quando false, mostra apenas notificacao e nao bloqueia a ativacao da acao."),
+    option("Formulario", "dataModel.fields.*.editor", "textarea | dropdown | switch | customCode", "type do campo", "customCode renderiza um campo fechado com assistente declarativo para formar o codigo."),
+    option("Formulario", "dataModel.fields.*.customCode.mode", "pattern | static_method", "pattern", "Define se o codigo vem de um padrao declarativo ou de um metodo estatico permitido no backend."),
+    option("Formulario", "dataModel.fields.*.customCode.assistantScreenId", "screenId de tela process", "vazio", "Quando informado, abre uma tela auxiliar segura por screenId para coletar propriedades e devolver result.type=properties."),
+    option("Formulario", "dataModel.fields.*.customCode.promptFields[].type", "string | integer | decimal | boolean | enum | dropdown", "string", "Tipos aceitos pelo assistente declarativo de propriedades da codificacao."),
     option("Formulario", "crud.form.situation.display", "stepper | arrowstep | badge", "stepper", "arrowstep usa renderizacao propria em formato de etapas."),
     option("Formulario", "crud.form.situation.orientation", "horizontal | vertical", "horizontal", "Propriedade catalogada no schema; a UI atual prioriza horizontal."),
     option("Formulario", "crud.form.fields[].renderAs", "label | readonly", "vazio", "Renderiza campo como label/somente leitura."),

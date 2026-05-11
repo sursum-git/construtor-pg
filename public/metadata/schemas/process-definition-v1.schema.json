@@ -103,7 +103,7 @@
         "result": {
           "type": "object",
           "properties": {
-            "type": { "enum": ["message", "grid", "report", "job"] },
+            "type": { "enum": ["message", "grid", "report", "job", "properties"] },
             "openReportInNewTab": { "type": "boolean" }
           },
           "additionalProperties": true

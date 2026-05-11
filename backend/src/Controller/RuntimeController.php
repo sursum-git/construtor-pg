@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Runtime\RuntimeEndpointDispatcher;
 use App\Runtime\RuntimeHttpException;
 use App\Runtime\RuntimeMessageService;
+use App\Runtime\RuntimeProcessHandler;
 use App\Runtime\RuntimeSessionGuard;
 use App\Runtime\RuntimeValidationException;
 use App\Runtime\ScreenDefinitionService;
@@ -21,6 +22,7 @@ class RuntimeController extends AbstractController
         private readonly ScreenDefinitionService $screens,
         private readonly RuntimeEndpointDispatcher $dispatcher,
         private readonly RuntimeMessageService $messages,
+        private readonly RuntimeProcessHandler $process,
         private readonly RuntimeSessionGuard $sessions,
     ) {
     }
@@ -51,10 +53,19 @@ class RuntimeController extends AbstractController
     }
 
     #[Route('/api/runtime/screens/{screenId}/documents/{documentId}', name: 'runtime_document', methods: ['GET'])]
-    public function document(string $screenId, string $documentId): Response
+    public function document(string $screenId, string $documentId, Request $request): Response
     {
         try {
             $this->sessions->ensureActive();
+            if ($screenId === 'processamento.relatorio-clientes' && $documentId === 'resultado') {
+                $jobId = (int) $request->query->get('jobId', 0);
+
+                return new Response(
+                    $this->process->renderClientesProcessDocument($jobId),
+                    200,
+                    ['Content-Type' => 'text/html; charset=UTF-8'],
+                );
+            }
             $safeScreen = htmlspecialchars($screenId, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
             $safeDocument = htmlspecialchars($documentId, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 

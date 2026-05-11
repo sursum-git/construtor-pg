@@ -10,10 +10,13 @@ class RuntimeEntityActionService
     public function __construct(
         private readonly RuntimeEntityDefinitionResolver $definitions,
         private readonly Connection $connection,
+        private readonly RuntimeEntityVersionService $entityVersions,
+        private readonly RuntimeCustomCodeService $customCodes,
         private readonly RuntimeLockService $locks,
         private readonly RuntimeConcurrencyGuard $concurrency,
         private readonly RuntimeTransactionService $transactions,
         private readonly RuntimeBusinessRuleRegistry $rules,
+        private readonly RuntimeConfiguredRuleExecutor $configuredRules,
         private readonly RuntimeSituationService $situations,
     ) {
     }
@@ -83,13 +86,18 @@ class RuntimeEntityActionService
     {
         $values = $this->extractValues($definition, $payload, true);
         $values = $this->situations->applyCreateDefaults($definition, $values);
-        $context = new RuntimeBusinessRuleContext($definition, 'create', $actionId, $payload, $values);
+        $context = $this->newRuleContext($definition, 'create', $actionId, $payload, $values);
         $this->rules->beforeValidate($context);
         $values = $context->getValues();
+        $values = $this->hydrateVersionReferences($definition, $values, []);
+        $values = $this->customCodes->applyCreateValues($definition, $values, $payload);
         $this->validateRequiredValues($definition, $values, true);
-        $this->validateDeclarativeRules($definition, $values);
+        $context->setValues($values);
+        $this->configuredRules->runPhase('beforeValidate', $context);
+        $values = $context->getValues();
         $context->setValues($values);
         $this->rules->beforePersist($context);
+        $this->configuredRules->runPhase('beforePersist', $context);
         $values = $context->getValues();
         $situationTransition = $this->situations->validateCreate($definition, $values, $actionId);
         $dbValues = $this->toDatabaseValues($definition, $values);
@@ -120,6 +128,11 @@ class RuntimeEntityActionService
         );
         $id = $this->connection->fetchOne($sql, $params);
         $after = $this->formatRow($definition, $this->findRow($definition, $id));
+        $entityVersion = $this->entityVersions->snapshot($definition, $after);
+        if ($entityVersion) {
+            $after['_runtime']['entityVersionId'] = $entityVersion->getId();
+            $after['_runtime']['entityVersionRevision'] = $entityVersion->getRevision();
+        }
         $context->setAfter($after);
         $this->situations->logTransition($definition, $situationTransition, [], $after);
         $this->transactions->log($definition['entityCode'] . '.create', 'Registro incluido pelo runtime generico.', after: $after, metadata: [
@@ -128,7 +141,9 @@ class RuntimeEntityActionService
             'confirmationToken' => $payload['_runtime']['validationConfirmationToken'] ?? null,
         ]);
         $this->rules->afterPersist($context);
+        $this->configuredRules->runPhase('afterPersist', $context);
         $this->rules->afterCommit($context);
+        $this->configuredRules->runPhase('afterCommit', $context);
 
         return $this->situations->applyTransitionEffects($after, $situationTransition);
     }
@@ -140,13 +155,17 @@ class RuntimeEntityActionService
         $this->locks->validateWriteLock($definition['entityCode'], $id, 'update', $payload);
         $this->concurrency->assertExpectedVersion($definition['entityCode'], 'update', $before['_runtime']['version'] ?? null, $payload);
         $values = $this->extractValues($definition, $payload, false);
-        $context = new RuntimeBusinessRuleContext($definition, 'update', $actionId, $payload, $values, $before);
+        $context = $this->newRuleContext($definition, 'update', $actionId, $payload, $values, $before);
         $this->rules->beforeValidate($context);
         $values = $context->getValues();
+        $values = $this->hydrateVersionReferences($definition, $values, $before);
         $this->validateRequiredValues($definition, $values, false);
-        $this->validateDeclarativeRules($definition, array_merge($before, $values));
+        $context->setValues($values);
+        $this->configuredRules->runPhase('beforeValidate', $context);
+        $values = $context->getValues();
         $context->setValues($values);
         $this->rules->beforePersist($context);
+        $this->configuredRules->runPhase('beforePersist', $context);
         $values = $context->getValues();
         $situationTransition = $this->situations->validateUpdate($definition, $before, $values, $actionId);
         $dbValues = $this->toDatabaseValues($definition, $values);
@@ -175,6 +194,11 @@ class RuntimeEntityActionService
         );
         $this->connection->executeStatement($sql, $params);
         $after = $this->formatRow($definition, $this->findRow($definition, $id));
+        $entityVersion = $this->entityVersions->snapshot($definition, $after);
+        if ($entityVersion) {
+            $after['_runtime']['entityVersionId'] = $entityVersion->getId();
+            $after['_runtime']['entityVersionRevision'] = $entityVersion->getRevision();
+        }
         $context->setAfter($after);
         $this->situations->logTransition($definition, $situationTransition, $before, $after);
         $this->transactions->log($definition['entityCode'] . '.update', 'Registro alterado pelo runtime generico.', before: $before, after: $after, metadata: [
@@ -186,7 +210,9 @@ class RuntimeEntityActionService
             $this->locks->release($payload, 'released');
         }
         $this->rules->afterPersist($context);
+        $this->configuredRules->runPhase('afterPersist', $context);
         $this->rules->afterCommit($context);
+        $this->configuredRules->runPhase('afterCommit', $context);
 
         return $this->situations->applyTransitionEffects($after, $situationTransition);
     }
@@ -196,9 +222,11 @@ class RuntimeEntityActionService
         $before = $this->formatRow($definition, $this->findRow($definition, $id));
         $this->locks->validateWriteLock($definition['entityCode'], $id, 'delete', $payload);
         $this->concurrency->assertExpectedVersion($definition['entityCode'], 'delete', $before['_runtime']['version'] ?? null, $payload);
-        $context = new RuntimeBusinessRuleContext($definition, 'delete', $actionId, $payload, [], $before);
+        $context = $this->newRuleContext($definition, 'delete', $actionId, $payload, [], $before);
         $this->rules->beforeValidate($context);
+        $this->configuredRules->runPhase('beforeValidate', $context);
         $this->rules->beforePersist($context);
+        $this->configuredRules->runPhase('beforePersist', $context);
         $this->connection->delete($definition['tableName'], [
             $definition['primaryColumn'] => $id,
         ]);
@@ -210,7 +238,9 @@ class RuntimeEntityActionService
             $this->locks->release($payload, 'released');
         }
         $this->rules->afterPersist($context);
+        $this->configuredRules->runPhase('afterPersist', $context);
         $this->rules->afterCommit($context);
+        $this->configuredRules->runPhase('afterCommit', $context);
 
         return ['ok' => true];
     }
@@ -283,6 +313,23 @@ class RuntimeEntityActionService
         }
     }
 
+    private function newRuleContext(
+        array $definition,
+        string $operation,
+        string $actionId,
+        array $payload,
+        array $values,
+        array $before = [],
+        array $after = [],
+    ): RuntimeBusinessRuleContext {
+        $context = new RuntimeBusinessRuleContext($definition, $operation, $actionId, $payload, $values, $before, $after);
+        $context->setLogger(function (string $eventType, ?string $message, array $beforeData, array $afterData, array $metadata): void {
+            $this->transactions->log($eventType, $message, $beforeData, $afterData, $metadata);
+        });
+
+        return $context;
+    }
+
     private function validateDeclarativeRules(array $definition, array $values): void
     {
         $rules = $definition['metadata']['rules'] ?? [];
@@ -320,7 +367,11 @@ class RuntimeEntityActionService
     {
         $dbValues = [];
         foreach ($values as $field => $value) {
-            $dbValues[$definition['fields'][$field]['column']] = $value;
+            $column = $definition['fields'][$field]['column'] ?? null;
+            if (!is_string($column) || $column === '') {
+                continue;
+            }
+            $dbValues[$column] = $value;
         }
 
         return $dbValues;
@@ -410,9 +461,27 @@ class RuntimeEntityActionService
     private function selectColumns(array $definition, string $alias): array
     {
         $columns = [];
+        $selectedColumns = [];
         foreach ($definition['fields'] as $field => $config) {
-            if ($config['readable']) {
-                $columns[] = $alias . '.' . $this->quote($config['column']) . ' AS ' . $this->quote($field);
+            $column = $config['column'] ?? null;
+            if ($config['readable'] && is_string($column) && $column !== '') {
+                $columns[] = $alias . '.' . $this->quote($column) . ' AS ' . $this->quote($field);
+                $selectedColumns[$field] = true;
+            }
+        }
+        foreach ($definition['fields'] as $field => $config) {
+            $derived = is_array($config['derivedVersionField'] ?? null) ? $config['derivedVersionField'] : null;
+            if (!$derived) {
+                continue;
+            }
+            $versionField = (string) ($derived['versionField'] ?? '');
+            if ($versionField === '' || !isset($definition['fields'][$versionField]) || isset($selectedColumns[$versionField])) {
+                continue;
+            }
+            $versionColumn = $definition['fields'][$versionField]['column'] ?? null;
+            if (is_string($versionColumn) && $versionColumn !== '') {
+                $columns[] = $alias . '.' . $this->quote($versionColumn) . ' AS ' . $this->quote($versionField);
+                $selectedColumns[$versionField] = true;
             }
         }
         if (isset($definition['dbColumns']['updated_at']) && !isset($definition['fields']['updated_at'])) {
@@ -429,6 +498,10 @@ class RuntimeEntityActionService
             if (!$config['readable']) {
                 continue;
             }
+            if (($config['virtual'] ?? false) === true) {
+                $result[$field] = $this->resolveDerivedSnapshotValue($config, $row, $result);
+                continue;
+            }
             $result[$field] = $this->formatValue($config, $row[$field] ?? null);
         }
 
@@ -439,6 +512,65 @@ class RuntimeEntityActionService
         ];
 
         return $this->situations->decorateRow($definition, $result);
+    }
+
+    private function hydrateVersionReferences(array $definition, array $values, array $before): array
+    {
+        foreach ($definition['fields'] as $field => $config) {
+            $versionReference = is_array($config['versionReference'] ?? null) ? $config['versionReference'] : null;
+            if (!$versionReference || !$config['writable']) {
+                continue;
+            }
+
+            $sourceEntityCode = (string) ($versionReference['sourceEntityCode'] ?? '');
+            $sourceIdField = (string) ($versionReference['sourceIdField'] ?? '');
+            if ($sourceEntityCode === '' || $sourceIdField === '') {
+                continue;
+            }
+
+            $sourceId = $values[$sourceIdField] ?? $before[$sourceIdField] ?? null;
+            if ($sourceId === null || $sourceId === '') {
+                continue;
+            }
+
+            $versionId = $this->entityVersions->resolveCurrentVersionId($sourceEntityCode, (string) $sourceId);
+            if ($versionId === null) {
+                throw new RuntimeValidationException('VERSIONED_REFERENCE_NOT_FOUND', 'Nao existe versao historica publicada para a referencia informada.', [
+                    'status' => 'blocked',
+                    'title' => 'Inconsistencias encontradas',
+                    'messages' => [[
+                        'field' => $field,
+                        'type' => 'error',
+                        'message' => ($config['label'] ?: $field) . ' nao conseguiu localizar a versao historica atual do cadastro relacionado.',
+                    ]],
+                ]);
+            }
+
+            $values[$field] = $versionId;
+        }
+
+        return $values;
+    }
+
+    private function resolveDerivedSnapshotValue(array $config, array $row, array $result): mixed
+    {
+        $derived = is_array($config['derivedVersionField'] ?? null) ? $config['derivedVersionField'] : null;
+        if (!$derived) {
+            return null;
+        }
+
+        $versionField = (string) ($derived['versionField'] ?? '');
+        $path = (string) ($derived['path'] ?? '');
+        if ($versionField === '' || $path === '') {
+            return null;
+        }
+
+        $versionId = $row[$versionField] ?? $result[$versionField] ?? null;
+        if ($versionId === null || $versionId === '') {
+            return null;
+        }
+
+        return $this->entityVersions->resolveSnapshotValue((int) $versionId, $path);
     }
 
     private function formatValue(array $field, mixed $value): mixed

@@ -17,10 +17,12 @@
     "api": {
       "process": {
         "url": "/api/processamento/clientes",
+        "endpointId": "process",
         "method": "POST"
       },
       "status": {
         "url": "/api/processamento/clientes/status",
+        "endpointId": "status",
         "method": "POST"
       }
     }

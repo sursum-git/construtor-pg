@@ -440,7 +440,7 @@
         saveLocalValue("crudEngine.runtimeUserId", response.user.id || response.user.username || "");
         saveLocalValue("crudEngine.runtimeUserName", response.user.name || response.user.username || "");
         saveLocalValue("crudEngine.runtimeUserGroups", JSON.stringify(ensureArray(response.user.groups)));
-        saveLocalValue("crudEngine.runtimeUserPermissions", JSON.stringify(ensureArray(response.user.permissions)));
+        saveLocalValue("crudEngine.runtimeUserPermissions", JSON.stringify(normalizePermissionPayload(response.user.permissions)));
       }
     }
 
@@ -551,16 +551,154 @@
       const groups = ensureArray(user.groups).map(function(item) {
         return String(item || "").toLowerCase();
       });
-      const permissions = ensureArray(user.permissions).map(function(item) {
-        return String(item || "").toLowerCase();
-      });
-      return groups.indexOf("admin") !== -1 ||
-        permissions.indexOf("*") !== -1 ||
-        permissions.indexOf("admin.*") !== -1;
+      if (groups.indexOf("admin") !== -1) {
+        return true;
+      }
+
+      return hasPermission(user.permissions, "admin")
+        || hasPermission(user.permissions, "admin.*")
+        || hasPermission(user.permissions, "*");
     }
 
     function ensureArray(value) {
       return Array.isArray(value) ? value : [];
+    }
+
+    function normalizePermissionPayload(value) {
+      const map = {};
+      if (!value) {
+        return map;
+      }
+
+      collectPermissions("", value, map);
+
+      return map;
+    }
+
+    function collectPermissions(prefix, source, map) {
+      if (!source) {
+        return;
+      }
+      if (Array.isArray(source)) {
+        source.forEach(function(item) {
+          if (typeof item === "string" || typeof item === "number" || typeof item === "boolean") {
+            const permission = String(item).trim().toLowerCase();
+            if (!permission) {
+              return;
+            }
+            if (prefix) {
+              const candidate = prefix.indexOf(".") === -1 && permission.indexOf(".") === -1
+                ? prefix + "." + permission
+                : permission;
+              map[candidate] = true;
+            } else {
+              map[permission] = true;
+            }
+            return;
+          }
+          if (item && typeof item === "object") {
+            collectPermissions(prefix, item, map);
+          }
+        });
+        return;
+      }
+
+      if (typeof source !== "object") {
+        const permission = String(prefix || source).trim().toLowerCase();
+        if (permission) {
+          map[permission] = true;
+        }
+        return;
+      }
+
+      Object.keys(source).forEach(function(permission) {
+        const key = String(permission || "").trim().toLowerCase();
+        if (!key) {
+          return;
+        }
+        const nextPrefix = prefix ? prefix + "." + key : key;
+        const value = source[permission];
+
+        if (value && typeof value === "object") {
+          const isArray = Array.isArray(value);
+          const isAssociative = isArray ? false : Object.keys(value).length !== value.length;
+          if (isArray) {
+            collectPermissions(nextPrefix, value, map);
+            return;
+          }
+          if (isAssociative) {
+            collectPermissions(nextPrefix, value, map);
+            return;
+          }
+        }
+
+        map[nextPrefix] = !isPermissionDenied(value);
+      });
+    }
+
+    function isPermissionDenied(value) {
+      if (value === false || value === 0 || value === "0") {
+        return true;
+      }
+      if (typeof value === "string") {
+        const normalized = String(value).trim().toLowerCase();
+        return normalized === "false" || normalized === "nao" || normalized === "no";
+      }
+      return false;
+    }
+
+    function resolvePermissionSets(rawPermissions) {
+      const allow = [];
+      const deny = [];
+      const normalized = normalizePermissionPayload(rawPermissions);
+      Object.keys(normalized).forEach(function(permission) {
+        if (normalized[permission]) {
+          allow.push(permission);
+        } else {
+          deny.push(permission);
+        }
+      });
+      return {
+        allow: allow,
+        deny: deny
+      };
+    }
+
+    function hasPermission(rawPermissions, requiredPermission) {
+      const permission = String(requiredPermission || "").trim().toLowerCase();
+      if (!permission) {
+        return true;
+      }
+      const sets = resolvePermissionSets(rawPermissions);
+      for (let i = 0; i < sets.deny.length; i++) {
+        if (permissionMatches(sets.deny[i], permission)) {
+          return false;
+        }
+      }
+      for (let i = 0; i < sets.allow.length; i++) {
+        if (permissionMatches(sets.allow[i], permission)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    function permissionMatches(pattern, permission) {
+      if (!pattern) {
+        return false;
+      }
+      if (pattern === "*" || pattern === permission) {
+        return true;
+      }
+      if (pattern.slice(-2) === ".*") {
+        return permission.indexOf(pattern.slice(0, -1)) === 0;
+      }
+      if (pattern.indexOf("*") === -1) {
+        return false;
+      }
+      const escaped = pattern.replace(/[-/\\^$+?.()|[\]{}]/g, "\\$&");
+      const regex = new RegExp("^" + escaped.replace(/\\\*/g, ".*") + "$");
+      return regex.test(permission);
     }
 
     function show(message) {

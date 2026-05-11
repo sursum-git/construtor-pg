@@ -11,6 +11,7 @@ class RuntimeEndpointDispatcher
         private readonly RuntimeEndpointRepository $endpoints,
         private readonly PermissionResolver $permissions,
         private readonly ClienteRuntimeHandler $clientes,
+        private readonly RuntimeProcessHandler $process,
         private readonly HomeRuntimeHandler $home,
         private readonly UserLayoutService $layouts,
         private readonly RuntimeSystemHandler $system,
@@ -95,6 +96,9 @@ class RuntimeEndpointDispatcher
             'cliente.printClienteCsv' => $this->clientes->handle('printClienteCsv', $payload),
             'cliente.checkCredit' => $this->clientes->handle('checkCredit', $payload),
             'cliente.sendWelcome' => $this->clientes->handle('sendWelcome', $payload),
+            'process.clientes.start' => $this->process->startClientesProcess($screenId, $payload),
+            'process.clientes.status' => $this->process->getClientesProcessStatus($payload),
+            'process.customCode.pdm' => $this->process->startProdutoPdmAssistant($payload),
             'runtime.job.enqueue' => $this->jobEnqueue->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
             'layout.save' => $this->layouts->saveLayout($screenId, $payload),
             'layout.restore' => $this->layouts->restoreLayout($screenId),
@@ -179,6 +183,7 @@ class RuntimeEndpointDispatcher
         $runtime = is_array($response['_runtime'] ?? null) ? $response['_runtime'] : [];
         $runtime['asyncJobs'] = $queuedJobs;
         $response['_runtime'] = $runtime;
+        $this->resolvePendingJobReference($response, $queuedJobs);
 
         $messages = [];
         $hasQueuedEmail = false;
@@ -208,5 +213,31 @@ class RuntimeEndpointDispatcher
         }
 
         return $response;
+    }
+
+    /**
+     * @param list<array{id: int|null, type: string, status: string, message?: string, runtimePendingRef?: string}> $queuedJobs
+     */
+    private function resolvePendingJobReference(array &$response, array $queuedJobs): void
+    {
+        $pendingRef = (string) ($response['job']['runtimePendingRef'] ?? '');
+        if ($pendingRef === '') {
+            return;
+        }
+
+        foreach ($queuedJobs as $job) {
+            if (($job['runtimePendingRef'] ?? '') !== $pendingRef) {
+                continue;
+            }
+            $response['job']['id'] = $job['id'];
+            $response['job']['status'] = $job['status'];
+            unset($response['job']['runtimePendingRef']);
+            if (isset($response['result']['job']) && is_array($response['result']['job'])) {
+                $response['result']['job']['id'] = $job['id'];
+                $response['result']['job']['status'] = $job['status'];
+                unset($response['result']['job']['runtimePendingRef']);
+            }
+            return;
+        }
     }
 }

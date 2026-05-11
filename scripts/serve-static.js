@@ -1,9 +1,11 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const { request: proxyRequest } = require("http");
 
 const root = path.resolve(__dirname, "..");
 const port = Number(process.argv[2] || 8765);
+const apiProxy = process.env.CRUD_ENGINE_API_PROXY || "http://127.0.0.1:8000";
 
 const mime = {
   ".html": "text/html; charset=utf-8",
@@ -15,6 +17,11 @@ const mime = {
 };
 
 const server = http.createServer((request, response) => {
+  if (request.url && request.url.startsWith("/api/")) {
+    proxyApi(request, response);
+    return;
+  }
+
   const url = new URL(request.url, "http://127.0.0.1:" + port);
   const requestedPath = url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname);
   const filePath = path.normalize(path.join(root, requestedPath));
@@ -41,4 +48,29 @@ const server = http.createServer((request, response) => {
 
 server.listen(port, "127.0.0.1", () => {
   console.log("CRUD demo: http://127.0.0.1:" + port + "/index.html");
+  console.log("Program builder: http://127.0.0.1:" + port + "/program-builder.html");
+  console.log("API proxy: " + apiProxy);
 });
+
+function proxyApi(request, response) {
+  const target = new URL(request.url, apiProxy);
+  const options = {
+    hostname: target.hostname,
+    port: target.port || 80,
+    path: target.pathname + target.search,
+    method: request.method,
+    headers: request.headers
+  };
+
+  const proxy = proxyRequest(options, (proxyResponse) => {
+    response.writeHead(proxyResponse.statusCode || 502, proxyResponse.headers);
+    proxyResponse.pipe(response, { end: true });
+  });
+
+  proxy.on("error", () => {
+    response.writeHead(502);
+    response.end("API proxy error");
+  });
+
+  request.pipe(proxy, { end: true });
+}

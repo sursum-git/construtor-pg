@@ -31,6 +31,9 @@ class RuntimeMetadataSanitizer
         if ($pageType === 'crud') {
             $definition = $this->sanitizeCrudDefinition($definition, $screenId);
         }
+        if ($pageType === 'process') {
+            $definition = $this->sanitizeProcessDefinition($definition, $screenId);
+        }
 
         if ($pageType === 'home') {
             $definition = $this->sanitizeHomeDefinition($definition, $screenId);
@@ -59,6 +62,43 @@ class RuntimeMetadataSanitizer
             unset($definition['program']['logs']['url']);
             $definition['program']['logs']['documentId'] = 'program.logs';
         }
+
+        return $definition;
+    }
+
+    private function sanitizeProcessDefinition(array $definition, string $screenId): array
+    {
+        $definition['screenId'] = $screenId;
+        $definition['program']['screenId'] = $screenId;
+        $api = $definition['dataSource']['api'] ?? $definition['api'] ?? [];
+        $api = $this->sanitizeEndpointMap(is_array($api) ? $api : []);
+        $definition['api'] = $api;
+        $definition['dataSource']['api'] = $api;
+
+        if (!empty($definition['process']['endpoint'])) {
+            $endpoint = is_array($definition['process']['endpoint']) ? $definition['process']['endpoint'] : ['endpointId' => (string) $definition['process']['endpoint']];
+            $definition['process']['endpoint'] = [
+                'endpointId' => (string) ($endpoint['endpointId'] ?? $endpoint['actionId'] ?? $endpoint['id'] ?? 'process'),
+            ];
+            if (!empty($endpoint['method'])) {
+                $definition['process']['endpoint']['method'] = (string) $endpoint['method'];
+            }
+        }
+        if (!empty($definition['process']['statusEndpoint'])) {
+            $endpoint = is_array($definition['process']['statusEndpoint']) ? $definition['process']['statusEndpoint'] : ['endpointId' => (string) $definition['process']['statusEndpoint']];
+            $definition['process']['statusEndpoint'] = [
+                'endpointId' => (string) ($endpoint['endpointId'] ?? $endpoint['actionId'] ?? $endpoint['id'] ?? 'status'),
+            ];
+            if (!empty($endpoint['method'])) {
+                $definition['process']['statusEndpoint']['method'] = (string) $endpoint['method'];
+            }
+        }
+
+        if (!empty($definition['process']['endpoints']) && is_array($definition['process']['endpoints'])) {
+            $definition['process']['endpoints'] = $this->sanitizeEndpointMap($definition['process']['endpoints']);
+        }
+
+        unset($definition['definition'], $definition['definitionUrl'], $definition['openUrl'], $definition['url'], $definition['html'], $definition['htmlUrl']);
 
         return $definition;
     }
@@ -169,19 +209,22 @@ class RuntimeMetadataSanitizer
 
     private function sanitizeHomeRuntimeProgram(array $program): ?array
     {
-        if (($program['type'] ?? 'iframe') !== 'crud') {
+        if (!in_array((string) ($program['type'] ?? 'iframe'), ['crud', 'process'], true)) {
             return null;
         }
 
         if (($program['id'] ?? '') === 'clientes-crud') {
             $program['screenId'] = 'cadastros.clientes';
         }
+        if (($program['id'] ?? '') === 'processamento-clientes') {
+            $program['screenId'] = 'processamento.relatorio-clientes';
+        }
 
         if (empty($program['id']) || empty($program['screenId'])) {
             return null;
         }
 
-        $program['type'] = 'crud';
+        $program['type'] = (string) ($program['type'] ?? 'crud');
         unset(
             $program['definition'],
             $program['definitionUrl'],

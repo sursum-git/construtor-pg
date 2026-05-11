@@ -1563,6 +1563,57 @@ body .k-window:has(.crud-form) {
   overflow-wrap: anywhere;
 }
 
+.crud-custom-code-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.crud-field-hint {
+  padding-top: 6px;
+  color: var(--crud-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.crud-custom-code-preview {
+  display: grid;
+  gap: 12px;
+}
+
+.crud-custom-code-preview p,
+.crud-custom-code-preview dt,
+.crud-custom-code-preview dd {
+  margin: 0;
+}
+
+.crud-custom-code-preview-code {
+  padding: 10px 12px;
+  border: 1px solid var(--crud-accent-border);
+  border-radius: 6px;
+  background: var(--crud-accent-soft);
+  color: var(--crud-title);
+  font-size: 18px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.crud-custom-code-preview-properties {
+  display: grid;
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+  gap: 6px 10px;
+}
+
+.crud-custom-code-preview-properties dt {
+  color: var(--crud-muted);
+  font-weight: 700;
+}
+
+.crud-custom-code-preview-properties dd {
+  color: var(--crud-text);
+}
+
 .crud-loading {
   padding: 24px;
   color: var(--crud-muted);

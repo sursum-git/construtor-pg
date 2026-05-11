@@ -28,10 +28,12 @@ Paginas principais:
 - `index.html`: demo principal de clientes.
 - `exemplos.html`: indice central de exemplos.
 - `theme-builder.html`: pagina de teste/geracao visual de temas.
+- `program-builder.html`: interface visual para cadastrar modulos estruturais com abreviacao e faixa numerica inicial/final, modelar entidades, criar tabela fisica, versionar a estrutura da entidade, configurar cadastro mestre versionado, usar assistente para referencias historicas, definir campo de codificacao customizada, cadastrar regras de negocio declarativas ou por classe/metodo, configurar chaves unicas compostas, marcar campos nao editaveis, dependencias/FKs com acoes e validar nomenclatura de tabela e campo conforme padrao Genesis-ERP, gerando programas CRUD a partir de `builder_entity`, com preview, historico de versoes, rollback e publicacao.
 - `examples/pages/*.html`: paginas isoladas por variacao de configuracao.
 - `production/app.html`: entrada de producao para CRUD por `screenId`.
 - `production/home.html`: entrada de producao para Home por `screenId`.
 - `production/login.html`: entrada de producao para login, manter logado, selecao de assinante, escolha de area para administrador e recuperacao de senha.
+- `production/program-builder.html`: entrada da interface visual do construtor ligada ao backend real.
 
 Arquivos de configuracao e dados:
 

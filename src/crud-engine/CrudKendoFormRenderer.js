@@ -5,6 +5,8 @@
     constructor(options) {
       this.definition = options.definition;
       this.httpClient = options.httpClient;
+      this.config = options.config || {};
+      this.securityPolicy = options.securityPolicy || {};
       this.onSaved = options.onSaved || function() {};
       this.onCreate = options.onCreate || function() {};
       this.onEdit = options.onEdit || function() {};
@@ -33,6 +35,7 @@
         visible: {},
         steps: {}
       };
+      this.customCodeState = {};
 
       const wrapper = $("<div></div>").appendTo(document.body);
       const content = $("<form class=\"crud-form\"></form>").appendTo(wrapper);
@@ -1630,6 +1633,11 @@
         return;
       }
 
+      if ((field.editor || field.type) === "customCode" && !readonly) {
+        this.renderCustomCodeField(wrapper, labelElement, field, item, fieldDomId);
+        return;
+      }
+
       if (readonly) {
         const readonlyElement = $("<div class=\"crud-readonly-value\"></div>")
           .attr("id", fieldDomId)
@@ -1663,6 +1671,62 @@
         kind: field.editor || field.type,
         readonly,
         baseReadonly: readonly
+      };
+    }
+
+    renderCustomCodeField(wrapper, labelElement, field, item, fieldDomId) {
+      const line = $("<div class=\"crud-custom-code-line\"></div>").appendTo(wrapper);
+      const input = $("<input>")
+        .attr("id", fieldDomId)
+        .attr("name", item.field)
+        .prop("readonly", true)
+        .appendTo(line);
+      input.kendoTextBox({
+        value: this.data[item.field] == null ? "" : this.data[item.field]
+      });
+
+      const config = field.customCode || {};
+      const promptFields = global.CrudUtils.ensureArray(config.promptFields);
+      let button = null;
+      if (config.assistantScreenId || promptFields.length) {
+        button = $("<button type=\"button\"></button>").text(config.assistantScreenId ? "Abrir assistente" : "Configurar").appendTo(line);
+        button.kendoButton({
+          icon: "gear",
+          click: () => {
+            if (config.assistantScreenId) {
+              this.openCustomCodeAssistantScreen(item.field);
+              return;
+            }
+            this.openCustomCodeDialog(item.field);
+          }
+        });
+      }
+
+      const hintText = config.assistantScreenId
+        ? (config.promptTitle || "Abra a tela auxiliar para montar as propriedades do codigo antes do salvar.")
+        : promptFields.length
+        ? (config.promptTitle || "Configure as propriedades do codigo e o backend gera o valor no salvar.")
+        : "Codigo gerado automaticamente no salvar.";
+      const hint = $("<div class=\"crud-field-hint\"></div>").text(hintText).appendTo(wrapper);
+
+      this.customCodeState[item.field] = {
+        field,
+        input,
+        properties: {},
+        promptInputs: {},
+        hint,
+      };
+      this.inputs[item.field] = {
+        input,
+        wrapper,
+        labelElement,
+        field,
+        item,
+        id: fieldDomId,
+        kind: "customCode",
+        readonly: false,
+        baseReadonly: false,
+        button
       };
     }
 
@@ -1907,6 +1971,10 @@
       Object.keys(this.inputs || {}).forEach((fieldName) => {
         values[fieldName] = this.readFieldCurrentValue(fieldName);
       });
+      const customCode = this.buildCustomCodeRuntimePayload();
+      if (Object.keys(customCode).length) {
+        values._customCode = customCode;
+      }
       return values;
     }
 
@@ -2690,6 +2758,10 @@
         const value = this.readWidgetValue(item.input, item.field);
         values[fieldName] = value;
       });
+      const customCode = this.buildCustomCodeRuntimePayload();
+      if (Object.keys(customCode).length) {
+        values._customCode = customCode;
+      }
       return values;
     }
 
@@ -2706,8 +2778,9 @@
         const validation = field.validation || {};
         const runtimeRequired = this.formRuntime && this.formRuntime.required[fieldName];
         const required = runtimeRequired === true || validation.required || field.nullable === false;
+        const generatedByBackend = (field.editor || field.type) === "customCode";
 
-        if (required && (value == null || value === "")) {
+        if (required && !generatedByBackend && (value == null || value === "")) {
           errors.push(field.label + " e obrigatorio.");
         }
         if (validation.maxLength && value != null && String(value).length > validation.maxLength) {
@@ -2748,6 +2821,249 @@
         return input.data("kendoDropDownList").value();
       }
       return input.val();
+    }
+
+    buildCustomCodeRuntimePayload() {
+      const payload = {};
+      Object.keys(this.customCodeState || {}).forEach((fieldName) => {
+        const state = this.customCodeState[fieldName];
+        const item = this.inputs[fieldName];
+        if (!state || !item || item.readonly) {
+          return;
+        }
+        const config = item.field && item.field.customCode || {};
+        const properties = Object.assign({}, state.properties || {});
+        payload[fieldName] = {
+          properties
+        };
+        if (config.mode === "pattern" || config.promptFields) {
+          payload[fieldName].config = global.CrudUtils.clone(config);
+        }
+      });
+      return payload;
+    }
+
+    openCustomCodeDialog(fieldName) {
+      const state = this.customCodeState && this.customCodeState[fieldName];
+      const item = this.inputs[fieldName];
+      if (!state || !item) {
+        return;
+      }
+      const config = item.field && item.field.customCode || {};
+      const promptFields = global.CrudUtils.ensureArray(config.promptFields);
+      if (!promptFields.length) {
+        global.CrudUtils.showMessage("Este codigo sera gerado automaticamente no salvar.", "info");
+        return;
+      }
+
+      const wrapper = $("<div></div>").appendTo(document.body);
+      const body = $("<form class=\"crud-form\"></form>").appendTo(wrapper);
+      const grid = $("<div class=\"crud-section-grid\"></div>").css("--crud-columns", 1).appendTo(body);
+      const inputs = {};
+      promptFields.forEach((promptField) => {
+        const fieldWrapper = $("<div class=\"crud-field\"></div>").appendTo(grid);
+        $("<label></label>").text(promptField.label || promptField.name).appendTo(fieldWrapper);
+        const input = $("<input>").appendTo(fieldWrapper);
+        const savedValue = state.properties[promptField.name];
+        switch (promptField.type) {
+          case "integer":
+          case "decimal":
+            input.kendoNumericTextBox({
+              value: savedValue == null ? null : Number(savedValue),
+              format: promptField.type === "integer" ? "n0" : "n2",
+              decimals: promptField.type === "integer" ? 0 : 2
+            });
+            break;
+          case "boolean":
+            input.kendoSwitch({
+              checked: Boolean(savedValue)
+            });
+            break;
+          case "enum":
+          case "dropdown":
+            input.kendoDropDownList({
+              dataTextField: "text",
+              dataValueField: "value",
+              dataSource: global.CrudUtils.ensureArray(promptField.options),
+              value: savedValue == null ? "" : savedValue,
+              optionLabel: "Selecione"
+            });
+            break;
+          default:
+            input.kendoTextBox({
+              value: savedValue == null ? "" : savedValue
+            });
+        }
+        inputs[promptField.name] = {
+          field: promptField,
+          input
+        };
+      });
+      const actions = $("<div class=\"crud-form-actions\"></div>").appendTo(body);
+      const saveButton = $("<button type=\"button\"></button>").text("Aplicar").appendTo(actions);
+      const cancelButton = $("<button type=\"button\"></button>").text("Cancelar").appendTo(actions);
+      saveButton.kendoButton({ icon: "check", themeColor: "primary" });
+      cancelButton.kendoButton({ icon: "cancel" });
+
+      wrapper.kendoWindow({
+        title: config.promptTitle || ("Codificacao de " + (item.field.label || fieldName)),
+        modal: true,
+        visible: false,
+        width: Math.min(520, Math.max(320, global.innerWidth - 24)),
+        resizable: false,
+        close: function() {
+          wrapper.data("kendoWindow").destroy();
+          wrapper.remove();
+        }
+      });
+      const windowWidget = wrapper.data("kendoWindow");
+
+      saveButton.on("click", () => {
+        const properties = {};
+        for (const name in inputs) {
+          const entry = inputs[name];
+          const value = this.readCustomCodePromptValue(entry.input, entry.field);
+          if (entry.field.required && (value == null || value === "")) {
+            global.CrudUtils.showMessage((entry.field.label || name) + " e obrigatorio.", "warning");
+            return;
+          }
+          properties[name] = value;
+        }
+        state.properties = properties;
+        state.hint.text("Propriedades da codificacao configuradas. O backend gera o codigo final ao salvar.");
+        this.updateDirtyState();
+        global.CrudUtils.showMessage("Propriedades da codificacao atualizadas.", "success");
+        windowWidget.close();
+      });
+      cancelButton.on("click", function() {
+        windowWidget.close();
+      });
+      windowWidget.center().open();
+    }
+
+    openCustomCodeAssistantScreen(fieldName) {
+      const state = this.customCodeState && this.customCodeState[fieldName];
+      const item = this.inputs[fieldName];
+      if (!state || !item) {
+        return;
+      }
+      const config = item.field && item.field.customCode || {};
+      if (!config.assistantScreenId) {
+        this.openCustomCodeDialog(fieldName);
+        return;
+      }
+      if (typeof global.ProcessEngine !== "function") {
+        global.CrudUtils.showMessage("ProcessEngine nao esta carregado para abrir o assistente.", "error");
+        return;
+      }
+
+      const wrapper = $("<div></div>").appendTo(document.body);
+      const root = $("<div class=\"crud-custom-code-assistant-root\"></div>").appendTo(wrapper);
+      let processEngine = null;
+      wrapper.kendoWindow({
+        title: config.promptTitle || ("Assistente de " + (item.field.label || fieldName)),
+        modal: true,
+        visible: false,
+        width: Math.min(820, Math.max(360, global.innerWidth - 24)),
+        resizable: true,
+        close: function() {
+          if (processEngine && typeof processEngine.destroy === "function") {
+            processEngine.destroy();
+          }
+          wrapper.data("kendoWindow").destroy();
+          wrapper.remove();
+        }
+      });
+      const windowWidget = wrapper.data("kendoWindow");
+      processEngine = new global.ProcessEngine({
+        root: root,
+        screenId: config.assistantScreenId,
+        config: this.config || {},
+        httpClient: this.httpClient,
+        hideHeader: true,
+        contextPayload: {
+          parentField: fieldName,
+          parentValues: this.collectAllValues()
+        },
+        onResult: (payload) => {
+          if (payload && payload.result && payload.result.previewCode) {
+            this.openCustomCodePreviewConfirm(fieldName, state, payload, windowWidget);
+            return;
+          }
+          state.properties = Object.assign({}, payload && payload.values || {});
+          state.hint.text("Assistente da codificacao aplicado. O backend gera o codigo final ao salvar.");
+          this.updateDirtyState();
+          global.CrudUtils.showMessage("Propriedades da codificacao atualizadas.", "success");
+          windowWidget.close();
+        }
+      });
+      processEngine.init().catch((error) => {
+        const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel abrir o assistente da codificacao.");
+        global.CrudUtils.showMessage(normalized.message, "error");
+        windowWidget.close();
+      });
+      windowWidget.center().open();
+    }
+
+    openCustomCodePreviewConfirm(fieldName, state, payload, parentWindow) {
+      const result = payload && payload.result || {};
+      const values = Object.assign({}, payload && payload.values || {});
+      const previewCode = String(result.previewCode || "").trim();
+      const previewTitle = result.previewTitle || "Previsao do codigo";
+      const wrapper = $("<div></div>").appendTo(document.body);
+      const content = $("<div class=\"crud-custom-code-preview\"></div>").appendTo(wrapper);
+      $("<p></p>").text(result.message || "Confira o codigo previsto antes de aplicar as propriedades.").appendTo(content);
+      $("<div class=\"crud-custom-code-preview-code\"></div>").text(previewCode).appendTo(content);
+      const list = $("<dl class=\"crud-custom-code-preview-properties\"></dl>").appendTo(content);
+      Object.keys(values).forEach(function(key) {
+        $("<dt></dt>").text(key).appendTo(list);
+        $("<dd></dd>").text(values[key] == null ? "" : String(values[key])).appendTo(list);
+      });
+      const actions = $("<div class=\"crud-form-actions\"></div>").appendTo(content);
+      const confirmButton = $("<button type=\"button\"></button>").text("Aplicar").appendTo(actions);
+      const cancelButton = $("<button type=\"button\"></button>").text("Cancelar").appendTo(actions);
+      confirmButton.kendoButton({ icon: "check", themeColor: "primary" });
+      cancelButton.kendoButton({ icon: "cancel" });
+
+      wrapper.kendoWindow({
+        title: previewTitle,
+        modal: true,
+        visible: false,
+        width: Math.min(520, Math.max(320, global.innerWidth - 24)),
+        resizable: false,
+        close: function() {
+          wrapper.data("kendoWindow").destroy();
+          wrapper.remove();
+        }
+      });
+      const confirmWindow = wrapper.data("kendoWindow");
+      confirmButton.on("click", () => {
+        state.properties = values;
+        state.hint.text("Assistente da codificacao aplicado. Codigo previsto: " + previewCode + ".");
+        this.updateDirtyState();
+        global.CrudUtils.showMessage("Propriedades da codificacao atualizadas.", "success");
+        confirmWindow.close();
+        parentWindow.close();
+      });
+      cancelButton.on("click", function() {
+        confirmWindow.close();
+      });
+      confirmWindow.center().open();
+    }
+
+    readCustomCodePromptValue(input, field) {
+      switch (field.type) {
+        case "integer":
+        case "decimal":
+          return input.data("kendoNumericTextBox").value();
+        case "boolean":
+          return input.data("kendoSwitch").check();
+        case "enum":
+        case "dropdown":
+          return input.data("kendoDropDownList").value();
+        default:
+          return input.val();
+      }
     }
 
     formatReadonly(field, value) {

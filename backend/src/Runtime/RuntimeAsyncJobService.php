@@ -43,6 +43,31 @@ class RuntimeAsyncJobService
     }
 
     /**
+     * Agenda job pendente e retorna uma chave para recuperar o id após flush.
+     *
+     * @param array<string, mixed> $payload
+     * @param array<string, mixed> $options
+     */
+    public function scheduleWithReference(string $type, array $payload, array $options = []): string
+    {
+        if (!$this->registry->has($type)) {
+            throw new RuntimeHttpException('RUNTIME_JOB_TYPE_NOT_ALLOWED', 'Tipo de job runtime nao permitido.', 500, [
+                'jobType' => $type,
+            ]);
+        }
+
+        $reference = $this->createReference();
+        $options = array_merge($options, ['runtimePendingRef' => $reference]);
+        $this->pending[] = [
+            'type' => $type,
+            'payload' => $this->redactSensitiveValues($payload),
+            'options' => $options,
+        ];
+
+        return $reference;
+    }
+
+    /**
      * @return list<array{id: int|null, type: string, status: string, message?: string}>
      */
     public function flushPending(): array
@@ -70,6 +95,9 @@ class RuntimeAsyncJobService
                     'type' => $job->getJobType(),
                     'status' => $job->getStatus(),
                 ];
+                if (isset($item['options']['runtimePendingRef'])) {
+                    $summary['runtimePendingRef'] = (string) $item['options']['runtimePendingRef'];
+                }
                 if ($message = $this->summaryMessage($item['options'])) {
                     $summary['message'] = $message;
                 }
@@ -89,6 +117,9 @@ class RuntimeAsyncJobService
                     'type' => $job->getJobType(),
                     'status' => $job->getStatus(),
                 ];
+                if (isset($item['options']['runtimePendingRef'])) {
+                    $summary['runtimePendingRef'] = (string) $item['options']['runtimePendingRef'];
+                }
                 if ($message = $this->summaryMessage($item['options'])) {
                     $summary['message'] = $message;
                 }
@@ -167,5 +198,10 @@ class RuntimeAsyncJobService
         }
 
         return (bool) preg_match('/(senha|password|token|authorization|api[_-]?key|secret|private[_-]?key)/i', $key);
+    }
+
+    private function createReference(): string
+    {
+        return bin2hex(random_bytes(8));
     }
 }

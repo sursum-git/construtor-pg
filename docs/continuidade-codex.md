@@ -111,12 +111,14 @@ Validar no browser:
   - `file:///C:/construtor-pg/theme-builder.html`
   - `file:///C:/construtor-pg/examples/pages/consulta-basica.html`
   - `file:///C:/construtor-pg/examples/pages/processamento-parametros.html`
+  - `http://127.0.0.1:8765/program-builder.html`
   - `file:///C:/construtor-pg/production/app.html?screenId=cadastros.clientes`
   - `file:///C:/construtor-pg/production/app.html?screenId=admin.jobs`
   - `file:///C:/construtor-pg/production/app.html?screenId=admin.parametros`
   - `file:///C:/construtor-pg/production/app.html?screenId=admin.sessoes`
   - `file:///C:/construtor-pg/production/app.html?screenId=admin.transacoes`
   - `file:///C:/construtor-pg/production/home.html?screenId=home`
+  - `http://127.0.0.1:8765/production/program-builder.html`
 
 ## Quando implementar funcionalidade nova
 
@@ -165,11 +167,13 @@ Implementado ate agora, em nivel demo/frontend:
 - A decisao de enfileirar fica no backend por `builder_entity.metadata.jobs` ou `runtime_endpoint.config.jobs`; `mode="async"` usa worker, sem job configurado a acao segue na chamada normal.
 - Acoes manuais podem usar `handler="runtime.job.enqueue"`; exemplo atual: `sendWhatsapp` agenda `cliente.whatsapp_welcome`.
 - Tela `admin.jobs` consulta os jobs assincronos pelo runtime generico.
+- Backend runtime ja publica `screenId=processamento.relatorio-clientes`, com endpoints `process` e `status`, job `clientes.processamento` e documento seguro `resultado`.
 - Telas administrativas runtime criadas pelo seed: `admin.parametros`, `admin.parametro-valores`, `admin.listas-opcoes`, `admin.opcoes`, `admin.sessoes`, `admin.transacoes` e `admin.logs-transacoes`.
 - Tema claro/escuro por configuracao global.
 - Pagina inicial por JSON com Kendo TreeView lateral, appbar e chamada de programas por `iframe`, `crud` e `html` sanitizado.
 - Pagina inicial por JSON com Kendo TreeView lateral, appbar e chamada de programas por `iframe`, `crud`, `process` e `html` sanitizado.
 - Motor de processamento por parametros em `src/process-engine`, com endpoint de inicio, acompanhamento por SSE/polling, retorno em mensagem, grid, relatorio ou job em segundo plano.
+- A definicao de processamento dos exemplos e da demo ja usa `endpointId` para `process` e `status`, sem URL livre de API.
 - Appbar da Home pode exibir jobs concluidos e abrir a tela "Meus Jobs".
 - Assinante/tenant corrente opcional no cabecalho global da pagina inicial via `currentSubscriber`.
 - Troca opcional de assinante pelo badge do cabecalho global, com destaque para `Principal`, lista de assinantes e endpoint seguro configuravel; em producao, usar `endpointId` ou `actionId`.
@@ -183,6 +187,18 @@ Implementado ate agora, em nivel demo/frontend:
 - Camada inicial de seguranca de producao: carregamento por `screenId`, bloqueio opcional de JSON/URL livre, gateway runtime por `endpointId/actionId` e exemplo `seguranca-producao`.
 - Entradas separadas de producao em `production/app.html` e `production/home.html`, com CSP em meta tag, sem inicializacao inline e sem fallback local no HTTP client.
 - Backend runtime Symfony/API Platform com auditoria, semaforo configuravel, heartbeat, mensagens runtime por SSE com polling fallback, derrubada de sessao e protecao contra perda de dados no frontend.
+- Construtor visual em `program-builder.html` e `production/program-builder.html`, agora cobrindo cadastro de modulo estrutural com abreviacao e faixa numerica inicial/final, modelagem de entidade, criacao de tabela fisica, preview backend, rascunho, publicacao, duplicacao, historico em `builder_program_version`, historico estrutural em `builder_entity_version`, campo `custom_code` com assistente declarativo e cadastro visual de regras de negocio por entidade.
+- A sincronizacao fisica do construtor agora cria tabela, adiciona coluna, renomeia tabela/coluna, ajusta tipo/default/null/precision-scale, pode excluir colunas removidas quando a opcao estiver marcada e suporta rollback por revisao salva da entidade.
+- O runtime generico agora suporta cadastro mestre versionado em `runtime_entity_record_version`, referencia automatica de versao atual em campos transacionais e leitura de snapshot historico por campo virtual.
+- O `program-builder.html` agora tem assistente visual para esse padrao, gerando `*_version_id` e campos `*_historico` a partir de uma entidade mestre versionada.
+- O runtime generico agora tambem suporta codificacao customizada no backend, com sequencia em `runtime_custom_code_sequence`, padrao declarativo e metodo estatico restrito a `App\Runtime\CustomCode\*`.
+- O `custom_code` tambem pode abrir uma tela auxiliar segura por `screenId`, usando `ProcessEngine` e retorno fechado `result.type="properties"` para montar as propriedades do codigo antes do salvar.
+- O retorno `result.type="properties"` tambem pode trazer `previewCode` e `previewTitle`; nesse caso o formulario abre uma confirmacao Kendo mostrando a previsao do codigo antes de aplicar as propriedades.
+- O backend runtime agora tambem publica `screenId=assistente.codificacao.produto-pdm`, com endpoint `process`, handler `process.customCode.pdm` e previsao real do codigo PDM antes da confirmacao no formulario.
+- O runtime generico agora executa regras configuradas em `builder_entity.metadata.rules`, com ordem, fase, `continueOnError`, tipo declarativo `requiredWhen` ou `class_method`, parametros JSON e log automatico em `runtime_transaction_log`.
+- O construtor agora tambem salva `uniqueKeys` em `builder_entity.metadata`, permite campo `readonly`, FK com `dependencyType/onDelete/onUpdate` e valida nomes fisicos de tabela/coluna conforme o padrao Genesis-ERP, preservando nomes antigos quando nao foram renomeados.
+- O construtor agora tambem cadastra modulos estruturais em `builder_module`, controla faixa numerica sem sobreposicao e sugere nomes de tabela a partir da classificacao estrutural (`main`, `composition`, `specific_relation`, `aggregation`, `recursive`, `multi_level`, `view`).
+- O codigo do programa agora e informado manualmente e validado pelo modulo escolhido: usa a abreviacao do modulo seguida de 4 digitos dentro da faixa numerica do modulo, por exemplo `cd0101`.
 - Permissoes reais no backend por tela e endpoint: `screen_definition.security`, `runtime_endpoint.permission`, grupos/permissoes da sessao e filtro do JSON autorizado da Home.
 - `runtime_user_session` e a fonte principal da identidade da sessao; `runtime_transaction` e `runtime_transaction_log` nao guardam mais usuario diretamente.
 - Autenticacao inicial no backend com `auth_user`, `auth_provider_config`, login por senha local, estruturas fechadas para LDAP, SSO e OAuth/OIDC, token Bearer vinculado a `runtime_user_session` e pagina `production/login.html`. O tipo de acesso do login por senha vem de `auth_user.authSource`; OAuth/OIDC aparece como botao externo quando habilitado. O "manter logado" usa `auth_remember_token` e `/api/auth/remember`.
@@ -191,6 +207,14 @@ Implementado ate agora, em nivel demo/frontend:
 - Recuperacao de senha usa `/api/auth/password/request-reset` e `/api/auth/password/reset`, com tokens hash em `auth_password_reset_token`; no ambiente dev o token pode retornar na resposta e o `MAILER_DSN=null://null` apenas prepara/loga o envio.
 - Modulo simples de parametros com `system_parameter`, `system_parameter_value`, `system_option_list`, `system_option` e resolver tipado; seed cria `subscriber.enabled=false`.
 - Worker da fila: `php bin\console messenger:consume async -vv`.
+- O servidor estatico `node scripts/serve-static.js` agora tambem pode encaminhar `/api/*` para `CRUD_ENGINE_API_PROXY`, facilitando validar `program-builder.html` contra backend real.
+- Se o construtor responder `PROGRAM_BUILDER_STORAGE_NOT_READY`, aplicar as migrations `Version20260509093000`, `Version20260510113000`, `Version20260510143000`, `Version20260510170000`, `Version20260510190000` e `Version20260510200000` antes de testar a interface.
+- O rollback estrutural da entidade depende do snapshot salvo em `builder_entity_version`; ele cobre metadados, rename de tabela, rename de coluna, defaults e constraints gerenciadas pelo construtor.
+- Validacao real feita para historico mestre/transacional:
+  - `produto_hist` marcado como versionado;
+  - `pedido_item_hist` com `produto_version_id` preenchido automaticamente a partir de `produto_id`;
+  - `produto_nome_historico` como campo virtual lendo `nome` do snapshot;
+  - item antigo continuou exibindo `Produto A` e item novo exibiu `Produto A Atualizado` apos alteracao do cadastro mestre.
 
 ## Pontos conhecidos para atencao
 

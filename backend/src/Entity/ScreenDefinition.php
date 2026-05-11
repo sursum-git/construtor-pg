@@ -22,7 +22,7 @@ class ScreenDefinition
     #[ORM\Column(length: 160)]
     private string $screenId = '';
 
-    #[Assert\Choice(choices: ['crud', 'home'])]
+    #[Assert\Choice(choices: ['crud', 'home', 'process'])]
     #[ORM\Column(length: 30)]
     private string $pageType = 'crud';
 

@@ -8,6 +8,7 @@ use App\Entity\AuthSubscriber;
 use App\Entity\AuthUser;
 use App\Entity\AuthUserSubscriber;
 use App\Entity\BuilderEntity;
+use App\Entity\BuilderModule;
 use App\Entity\BuilderEntitySituation;
 use App\Entity\BuilderEntitySituationTransition;
 use App\Entity\BuilderField;
@@ -23,6 +24,7 @@ use App\Repository\AuthSubscriberRepository;
 use App\Repository\AuthUserRepository;
 use App\Repository\AuthUserSubscriberRepository;
 use App\Repository\BuilderEntityRepository;
+use App\Repository\BuilderModuleRepository;
 use App\Repository\BuilderEntitySituationRepository;
 use App\Repository\BuilderEntitySituationTransitionRepository;
 use App\Repository\BuilderFieldRepository;
@@ -116,11 +118,21 @@ class SeedRuntimeMetadataCommand extends Command
         'runtime.admin.forceLogout' => 'runtime.admin.forceLogout',
     ];
 
+    private const PROCESS_ENDPOINTS = [
+        'process' => 'process.clientes.start',
+        'status' => 'process.clientes.status',
+    ];
+
+    private const CUSTOM_CODE_PDM_ENDPOINTS = [
+        'process' => 'process.customCode.pdm',
+    ];
+
     public function __construct(
         private readonly KernelInterface $kernel,
         private readonly EntityManagerInterface $entityManager,
         private readonly ProgramRepository $programs,
         private readonly BuilderEntityRepository $builderEntities,
+        private readonly BuilderModuleRepository $builderModules,
         private readonly BuilderEntitySituationRepository $builderSituations,
         private readonly BuilderEntitySituationTransitionRepository $builderSituationTransitions,
         private readonly BuilderFieldRepository $builderFields,
@@ -146,11 +158,17 @@ class SeedRuntimeMetadataCommand extends Command
         $clientesDefinition = $this->readJson($projectRoot . '/examples/clientes.crud.json');
         $jobsDefinition = $this->readJson($projectRoot . '/examples/runtime-jobs.crud.json');
         $homeDefinition = $this->readJson($projectRoot . '/examples/home.home.json');
+        $processDefinition = $this->readJson($projectRoot . '/examples/processamento-relatorio.process.json');
+        $customCodePdmDefinition = $this->readJson($projectRoot . '/examples/codificacao-assistente-pdm.process.json');
 
         $clientesDefinition['screenId'] = 'cadastros.clientes';
         $clientesDefinition['program']['screenId'] = 'cadastros.clientes';
         $jobsDefinition['screenId'] = 'admin.jobs';
         $jobsDefinition['program']['screenId'] = 'admin.jobs';
+        $processDefinition['screenId'] = 'processamento.relatorio-clientes';
+        $processDefinition['program']['screenId'] = 'processamento.relatorio-clientes';
+        $customCodePdmDefinition['screenId'] = 'assistente.codificacao.produto-pdm';
+        $customCodePdmDefinition['program']['screenId'] = 'assistente.codificacao.produto-pdm';
         $homeDefinition['screenId'] = 'home';
         $homeDefinition['app']['id'] = 'home';
         $adminScreens = AdminCrudDefinitionFactory::screens();
@@ -166,6 +184,7 @@ class SeedRuntimeMetadataCommand extends Command
 
         $this->upsertProgram('cadastros.clientes', 'Clientes', 'cadastros', 'crud', 'cadastros.clientes');
         $this->upsertProgram('runtime-jobs', 'Jobs Assincronos', 'administracao', 'crud', 'admin.jobs');
+        $this->upsertProgram('processamento-clientes', 'Processamento de Clientes', 'operacional', 'process', 'processamento.relatorio-clientes');
         $this->upsertProgram('home', 'Home', 'global', 'home', 'home');
         foreach ($adminScreens as $screen) {
             $this->upsertProgram((string) $screen['programId'], (string) $screen['title'], 'administracao', 'crud', (string) $screen['screenId']);
@@ -177,12 +196,16 @@ class SeedRuntimeMetadataCommand extends Command
         }
         $this->upsertScreen('cadastros.clientes', 'crud', $clientesDefinition);
         $this->upsertScreen('admin.jobs', 'crud', $jobsDefinition);
+        $this->upsertScreen('processamento.relatorio-clientes', 'process', $processDefinition);
+        $this->upsertScreen('assistente.codificacao.produto-pdm', 'process', $customCodePdmDefinition);
         foreach ($adminScreens as $screen) {
             $this->upsertScreen((string) $screen['screenId'], 'crud', $screen['definition']);
         }
         $this->upsertScreen('home', 'home', $homeDefinition);
         $this->upsertEndpoints('cadastros.clientes', array_merge(self::CLIENT_ENDPOINTS, self::SYSTEM_ENDPOINTS));
         $this->upsertEndpoints('admin.jobs', array_merge(self::JOB_ENDPOINTS, self::SYSTEM_ENDPOINTS));
+        $this->upsertEndpoints('processamento.relatorio-clientes', self::PROCESS_ENDPOINTS);
+        $this->upsertEndpoints('assistente.codificacao.produto-pdm', self::CUSTOM_CODE_PDM_ENDPOINTS);
         foreach ($adminScreens as $screen) {
             $this->upsertEndpoints((string) $screen['screenId'], $this->adminEndpointHandlers($screen));
         }
@@ -191,6 +214,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertAuthDefaults();
         $this->upsertSubscriberDefaults();
         $this->upsertSystemParameters();
+        $this->upsertBuilderModuleDefaults();
         $this->seedClientes();
         $this->seedClienteTelefones();
 
@@ -733,6 +757,12 @@ class SeedRuntimeMetadataCommand extends Command
         if ($screenId === 'admin.jobs') {
             return in_array($endpointId, ['read', 'get'], true) ? 'runtime.jobs.read' : null;
         }
+        if ($screenId === 'processamento.relatorio-clientes') {
+            return 'processamento.read';
+        }
+        if ($screenId === 'assistente.codificacao.produto-pdm') {
+            return 'processamento.read';
+        }
         if ($this->adminScreen($screenId)) {
             return match ($endpointId) {
                 'read', 'get' => 'admin.read',
@@ -788,6 +818,21 @@ class SeedRuntimeMetadataCommand extends Command
                 'operation' => $endpointId,
                 'actionId' => $endpointId,
                 'programId' => 'runtime-jobs',
+            ];
+        }
+        if ($screenId === 'processamento.relatorio-clientes') {
+            return [
+                'entityCode' => 'cliente',
+                'actionId' => $endpointId,
+                'programId' => 'processamento-clientes',
+                'permissionPrefix' => 'processamento',
+            ];
+        }
+        if ($screenId === 'assistente.codificacao.produto-pdm') {
+            return [
+                'actionId' => $endpointId,
+                'programId' => 'assistente-codificacao-produto-pdm',
+                'permissionPrefix' => 'processamento',
             ];
         }
         $adminScreen = $this->adminScreen($screenId);
@@ -1069,5 +1114,29 @@ class SeedRuntimeMetadataCommand extends Command
             ->setConditionConfig([]);
 
         $this->entityManager->persist($policy);
+    }
+
+    private function upsertBuilderModuleDefaults(): void
+    {
+        $this->upsertBuilderModule('cadastros', 'Cadastros', 'cd', 1, 999);
+        $this->upsertBuilderModule('operacional', 'Operacional', 'op', 1000, 1999);
+        $this->upsertBuilderModule('administracao', 'Administracao', 'ad', 2000, 2999);
+    }
+
+    private function upsertBuilderModule(string $code, string $name, string $abbreviation, int $start, int $end): void
+    {
+        $module = $this->builderModules->findOneBy(['code' => $code]) ?? new BuilderModule();
+        $module
+            ->setCode($code)
+            ->setName($name)
+            ->setAbbreviation($abbreviation)
+            ->setNumberStart($start)
+            ->setNumberEnd($end)
+            ->setEnabled(true)
+            ->setMetadata([
+                'source' => 'seed-runtime-metadata',
+            ]);
+
+        $this->entityManager->persist($module);
     }
 }

@@ -15,7 +15,7 @@
     "dropdown"
   ];
   const ALLOWED_WAIT_MODES = ["auto", "sse", "polling", "none"];
-  const ALLOWED_RESULT_TYPES = ["message", "grid", "report", "job"];
+  const ALLOWED_RESULT_TYPES = ["message", "grid", "report", "job", "properties"];
   const UNSAFE_KEY_PATTERN = /^(on[A-Z]|on_|script|eval|template|handler|function|callback)$/i;
   const UNSAFE_TEXT_PATTERN = /<\s*script|javascript\s*:|on[a-z]+\s*=|\beval\s*\(|\bFunction\s*\(/i;
 
@@ -131,7 +131,7 @@
     validateResult(definition, errors) {
       const result = definition.process && definition.process.result || {};
       if (result.type && ALLOWED_RESULT_TYPES.indexOf(String(result.type)) === -1) {
-        errors.push("process.result.type deve ser message, grid, report ou job.");
+        errors.push("process.result.type deve ser message, grid, report, job ou properties.");
       }
       if (result.openReportInNewTab != null && typeof result.openReportInNewTab !== "boolean") {
         errors.push("process.result.openReportInNewTab precisa ser booleano.");

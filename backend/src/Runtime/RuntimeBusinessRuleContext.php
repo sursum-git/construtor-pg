@@ -4,6 +4,9 @@ namespace App\Runtime;
 
 class RuntimeBusinessRuleContext
 {
+    /** @var callable|null */
+    private $logger = null;
+
     public function __construct(
         private readonly array $definition,
         private readonly string $operation,
@@ -68,5 +71,24 @@ class RuntimeBusinessRuleContext
     public function setAfter(array $after): void
     {
         $this->after = $after;
+    }
+
+    public function setLogger(?callable $logger): void
+    {
+        $this->logger = $logger;
+    }
+
+    public function log(
+        string $eventType,
+        ?string $message = null,
+        array $metadata = [],
+        array $before = [],
+        array $after = [],
+    ): void {
+        if (!is_callable($this->logger)) {
+            return;
+        }
+
+        ($this->logger)($eventType, $message, $before, $after, $metadata);
     }
 }

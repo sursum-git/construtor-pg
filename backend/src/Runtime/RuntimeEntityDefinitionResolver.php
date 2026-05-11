@@ -60,12 +60,34 @@ class RuntimeEntityDefinitionResolver
         $configuredFieldCount = 0;
         $ignoredFields = [];
         $primaryKey = (string) (($entity->getMetadata()['primaryKey'] ?? '') ?: 'id');
+        $entityMetadata = $entity->getMetadata();
+        $versioning = $this->resolveVersioningConfig($entityMetadata);
         foreach ($entity->getFields() as $field) {
             ++$configuredFieldCount;
             $code = trim($field->getCode());
             $options = $field->getOptions();
             $column = (string) (($options['columnName'] ?? '') ?: $code);
             $this->assertSafeIdentifier($code, 'fieldCode');
+            if (($options['virtual'] ?? false) === true) {
+                $fields[$code] = [
+                    'code' => $code,
+                    'column' => null,
+                    'label' => $field->getLabel(),
+                    'dataType' => $field->getDataType(),
+                    'databaseType' => $field->getDatabaseType(),
+                    'required' => false,
+                    'primaryKey' => false,
+                    'writable' => false,
+                    'readable' => ($options['readable'] ?? true) !== false,
+                    'audit' => false,
+                    'length' => $field->getLength() ?? ($options['validation']['maxLength'] ?? $options['maxLength'] ?? null),
+                'options' => $options,
+                'virtual' => true,
+                'derivedVersionField' => $this->normalizeVersionSnapshotFieldConfig($options),
+                'customCode' => $this->normalizeCustomCodeConfig($options),
+            ];
+            continue;
+        }
             $this->assertSafeIdentifier($column, 'columnName');
             if (!isset($dbColumns[$column])) {
                 $ignoredFields[] = [
@@ -95,6 +117,9 @@ class RuntimeEntityDefinitionResolver
                 'audit' => ($options['audit'] ?? true) !== false,
                 'length' => $field->getLength() ?? ($options['validation']['maxLength'] ?? $options['maxLength'] ?? null),
                 'options' => $options,
+                'virtual' => false,
+                'versionReference' => $this->normalizeVersionReferenceConfig($options),
+                'customCode' => $this->normalizeCustomCodeConfig($options),
             ];
         }
 
@@ -131,9 +156,10 @@ class RuntimeEntityDefinitionResolver
             'quotedTableName' => $this->connection->quoteSingleIdentifier($tableName),
             'primaryKey' => $primaryKey,
             'primaryColumn' => $fields[$primaryKey]['column'],
-            'metadata' => $entity->getMetadata(),
+            'metadata' => $entityMetadata,
             'fields' => $fields,
             'dbColumns' => $dbColumns,
+            'versioning' => $versioning,
             'situation' => $situation,
         ];
     }
@@ -192,6 +218,47 @@ class RuntimeEntityDefinitionResolver
         }
 
         return false;
+    }
+
+    private function normalizeCustomCodeConfig(array $options): ?array
+    {
+        $config = is_array($options['customCode'] ?? null) ? $options['customCode'] : [];
+        $mode = strtolower(trim((string) ($config['mode'] ?? '')));
+        if ($mode === '') {
+            return null;
+        }
+
+        $promptFields = [];
+        foreach (is_array($config['promptFields'] ?? null) ? $config['promptFields'] : [] as $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+            $name = trim((string) ($field['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $promptFields[] = [
+                'name' => $name,
+                'label' => trim((string) ($field['label'] ?? $name)),
+                'type' => strtolower(trim((string) ($field['type'] ?? 'string'))),
+                'required' => ($field['required'] ?? false) === true,
+                'options' => is_array($field['options'] ?? null) ? array_values($field['options']) : [],
+            ];
+        }
+
+        return [
+            'mode' => in_array($mode, ['pattern', 'static_method'], true) ? $mode : 'pattern',
+            'prefix' => trim((string) ($config['prefix'] ?? '')),
+            'pattern' => trim((string) ($config['pattern'] ?? '{YYYY}{MM}{DD}-{SEQ:4}')),
+            'sequenceEnabled' => ($config['sequenceEnabled'] ?? true) !== false,
+            'sequenceScope' => in_array(($config['sequenceScope'] ?? null), ['global', 'year', 'month', 'day'], true) ? $config['sequenceScope'] : 'global',
+            'sequencePadding' => max(1, min(12, (int) ($config['sequencePadding'] ?? 4))),
+            'staticClass' => trim((string) ($config['staticClass'] ?? '')),
+            'staticMethod' => trim((string) ($config['staticMethod'] ?? '')),
+            'assistantScreenId' => trim((string) ($config['assistantScreenId'] ?? '')),
+            'promptTitle' => trim((string) ($config['promptTitle'] ?? '')),
+            'promptFields' => $promptFields,
+        ];
     }
 
     private function resolveSituationConfig(object $entity, array $fields): array
@@ -335,6 +402,47 @@ class RuntimeEntityDefinitionResolver
                     'operation' => 'read|get|create|update|delete',
                 ],
             ],
+        ];
+    }
+
+    private function resolveVersioningConfig(array $metadata): array
+    {
+        $config = is_array($metadata['versioning'] ?? null) ? $metadata['versioning'] : [];
+
+        return [
+            'enabled' => ($config['enabled'] ?? false) === true,
+            'mode' => (string) ($config['mode'] ?? 'snapshot_on_change'),
+            'deduplicate' => ($config['deduplicate'] ?? true) !== false,
+        ];
+    }
+
+    private function normalizeVersionReferenceConfig(array $options): ?array
+    {
+        $config = is_array($options['versionReference'] ?? null) ? $options['versionReference'] : [];
+        $entityCode = trim((string) ($config['sourceEntityCode'] ?? ''));
+        $sourceIdField = trim((string) ($config['sourceIdField'] ?? ''));
+        if ($entityCode === '' || $sourceIdField === '') {
+            return null;
+        }
+
+        return [
+            'sourceEntityCode' => $entityCode,
+            'sourceIdField' => $sourceIdField,
+        ];
+    }
+
+    private function normalizeVersionSnapshotFieldConfig(array $options): ?array
+    {
+        $config = is_array($options['versionSnapshot'] ?? null) ? $options['versionSnapshot'] : [];
+        $versionField = trim((string) ($config['versionField'] ?? ''));
+        $path = trim((string) ($config['path'] ?? ''));
+        if ($versionField === '' || $path === '') {
+            return null;
+        }
+
+        return [
+            'versionField' => $versionField,
+            'path' => $path,
         ];
     }
 }

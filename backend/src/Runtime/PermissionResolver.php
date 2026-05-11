@@ -472,30 +472,25 @@ class PermissionResolver
      */
     private function currentPermissionSets(): array
     {
+        $map = [];
         $raw = $this->getCurrentUserPayload()['permissions'] ?? [];
-        $allow = [];
-        $deny = [];
         if (!is_array($raw)) {
             $raw = [$raw];
         }
 
-        foreach ($raw as $key => $value) {
-            if (is_int($key)) {
-                $permission = $this->normalizePermission((string) $value);
-                if ($permission !== '') {
-                    $allow[] = $permission;
-                }
-                continue;
-            }
+        $this->collectPermissionEntries('', $raw, $map);
 
-            $permission = $this->normalizePermission((string) $key);
+        $allow = [];
+        $deny = [];
+        foreach ($map as $permission => $allowed) {
+            $permission = $this->normalizePermission((string) $permission);
             if ($permission === '') {
                 continue;
             }
-            if ($value === false || $value === 0 || $value === '0') {
-                $deny[] = $permission;
-            } else {
+            if ($allowed) {
                 $allow[] = $permission;
+            } else {
+                $deny[] = $permission;
             }
         }
 
@@ -503,6 +498,69 @@ class PermissionResolver
             'allow' => array_values(array_unique($allow)),
             'deny' => array_values(array_unique($deny)),
         ];
+    }
+
+    /**
+     * @param array<int|string, mixed> $permissions
+     * @param array<string, bool> $map
+     */
+    private function collectPermissionEntries(string $prefix, array $permissions, array &$map): void
+    {
+        foreach ($permissions as $key => $value) {
+            if (is_int($key)) {
+                $this->addPermissionEntry($this->normalizePermission((string) $value), true, $map);
+                continue;
+            }
+
+            $permission = $this->normalizePermission((string) $key);
+            if ($permission === '') {
+                continue;
+            }
+            $fullPermission = $prefix !== '' ? $prefix . '.' . $permission : $permission;
+
+            if (is_array($value)) {
+                if ($this->isAssociativeArray($value)) {
+                    $this->collectPermissionEntries($fullPermission, $value, $map);
+                    continue;
+                }
+
+                foreach ($value as $item) {
+                    $nested = $this->normalizePermission((string) $item);
+                    if ($nested === '') {
+                        continue;
+                    }
+                    $this->addPermissionEntry($fullPermission !== '' ? $fullPermission . '.' . $nested : $nested, true, $map);
+                }
+                continue;
+            }
+
+            $this->addPermissionEntry($fullPermission, !$this->isPermissionValueDenied($value), $map);
+        }
+    }
+
+    private function addPermissionEntry(string $permission, bool $allowed, array &$map): void
+    {
+        if ($permission === '') {
+            return;
+        }
+        $map[$permission] = $allowed;
+    }
+
+    private function isPermissionValueDenied(mixed $value): bool
+    {
+        if ($value === false || $value === 0 || $value === '0') {
+            return true;
+        }
+        if (is_string($value)) {
+            return strtolower($value) === 'false' || strtolower($value) === 'nao' || strtolower($value) === 'no';
+        }
+
+        return false;
+    }
+
+    private function isAssociativeArray(array $value): bool
+    {
+        return array_values($value) !== $value;
     }
 
     private function permissionMatches(string $pattern, string $permission): bool

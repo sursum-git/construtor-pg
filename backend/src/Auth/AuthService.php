@@ -168,23 +168,42 @@ class AuthService
 
         $rememberToken->markUsed();
 
+        $authenticated = $this->authenticatedUserFromPayload([
+            'id' => $user->getUsername(),
+            'userId' => $user->getUsername(),
+            'name' => $user->getDisplayName(),
+            'email' => $user->getEmail(),
+            'groups' => $user->getGroups(),
+            'permissions' => $user->getPermissions(),
+            'tenantId' => $user->getTenantId(),
+            'source' => $user->getAuthSource(),
+            'forcePasswordChange' => $user->mustChangePassword(),
+        ], $user->getTenantId());
+        $subscriberContext = $this->resolveSubscriberContext($authenticated);
+        if (($subscriberContext['requiresSelection'] ?? false) === true) {
+            return $this->createSubscriberSelectionChallenge(
+                $authenticated,
+                $user->getAuthSource(),
+                $user->getAuthSource(),
+                true,
+                $subscriberContext,
+            );
+        }
+        if (($subscriberContext['enabled'] ?? false) === true && !empty($subscriberContext['selected']['id'])) {
+            $authenticated = $this->resolveUserPermissionsForSubscriber(
+                $authenticated,
+                (string) $subscriberContext['selected']['id'],
+            );
+        }
+
         $response = $this->createRuntimeSession(
-            new AuthenticatedUser(
-                tenantId: $user->getTenantId(),
-                userId: $user->getUsername(),
-                username: $user->getUsername(),
-                displayName: $user->getDisplayName(),
-                email: $user->getEmail(),
-                groups: $user->getGroups(),
-                permissions: $user->getPermissions(),
-                source: $user->getAuthSource(),
-                forcePasswordChange: $user->mustChangePassword(),
-            ),
+            $authenticated,
             $user->getAuthSource(),
             $user->getAuthSource(),
             $request,
             true,
             false,
+            $subscriberContext,
         );
         $response['rememberToken'] = $tokenValue;
         $response['rememberTokenExpiresAt'] = $rememberToken->getExpiresAt()->format(DATE_ATOM);
@@ -295,6 +314,7 @@ class AuthService
 
         $challenge->markUsed();
         $user = $this->authenticatedUserFromPayload($challenge->getUserPayload(), $subscriberCode);
+        $user = $this->resolveUserPermissionsForSubscriber($user, $subscriberCode);
 
         return $this->createRuntimeSession(
             $user,
@@ -522,7 +542,10 @@ class AuthService
         }
 
         if (($subscriberContext['enabled'] ?? false) === true && !empty($subscriberContext['selected']['id'])) {
-            $user = $this->authenticatedUserFromPayload($user->toPayload() + ['tenantId' => $user->getTenantId()], (string) $subscriberContext['selected']['id']);
+            $user = $this->resolveUserPermissionsForSubscriber(
+                $user,
+                (string) $subscriberContext['selected']['id'],
+            );
         }
 
         return $this->createRuntimeSession(
@@ -658,8 +681,236 @@ class AuthService
 
     private function isAdminUser(AuthenticatedUser $user): bool
     {
-        return in_array('admin', array_map('strval', $user->getGroups()), true)
-            || in_array('*', array_map('strval', $user->getPermissions()), true);
+        if (in_array('admin', array_map('strval', $user->getGroups()), true)) {
+            return true;
+        }
+
+        return $this->hasResolvedPermission($user->getPermissions(), 'admin')
+            || $this->hasResolvedPermission($user->getPermissions(), 'admin.*')
+            || $this->hasResolvedPermission($user->getPermissions(), '*');
+    }
+
+    private function resolveUserPermissionsForSubscriber(AuthenticatedUser $user, string $subscriberCode): AuthenticatedUser
+    {
+        $access = $this->userSubscribers->findOneEnabledForUserAndSubscriber(
+            $user->getTenantId(),
+            $user->getUsername(),
+            $subscriberCode,
+        );
+
+        if (!$access) {
+            return $user;
+        }
+
+        $overrides = is_array($access->getPermissionOverrides()) ? $access->getPermissionOverrides() : [];
+        if (!$overrides) {
+            return $user;
+        }
+
+        $merged = $this->mergePermissions($user->getPermissions(), $overrides);
+        if ($merged === $user->getPermissions()) {
+            return $user;
+        }
+
+        return new AuthenticatedUser(
+            tenantId: $user->getTenantId(),
+            userId: $user->getUserId(),
+            username: $user->getUsername(),
+            displayName: $user->getDisplayName(),
+            email: $user->getEmail(),
+            groups: $user->getGroups(),
+            permissions: $merged,
+            source: $user->getSource(),
+            forcePasswordChange: $user->mustChangePassword(),
+        );
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private function isPermissionValueDenied(mixed $value): bool
+    {
+        if ($value === false || $value === 0 || $value === '0') {
+            return true;
+        }
+        if (is_string($value)) {
+            return in_array(mb_strtolower(trim($value)), ['false', 'nao', 'no'], true);
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<int|string, mixed> $permissions
+     *
+     * @return array<string, bool>
+     */
+    private function normalizePermissionMap(array $permissions): array
+    {
+        $map = [];
+        foreach ($permissions as $key => $value) {
+            if (is_int($key)) {
+                $this->collectPermissionEntry((string) $value, true, $map);
+                continue;
+            }
+
+            $this->collectPermissionEntry((string) $key, $value, $map);
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param array<int|string, mixed> $basePermissions
+     * @param array<int|string, mixed> $overrides
+     *
+     * @return array<string, bool>
+     */
+    private function mergePermissions(array $basePermissions, array $overrides): array
+    {
+        $base = $this->normalizePermissionMap($basePermissions);
+        $override = $this->normalizePermissionMap($overrides);
+        if (!$override) {
+            return $base;
+        }
+
+        foreach ($override as $permission => $allow) {
+            $base[$permission] = (bool) $allow;
+        }
+
+        if (!$base) {
+            return [];
+        }
+
+        ksort($base);
+        return $base;
+    }
+
+    /**
+     * @param array<string, bool> $map
+     */
+    private function collectPermissionEntry(string $permission, mixed $value, array &$map): void
+    {
+        $permission = $this->normalizePermission($permission);
+        if ($permission === '') {
+            return;
+        }
+
+        if (is_array($value)) {
+            $isAssoc = $this->isAssociativeArray($value);
+            if (!$isAssoc) {
+                foreach ($value as $item) {
+                    $this->collectPermissionEntry((string) $item, true, $map);
+                }
+
+                return;
+            }
+
+            foreach ($value as $nestedKey => $nestedValue) {
+                $nestedPermission = $permission . '.' . (string) $nestedKey;
+                $this->collectPermissionEntry($nestedPermission, $nestedValue, $map);
+            }
+            return;
+        }
+
+        if (is_string($value)) {
+            $normalizedValue = mb_strtolower(trim($value));
+            if ($normalizedValue === 'true') {
+                $map[$permission] = true;
+                return;
+            }
+            if ($normalizedValue === 'false' || $normalizedValue === 'nao' || $normalizedValue === 'no' || $normalizedValue === '0') {
+                $map[$permission] = false;
+                return;
+            }
+        }
+
+        if (is_bool($value) || $value === 0 || $value === 1 || $value === '0' || $value === '1') {
+            $map[$permission] = (bool) $value;
+            return;
+        }
+
+        $map[$permission] = !$this->isPermissionValueDenied($value);
+    }
+
+    private function isAssociativeArray(array $value): bool
+    {
+        return array_values($value) !== $value;
+    }
+
+    /**
+     * @param array<int|string, mixed> $rawPermissions
+     */
+    private function hasResolvedPermission(array $rawPermissions, string $permission): bool
+    {
+        $permission = $this->normalizePermission($permission);
+        if ($permission === '') {
+            return true;
+        }
+
+        $permissionSets = $this->extractPermissionSets($this->normalizePermissionMap($rawPermissions));
+        foreach ($permissionSets['deny'] as $denied) {
+            if ($this->permissionMatches($denied, $permission)) {
+                return false;
+            }
+        }
+
+        foreach ($permissionSets['allow'] as $allowed) {
+            if ($this->permissionMatches($allowed, $permission)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, bool> $map
+     *
+     * @return array{allow:string[], deny:string[]}
+     */
+    private function extractPermissionSets(array $map): array
+    {
+        $allow = [];
+        $deny = [];
+        foreach ($map as $permission => $allowed) {
+            $permission = $this->normalizePermission((string) $permission);
+            if ($permission === '') {
+                continue;
+            }
+            if ($allowed) {
+                $allow[] = $permission;
+            } else {
+                $deny[] = $permission;
+            }
+        }
+
+        return [
+            'allow' => array_values(array_unique($allow)),
+            'deny' => array_values(array_unique($deny)),
+        ];
+    }
+
+    private function permissionMatches(string $pattern, string $permission): bool
+    {
+        if ($pattern === '*' || $pattern === $permission) {
+            return true;
+        }
+        if (str_ends_with($pattern, '.*')) {
+            return str_starts_with($permission, substr($pattern, 0, -1));
+        }
+        if (str_contains($pattern, '*')) {
+            $escaped = preg_quote($pattern, '/');
+            $regex = '/^' . str_replace('\\*', '.*', $escaped) . '$/';
+            return (bool) preg_match($regex, $permission);
+        }
+
+        return false;
+    }
+
+    private function normalizePermission(string $permission): string
+    {
+        return mb_strtolower(trim($permission));
     }
 
     private function isSubscriberConceptEnabled(): bool
