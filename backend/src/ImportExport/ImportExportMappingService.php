@@ -476,30 +476,52 @@ class ImportExportMappingService
                 throw new RuntimeHttpException('IMPORT_EXPORT_TXT_FIELD_LENGTH_REQUIRED', 'Campo de leiaute posicional precisa informar length.', 422);
             }
             $start = max(1, (int) ($field['start'] ?? $cursor));
-            if ($start > strlen($line) + 1) {
-                $line .= str_repeat(' ', $start - (strlen($line) + 1));
-            }
             $value = array_key_exists('constant', $field)
                 ? $field['constant']
                 : $this->applyTransforms($this->extractValue($record, (string) ($field['sourcePath'] ?? '')), $field['transforms'] ?? []);
-            $text = $this->stringifyValue($value);
-            $padChar = mb_substr((string) ($field['padChar'] ?? ' '), 0, 1) ?: ' ';
-            $align = strtolower(trim((string) ($field['align'] ?? 'left')));
-            if (mb_strlen($text) > $length) {
-                $text = mb_substr($text, 0, $length);
-            }
-            $text = $align === 'right'
-                ? str_pad($text, $length, $padChar, STR_PAD_LEFT)
-                : str_pad($text, $length, $padChar, STR_PAD_RIGHT);
-
-            $prefix = substr($line, 0, max(0, $start - 1));
-            $suffixStart = $start - 1 + $length;
-            $suffix = strlen($line) > $suffixStart ? substr($line, $suffixStart) : '';
-            $line = $prefix . $text . $suffix;
+            $text = $this->normalizeFixedWidthText(
+                $this->stringifyValue($value),
+                $length,
+                strtolower(trim((string) ($field['align'] ?? 'left'))),
+                mb_substr((string) ($field['padChar'] ?? ' '), 0, 1) ?: ' ',
+            );
+            $line = $this->applyFixedWidthSegment($line, $text, $start, $length);
             $cursor = $start + $length;
         }
 
-        return rtrim($line, ' ');
+        return $line;
+    }
+
+    private function normalizeFixedWidthText(string $text, int $length, string $align, string $padChar): string
+    {
+        if (mb_strlen($text) > $length) {
+            $text = mb_substr($text, 0, $length);
+        }
+        $missing = $length - mb_strlen($text);
+        if ($missing <= 0) {
+            return $text;
+        }
+
+        $padding = str_repeat($padChar, $missing);
+        if ($align === 'right') {
+            return $padding . $text;
+        }
+
+        return $text . $padding;
+    }
+
+    private function applyFixedWidthSegment(string $line, string $text, int $start, int $length): string
+    {
+        $lineLength = mb_strlen($line);
+        if ($start > $lineLength + 1) {
+            $line .= str_repeat(' ', $start - ($lineLength + 1));
+        }
+
+        $prefix = mb_substr($line, 0, max(0, $start - 1));
+        $suffixStart = $start - 1 + $length;
+        $suffix = $lineLength > $suffixStart ? mb_substr($line, $suffixStart) : '';
+
+        return $prefix . $text . $suffix;
     }
 
     private function loadSources(array $mapping, array $parameters, bool $preview): array

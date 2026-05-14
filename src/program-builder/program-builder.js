@@ -48,7 +48,6 @@
 
   ProgramBuilder.FIELD_ABBREVIATIONS = {
     abreviado: "abrev",
-    abreviado: "abrev",
     acumulado: "acum",
     pagar: "apg",
     receber: "arec",

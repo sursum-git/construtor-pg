@@ -2466,15 +2466,11 @@ class ProgramBuilderService
             'saveMobileTemplate' => 'layout.saveMobileTemplate',
             'deleteMobileTemplate' => 'layout.deleteMobileTemplate',
         ];
-        if ($odooEntity) {
-            $handlers['create'] = 'entity.api.odoo.readonly';
-            $handlers['update'] = 'entity.api.odoo.readonly';
-            $handlers['delete'] = 'entity.api.odoo.readonly';
-        } elseif ($apiEntity) {
+        if ($apiEntity && !$odooEntity) {
             $handlers['create'] = 'entity.api.crud';
             $handlers['update'] = 'entity.api.crud';
             $handlers['delete'] = 'entity.api.crud';
-        } else {
+        } elseif (!$apiEntity && !$odooEntity) {
             $handlers['create'] = 'entity.crud';
             $handlers['update'] = 'entity.crud';
             $handlers['delete'] = 'entity.crud';
@@ -2485,6 +2481,7 @@ class ProgramBuilderService
             $handlers['runtime.messages.ack'] = 'runtime.messages.ack';
         }
 
+        $activeEndpointIds = [];
         foreach ($handlers as $endpointId => $handler) {
             if (in_array($endpointId, ['create', 'update', 'delete'], true)) {
                 if ($endpointId === 'create' && !$version->isAllowCreate()) {
@@ -2512,12 +2509,55 @@ class ProgramBuilderService
                 ->setConfig($this->endpointConfig($version, $endpointId, $handler));
 
             $this->entityManager->persist($endpoint);
+            $activeEndpointIds[] = $endpointId;
         }
+
+        $this->disableUnusedCrudGeneratedEndpoints($version->getScreenId(), $activeEndpointIds);
     }
 
     private function disableRuntimeEndpointsForScreen(string $screenId): void
     {
         foreach ($this->endpoints->findBy(['screenId' => $screenId]) as $endpoint) {
+            $endpoint->setEnabled(false);
+            $this->entityManager->persist($endpoint);
+        }
+    }
+
+    /**
+     * @param list<string> $activeEndpointIds
+     */
+    private function disableUnusedCrudGeneratedEndpoints(string $screenId, array $activeEndpointIds): void
+    {
+        $generatedEndpointIds = [
+            'read',
+            'get',
+            'create',
+            'update',
+            'delete',
+            'saveLayout',
+            'restoreLayout',
+            'saveSort',
+            'deleteSort',
+            'saveGroup',
+            'deleteGroup',
+            'saveFilter',
+            'deleteFilter',
+            'saveMobileTemplate',
+            'deleteMobileTemplate',
+            'runtime.lock.acquire',
+            'runtime.lock.heartbeat',
+            'runtime.lock.release',
+            'runtime.messages.poll',
+            'runtime.messages.ack',
+        ];
+
+        foreach ($this->endpoints->findBy(['screenId' => $screenId]) as $endpoint) {
+            if (!in_array($endpoint->getEndpointId(), $generatedEndpointIds, true)) {
+                continue;
+            }
+            if (in_array($endpoint->getEndpointId(), $activeEndpointIds, true)) {
+                continue;
+            }
             $endpoint->setEnabled(false);
             $this->entityManager->persist($endpoint);
         }
