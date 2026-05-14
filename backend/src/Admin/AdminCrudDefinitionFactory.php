@@ -98,6 +98,23 @@ final class AdminCrudDefinitionFactory
                 defaultSort: [['field' => 'starts_at', 'dir' => 'desc']],
             ),
             self::screen(
+                'admin.literais',
+                'admin-literais',
+                'system_literal_translation',
+                'Literais e Traducoes',
+                'Cadastro de literais por locale usados pelo frontend.',
+                self::literalTranslationFields(),
+                ['code', 'locale', 'context', 'enabled'],
+                ['id', 'code', 'locale', 'context', 'enabled', 'updated_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'code', 'locale', 'context', 'enabled']],
+                    ['id' => 'texto', 'title' => 'Texto', 'fields' => ['text', 'description']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['created_at', 'updated_at']],
+                ],
+                editable: true,
+                defaultSort: [['field' => 'code', 'dir' => 'asc'], ['field' => 'locale', 'dir' => 'asc']],
+            ),
+            self::screen(
                 'admin.listas-opcoes',
                 'admin-listas-opcoes',
                 'system_option_list',
@@ -491,6 +508,21 @@ final class AdminCrudDefinitionFactory
             'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
             'code' => self::field('string', 'Codigo', true, false),
             'name' => self::field('string', 'Nome', true, false),
+            'description' => self::field('text', 'Descricao', true, true, ['editor' => 'textarea']),
+            'enabled' => self::field('boolean', 'Ativo', true, false),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+        ];
+    }
+
+    private static function literalTranslationFields(): array
+    {
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'code' => self::field('string', 'Chave', true, false),
+            'locale' => self::field('string', 'Locale', true, false),
+            'context' => self::field('string', 'Contexto', true, true),
+            'text' => self::field('text', 'Texto', true, false, ['editor' => 'textarea']),
             'description' => self::field('text', 'Descricao', true, true, ['editor' => 'textarea']),
             'enabled' => self::field('boolean', 'Ativo', true, false),
             'created_at' => self::field('datetime', 'Criado em', false, false),

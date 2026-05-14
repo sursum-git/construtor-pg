@@ -2,7 +2,10 @@
 
 namespace App\Controller;
 
+use App\Builder\BuilderAiService;
+use App\Builder\BuilderAiSettingsService;
 use App\Builder\ProgramBuilderService;
+use App\Builder\ExternalBuilderImportService;
 use App\Runtime\RuntimeHttpException;
 use Doctrine\DBAL\Exception\TableNotFoundException;
 use App\Runtime\RuntimeSessionGuard;
@@ -16,6 +19,9 @@ class ProgramBuilderController extends AbstractController
 {
     public function __construct(
         private readonly ProgramBuilderService $builder,
+        private readonly ExternalBuilderImportService $externalImport,
+        private readonly BuilderAiSettingsService $aiSettings,
+        private readonly BuilderAiService $ai,
         private readonly RuntimeSessionGuard $sessions,
     ) {
     }
@@ -26,6 +32,186 @@ class ProgramBuilderController extends AbstractController
         try {
             $this->sessions->ensureActive();
             return $this->json($this->builder->bootstrap());
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/database/tables', methods: ['GET'])]
+    public function databaseTables(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->builder->listDatabaseTables([
+                'filter' => $request->query->get('filter'),
+                'limit' => $request->query->getInt('limit', 200),
+            ]));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/database/inspect', methods: ['POST'])]
+    public function inspectDatabaseTable(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->inspectDatabaseTable(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/database/import', methods: ['POST'])]
+    public function importDatabaseTable(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->importDatabaseTable(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/api-sources/{apiSourceCode}', methods: ['GET'])]
+    public function apiSource(string $apiSourceCode): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->builder->getApiSource($apiSourceCode));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/api-sources', methods: ['POST'])]
+    public function saveApiSource(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->saveApiSource(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/api-sources/import-openapi', methods: ['POST'])]
+    public function importOpenApi(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->importOpenApi(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/api-sources/odoo/test-connection', methods: ['POST'])]
+    public function testOdooConnection(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->testOdooConnection(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/api-sources/odoo/model-metadata', methods: ['POST'])]
+    public function readOdooModelMetadata(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->readOdooModelMetadata(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/external/validate', methods: ['POST'])]
+    public function validateExternalDraft(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->externalImport->validate(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/ai/settings', methods: ['GET'])]
+    public function aiSettings(): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->aiSettings->getUiSettings());
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/ai/settings', methods: ['POST'])]
+    public function saveAiSettings(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->aiSettings->saveUiSettings(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/ai/session', methods: ['POST'])]
+    public function startAiSession(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->ai->startSession(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/ai/message', methods: ['POST'])]
+    public function sendAiMessage(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->ai->sendMessage(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/ai/transcribe', methods: ['POST'])]
+    public function transcribeAiMessage(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->ai->transcribe(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/ai/finalize-draft', methods: ['POST'])]
+    public function finalizeAiDraft(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->ai->finalizeDraft(is_array($payload) ? $payload : []));
         } catch (\Throwable $error) {
             return $this->error($error);
         }
@@ -83,6 +269,41 @@ class ProgramBuilderController extends AbstractController
         try {
             $this->sessions->ensureActive();
             return $this->json($this->builder->restoreEntityVersion($id));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/locks/acquire', methods: ['POST'])]
+    public function acquireLock(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->acquireEditorLock(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/locks/heartbeat', methods: ['POST'])]
+    public function heartbeatLock(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->heartbeatEditorLock(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/locks/release', methods: ['POST'])]
+    public function releaseLock(Request $request): JsonResponse
+    {
+        try {
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->releaseEditorLock(is_array($payload) ? $payload : []));
         } catch (\Throwable $error) {
             return $this->error($error);
         }

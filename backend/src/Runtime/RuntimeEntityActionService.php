@@ -2,6 +2,7 @@
 
 namespace App\Runtime;
 
+use App\Builder\BuilderAiSettingsService;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Query\QueryBuilder;
 
@@ -18,6 +19,7 @@ class RuntimeEntityActionService
         private readonly RuntimeBusinessRuleRegistry $rules,
         private readonly RuntimeConfiguredRuleExecutor $configuredRules,
         private readonly RuntimeSituationService $situations,
+        private readonly BuilderAiSettingsService $builderAiSettings,
     ) {
     }
 
@@ -108,7 +110,12 @@ class RuntimeEntityActionService
             throw new RuntimeValidationException('ENTITY_VALUES_REQUIRED', 'Informe os dados para gravar.', [
                 'status' => 'blocked',
                 'title' => 'Inconsistencias encontradas',
-                'messages' => [['type' => 'error', 'message' => 'Nenhum campo permitido foi informado.']],
+                'titleKey' => 'validation.title.inconsistencies',
+                'messages' => [[
+                    'type' => 'error',
+                    'message' => 'Nenhum campo permitido foi informado.',
+                    'messageKey' => 'validation.message.no_allowed_fields',
+                ]],
             ]);
         }
 
@@ -175,7 +182,12 @@ class RuntimeEntityActionService
             throw new RuntimeValidationException('ENTITY_VALUES_REQUIRED', 'Informe os dados para gravar.', [
                 'status' => 'blocked',
                 'title' => 'Inconsistencias encontradas',
-                'messages' => [['type' => 'error', 'message' => 'Nenhum campo permitido foi informado.']],
+                'titleKey' => 'validation.title.inconsistencies',
+                'messages' => [[
+                    'type' => 'error',
+                    'message' => 'Nenhum campo permitido foi informado.',
+                    'messageKey' => 'validation.message.no_allowed_fields',
+                ]],
             ]);
         }
 
@@ -264,6 +276,7 @@ class RuntimeEntityActionService
     {
         $source = is_array($payload['values'] ?? null) ? $payload['values'] : $payload;
         $values = [];
+        $secretParameterCode = $this->resolveSecretParameterCodeFromPayload($definition, $payload, $source);
         foreach ($source as $field => $value) {
             $field = (string) $field;
             if (str_starts_with($field, '_') || !isset($definition['fields'][$field])) {
@@ -277,6 +290,9 @@ class RuntimeEntityActionService
                 continue;
             }
             if (!$create && !array_key_exists($field, $source)) {
+                continue;
+            }
+            if ($field === 'value' && $secretParameterCode && $this->builderAiSettings->shouldPreserveSecretValue($secretParameterCode, $value)) {
                 continue;
             }
             $values[$field] = $this->normalizeValue($config, $value);
@@ -300,6 +316,12 @@ class RuntimeEntityActionService
                     'field' => $field,
                     'type' => 'error',
                     'message' => ($config['label'] ?: $field) . ' e obrigatorio.',
+                    'messageKey' => 'validation.message.field_required',
+                    'messageParams' => [
+                        'field' => $field,
+                        'fieldCode' => $field,
+                        'fieldLabel' => $config['label'] ?: $field,
+                    ],
                 ];
             }
         }
@@ -308,6 +330,7 @@ class RuntimeEntityActionService
             throw new RuntimeValidationException('BUSINESS_VALIDATION_FAILED', 'Existem inconsistencias no formulario.', [
                 'status' => 'blocked',
                 'title' => 'Inconsistencias encontradas',
+                'titleKey' => 'validation.title.inconsistencies',
                 'messages' => $messages,
             ]);
         }
@@ -350,6 +373,12 @@ class RuntimeEntityActionService
                     'field' => $field,
                     'type' => 'error',
                     'message' => (string) ($rule['message'] ?? (($definition['fields'][$field]['label'] ?: $field) . ' e obrigatorio.')),
+                    'messageKey' => empty($rule['message']) ? 'validation.message.field_required' : null,
+                    'messageParams' => empty($rule['message']) ? [
+                        'field' => $field,
+                        'fieldCode' => $field,
+                        'fieldLabel' => $definition['fields'][$field]['label'] ?: $field,
+                    ] : [],
                 ];
             }
         }
@@ -358,6 +387,7 @@ class RuntimeEntityActionService
             throw new RuntimeValidationException('BUSINESS_VALIDATION_FAILED', 'Existem inconsistencias no formulario.', [
                 'status' => 'blocked',
                 'title' => 'Inconsistencias encontradas',
+                'titleKey' => 'validation.title.inconsistencies',
                 'messages' => $messages,
             ]);
         }
@@ -425,10 +455,17 @@ class RuntimeEntityActionService
             throw new RuntimeValidationException('INVALID_JSON_VALUE', 'JSON invalido.', [
                 'status' => 'blocked',
                 'title' => 'Inconsistencias encontradas',
+                'titleKey' => 'validation.title.inconsistencies',
                 'messages' => [[
                     'field' => $field['code'] ?? null,
                     'type' => 'error',
                     'message' => ($field['label'] ?: 'Campo JSON') . ' deve conter um JSON valido.',
+                    'messageKey' => 'validation.message.json_invalid',
+                    'messageParams' => [
+                        'field' => $field['code'] ?? null,
+                        'fieldCode' => $field['code'] ?? null,
+                        'fieldLabel' => $field['label'] ?: 'Campo JSON',
+                    ],
                 ]],
             ]);
         }
@@ -505,6 +542,13 @@ class RuntimeEntityActionService
             $result[$field] = $this->formatValue($config, $row[$field] ?? null);
         }
 
+        if ($definition['entityCode'] === 'system_parameter_value') {
+            $parameterCode = $this->resolveSecretParameterCodeFromRow($result);
+            if ($parameterCode && array_key_exists('value', $result)) {
+                $result['value'] = $this->builderAiSettings->maskSecretValue($parameterCode, $result['value']);
+            }
+        }
+
         $versionSource = (string) ($row['_runtime_updated_at'] ?? json_encode($result, JSON_UNESCAPED_UNICODE));
         $result['_runtime'] = [
             'version' => hash('sha256', $definition['entityCode'] . ':' . ($result[$definition['primaryKey']] ?? '') . ':' . $versionSource),
@@ -538,10 +582,17 @@ class RuntimeEntityActionService
                 throw new RuntimeValidationException('VERSIONED_REFERENCE_NOT_FOUND', 'Nao existe versao historica publicada para a referencia informada.', [
                     'status' => 'blocked',
                     'title' => 'Inconsistencias encontradas',
+                    'titleKey' => 'validation.title.inconsistencies',
                     'messages' => [[
                         'field' => $field,
                         'type' => 'error',
                         'message' => ($config['label'] ?: $field) . ' nao conseguiu localizar a versao historica atual do cadastro relacionado.',
+                        'messageKey' => 'validation.message.version_reference_not_found',
+                        'messageParams' => [
+                            'field' => $field,
+                            'fieldCode' => $field,
+                            'fieldLabel' => $config['label'] ?: $field,
+                        ],
                     ]],
                 ]);
             }
@@ -634,6 +685,22 @@ class RuntimeEntityActionService
         }
 
         return '';
+    }
+
+    private function resolveSecretParameterCodeFromPayload(array $definition, array $payload, array $source): ?string
+    {
+        if ($definition['entityCode'] !== 'system_parameter_value') {
+            return null;
+        }
+
+        $parameterId = $source['parameter_id'] ?? $payload['parameter_id'] ?? null;
+        return $this->builderAiSettings->findParameterCodeById($parameterId);
+    }
+
+    private function resolveSecretParameterCodeFromRow(array $row): ?string
+    {
+        $parameterId = $row['parameter_id'] ?? null;
+        return $this->builderAiSettings->findParameterCodeById($parameterId);
     }
 
     private function applySort(QueryBuilder $qb, array $definition, mixed $sort): void

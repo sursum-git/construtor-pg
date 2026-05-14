@@ -1,0 +1,69 @@
+.custom-page-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 100%;
+}
+
+.custom-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border: 1px solid rgba(28, 65, 122, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.custom-page-heading h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.custom-page-kicker,
+.custom-page-subtitle {
+  margin: 0;
+  color: #516172;
+}
+
+.custom-page-kicker {
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.custom-page-version {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(28, 65, 122, 0.12);
+  color: #173a6a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.custom-page-content,
+.custom-page-fragment-host {
+  flex: 1 1 auto;
+  min-height: 420px;
+  border: 1px solid rgba(28, 65, 122, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  overflow: hidden;
+}
+
+.custom-page-fragment-host {
+  overflow: auto;
+  padding: 18px;
+}
+
+.custom-page-frame {
+  display: block;
+  width: 100%;
+  min-height: 640px;
+  border: 0;
+  background: #fff;
+}

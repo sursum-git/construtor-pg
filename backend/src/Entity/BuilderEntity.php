@@ -30,7 +30,7 @@ class BuilderEntity
     #[ORM\Column(length: 160)]
     private string $name = '';
 
-    #[Assert\Choice(choices: ['persistence', 'query', 'io'])]
+    #[Assert\Choice(choices: ['persistence', 'query', 'io', 'api'])]
     #[ORM\Column(length: 30)]
     private string $entityType = 'persistence';
 

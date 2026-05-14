@@ -123,7 +123,7 @@ class RuntimeTransactionService
         if (!empty($payload['entityCode'])) {
             return (string) $payload['entityCode'];
         }
-        if ($handler === 'entity.crud' && !empty($payload['_runtimeEndpoint']['entityCode'])) {
+        if (in_array($handler, ['entity.crud', 'entity.api.readonly', 'entity.api.crud', 'entity.api.odoo.readonly'], true) && !empty($payload['_runtimeEndpoint']['entityCode'])) {
             return (string) $payload['_runtimeEndpoint']['entityCode'];
         }
         if (str_starts_with($handler, 'cliente.') || str_starts_with($handler, 'entity.cliente.')) {

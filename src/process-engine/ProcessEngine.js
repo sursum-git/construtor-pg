@@ -56,7 +56,7 @@
         this.config = config || {};
         this.applyKendoTheme();
         this.applyTheme();
-        return this.config;
+        return global.CrudUtils.loadLiteralBundle(this.config.literals || {}, this.httpClient).then(() => this.config);
       });
     }
 

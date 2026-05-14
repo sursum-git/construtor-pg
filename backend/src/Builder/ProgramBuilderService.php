@@ -2,7 +2,9 @@
 
 namespace App\Builder;
 
+use App\Entity\BuilderApiSource;
 use App\Entity\BuilderEntity;
+use App\Entity\BuilderEditorLock;
 use App\Entity\BuilderModule;
 use App\Entity\BuilderEntityVersion;
 use App\Entity\BuilderField;
@@ -10,7 +12,10 @@ use App\Entity\BuilderProgramVersion;
 use App\Entity\Program;
 use App\Entity\RuntimeEndpoint;
 use App\Entity\ScreenDefinition;
+use App\Odoo\OdooClient;
 use App\Repository\BuilderEntityRepository;
+use App\Repository\BuilderApiSourceRepository;
+use App\Repository\BuilderEditorLockRepository;
 use App\Repository\BuilderModuleRepository;
 use App\Repository\BuilderEntityVersionRepository;
 use App\Repository\BuilderFieldRepository;
@@ -20,11 +25,17 @@ use App\Repository\RuntimeEndpointRepository;
 use App\Repository\ScreenDefinitionRepository;
 use App\Runtime\PermissionResolver;
 use App\Runtime\RuntimeHttpException;
+use App\Runtime\RuntimeSessionGuard;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\Yaml\Exception\ParseException;
+use Symfony\Component\Yaml\Yaml;
 
 class ProgramBuilderService
 {
+    private const EDITOR_LOCK_TTL_SECONDS = 180;
+    private const EDITOR_LOCK_HEARTBEAT_SECONDS = 45;
+
     private const FIELD_ABBREVIATIONS = [
         'abrev' => 'Abreviado',
         'acum' => 'Acumulado',
@@ -88,6 +99,8 @@ class ProgramBuilderService
 
     public function __construct(
         private readonly BuilderEntityRepository $entities,
+        private readonly BuilderApiSourceRepository $apiSources,
+        private readonly BuilderEditorLockRepository $editorLocks,
         private readonly BuilderModuleRepository $modules,
         private readonly BuilderFieldRepository $fields,
         private readonly BuilderEntityVersionRepository $entityVersions,
@@ -97,6 +110,8 @@ class ProgramBuilderService
         private readonly RuntimeEndpointRepository $endpoints,
         private readonly EntityManagerInterface $entityManager,
         private readonly PermissionResolver $permissions,
+        private readonly RuntimeSessionGuard $sessions,
+        private readonly OdooClient $odoo,
     ) {
     }
 
@@ -106,12 +121,34 @@ class ProgramBuilderService
 
         $entities = [];
         foreach ($this->entities->findBy([], ['name' => 'ASC']) as $entity) {
+            $versioningConfig = $entity->getMetadata()['versioning'] ?? [];
+            $fieldCount = 0;
+            $hasPrimaryKey = false;
+            $foreignKeysCount = 0;
+            foreach ($entity->getFields() as $field) {
+                ++$fieldCount;
+                if ($field->isPrimaryKey()) {
+                    $hasPrimaryKey = true;
+                }
+                $options = $field->getOptions();
+                if (is_array($options['foreignKey'] ?? null)) {
+                    ++$foreignKeysCount;
+                }
+            }
+            $rulesCount = count($entity->getMetadata()['rules'] ?? []);
+            $uniqueKeysCount = count($entity->getMetadata()['uniqueKeys'] ?? []);
             $entities[] = [
                 'code' => $entity->getCode(),
                 'name' => $entity->getName(),
                 'entityType' => $entity->getEntityType(),
                 'status' => $entity->getStatus(),
                 'tableName' => $entity->getTableName(),
+                'versioningEnabled' => ($versioningConfig['enabled'] ?? false) === true,
+                'fieldsCount' => $fieldCount,
+                'hasPrimaryKey' => $hasPrimaryKey,
+                'foreignKeysCount' => $foreignKeysCount,
+                'rulesCount' => $rulesCount,
+                'uniqueKeysCount' => $uniqueKeysCount,
             ];
         }
 
@@ -123,6 +160,7 @@ class ProgramBuilderService
         $programs = [];
         foreach ($this->programs->findBy([], ['code' => 'ASC']) as $program) {
             $published = $this->versions->findPublishedByProgramCode($program->getCode());
+            $latest = $this->versions->findByProgramCodeOrdered($program->getCode())[0] ?? null;
             $programs[] = [
                 'code' => $program->getCode(),
                 'title' => $program->getTitle(),
@@ -130,15 +168,868 @@ class ProgramBuilderService
                 'programType' => $program->getProgramType(),
                 'screenId' => $program->getScreenId(),
                 'status' => $program->getStatus(),
+                'builderEntityCode' => $published?->getBuilderEntityCode() ?? $latest?->getBuilderEntityCode(),
                 'publishedVersion' => $published?->getVersion(),
                 'updatedAt' => $program->getUpdatedAt()->format(DATE_ATOM),
             ];
+        }
+
+        $apiSources = [];
+        foreach ($this->apiSources->findBy([], ['name' => 'ASC']) as $source) {
+            $apiSources[] = $this->apiSourceSummaryPayload($source);
         }
 
         return [
             'entities' => $entities,
             'modules' => $modules,
             'programs' => $programs,
+            'apiSources' => $apiSources,
+            'currentUser' => $this->permissions->getCurrentUserPayload(),
+        ];
+    }
+
+    public function getApiSource(string $code): array
+    {
+        $this->assertAdminRead();
+        $source = $this->apiSources->findOneBy(['code' => $this->safeCode($code)]);
+        if (!$source) {
+            throw new RuntimeHttpException('API_SOURCE_NOT_FOUND', 'Cadastro de API nao encontrado.', 404, [
+                'code' => $code,
+            ]);
+        }
+
+        return [
+            'apiSource' => $this->apiSourcePayload($source),
+        ];
+    }
+
+    public function saveApiSource(array $payload): array
+    {
+        $this->assertAdminWrite();
+        $config = $this->normalizeApiSourceRegistryPayload($payload);
+        $source = $this->apiSources->findOneBy(['code' => $config['code']]) ?? new BuilderApiSource();
+        $existingMetadata = $source->getMetadata();
+
+        $metadata = [
+            'providerType' => $config['providerType'],
+            'timeoutSeconds' => $config['timeoutSeconds'],
+            'authHeaders' => $this->restoreMaskedApiHeaderSecrets($config['authHeaders'], is_array($existingMetadata['authHeaders'] ?? null) ? $existingMetadata['authHeaders'] : []),
+            'operations' => $this->restoreMaskedApiOperationSecrets($config['operations'], is_array($existingMetadata['operations'] ?? null) ? $existingMetadata['operations'] : []),
+            'odoo' => $this->restoreMaskedOdooSourceSecrets(
+                is_array($config['odoo'] ?? null) ? $config['odoo'] : [],
+                is_array($existingMetadata['odoo'] ?? null) ? $existingMetadata['odoo'] : []
+            ),
+        ];
+
+        $source
+            ->setCode($config['code'])
+            ->setName($config['name'])
+            ->setAuthMode($config['authMode'])
+            ->setBaseUrl($config['baseUrl'])
+            ->setOpenapiUrl($config['openapiUrl'])
+            ->setStatus($config['status'])
+            ->setMetadata($metadata);
+
+        $this->entityManager->persist($source);
+        $this->entityManager->flush();
+
+        return [
+            'apiSource' => $this->apiSourcePayload($source),
+        ];
+    }
+
+    public function importOpenApi(array $payload): array
+    {
+        $this->assertAdminWrite();
+
+        if (strtolower(trim((string) ($payload['providerType'] ?? 'generic'))) === 'odoo') {
+            throw new RuntimeHttpException('API_OPENAPI_PROVIDER_INVALID', 'Importacao OpenAPI nao se aplica ao provedor Odoo.', 422);
+        }
+
+        $documentUrl = trim((string) ($payload['openapiUrl'] ?? $payload['url'] ?? ''));
+        if ($documentUrl === '') {
+            throw new RuntimeHttpException('API_OPENAPI_URL_REQUIRED', 'Informe a URL do documento OpenAPI.', 422);
+        }
+
+        $document = $this->fetchRemoteApiDocument($documentUrl);
+        $parsed = $this->parseOpenApiDocument($document, $documentUrl);
+        $code = $this->safeCode((string) ($payload['code'] ?? $this->slugToCode((string) ($parsed['info']['title'] ?? 'api-externa'))));
+        $name = trim((string) ($payload['name'] ?? ($parsed['info']['title'] ?? 'API externa')));
+        $requestedBaseUrl = trim((string) ($payload['baseUrl'] ?? ''));
+        $baseUrl = $requestedBaseUrl !== '' ? $requestedBaseUrl : trim((string) ($this->extractOpenApiBaseUrl($parsed) ?? ''));
+        $operations = $this->extractOpenApiOperations($parsed, $baseUrl);
+
+        return [
+            'apiSourceDraft' => [
+                'code' => $code,
+                'name' => $name,
+                'authMode' => 'none',
+                'baseUrl' => $baseUrl,
+                'openapiUrl' => $documentUrl,
+                'status' => 'active',
+                'timeoutSeconds' => 20,
+                'authHeaders' => [],
+                'operations' => $operations,
+            ],
+            'diagnostics' => [
+                [
+                    'level' => 'info',
+                    'message' => 'Documento OpenAPI importado. Revise operacoes, autenticacao e paths antes de salvar.',
+                ],
+            ],
+        ];
+    }
+
+    public function testOdooConnection(array $payload): array
+    {
+        $this->assertAdminWrite();
+        $config = $this->resolveOdooSourceConfig($payload);
+        $result = $this->odoo->testConnection($config);
+
+        return [
+            'connection' => $result,
+            'diagnostics' => [
+                [
+                    'level' => 'info',
+                    'message' => 'Conexao com o Odoo validada com sucesso.',
+                ],
+                [
+                    'level' => 'warning',
+                    'message' => 'XML-RPC e JSON-RPC legados estao descontinuados na documentacao mais recente do Odoo; o cadastro ja fica marcado como pronto para migracao futura a JSON-2.',
+                ],
+            ],
+        ];
+    }
+
+    public function readOdooModelMetadata(array $payload): array
+    {
+        $this->assertAdminWrite();
+        $config = $this->resolveOdooSourceConfig($payload);
+        if (trim((string) ($config['model'] ?? '')) === '') {
+            throw new RuntimeHttpException('ODOO_MODEL_REQUIRED', 'Informe o modelo Odoo antes de ler os metadados.', 422);
+        }
+
+        $rawFields = $this->odoo->fieldsGet($config);
+        $mappedFields = [];
+        $diagnostics = [
+            [
+                'level' => 'warning',
+                'message' => 'Campos relacionais complexos do Odoo entram apenas em leitura nesta fase.',
+            ],
+        ];
+
+        foreach ($rawFields as $fieldName => $definition) {
+            if (!is_array($definition)) {
+                continue;
+            }
+            $mapped = $this->mapOdooModelField((string) $fieldName, $definition);
+            if ($mapped === null) {
+                continue;
+            }
+            if (($mapped['dataType'] ?? '') === 'json') {
+                $diagnostics[] = [
+                    'level' => 'info',
+                    'message' => 'Campo ' . $mapped['code'] . ' foi mapeado como json por ser relacional ou multivalorado.',
+                ];
+            }
+            $mappedFields[] = $mapped;
+        }
+
+        usort($mappedFields, static fn (array $left, array $right): int => strcmp((string) $left['code'], (string) $right['code']));
+
+        return [
+            'model' => $config['model'],
+            'fields' => $mappedFields,
+            'diagnostics' => $diagnostics,
+        ];
+    }
+
+    public function listDatabaseTables(array $payload = []): array
+    {
+        $this->assertAdminRead();
+
+        $filter = strtolower(trim((string) ($payload['filter'] ?? '')));
+        $limit = max(1, min(500, (int) ($payload['limit'] ?? 200)));
+        $rows = $this->entityManager->getConnection()->fetchAllAssociative(
+            "SELECT table_schema, table_name
+               FROM information_schema.tables
+              WHERE table_type = 'BASE TABLE'
+                AND table_schema NOT IN ('pg_catalog', 'information_schema')
+              ORDER BY table_schema, table_name"
+        );
+
+        $existingByQualified = [];
+        foreach ($this->entities->findBy([], ['code' => 'ASC']) as $entity) {
+            $tableName = strtolower(trim((string) $entity->getTableName()));
+            if ($tableName !== '') {
+                $existingByQualified['public.' . $tableName] = $entity->getCode();
+            }
+        }
+
+        $tables = [];
+        foreach ($rows as $row) {
+            $schema = strtolower((string) ($row['table_schema'] ?? 'public'));
+            $tableName = strtolower((string) ($row['table_name'] ?? ''));
+            if (!$this->isImportableTable($schema, $tableName)) {
+                continue;
+            }
+
+            $qualifiedName = $schema . '.' . $tableName;
+            if ($filter !== '' && str_contains($qualifiedName, $filter) === false && str_contains($tableName, $filter) === false) {
+                continue;
+            }
+
+            $tables[] = [
+                'schema' => $schema,
+                'tableName' => $tableName,
+                'qualifiedName' => $qualifiedName,
+                'existingEntityCode' => $existingByQualified[$qualifiedName] ?? null,
+            ];
+
+            if (count($tables) >= $limit) {
+                break;
+            }
+        }
+
+        return ['tables' => $tables];
+    }
+
+    public function inspectDatabaseTable(array $payload): array
+    {
+        $this->assertAdminRead();
+
+        [$schema, $tableName] = $this->normalizeDatabaseTableTarget($payload);
+        $table = $this->loadDatabaseTableMetadata($schema, $tableName);
+        $entityDraft = $this->buildImportedEntityDraft($table, $payload);
+        $programDraft = $this->buildImportedProgramDraft($entityDraft, $payload);
+
+        return [
+            'table' => [
+                'schema' => $schema,
+                'tableName' => $tableName,
+                'qualifiedName' => $schema . '.' . $tableName,
+            ],
+            'classification' => $table['classification'],
+            'diagnostics' => $table['diagnostics'],
+            'entityDraft' => $entityDraft,
+            'programDraft' => $programDraft,
+        ];
+    }
+
+    public function importDatabaseTable(array $payload): array
+    {
+        $this->assertAdminWrite();
+
+        $inspection = $this->inspectDatabaseTable($payload);
+        $entityConfig = $this->normalizeEntityPayload($inspection['entityDraft']);
+        $entity = $this->applyEntityConfig($entityConfig);
+        $entityVersion = $this->createEntityVersionSnapshot($entity, 'import', 'Entidade importada do banco de dados.');
+
+        $programVersion = null;
+        $programPayload = $inspection['programDraft'];
+        $generateProgramDraft = ($payload['generateProgramDraft'] ?? true) !== false;
+        if ($generateProgramDraft && (string) ($programPayload['programCode'] ?? '') !== '' && (string) ($programPayload['module'] ?? '') !== '' && (string) ($programPayload['screenId'] ?? '') !== '') {
+            $programVersion = $this->saveDraft($programPayload);
+        }
+
+        return [
+            'table' => $inspection['table'],
+            'classification' => $inspection['classification'],
+            'diagnostics' => $inspection['diagnostics'],
+            'entity' => $this->entityPayload($entity),
+            'entityVersion' => $this->entityVersionPayload($entityVersion),
+            'entityVersions' => array_map(fn (BuilderEntityVersion $item): array => $this->entityVersionPayload($item), $this->entityVersions->findByEntityCodeOrdered($entity->getCode())),
+            'programVersion' => $programVersion,
+            'programDraftGenerated' => $programVersion !== null,
+        ];
+    }
+
+    private function normalizeDatabaseTableTarget(array $payload): array
+    {
+        $qualifiedName = strtolower(trim((string) ($payload['qualifiedName'] ?? '')));
+        $schema = strtolower(trim((string) ($payload['schema'] ?? 'public')));
+        $tableName = strtolower(trim((string) ($payload['tableName'] ?? '')));
+
+        if ($qualifiedName !== '' && str_contains($qualifiedName, '.')) {
+            [$schema, $tableName] = explode('.', $qualifiedName, 2);
+        }
+
+        if ($schema === '' || $tableName === '') {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_IMPORT_TABLE_REQUIRED', 'Informe a tabela do banco que sera importada.', 422);
+        }
+        if (!$this->isImportableTable($schema, $tableName)) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_IMPORT_TABLE_NOT_ALLOWED', 'Esta tabela nao pode ser importada pelo construtor.', 422, [
+                'schema' => $schema,
+                'tableName' => $tableName,
+            ]);
+        }
+
+        return [$schema, $tableName];
+    }
+
+    private function loadDatabaseTableMetadata(string $schema, string $tableName): array
+    {
+        $connection = $this->entityManager->getConnection();
+        $exists = $connection->fetchOne(
+            "SELECT 1
+               FROM information_schema.tables
+              WHERE table_schema = :schema
+                AND table_name = :table
+                AND table_type = 'BASE TABLE'",
+            ['schema' => $schema, 'table' => $tableName]
+        );
+        if (!$exists) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_IMPORT_TABLE_NOT_FOUND', 'Tabela nao encontrada no banco de dados.', 404, [
+                'schema' => $schema,
+                'tableName' => $tableName,
+            ]);
+        }
+
+        $columns = $connection->fetchAllAssociative(
+            "SELECT column_name,
+                    data_type,
+                    udt_name,
+                    is_nullable,
+                    column_default,
+                    character_maximum_length,
+                    numeric_precision,
+                    numeric_scale,
+                    ordinal_position
+               FROM information_schema.columns
+              WHERE table_schema = :schema
+                AND table_name = :table
+              ORDER BY ordinal_position",
+            ['schema' => $schema, 'table' => $tableName]
+        );
+
+        $primaryKeys = $connection->fetchFirstColumn(
+            "SELECT kcu.column_name
+               FROM information_schema.table_constraints tc
+               JOIN information_schema.key_column_usage kcu
+                 ON tc.constraint_name = kcu.constraint_name
+                AND tc.table_schema = kcu.table_schema
+                AND tc.table_name = kcu.table_name
+              WHERE tc.table_schema = :schema
+                AND tc.table_name = :table
+                AND tc.constraint_type = 'PRIMARY KEY'
+              ORDER BY kcu.ordinal_position",
+            ['schema' => $schema, 'table' => $tableName]
+        );
+
+        $uniqueRows = $connection->fetchAllAssociative(
+            "SELECT tc.constraint_name,
+                    json_agg(kcu.column_name ORDER BY kcu.ordinal_position) AS columns_json
+               FROM information_schema.table_constraints tc
+               JOIN information_schema.key_column_usage kcu
+                 ON tc.constraint_name = kcu.constraint_name
+                AND tc.table_schema = kcu.table_schema
+                AND tc.table_name = kcu.table_name
+              WHERE tc.table_schema = :schema
+                AND tc.table_name = :table
+                AND tc.constraint_type = 'UNIQUE'
+              GROUP BY tc.constraint_name
+              ORDER BY tc.constraint_name",
+            ['schema' => $schema, 'table' => $tableName]
+        );
+        $uniqueConstraints = [];
+        foreach ($uniqueRows as $row) {
+            $columnsList = json_decode((string) ($row['columns_json'] ?? '[]'), true);
+            if (!is_array($columnsList) || !$columnsList) {
+                continue;
+            }
+            $uniqueConstraints[] = [
+                'name' => (string) ($row['constraint_name'] ?? ''),
+                'columns' => array_values(array_filter(array_map('strval', $columnsList))),
+            ];
+        }
+
+        $foreignKeys = $connection->fetchAllAssociative(
+            "SELECT kcu.column_name,
+                    ccu.table_schema AS foreign_table_schema,
+                    ccu.table_name AS foreign_table_name,
+                    ccu.column_name AS foreign_column_name,
+                    rc.update_rule,
+                    rc.delete_rule,
+                    tc.constraint_name
+               FROM information_schema.table_constraints tc
+               JOIN information_schema.key_column_usage kcu
+                 ON tc.constraint_name = kcu.constraint_name
+                AND tc.table_schema = kcu.table_schema
+                AND tc.table_name = kcu.table_name
+               JOIN information_schema.constraint_column_usage ccu
+                 ON tc.constraint_name = ccu.constraint_name
+                AND tc.table_schema = ccu.table_schema
+               JOIN information_schema.referential_constraints rc
+                 ON tc.constraint_name = rc.constraint_name
+                AND tc.table_schema = rc.constraint_schema
+              WHERE tc.table_schema = :schema
+                AND tc.table_name = :table
+                AND tc.constraint_type = 'FOREIGN KEY'
+              ORDER BY kcu.ordinal_position",
+            ['schema' => $schema, 'table' => $tableName]
+        );
+        $foreignKeysByColumn = [];
+        foreach ($foreignKeys as $row) {
+            $column = strtolower((string) ($row['column_name'] ?? ''));
+            if ($column === '') {
+                continue;
+            }
+            $foreignKeysByColumn[$column] = [
+                'table' => strtolower((string) ($row['foreign_table_name'] ?? '')),
+                'column' => strtolower((string) ($row['foreign_column_name'] ?? '')),
+                'schema' => strtolower((string) ($row['foreign_table_schema'] ?? 'public')),
+                'onDelete' => $this->normalizeForeignKeyAction($row['delete_rule'] ?? null),
+                'onUpdate' => $this->normalizeForeignKeyAction($row['update_rule'] ?? null),
+                'dependencyType' => 'reference',
+            ];
+        }
+
+        $classification = $this->classifyImportedTable($tableName, $columns, $primaryKeys, $uniqueConstraints, $foreignKeysByColumn);
+        $diagnostics = $this->buildImportDiagnostics($columns, $primaryKeys, $foreignKeysByColumn);
+
+        return [
+            'schema' => $schema,
+            'tableName' => $tableName,
+            'columns' => $columns,
+            'primaryKeys' => array_values(array_map('strtolower', $primaryKeys)),
+            'uniqueConstraints' => $uniqueConstraints,
+            'foreignKeys' => $foreignKeysByColumn,
+            'classification' => $classification,
+            'diagnostics' => $diagnostics,
+        ];
+    }
+
+    private function buildImportedEntityDraft(array $table, array $payload): array
+    {
+        $entityCode = $this->safeSqlIdentifier((string) ($payload['entityCode'] ?? $table['tableName']));
+        $entityName = trim((string) ($payload['entityName'] ?? $this->humanizeIdentifier((string) $table['tableName'])));
+        $fields = [];
+        $singleUniqueColumns = [];
+        $uniqueKeys = [];
+
+        foreach ($table['uniqueConstraints'] as $constraint) {
+            $columns = array_values(array_filter(array_map('strval', $constraint['columns'] ?? [])));
+            if (count($columns) === 1) {
+                $singleUniqueColumns[strtolower($columns[0])] = true;
+                continue;
+            }
+            $uniqueKeys[] = [
+                'name' => $this->safeSqlIdentifier((string) ($constraint['name'] ?? 'uk_' . $table['tableName'])),
+                'fields' => array_values(array_map(function(string $column): string {
+                    return $this->safeSqlIdentifier($column);
+                }, $columns)),
+            ];
+        }
+
+        foreach ($table['columns'] as $column) {
+            $columnName = strtolower((string) ($column['column_name'] ?? ''));
+            $field = $this->mapImportedColumnToField(
+                $column,
+                in_array($columnName, $table['primaryKeys'], true),
+                isset($singleUniqueColumns[$columnName]),
+                $table['foreignKeys'][$columnName] ?? null
+            );
+            if ($field !== null) {
+                $fields[] = $field;
+            }
+        }
+
+        return [
+            'code' => $entityCode,
+            'name' => $entityName,
+            'entityType' => 'persistence',
+            'tableName' => $table['tableName'],
+            'originalTableName' => $table['tableName'],
+            'createPhysicalTable' => false,
+            'allowTableRename' => false,
+            'allowColumnRename' => false,
+            'dropRemovedColumns' => false,
+            'skipStructureValidation' => true,
+            'situationEnabled' => false,
+            'situationFieldCode' => '',
+            'versioningEnabled' => false,
+            'versioningDeduplicate' => true,
+            'structureModuleCode' => '',
+            'structureType' => (string) ($table['classification']['structureType'] ?? 'main'),
+            'structureBaseNumber' => null,
+            'structureSequenceNumber' => null,
+            'structureParentEntityCode' => '',
+            'structureLeftEntityCode' => '',
+            'structureRightEntityCode' => '',
+            'fields' => $fields,
+            'uniqueKeys' => $uniqueKeys,
+            'rules' => [],
+        ];
+    }
+
+    private function buildImportedProgramDraft(array $entityDraft, array $payload): array
+    {
+        $tableName = (string) ($entityDraft['tableName'] ?? '');
+        $programTitle = trim((string) ($payload['programTitle'] ?? ($entityDraft['name'] ?? '')));
+        $programCode = trim((string) ($payload['programCode'] ?? ''));
+        $moduleCode = $this->safeCode((string) ($payload['module'] ?? ''));
+        $screenId = trim((string) ($payload['screenId'] ?? ('cadastros.' . str_replace('_', '-', $tableName))));
+        $version = trim((string) ($payload['version'] ?? '1.0.0'));
+
+        return [
+            'programCode' => $programCode,
+            'programTitle' => $programTitle,
+            'module' => $moduleCode,
+            'pageType' => 'crud',
+            'builderEntityCode' => (string) ($entityDraft['code'] ?? ''),
+            'screenId' => $screenId,
+            'version' => $version !== '' ? $version : '1.0.0',
+            'subtitle' => trim((string) ($payload['subtitle'] ?? 'Gerado a partir do banco de dados')),
+            'icon' => trim((string) ($payload['icon'] ?? 'database')),
+            'permissionPrefix' => trim((string) ($payload['permissionPrefix'] ?? $programCode)),
+            'allowCreate' => ($payload['allowCreate'] ?? true) !== false,
+            'allowUpdate' => ($payload['allowUpdate'] ?? true) !== false,
+            'allowDelete' => ($payload['allowDelete'] ?? true) !== false,
+            'changeSummary' => trim((string) ($payload['changeSummary'] ?? 'Rascunho gerado por importacao de tabela existente.')),
+        ];
+    }
+
+    private function classifyImportedTable(string $tableName, array $columns, array $primaryKeys, array $uniqueConstraints, array $foreignKeys): array
+    {
+        $columnNames = array_map(static fn (array $column): string => strtolower((string) ($column['column_name'] ?? '')), $columns);
+        $foreignKeyCount = count($foreignKeys);
+        $primaryKeyCount = count($primaryKeys);
+        $nonAuditColumns = array_filter($columnNames, fn (string $name): bool => !$this->isAuditColumnName($name));
+        $businessColumnCount = count($nonAuditColumns);
+        $joinedName = implode(' ', $columnNames);
+
+        if ($foreignKeyCount >= 2 && $primaryKeyCount >= 2 && $businessColumnCount <= ($foreignKeyCount + 2)) {
+            return [
+                'code' => 'junction',
+                'label' => 'Tabela de juncao/agregacao',
+                'structureType' => 'aggregation',
+            ];
+        }
+
+        if (preg_match('/(item|mov|nota|pedido|lanc|trans|hist)/', $tableName) || preg_match('/(valor|total|quantidade|dt_|dt_hr_)/', $joinedName)) {
+            return [
+                'code' => 'transactional',
+                'label' => 'Tabela transacional',
+                'structureType' => 'main',
+            ];
+        }
+
+        if ($businessColumnCount <= 6 && $foreignKeyCount <= 1) {
+            return [
+                'code' => 'support',
+                'label' => 'Tabela de apoio/cadastro simples',
+                'structureType' => 'main',
+            ];
+        }
+
+        return [
+            'code' => 'master',
+            'label' => 'Cadastro mestre',
+            'structureType' => 'main',
+        ];
+    }
+
+    private function buildImportDiagnostics(array $columns, array $primaryKeys, array $foreignKeys): array
+    {
+        $diagnostics = [];
+        if (!$primaryKeys) {
+            $diagnostics[] = [
+                'level' => 'warn',
+                'message' => 'A tabela nao possui chave primaria declarada.',
+            ];
+        }
+        if (!$foreignKeys) {
+            $diagnostics[] = [
+                'level' => 'info',
+                'message' => 'Nao foram encontradas chaves estrangeiras para dropdowns automaticos.',
+            ];
+        }
+        if (count($columns) > 40) {
+            $diagnostics[] = [
+                'level' => 'warn',
+                'message' => 'A tabela tem muitos campos. Revise o CRUD gerado antes de publicar.',
+            ];
+        }
+        return $diagnostics;
+    }
+
+    private function mapImportedColumnToField(array $column, bool $primaryKey, bool $unique, ?array $foreignKey): ?array
+    {
+        $columnName = strtolower((string) ($column['column_name'] ?? ''));
+        if ($columnName === '') {
+            return null;
+        }
+
+        $dataType = $this->mapDatabaseTypeToBuilderType((string) ($column['data_type'] ?? ''), (string) ($column['udt_name'] ?? ''));
+        $label = $this->humanizeIdentifier($columnName);
+        $length = $column['character_maximum_length'] !== null ? (int) $column['character_maximum_length'] : null;
+        $precision = $column['numeric_precision'] !== null ? (int) $column['numeric_precision'] : null;
+        $scale = $column['numeric_scale'] !== null ? (int) $column['numeric_scale'] : null;
+        $defaultValue = $this->normalizeImportedDefaultValue((string) ($column['column_default'] ?? ''), $dataType);
+        $required = strtoupper((string) ($column['is_nullable'] ?? 'YES')) === 'NO' && !$primaryKey && $defaultValue === null;
+
+        return [
+            'id' => 0,
+            'code' => $columnName,
+            'label' => $label,
+            'dataType' => $dataType,
+            'columnName' => $columnName,
+            'originalCode' => $columnName,
+            'originalColumnName' => $columnName,
+            'length' => in_array($dataType, ['string', 'email'], true) ? $length : null,
+            'precision' => $dataType === 'decimal' ? $precision : null,
+            'scale' => $dataType === 'decimal' ? $scale : null,
+            'defaultValue' => $defaultValue,
+            'unique' => $unique,
+            'readonlyField' => $primaryKey || $this->isReadonlyImportedField($columnName),
+            'foreignKeyTable' => $foreignKey['table'] ?? '',
+            'foreignKeyColumn' => $foreignKey['column'] ?? '',
+            'foreignKeyDependencyType' => $foreignKey['dependencyType'] ?? '',
+            'foreignKeyOnDelete' => $foreignKey['onDelete'] ?? '',
+            'foreignKeyOnUpdate' => $foreignKey['onUpdate'] ?? '',
+            'optionItems' => [],
+            'virtualField' => false,
+            'includeInVersion' => true,
+            'versionRefEntityCode' => '',
+            'versionRefSourceIdField' => '',
+            'versionSnapshotVersionField' => '',
+            'versionSnapshotPath' => '',
+            'customCodeMode' => '',
+            'customCodePrefix' => '',
+            'customCodePattern' => '',
+            'customCodeSequenceEnabled' => true,
+            'customCodeSequenceScope' => 'global',
+            'customCodeSequencePadding' => 4,
+            'customCodeStaticClass' => '',
+            'customCodeStaticMethod' => '',
+            'customCodeAssistantScreenId' => '',
+            'customCodePromptTitle' => '',
+            'customCodePromptFields' => [],
+            'required' => $primaryKey ? true : $required,
+            'primaryKey' => $primaryKey,
+            'options' => [],
+        ];
+    }
+
+    private function mapDatabaseTypeToBuilderType(string $dataType, string $udtName): string
+    {
+        $dataType = strtolower(trim($dataType));
+        $udtName = strtolower(trim($udtName));
+        return match (true) {
+            in_array($dataType, ['integer', 'bigint', 'smallint'], true) => 'integer',
+            in_array($dataType, ['numeric', 'decimal', 'real', 'double precision'], true) => 'decimal',
+            $dataType === 'boolean' => 'boolean',
+            $dataType === 'date' => 'date',
+            str_contains($dataType, 'timestamp') => 'datetime',
+            in_array($dataType, ['json', 'jsonb'], true) => 'json',
+            $dataType === 'text' => 'text',
+            $udtName === 'uuid' => 'string',
+            default => 'string',
+        };
+    }
+
+    private function normalizeImportedDefaultValue(string $defaultValue, string $dataType): mixed
+    {
+        $defaultValue = trim($defaultValue);
+        if ($defaultValue === '') {
+            return null;
+        }
+        if (preg_match("/^'(.*)'::/", $defaultValue, $matches)) {
+            return (string) $matches[1];
+        }
+        if ($dataType === 'boolean') {
+            if ($defaultValue === 'true') {
+                return true;
+            }
+            if ($defaultValue === 'false') {
+                return false;
+            }
+        }
+        if (in_array($dataType, ['integer', 'decimal'], true) && preg_match('/^-?\d+(\.\d+)?$/', $defaultValue)) {
+            return str_contains($defaultValue, '.') ? (float) $defaultValue : (int) $defaultValue;
+        }
+        if (preg_match('/^(now\(\)|CURRENT_TIMESTAMP)/i', $defaultValue)) {
+            return null;
+        }
+        return $defaultValue;
+    }
+
+    private function isReadonlyImportedField(string $columnName): bool
+    {
+        return preg_match('/(^id$|_id$|^created_|^updated_|^deleted_|^dt_hr_|^log_)/', $columnName) === 1;
+    }
+
+    private function isAuditColumnName(string $columnName): bool
+    {
+        return preg_match('/(^id$|^created_|^updated_|^deleted_|^dt_|^dt_hr_|^log_)/', $columnName) === 1;
+    }
+
+    private function humanizeIdentifier(string $value): string
+    {
+        $parts = array_values(array_filter(explode('_', strtolower(trim($value)))));
+        if (!$parts) {
+            return '';
+        }
+
+        return implode(' ', array_map(function(string $part): string {
+            $label = self::FIELD_ABBREVIATIONS[$part] ?? $part;
+            return ucfirst((string) $label);
+        }, $parts));
+    }
+
+    private function isImportableTable(string $schema, string $tableName): bool
+    {
+        if ($schema !== 'public') {
+            return true;
+        }
+
+        if (preg_match('/^(builder_|runtime_|auth_|system_|user_|screen_definition$|runtime_endpoint$|program$|doctrine_migration_versions$|messenger_messages$)/', $tableName) === 1) {
+            return false;
+        }
+
+        return !in_array($tableName, [
+            'api_repository',
+            'data_source',
+            'database_repository',
+            'decision_evaluation',
+            'decision_rule',
+            'decision_rule_clause',
+            'import_export_mapping',
+            'option_list',
+            'option_list_item',
+            'outcome',
+            'parameter',
+            'parameter_group',
+            'parameter_structure_version',
+            'result_field',
+            'rule_lookup_audit_log',
+            'rule_lookup_cache',
+            'subscriber',
+            'subscriber_connection',
+            'synchronization_pending',
+            'synchronization_policy',
+            'value_validation_rule',
+        ], true);
+    }
+
+    public function acquireEditorLock(array $payload): array
+    {
+        $this->assertAdminWrite();
+        $scopeType = $this->normalizeLockScopeType((string) ($payload['scopeType'] ?? ''));
+        $scopeCode = trim((string) ($payload['scopeCode'] ?? ''));
+        $displayName = trim((string) ($payload['displayName'] ?? ''));
+        if ($scopeType === '' || $scopeCode === '') {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_LOCK_SCOPE_REQUIRED', 'Informe o tipo e o codigo do item para bloquear.', 422);
+        }
+
+        $session = $this->sessions->ensureActive();
+        $tenantId = $session->getTenantId();
+        $current = $this->editorLocks->findActiveByScope($scopeType, $scopeCode, $tenantId);
+        $now = new \DateTimeImmutable();
+        if ($current && $current->isExpired($now)) {
+            $current->release();
+            $this->entityManager->persist($current);
+            $this->entityManager->flush();
+            $current = null;
+        }
+
+        if ($current && $current->getSessionId() !== $session->getSessionId()) {
+            return [
+                'status' => 'readonly',
+                'scopeType' => $scopeType,
+                'scopeCode' => $scopeCode,
+                'heartbeatIntervalSeconds' => self::EDITOR_LOCK_HEARTBEAT_SECONDS,
+                'lock' => $this->editorLockPayload($current),
+                'message' => 'Este item esta em edicao por outro usuario.',
+            ];
+        }
+
+        $lock = $current ?? (new BuilderEditorLock())
+            ->setScopeType($scopeType)
+            ->setScopeCode($scopeCode)
+            ->setTenantId($tenantId)
+            ->setSessionId($session->getSessionId())
+            ->setUserId($session->getUserId())
+            ->setUserName($session->getUserName())
+            ->setLockToken(bin2hex(random_bytes(16)));
+
+        $lock
+            ->setDisplayName($displayName !== '' ? $displayName : $scopeCode)
+            ->setStatus('active')
+            ->setAcquiredAt($current ? $current->getAcquiredAt() : $now)
+            ->heartbeat(self::EDITOR_LOCK_TTL_SECONDS);
+
+        $this->entityManager->persist($lock);
+        $this->entityManager->flush();
+
+        return [
+            'status' => 'acquired',
+            'scopeType' => $scopeType,
+            'scopeCode' => $scopeCode,
+            'heartbeatIntervalSeconds' => self::EDITOR_LOCK_HEARTBEAT_SECONDS,
+            'lock' => $this->editorLockPayload($lock),
+            'message' => 'Lock de edicao adquirido.',
+        ];
+    }
+
+    public function heartbeatEditorLock(array $payload): array
+    {
+        $this->assertAdminWrite();
+        $token = trim((string) ($payload['lockToken'] ?? ''));
+        if ($token === '') {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_LOCK_TOKEN_REQUIRED', 'Informe o token do lock.', 422);
+        }
+
+        $session = $this->sessions->ensureActive();
+        $lock = $this->editorLocks->findActiveByToken($token, $session->getTenantId());
+        if (!$lock) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_LOCK_NOT_FOUND', 'Lock do construtor nao encontrado ou ja expirado.', 409, [
+                'lockToken' => $token,
+            ]);
+        }
+        if ($lock->getSessionId() !== $session->getSessionId()) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_LOCK_NOT_OWNER', 'A sessao atual nao controla este lock.', 409, [
+                'lockToken' => $token,
+            ]);
+        }
+
+        $lock->heartbeat(self::EDITOR_LOCK_TTL_SECONDS);
+        $this->entityManager->persist($lock);
+        $this->entityManager->flush();
+
+        return [
+            'status' => 'active',
+            'heartbeatIntervalSeconds' => self::EDITOR_LOCK_HEARTBEAT_SECONDS,
+            'lock' => $this->editorLockPayload($lock),
+        ];
+    }
+
+    public function releaseEditorLock(array $payload): array
+    {
+        $this->assertAdminWrite();
+        $token = trim((string) ($payload['lockToken'] ?? ''));
+        if ($token === '') {
+            return ['status' => 'released'];
+        }
+
+        $session = $this->sessions->ensureActive(false);
+        $lock = $this->editorLocks->findActiveByToken($token, $session->getTenantId());
+        if (!$lock) {
+            return ['status' => 'released'];
+        }
+        if ($lock->getSessionId() !== $session->getSessionId()) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_LOCK_NOT_OWNER', 'A sessao atual nao controla este lock.', 409, [
+                'lockToken' => $token,
+            ]);
+        }
+
+        $lock->release();
+        $this->entityManager->persist($lock);
+        $this->entityManager->flush();
+
+        return [
+            'status' => 'released',
+            'lock' => $this->editorLockPayload($lock),
         ];
     }
 
@@ -331,6 +1222,11 @@ class ProgramBuilderService
                 'structure' => $config['structure'],
                 'uniqueKeys' => $config['uniqueKeys'],
                 'rules' => $config['rules'],
+                'apiSource' => $this->restoreMaskedApiSourceSecrets(
+                    $config['apiSource'] ?? null,
+                    is_array($existingMetadata['apiSource'] ?? null) ? $existingMetadata['apiSource'] : []
+                ),
+                'apiBinding' => $config['apiBinding'] ?? null,
                 'versioning' => [
                     'enabled' => $config['versioningEnabled'],
                     'mode' => 'snapshot_on_change',
@@ -447,7 +1343,7 @@ class ProgramBuilderService
         }
 
         $config = $this->normalizeBuilderPayload($payload);
-        $definition = $this->generateCrudDefinition($config);
+        $definition = $this->generateProgramDefinition($config);
 
         $existing = $this->findByProgramCodeAndVersion($config['programCode'], $config['version']);
         if ($existing && $existing->getId() !== $version->getId()) {
@@ -487,11 +1383,63 @@ class ProgramBuilderService
         $this->assertAdminRead();
 
         $config = $this->normalizeBuilderPayload($payload);
-        $definition = $this->generateCrudDefinition($config);
+        $definition = $this->generateProgramDefinition($config);
 
         return [
             'builderConfig' => $this->publicBuilderConfig($config),
             'generatedDefinition' => $definition,
+        ];
+    }
+
+    public function validateExternalDraft(array $payload): array
+    {
+        $this->assertAdminRead();
+
+        $input = is_array($payload['payload'] ?? null) ? $payload['payload'] : $payload;
+        $entityPayload = is_array($input['entityDraft'] ?? null) ? $input['entityDraft'] : [];
+        $programPayload = is_array($input['programDraft'] ?? null) ? $input['programDraft'] : [];
+        if (!$entityPayload || !$programPayload) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_EXTERNAL_DRAFT_REQUIRED', 'Informe entityDraft e programDraft no JSON externo.', 422);
+        }
+        if (($programPayload['pageType'] ?? 'crud') !== 'crud') {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_EXTERNAL_PAGE_TYPE_NOT_SUPPORTED', 'Nesta etapa a importacao externa aceita apenas pageType=crud.', 422, [
+                'pageType' => $programPayload['pageType'] ?? null,
+            ]);
+        }
+
+        $entityConfig = $this->normalizeEntityPayload($entityPayload);
+        $transientEntity = $this->buildTransientEntity($entityConfig);
+
+        $programDefaults = [
+            'pageType' => 'crud',
+            'builderEntityCode' => $entityConfig['code'],
+            'version' => '1.0.0',
+            'subtitle' => '',
+            'icon' => 'file',
+            'permissionPrefix' => '',
+            'allowCreate' => true,
+            'allowUpdate' => true,
+            'allowDelete' => false,
+            'changeSummary' => '',
+        ];
+        $programConfig = $this->normalizeBuilderPayload(array_merge($programDefaults, $programPayload), $transientEntity);
+        $definition = $this->generateProgramDefinition($programConfig);
+        $diagnostics = array_merge(
+            $this->normalizeExternalDiagnostics($input['diagnostics'] ?? null),
+            $this->collectExternalDraftDiagnostics($entityPayload, $programPayload, $entityConfig, $programConfig)
+        );
+
+        return [
+            'readyToApply' => true,
+            'entityDraft' => $this->externalEntityPayload($entityConfig),
+            'programDraft' => $this->externalProgramPayload($programConfig, $definition),
+            'generatedDefinition' => $definition,
+            'diagnostics' => $diagnostics,
+            'normalizedDraft' => [
+                'entityDraft' => $this->externalEntityPayload($entityConfig),
+                'programDraft' => $this->externalProgramPayload($programConfig, $definition),
+            ],
+            'sourcePrompt' => isset($input['sourcePrompt']) ? trim((string) $input['sourcePrompt']) : '',
         ];
     }
 
@@ -532,7 +1480,7 @@ class ProgramBuilderService
             ->setVersion($version->getVersion());
         $this->entityManager->persist($screen);
 
-        $this->upsertCrudRuntimeEndpoints($version);
+        $this->syncRuntimeEndpoints($version);
 
         $version
             ->setStatus('published')
@@ -645,7 +1593,17 @@ class ProgramBuilderService
                 'customCodeAssistantScreenId' => is_array($options['customCode'] ?? null) ? ($options['customCode']['assistantScreenId'] ?? null) : null,
                 'customCodePromptTitle' => is_array($options['customCode'] ?? null) ? ($options['customCode']['promptTitle'] ?? null) : null,
                 'customCodePromptFields' => is_array($options['customCode'] ?? null) && is_array($options['customCode']['promptFields'] ?? null) ? $options['customCode']['promptFields'] : [],
+                'apiJsonPath' => is_array($options['api'] ?? null) ? ($options['api']['jsonPath'] ?? null) : null,
+                'apiWritePath' => is_array($options['api'] ?? null) ? ($options['api']['writePath'] ?? null) : null,
+                'apiShowInGrid' => !is_array($options['api'] ?? null) || ($options['api']['showInGrid'] ?? true) !== false,
+                'apiShowInForm' => !is_array($options['api'] ?? null) || ($options['api']['showInForm'] ?? true) !== false,
+                'apiShowInFilter' => is_array($options['api'] ?? null) && ($options['api']['showInFilter'] ?? false) === true,
             ];
+        }
+
+        $metadata = $entity->getMetadata();
+        if (is_array($metadata['apiSource'] ?? null)) {
+            $metadata['apiSource'] = $this->maskApiSourceSecrets($metadata['apiSource']);
         }
 
         return [
@@ -656,7 +1614,14 @@ class ProgramBuilderService
             'status' => $entity->getStatus(),
             'situationEnabled' => $entity->isSituationEnabled(),
             'situationFieldCode' => $entity->getSituationFieldCode(),
-            'metadata' => $entity->getMetadata(),
+            'metadata' => $metadata,
+            'apiSource' => $this->maskApiSourceSecrets(is_array($entity->getMetadata()['apiSource'] ?? null) ? $entity->getMetadata()['apiSource'] : null),
+            'apiSourceCode' => (string) ($entity->getMetadata()['apiBinding']['sourceCode'] ?? ''),
+            'apiListOperationCode' => (string) ($entity->getMetadata()['apiBinding']['listOperationCode'] ?? ''),
+            'apiDetailOperationCode' => (string) ($entity->getMetadata()['apiBinding']['detailOperationCode'] ?? ''),
+            'apiCreateOperationCode' => (string) ($entity->getMetadata()['apiBinding']['createOperationCode'] ?? ''),
+            'apiUpdateOperationCode' => (string) ($entity->getMetadata()['apiBinding']['updateOperationCode'] ?? ''),
+            'apiDeleteOperationCode' => (string) ($entity->getMetadata()['apiBinding']['deleteOperationCode'] ?? ''),
             'structureModuleCode' => (string) ($entity->getMetadata()['structure']['moduleCode'] ?? ''),
             'structureType' => (string) ($entity->getMetadata()['structure']['type'] ?? 'main'),
             'structureBaseNumber' => $entity->getMetadata()['structure']['baseNumber'] ?? null,
@@ -708,6 +1673,72 @@ class ProgramBuilderService
         ];
     }
 
+    private function apiSourceSummaryPayload(BuilderApiSource $source): array
+    {
+        $metadata = $source->getMetadata();
+        $operations = $this->apiSourceOperationsFromMetadata($metadata);
+        return [
+            'id' => $source->getId(),
+            'code' => $source->getCode(),
+            'name' => $source->getName(),
+            'providerType' => (string) ($metadata['providerType'] ?? 'generic'),
+            'authMode' => $source->getAuthMode(),
+            'baseUrl' => $source->getBaseUrl(),
+            'openapiUrl' => $source->getOpenapiUrl(),
+            'status' => $source->getStatus(),
+            'operationsCount' => count($operations),
+            'createdAt' => $source->getCreatedAt()->format(DATE_ATOM),
+            'updatedAt' => $source->getUpdatedAt()->format(DATE_ATOM),
+        ];
+    }
+
+    private function apiSourcePayload(BuilderApiSource $source): array
+    {
+        $metadata = $source->getMetadata();
+        $providerType = (string) ($metadata['providerType'] ?? 'generic');
+        return [
+            'id' => $source->getId(),
+            'code' => $source->getCode(),
+            'name' => $source->getName(),
+            'providerType' => $providerType,
+            'authMode' => $source->getAuthMode(),
+            'baseUrl' => $source->getBaseUrl(),
+            'openapiUrl' => $source->getOpenapiUrl(),
+            'status' => $source->getStatus(),
+            'timeoutSeconds' => (int) ($metadata['timeoutSeconds'] ?? 20),
+            'authHeaders' => $this->maskApiHeaderSecrets(is_array($metadata['authHeaders'] ?? null) ? $metadata['authHeaders'] : []),
+            'operations' => $this->maskApiOperationSecrets($this->apiSourceOperationsFromMetadata($metadata)),
+            'odoo' => $providerType === 'odoo' ? $this->maskOdooSourceSecrets(is_array($metadata['odoo'] ?? null) ? $metadata['odoo'] : []) : null,
+            'createdAt' => $source->getCreatedAt()->format(DATE_ATOM),
+            'updatedAt' => $source->getUpdatedAt()->format(DATE_ATOM),
+        ];
+    }
+
+    private function normalizeLockScopeType(string $scopeType): string
+    {
+        $normalized = strtolower(trim($scopeType));
+        return in_array($normalized, ['module', 'entity', 'program'], true) ? $normalized : '';
+    }
+
+    private function editorLockPayload(BuilderEditorLock $lock): array
+    {
+        return [
+            'id' => $lock->getId(),
+            'scopeType' => $lock->getScopeType(),
+            'scopeCode' => $lock->getScopeCode(),
+            'displayName' => $lock->getDisplayName(),
+            'userId' => $lock->getUserId(),
+            'userName' => $lock->getUserName(),
+            'sessionId' => $lock->getSessionId(),
+            'lockToken' => $lock->getLockToken(),
+            'status' => $lock->getStatus(),
+            'acquiredAt' => $lock->getAcquiredAt()->format(DATE_ATOM),
+            'lastSeenAt' => $lock->getLastSeenAt()->format(DATE_ATOM),
+            'expiresAt' => $lock->getExpiresAt()->format(DATE_ATOM),
+            'releasedAt' => $lock->getReleasedAt()?->format(DATE_ATOM),
+        ];
+    }
+
     private function normalizeEntityPayload(array $payload): array
     {
         $code = $this->safeSqlIdentifier((string) ($payload['code'] ?? ''));
@@ -723,15 +1754,43 @@ class ProgramBuilderService
         $structureParentEntityCode = $this->safeSqlIdentifier((string) ($payload['structureParentEntityCode'] ?? ''));
         $structureLeftEntityCode = $this->safeSqlIdentifier((string) ($payload['structureLeftEntityCode'] ?? ''));
         $structureRightEntityCode = $this->safeSqlIdentifier((string) ($payload['structureRightEntityCode'] ?? ''));
+        $skipStructureValidation = ($payload['skipStructureValidation'] ?? false) === true;
         $situationEnabled = (bool) ($payload['situationEnabled'] ?? false);
         $situationFieldCode = $situationEnabled ? $this->safeSqlIdentifier((string) ($payload['situationFieldCode'] ?? 'status')) : null;
         $versioningEnabled = $entityType === 'persistence' && ($payload['versioningEnabled'] ?? false) === true;
         $versioningDeduplicate = ($payload['versioningDeduplicate'] ?? true) !== false;
+        $apiSourceCode = $this->safeCode((string) ($payload['apiSourceCode'] ?? ''));
+        $apiListOperationCode = $this->safeCode((string) ($payload['apiListOperationCode'] ?? ''));
+        $apiDetailOperationCode = $this->safeCode((string) ($payload['apiDetailOperationCode'] ?? ''));
+        $apiCreateOperationCode = $this->safeCode((string) ($payload['apiCreateOperationCode'] ?? ''));
+        $apiUpdateOperationCode = $this->safeCode((string) ($payload['apiUpdateOperationCode'] ?? ''));
+        $apiDeleteOperationCode = $this->safeCode((string) ($payload['apiDeleteOperationCode'] ?? ''));
+        $apiSource = $entityType === 'api' && $apiSourceCode === ''
+            ? $this->normalizeApiSource(is_array($payload['apiSource'] ?? null) ? $payload['apiSource'] : [])
+            : null;
+        $apiBinding = null;
+        if ($entityType === 'api' && $apiSourceCode !== '') {
+            $apiSourceEntity = $this->apiSources->findOneBy(['code' => $apiSourceCode]);
+            if (!$apiSourceEntity) {
+                throw new RuntimeHttpException('ENTITY_API_SOURCE_NOT_FOUND', 'Cadastro de API nao encontrado.', 422, [
+                    'apiSourceCode' => $apiSourceCode,
+                ]);
+            }
+            $apiBinding = [
+                'sourceCode' => $apiSourceCode,
+                'listOperationCode' => $apiListOperationCode,
+                'detailOperationCode' => $apiDetailOperationCode,
+                'createOperationCode' => $apiCreateOperationCode,
+                'updateOperationCode' => $apiUpdateOperationCode,
+                'deleteOperationCode' => $apiDeleteOperationCode,
+            ];
+            $apiSource = $this->resolveApiSourceBinding($apiSourceEntity, $apiListOperationCode, $apiDetailOperationCode, $apiCreateOperationCode, $apiUpdateOperationCode, $apiDeleteOperationCode);
+        }
 
         if ($code === '' || $name === '') {
             throw new RuntimeHttpException('ENTITY_BUILDER_REQUIRED_FIELDS', 'Informe codigo, nome e nome da tabela da entidade.', 422);
         }
-        if (!in_array($entityType, ['persistence', 'query', 'io'], true)) {
+        if (!in_array($entityType, ['persistence', 'query', 'io', 'api'], true)) {
             throw new RuntimeHttpException('ENTITY_TYPE_INVALID', 'Tipo de entidade invalido.', 422, [
                 'entityType' => $entityType,
             ]);
@@ -744,17 +1803,29 @@ class ProgramBuilderService
                 'entityType' => $entityType,
             ]);
         }
-        $structure = $this->normalizeEntityStructure(
-            $structureModuleCode,
-            $structureType,
-            $structureBaseNumber,
-            $structureSequenceNumber,
-            $structureParentEntityCode,
-            $structureLeftEntityCode,
-            $structureRightEntityCode,
-            $entityType
-        );
-        $this->validateTableNamingPattern($tableName, $entityType, $originalTableName, $structure);
+        $structure = $skipStructureValidation
+            ? [
+                'moduleCode' => $structureModuleCode,
+                'type' => $structureType,
+                'baseNumber' => $structureBaseNumber,
+                'sequenceNumber' => $structureSequenceNumber,
+                'parentEntityCode' => $structureParentEntityCode,
+                'leftEntityCode' => $structureLeftEntityCode,
+                'rightEntityCode' => $structureRightEntityCode,
+            ]
+            : $this->normalizeEntityStructure(
+                $structureModuleCode,
+                $structureType,
+                $structureBaseNumber,
+                $structureSequenceNumber,
+                $structureParentEntityCode,
+                $structureLeftEntityCode,
+                $structureRightEntityCode,
+                $entityType
+            );
+        if ($entityType !== 'api' && $entityType !== 'io') {
+            $this->validateTableNamingPattern($tableName, $entityType, $originalTableName, $structure);
+        }
 
         $fields = [];
         $hasPrimaryKey = false;
@@ -776,12 +1847,24 @@ class ProgramBuilderService
             $scale = $this->normalizePositiveInt($item['scale'] ?? null);
             $options = is_array($item['options'] ?? null) ? $item['options'] : [];
             $virtualField = ($item['virtualField'] ?? false) === true;
-            $columnName = $this->safeSqlIdentifier((string) ($item['columnName'] ?? $fieldCode));
+            $columnName = $entityType === 'api'
+                ? $fieldCode
+                : $this->safeSqlIdentifier((string) ($item['columnName'] ?? $fieldCode));
             $options['columnName'] = $columnName;
+            $apiJsonPath = $this->normalizeApiJsonPath((string) ($item['apiJsonPath'] ?? ''));
+            $apiWritePath = $this->normalizeApiJsonPath((string) ($item['apiWritePath'] ?? ''));
+            $apiShowInGrid = ($item['apiShowInGrid'] ?? true) !== false;
+            $apiShowInForm = ($item['apiShowInForm'] ?? true) !== false;
+            $apiShowInFilter = ($item['apiShowInFilter'] ?? false) === true;
+            if ($entityType === 'api' && $apiJsonPath === '') {
+                throw new RuntimeHttpException('ENTITY_API_FIELD_JSON_PATH_REQUIRED', 'Campo de entidade API precisa informar JSON path.', 422, [
+                    'field' => $fieldCode,
+                ]);
+            }
             $defaultValue = $this->normalizeDefaultValue($item['defaultValue'] ?? null, $dataType);
             $unique = (bool) ($item['unique'] ?? false);
-            $foreignKeyTable = $this->safeSqlIdentifier((string) ($item['foreignKeyTable'] ?? ''));
-            $foreignKeyColumn = $this->safeSqlIdentifier((string) ($item['foreignKeyColumn'] ?? ''));
+            $foreignKeyTable = $entityType === 'api' ? '' : $this->safeSqlIdentifier((string) ($item['foreignKeyTable'] ?? ''));
+            $foreignKeyColumn = $entityType === 'api' ? '' : $this->safeSqlIdentifier((string) ($item['foreignKeyColumn'] ?? ''));
             $foreignKeyOnDelete = $this->normalizeForeignKeyAction($item['foreignKeyOnDelete'] ?? null);
             $foreignKeyOnUpdate = $this->normalizeForeignKeyAction($item['foreignKeyOnUpdate'] ?? null);
             $foreignKeyDependencyType = $this->normalizeDependencyType($item['foreignKeyDependencyType'] ?? null);
@@ -818,6 +1901,33 @@ class ProgramBuilderService
                 $options['writable'] = false;
             } else {
                 unset($options['virtual']);
+            }
+            if ($entityType === 'api') {
+                $options['api'] = [
+                    'jsonPath' => $apiJsonPath,
+                    'writePath' => $apiWritePath !== '' ? $apiWritePath : $apiJsonPath,
+                    'showInGrid' => $apiShowInGrid,
+                    'showInForm' => $apiShowInForm,
+                    'showInFilter' => $apiShowInFilter,
+                ];
+                $defaultValue = null;
+                $unique = false;
+                $foreignKeyTable = '';
+                $foreignKeyColumn = '';
+                $foreignKeyOnDelete = null;
+                $foreignKeyOnUpdate = null;
+                $foreignKeyDependencyType = null;
+                $virtualField = false;
+                unset(
+                    $options['foreignKey'],
+                    $options['unique'],
+                    $options['defaultValue'],
+                    $options['versionReference'],
+                    $options['versionSnapshot'],
+                    $options['customCode']
+                );
+            } else {
+                unset($options['api']);
             }
             if ($readonlyField) {
                 $options['readonly'] = true;
@@ -933,7 +2043,9 @@ class ProgramBuilderService
                 'originalColumnName' => $this->safeSqlIdentifier((string) ($item['originalColumnName'] ?? $columnName)),
                 'position' => (int) $index,
             ];
-            $this->validateFieldNamingPattern($fields[count($fields) - 1], $dataType, $foreignKeyTable !== '' && $foreignKeyColumn !== '');
+            if ($entityType !== 'api') {
+                $this->validateFieldNamingPattern($fields[count($fields) - 1], $dataType, $foreignKeyTable !== '' && $foreignKeyColumn !== '');
+            }
             if ($primaryKey) {
                 $hasPrimaryKey = true;
             }
@@ -951,8 +2063,8 @@ class ProgramBuilderService
             ]);
         }
 
-        $rules = $this->normalizeEntityRules($payload['rules'] ?? [], $fields);
-        $uniqueKeys = $this->normalizeEntityUniqueKeys($payload['uniqueKeys'] ?? [], $fields);
+        $rules = $entityType === 'api' ? [] : $this->normalizeEntityRules($payload['rules'] ?? [], $fields);
+        $uniqueKeys = $entityType === 'api' ? [] : $this->normalizeEntityUniqueKeys($payload['uniqueKeys'] ?? [], $fields);
         $this->validateUniqueKeyFieldPrefixes($uniqueKeys, $fields);
 
         return [
@@ -960,6 +2072,8 @@ class ProgramBuilderService
             'name' => $name,
             'entityType' => $entityType,
             'tableName' => $entityType === 'persistence' ? $tableName : null,
+            'apiSource' => $apiSource,
+            'apiBinding' => $apiBinding,
             'fields' => $fields,
             'primaryKey' => $this->resolvePrimaryKeyCode($fields),
             'situationEnabled' => $situationEnabled,
@@ -976,7 +2090,7 @@ class ProgramBuilderService
         ];
     }
 
-    private function normalizeBuilderPayload(array $payload): array
+    private function normalizeBuilderPayload(array $payload, ?BuilderEntity $overrideEntity = null): array
     {
         $programCode = $this->safeCode((string) ($payload['programCode'] ?? ''));
         $programTitle = trim((string) ($payload['programTitle'] ?? ''));
@@ -985,12 +2099,15 @@ class ProgramBuilderService
         $builderEntityCode = $this->safeCode((string) ($payload['builderEntityCode'] ?? ''));
         $screenId = trim((string) ($payload['screenId'] ?? ''));
         $version = trim((string) ($payload['version'] ?? '1.0.0'));
+        $customMode = strtolower(trim((string) ($payload['customMode'] ?? 'iframe')));
+        $customEntryUrl = trim((string) ($payload['customEntryUrl'] ?? ''));
+        $customFrameTitle = trim((string) ($payload['customFrameTitle'] ?? ''));
 
-        if ($programCode === '' || $programTitle === '' || $moduleCode === '' || $builderEntityCode === '' || $screenId === '') {
-            throw new RuntimeHttpException('PROGRAM_BUILDER_REQUIRED_FIELDS', 'Informe codigo, titulo, modulo, entidade e screenId.', 422);
+        if ($programCode === '' || $programTitle === '' || $moduleCode === '' || $screenId === '') {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_REQUIRED_FIELDS', 'Informe codigo, titulo, modulo e screenId.', 422);
         }
-        if ($pageType !== 'crud') {
-            throw new RuntimeHttpException('PROGRAM_BUILDER_PAGE_TYPE_NOT_SUPPORTED', 'Nesta primeira etapa o construtor visual suporta apenas programas CRUD.', 422, [
+        if (!in_array($pageType, ['crud', 'custom'], true)) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_PAGE_TYPE_NOT_SUPPORTED', 'Nesta etapa o construtor visual suporta programas CRUD e custom.', 422, [
                 'pageType' => $pageType,
             ]);
         }
@@ -1023,42 +2140,77 @@ class ProgramBuilderService
             ]);
         }
 
-        $entity = $this->entities->findOneBy(['code' => $builderEntityCode]);
-        if (!$entity) {
-            throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_NOT_FOUND', 'Entidade do construtor nao encontrada.', 422, [
-                'builderEntityCode' => $builderEntityCode,
-            ]);
+        $entity = $overrideEntity;
+        if ($pageType === 'crud') {
+            if ($builderEntityCode === '') {
+                throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_REQUIRED', 'Informe a entidade base para programas CRUD.', 422);
+            }
+            if ($entity === null) {
+                $entity = $this->entities->findOneBy(['code' => $builderEntityCode]);
+            }
+            if (!$entity) {
+                throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_NOT_FOUND', 'Entidade do construtor nao encontrada.', 422, [
+                    'builderEntityCode' => $builderEntityCode,
+                ]);
+            }
+            if (!in_array($entity->getEntityType(), ['persistence', 'api'], true)) {
+                throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_TYPE_NOT_SUPPORTED', 'Nesta etapa o gerador de programa suporta apenas entidades persistentes.', 422, [
+                    'builderEntityCode' => $builderEntityCode,
+                    'entityType' => $entity->getEntityType(),
+                ]);
+            }
         }
-        if ($entity->getEntityType() !== 'persistence') {
-            throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_TYPE_NOT_SUPPORTED', 'Nesta etapa o gerador de programa suporta apenas entidades persistentes.', 422, [
-                'builderEntityCode' => $builderEntityCode,
-                'entityType' => $entity->getEntityType(),
-            ]);
+
+        if ($pageType === 'custom') {
+            if (!in_array($customMode, ['iframe', 'htmlUrl'], true)) {
+                throw new RuntimeHttpException('PROGRAM_BUILDER_CUSTOM_MODE_INVALID', 'Modo custom invalido.', 422, [
+                    'customMode' => $customMode,
+                ]);
+            }
+            if ($customEntryUrl === '') {
+                throw new RuntimeHttpException('PROGRAM_BUILDER_CUSTOM_ENTRY_REQUIRED', 'Informe a URL/entrypoint manual do programa custom.', 422);
+            }
+            if (preg_match('/^https?:\/\//i', $customEntryUrl)) {
+                throw new RuntimeHttpException('PROGRAM_BUILDER_CUSTOM_ENTRY_UNSAFE', 'Programas custom publicados pelo builder aceitam apenas entrypoints relativos do proprio sistema.', 422, [
+                    'customEntryUrl' => $customEntryUrl,
+                ]);
+            }
         }
 
         return [
             'programCode' => $programCode,
             'programTitle' => $programTitle,
             'module' => $moduleCode,
-            'pageType' => 'crud',
+            'pageType' => $pageType,
             'builderEntityCode' => $builderEntityCode,
             'screenId' => $screenId,
             'version' => $version,
             'subtitle' => trim((string) ($payload['subtitle'] ?? '')) ?: null,
             'icon' => trim((string) ($payload['icon'] ?? '')) ?: null,
             'permissionPrefix' => $this->safePermissionPrefix((string) ($payload['permissionPrefix'] ?? $programCode)),
-            'allowCreate' => (bool) ($payload['allowCreate'] ?? true),
-            'allowUpdate' => (bool) ($payload['allowUpdate'] ?? true),
-            'allowDelete' => (bool) ($payload['allowDelete'] ?? true),
+            'allowCreate' => $pageType === 'crud' ? ($this->apiEntitySupportsOperation($entity, 'create') ? (bool) ($payload['allowCreate'] ?? true) : ($entity && $entity->getEntityType() === 'api' ? false : (bool) ($payload['allowCreate'] ?? true))) : false,
+            'allowUpdate' => $pageType === 'crud' ? ($this->apiEntitySupportsOperation($entity, 'update') ? (bool) ($payload['allowUpdate'] ?? true) : ($entity && $entity->getEntityType() === 'api' ? false : (bool) ($payload['allowUpdate'] ?? true))) : false,
+            'allowDelete' => $pageType === 'crud' ? ($this->apiEntitySupportsOperation($entity, 'delete') ? (bool) ($payload['allowDelete'] ?? true) : ($entity && $entity->getEntityType() === 'api' ? false : (bool) ($payload['allowDelete'] ?? true))) : false,
             'changeSummary' => trim((string) ($payload['changeSummary'] ?? '')) ?: null,
+            'customMode' => $pageType === 'custom' ? $customMode : null,
+            'customEntryUrl' => $pageType === 'custom' ? $customEntryUrl : null,
+            'customFrameTitle' => $pageType === 'custom' ? ($customFrameTitle !== '' ? $customFrameTitle : $programTitle) : null,
             '_module' => $module,
             '_entity' => $entity,
         ];
     }
 
+    private function generateProgramDefinition(array $config): array
+    {
+        return $config['pageType'] === 'custom'
+            ? $this->generateCustomDefinition($config)
+            : $this->generateCrudDefinition($config);
+    }
+
     private function generateCrudDefinition(array $config): array
     {
         $entity = $config['_entity'];
+        $apiEntity = $entity instanceof BuilderEntity && $entity->getEntityType() === 'api';
         $fields = [];
         $filterFields = [];
         $gridColumns = [];
@@ -1070,6 +2222,10 @@ class ProgramBuilderService
             $code = $field->getCode();
             $options = $field->getOptions();
             $dataType = $this->normalizeFieldType($field->getDataType());
+            $apiField = is_array($options['api'] ?? null) ? $options['api'] : [];
+            $showInGrid = !$apiEntity || ($apiField['showInGrid'] ?? true) !== false;
+            $showInForm = !$apiEntity || ($apiField['showInForm'] ?? true) !== false;
+            $showInFilter = $apiEntity ? (($apiField['showInFilter'] ?? false) === true) : (($options['virtual'] ?? false) !== true);
             $fields[$code] = [
                 'label' => $field->getLabel(),
                 'type' => $dataType,
@@ -1077,6 +2233,7 @@ class ProgramBuilderService
             ];
             if (($options['readonly'] ?? false) === true || ($options['virtual'] ?? false) === true) {
                 $fields[$code]['readonly'] = true;
+                $fields[$code]['editable'] = false;
             }
             if (($options['editor'] ?? '') === 'textarea' || $dataType === 'json') {
                 $fields[$code]['editor'] = 'textarea';
@@ -1091,17 +2248,25 @@ class ProgramBuilderService
             }
             if ($field->isPrimaryKey()) {
                 $primaryKey = $code;
+                $fields[$code]['readonly'] = true;
+                $fields[$code]['editable'] = false;
             }
 
-            $formFields[] = ['field' => $code];
-            if ($position < 6 && !in_array($dataType, ['json'], true)) {
+            if ($showInForm) {
+                $formItem = ['field' => $code];
+                if (($fields[$code]['readonly'] ?? false) === true) {
+                    $formItem['readonly'] = true;
+                }
+                $formFields[] = $formItem;
+            }
+            if ($showInGrid && $position < 6 && !in_array($dataType, ['json'], true)) {
                 $gridColumns[] = [
                     'field' => $code,
                     'title' => $field->getLabel(),
                     'width' => in_array($dataType, ['datetime', 'text'], true) ? 220 : 150,
                 ];
             }
-            if (($options['virtual'] ?? false) !== true && $position < 5 && !in_array($dataType, ['json', 'text'], true)) {
+            if ($showInFilter && $position < 5 && !in_array($dataType, ['json', 'text'], true)) {
                 $filterFields[] = [
                     'id' => $code,
                     'field' => $code,
@@ -1112,6 +2277,17 @@ class ProgramBuilderService
             }
             ++$position;
         }
+
+        if (isset($fields[$primaryKey])) {
+            $fields[$primaryKey]['readonly'] = true;
+            $fields[$primaryKey]['editable'] = false;
+        }
+        foreach ($formFields as &$formField) {
+            if (($formField['field'] ?? '') === $primaryKey) {
+                $formField['readonly'] = true;
+            }
+        }
+        unset($formField);
 
         $permissionPrefix = $config['permissionPrefix'];
 
@@ -1142,17 +2318,18 @@ class ProgramBuilderService
             'runtime' => [
                 'entityCode' => $config['builderEntityCode'],
                 'programId' => $config['programCode'],
+                'mode' => $apiEntity ? (($config['allowCreate'] || $config['allowUpdate'] || $config['allowDelete']) ? 'api-crud' : 'readonly-api') : 'crud',
                 'lock' => [
-                    'enabled' => $config['allowUpdate'] || $config['allowDelete'],
+                    'enabled' => !$apiEntity && ($config['allowUpdate'] || $config['allowDelete']),
                     'modes' => array_values(array_filter([
                         $config['allowUpdate'] ? 'edit' : null,
                         $config['allowDelete'] ? 'delete' : null,
                     ])),
                 ],
                 'messages' => [
-                    'enabled' => true,
+                    'enabled' => !$apiEntity,
                     'pollIntervalSeconds' => 30,
-                    'events' => ['enabled' => true],
+                    'events' => ['enabled' => !$apiEntity],
                 ],
             ],
             'dataModel' => [
@@ -1175,7 +2352,7 @@ class ProgramBuilderService
                 'grid' => [
                     'pageable' => true,
                     'sortable' => true,
-                    'filterable' => true,
+                    'filterable' => !$apiEntity,
                     'resizable' => true,
                     'reorderable' => true,
                     'columnMenu' => true,
@@ -1204,7 +2381,14 @@ class ProgramBuilderService
                         [
                             'id' => 'geral',
                             'title' => 'Geral',
-                            'fields' => array_column($formFields, 'field'),
+                            'sections' => [
+                                [
+                                    'id' => 'principal',
+                                    'title' => 'Principal',
+                                    'columns' => 2,
+                                    'fields' => $formFields,
+                                ],
+                            ],
                         ],
                     ],
                     'fields' => $formFields,
@@ -1220,14 +2404,57 @@ class ProgramBuilderService
         ];
     }
 
+    private function generateCustomDefinition(array $config): array
+    {
+        $permissionPrefix = $config['permissionPrefix'];
+
+        return [
+            'schemaVersion' => '1.0',
+            'pageType' => 'custom',
+            'screenId' => $config['screenId'],
+            'program' => [
+                'id' => $config['programCode'],
+                'module' => $config['module'],
+                'title' => $config['programTitle'],
+                'version' => $config['version'],
+                'subtitle' => $config['subtitle'],
+                'icon' => $config['icon'],
+                'permission' => $permissionPrefix !== '' ? $permissionPrefix . '.read' : null,
+            ],
+            'permissions' => [
+                'read' => $permissionPrefix !== '' ? $permissionPrefix . '.read' : true,
+            ],
+            'custom' => [
+                'mode' => $config['customMode'] ?? 'iframe',
+                'entryUrl' => $config['customEntryUrl'] ?? '',
+                'frameTitle' => $config['customFrameTitle'] ?? $config['programTitle'],
+            ],
+            'runtime' => [
+                'programId' => $config['programCode'],
+                'messages' => [
+                    'enabled' => false,
+                ],
+            ],
+        ];
+    }
+
+    private function syncRuntimeEndpoints(BuilderProgramVersion $version): void
+    {
+        if ($version->getPageType() !== 'crud') {
+            $this->disableRuntimeEndpointsForScreen($version->getScreenId());
+            return;
+        }
+
+        $this->upsertCrudRuntimeEndpoints($version);
+    }
+
     private function upsertCrudRuntimeEndpoints(BuilderProgramVersion $version): void
     {
+        $apiEntity = $this->isApiEntityVersion($version);
+        $odooEntity = $this->isOdooApiEntityVersion($version);
         $handlers = [
-            'read' => 'entity.crud',
-            'get' => 'entity.crud',
-            'create' => 'entity.crud',
-            'update' => 'entity.crud',
-            'delete' => 'entity.crud',
+            'read' => $odooEntity ? 'entity.api.odoo.readonly' : ($apiEntity ? 'entity.api.crud' : 'entity.crud'),
+            'get' => $odooEntity ? 'entity.api.odoo.readonly' : ($apiEntity ? 'entity.api.crud' : 'entity.crud'),
             'saveLayout' => 'layout.save',
             'restoreLayout' => 'layout.restore',
             'saveSort' => 'layout.saveSort',
@@ -1238,12 +2465,25 @@ class ProgramBuilderService
             'deleteFilter' => 'layout.deleteFilter',
             'saveMobileTemplate' => 'layout.saveMobileTemplate',
             'deleteMobileTemplate' => 'layout.deleteMobileTemplate',
-            'runtime.lock.acquire' => 'runtime.lock.acquire',
-            'runtime.lock.heartbeat' => 'runtime.lock.heartbeat',
-            'runtime.lock.release' => 'runtime.lock.release',
-            'runtime.messages.poll' => 'runtime.messages.poll',
-            'runtime.messages.ack' => 'runtime.messages.ack',
         ];
+        if ($odooEntity) {
+            $handlers['create'] = 'entity.api.odoo.readonly';
+            $handlers['update'] = 'entity.api.odoo.readonly';
+            $handlers['delete'] = 'entity.api.odoo.readonly';
+        } elseif ($apiEntity) {
+            $handlers['create'] = 'entity.api.crud';
+            $handlers['update'] = 'entity.api.crud';
+            $handlers['delete'] = 'entity.api.crud';
+        } else {
+            $handlers['create'] = 'entity.crud';
+            $handlers['update'] = 'entity.crud';
+            $handlers['delete'] = 'entity.crud';
+            $handlers['runtime.lock.acquire'] = 'runtime.lock.acquire';
+            $handlers['runtime.lock.heartbeat'] = 'runtime.lock.heartbeat';
+            $handlers['runtime.lock.release'] = 'runtime.lock.release';
+            $handlers['runtime.messages.poll'] = 'runtime.messages.poll';
+            $handlers['runtime.messages.ack'] = 'runtime.messages.ack';
+        }
 
         foreach ($handlers as $endpointId => $handler) {
             if (in_array($endpointId, ['create', 'update', 'delete'], true)) {
@@ -1275,6 +2515,14 @@ class ProgramBuilderService
         }
     }
 
+    private function disableRuntimeEndpointsForScreen(string $screenId): void
+    {
+        foreach ($this->endpoints->findBy(['screenId' => $screenId]) as $endpoint) {
+            $endpoint->setEnabled(false);
+            $this->entityManager->persist($endpoint);
+        }
+    }
+
     private function endpointPermission(BuilderProgramVersion $version, string $endpointId, string $handler): ?string
     {
         if (str_starts_with($endpointId, 'runtime.messages.') || str_starts_with($endpointId, 'runtime.lock.')) {
@@ -1300,7 +2548,7 @@ class ProgramBuilderService
 
     private function endpointConfig(BuilderProgramVersion $version, string $endpointId, string $handler): array
     {
-        if ($handler === 'entity.crud') {
+        if (in_array($handler, ['entity.crud', 'entity.api.readonly', 'entity.api.crud', 'entity.api.odoo.readonly'], true)) {
             return [
                 'entityCode' => $version->getBuilderEntityCode(),
                 'operation' => $endpointId,
@@ -1317,8 +2565,10 @@ class ProgramBuilderService
     {
         $api = [
             'read' => ['endpointId' => 'read', 'method' => 'POST'],
-            'get' => ['endpointId' => 'get', 'method' => 'POST'],
         ];
+        if (!$this->isApiEntity($config['_entity']) || $this->apiEntityHasDetailEndpoint($config['_entity'])) {
+            $api['get'] = ['endpointId' => 'get', 'method' => 'POST'];
+        }
         if ($config['allowCreate']) {
             $api['create'] = ['endpointId' => 'create', 'method' => 'POST'];
         }
@@ -1329,12 +2579,7 @@ class ProgramBuilderService
             $api['delete'] = ['endpointId' => 'delete', 'method' => 'POST'];
         }
 
-        return $api + [
-            'runtime.lock.acquire' => ['endpointId' => 'runtime.lock.acquire', 'method' => 'POST'],
-            'runtime.lock.heartbeat' => ['endpointId' => 'runtime.lock.heartbeat', 'method' => 'POST'],
-            'runtime.lock.release' => ['endpointId' => 'runtime.lock.release', 'method' => 'POST'],
-            'runtime.messages.poll' => ['endpointId' => 'runtime.messages.poll', 'method' => 'POST'],
-            'runtime.messages.ack' => ['endpointId' => 'runtime.messages.ack', 'method' => 'POST'],
+        $systemEndpoints = [
             'saveLayout' => ['endpointId' => 'saveLayout', 'method' => 'POST'],
             'restoreLayout' => ['endpointId' => 'restoreLayout', 'method' => 'POST'],
             'saveSort' => ['endpointId' => 'saveSort', 'method' => 'POST'],
@@ -1346,6 +2591,17 @@ class ProgramBuilderService
             'saveMobileTemplate' => ['endpointId' => 'saveMobileTemplate', 'method' => 'POST'],
             'deleteMobileTemplate' => ['endpointId' => 'deleteMobileTemplate', 'method' => 'POST'],
         ];
+        if (!$this->isApiEntity($config['_entity'])) {
+            $systemEndpoints = [
+                'runtime.lock.acquire' => ['endpointId' => 'runtime.lock.acquire', 'method' => 'POST'],
+                'runtime.lock.heartbeat' => ['endpointId' => 'runtime.lock.heartbeat', 'method' => 'POST'],
+                'runtime.lock.release' => ['endpointId' => 'runtime.lock.release', 'method' => 'POST'],
+                'runtime.messages.poll' => ['endpointId' => 'runtime.messages.poll', 'method' => 'POST'],
+                'runtime.messages.ack' => ['endpointId' => 'runtime.messages.ack', 'method' => 'POST'],
+            ] + $systemEndpoints;
+        }
+
+        return $api + $systemEndpoints;
     }
 
     private function toolbar(array $config): array
@@ -1396,6 +2652,9 @@ class ProgramBuilderService
             'allowUpdate' => $version->isAllowUpdate(),
             'allowDelete' => $version->isAllowDelete(),
             'changeSummary' => $version->getChangeSummary(),
+            'customMode' => $version->getBuilderConfig()['customMode'] ?? null,
+            'customEntryUrl' => $version->getBuilderConfig()['customEntryUrl'] ?? null,
+            'customFrameTitle' => $version->getBuilderConfig()['customFrameTitle'] ?? null,
             'builderConfig' => $this->publicBuilderConfig($version->getBuilderConfig()),
             'generatedDefinition' => $version->getGeneratedDefinition(),
             'publishedAt' => $version->getPublishedAt()?->format(DATE_ATOM),
@@ -1410,6 +2669,249 @@ class ProgramBuilderService
         unset($copy['_entity']);
 
         return $copy;
+    }
+
+    private function buildTransientEntity(array $config): BuilderEntity
+    {
+        $entity = (new BuilderEntity())
+            ->setCode($config['code'])
+            ->setName($config['name'])
+            ->setEntityType($config['entityType'])
+            ->setTableName($config['tableName'])
+            ->setStatus('draft')
+            ->setSituationEnabled($config['situationEnabled'])
+            ->setSituationFieldCode($config['situationFieldCode'])
+            ->setMetadata([
+                'structure' => $config['structure'],
+                'uniqueKeys' => $config['uniqueKeys'],
+                'rules' => $config['rules'],
+                'apiSource' => $config['apiSource'] ?? null,
+                'apiBinding' => $config['apiBinding'] ?? null,
+                'versioning' => [
+                    'enabled' => $config['versioningEnabled'],
+                    'deduplicate' => $config['versioningDeduplicate'],
+                ],
+            ]);
+
+        foreach ($config['fields'] as $fieldConfig) {
+            $field = (new BuilderField())
+                ->setBuilderEntity($entity)
+                ->setCode($fieldConfig['code'])
+                ->setLabel($fieldConfig['label'])
+                ->setDataType($fieldConfig['dataType'])
+                ->setDatabaseType($this->guessDatabaseType($fieldConfig['dataType']))
+                ->setLength($fieldConfig['length'])
+                ->setPrecisionValue($fieldConfig['precision'])
+                ->setScaleValue($fieldConfig['scale'])
+                ->setRequired($fieldConfig['required'])
+                ->setPrimaryKey($fieldConfig['primaryKey'])
+                ->setPosition((int) $fieldConfig['position'])
+                ->setOptions($fieldConfig['options']);
+            $entity->addField($field);
+        }
+
+        return $entity;
+    }
+
+    private function externalEntityPayload(array $config): array
+    {
+        $fields = array_map(function (array $field): array {
+            return [
+                'id' => (int) ($field['id'] ?? 0),
+                'code' => $field['code'],
+                'label' => $field['label'],
+                'dataType' => $field['dataType'],
+                'required' => $field['required'],
+                'primaryKey' => $field['primaryKey'],
+                'length' => $field['length'],
+                'precision' => $field['precision'],
+                'scale' => $field['scale'],
+                'position' => $field['position'],
+                'options' => $field['options'],
+                'columnName' => $field['columnName'],
+                'originalCode' => $field['originalCode'],
+                'originalColumnName' => $field['originalColumnName'],
+                'defaultValue' => $field['options']['defaultValue'] ?? null,
+                'unique' => ($field['options']['unique'] ?? false) === true,
+                'foreignKeyTable' => is_array($field['options']['foreignKey'] ?? null) ? ($field['options']['foreignKey']['table'] ?? null) : null,
+                'foreignKeyColumn' => is_array($field['options']['foreignKey'] ?? null) ? ($field['options']['foreignKey']['column'] ?? null) : null,
+                'foreignKeyOnDelete' => is_array($field['options']['foreignKey'] ?? null) ? ($field['options']['foreignKey']['onDelete'] ?? null) : null,
+                'foreignKeyOnUpdate' => is_array($field['options']['foreignKey'] ?? null) ? ($field['options']['foreignKey']['onUpdate'] ?? null) : null,
+                'foreignKeyDependencyType' => is_array($field['options']['foreignKey'] ?? null) ? ($field['options']['foreignKey']['dependencyType'] ?? null) : null,
+                'readonlyField' => ($field['options']['readonly'] ?? false) === true || ($field['options']['writable'] ?? true) === false,
+                'optionItems' => is_array($field['options']['options'] ?? null) ? $field['options']['options'] : [],
+                'virtualField' => ($field['options']['virtual'] ?? false) === true,
+                'includeInVersion' => ($field['options']['includeInVersion'] ?? true) !== false,
+                'versionRefEntityCode' => is_array($field['options']['versionReference'] ?? null) ? ($field['options']['versionReference']['sourceEntityCode'] ?? null) : null,
+                'versionRefSourceIdField' => is_array($field['options']['versionReference'] ?? null) ? ($field['options']['versionReference']['sourceIdField'] ?? null) : null,
+                'versionSnapshotVersionField' => is_array($field['options']['versionSnapshot'] ?? null) ? ($field['options']['versionSnapshot']['versionField'] ?? null) : null,
+                'versionSnapshotPath' => is_array($field['options']['versionSnapshot'] ?? null) ? ($field['options']['versionSnapshot']['path'] ?? null) : null,
+                'customCodeMode' => is_array($field['options']['customCode'] ?? null) ? ($field['options']['customCode']['mode'] ?? null) : null,
+                'customCodePrefix' => is_array($field['options']['customCode'] ?? null) ? ($field['options']['customCode']['prefix'] ?? null) : null,
+                'customCodePattern' => is_array($field['options']['customCode'] ?? null) ? ($field['options']['customCode']['pattern'] ?? null) : null,
+                'customCodeSequenceEnabled' => is_array($field['options']['customCode'] ?? null) ? (($field['options']['customCode']['sequenceEnabled'] ?? true) !== false) : true,
+                'customCodeSequenceScope' => is_array($field['options']['customCode'] ?? null) ? ($field['options']['customCode']['sequenceScope'] ?? null) : null,
+                'customCodeSequencePadding' => is_array($field['options']['customCode'] ?? null) ? ($field['options']['customCode']['sequencePadding'] ?? null) : null,
+                'customCodeStaticClass' => is_array($field['options']['customCode'] ?? null) ? ($field['options']['customCode']['staticClass'] ?? null) : null,
+                'customCodeStaticMethod' => is_array($field['options']['customCode'] ?? null) ? ($field['options']['customCode']['staticMethod'] ?? null) : null,
+                'customCodeAssistantScreenId' => is_array($field['options']['customCode'] ?? null) ? ($field['options']['customCode']['assistantScreenId'] ?? null) : null,
+                'customCodePromptTitle' => is_array($field['options']['customCode'] ?? null) ? ($field['options']['customCode']['promptTitle'] ?? null) : null,
+                'customCodePromptFields' => is_array($field['options']['customCode'] ?? null) && is_array($field['options']['customCode']['promptFields'] ?? null) ? $field['options']['customCode']['promptFields'] : [],
+                'apiJsonPath' => is_array($field['options']['api'] ?? null) ? ($field['options']['api']['jsonPath'] ?? null) : null,
+                'apiWritePath' => is_array($field['options']['api'] ?? null) ? ($field['options']['api']['writePath'] ?? null) : null,
+                'apiShowInGrid' => !is_array($field['options']['api'] ?? null) || ($field['options']['api']['showInGrid'] ?? true) !== false,
+                'apiShowInForm' => !is_array($field['options']['api'] ?? null) || ($field['options']['api']['showInForm'] ?? true) !== false,
+                'apiShowInFilter' => is_array($field['options']['api'] ?? null) && ($field['options']['api']['showInFilter'] ?? false) === true,
+            ];
+        }, $config['fields']);
+
+        return [
+            'code' => $config['code'],
+            'name' => $config['name'],
+            'entityType' => $config['entityType'],
+            'tableName' => $config['tableName'],
+            'status' => 'draft',
+            'situationEnabled' => $config['situationEnabled'],
+            'situationFieldCode' => $config['situationFieldCode'],
+            'metadata' => [
+                'structure' => $config['structure'],
+                'uniqueKeys' => $config['uniqueKeys'],
+                'rules' => $config['rules'],
+                'apiSource' => $this->maskApiSourceSecrets($config['apiSource'] ?? null),
+                'apiBinding' => $config['apiBinding'] ?? null,
+                'versioning' => [
+                    'enabled' => $config['versioningEnabled'],
+                    'deduplicate' => $config['versioningDeduplicate'],
+                ],
+            ],
+            'apiSourceCode' => (string) ($config['apiBinding']['sourceCode'] ?? ''),
+            'apiListOperationCode' => (string) ($config['apiBinding']['listOperationCode'] ?? ''),
+            'apiDetailOperationCode' => (string) ($config['apiBinding']['detailOperationCode'] ?? ''),
+            'apiCreateOperationCode' => (string) ($config['apiBinding']['createOperationCode'] ?? ''),
+            'apiUpdateOperationCode' => (string) ($config['apiBinding']['updateOperationCode'] ?? ''),
+            'apiDeleteOperationCode' => (string) ($config['apiBinding']['deleteOperationCode'] ?? ''),
+            'structureModuleCode' => (string) ($config['structure']['moduleCode'] ?? ''),
+            'structureType' => (string) ($config['structure']['type'] ?? 'main'),
+            'structureBaseNumber' => $config['structure']['baseNumber'] ?? null,
+            'structureSequenceNumber' => $config['structure']['sequenceNumber'] ?? null,
+            'structureParentEntityCode' => (string) ($config['structure']['parentEntityCode'] ?? ''),
+            'structureLeftEntityCode' => (string) ($config['structure']['leftEntityCode'] ?? ''),
+            'structureRightEntityCode' => (string) ($config['structure']['rightEntityCode'] ?? ''),
+            'uniqueKeys' => $config['uniqueKeys'],
+            'rules' => $config['rules'],
+            'versioningEnabled' => $config['versioningEnabled'],
+            'versioningDeduplicate' => $config['versioningDeduplicate'],
+            'fields' => $fields,
+            'supportsPhysicalCrud' => $config['entityType'] === 'persistence',
+        ];
+    }
+
+    private function externalProgramPayload(array $config, array $definition): array
+    {
+        return [
+            'programCode' => $config['programCode'],
+            'programTitle' => $config['programTitle'],
+            'module' => $config['module'],
+            'pageType' => $config['pageType'],
+            'builderEntityCode' => $config['builderEntityCode'],
+            'screenId' => $config['screenId'],
+            'version' => $config['version'],
+            'subtitle' => $config['subtitle'],
+            'icon' => $config['icon'],
+            'permissionPrefix' => $config['permissionPrefix'],
+            'allowCreate' => $config['allowCreate'],
+            'allowUpdate' => $config['allowUpdate'],
+            'allowDelete' => $config['allowDelete'],
+            'changeSummary' => $config['changeSummary'],
+            'generatedDefinition' => $definition,
+            'builderConfig' => $this->publicBuilderConfig($config),
+        ];
+    }
+
+    private function normalizeExternalDiagnostics(mixed $value): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $diagnostics = [];
+        foreach ($value as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $message = trim((string) ($item['message'] ?? ''));
+            if ($message === '') {
+                continue;
+            }
+            $level = strtolower(trim((string) ($item['level'] ?? 'info')));
+            if (!in_array($level, ['info', 'warn', 'error'], true)) {
+                $level = 'info';
+            }
+            $diagnostics[] = [
+                'level' => $level,
+                'message' => $message,
+                'source' => 'externo',
+            ];
+        }
+
+        return $diagnostics;
+    }
+
+    private function collectExternalDraftDiagnostics(array $entityPayload, array $programPayload, array $entityConfig, array $programConfig): array
+    {
+        $diagnostics = [];
+
+        $this->appendNormalizationDiagnostic($diagnostics, 'info', 'entityDraft.code', $entityPayload['code'] ?? null, $entityConfig['code']);
+        $this->appendNormalizationDiagnostic($diagnostics, 'info', 'entityDraft.tableName', $entityPayload['tableName'] ?? null, $entityConfig['tableName']);
+        $this->appendNormalizationDiagnostic($diagnostics, 'info', 'programDraft.programCode', $programPayload['programCode'] ?? null, $programConfig['programCode']);
+        $this->appendNormalizationDiagnostic($diagnostics, 'info', 'programDraft.screenId', $programPayload['screenId'] ?? null, $programConfig['screenId']);
+
+        if (!isset($programPayload['version']) || trim((string) $programPayload['version']) === '') {
+            $diagnostics[] = [
+                'level' => 'info',
+                'message' => 'Versao ausente no JSON externo. O builder assumiu 1.0.0.',
+                'source' => 'builder',
+            ];
+        }
+
+        foreach (($entityPayload['fields'] ?? []) as $index => $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+            $rawType = strtolower(trim((string) ($field['dataType'] ?? 'string')));
+            $normalizedField = $entityConfig['fields'][$index] ?? null;
+            if (!$normalizedField) {
+                continue;
+            }
+            if (!in_array($rawType, ['string', 'text', 'integer', 'decimal', 'boolean', 'date', 'datetime', 'enum', 'dropdown', 'email', 'json', 'custom_code'], true)) {
+                $diagnostics[] = [
+                    'level' => 'warn',
+                    'message' => 'Campo ' . $normalizedField['code'] . ' usou tipo nao suportado (' . $rawType . ') e foi ajustado para string.',
+                    'source' => 'builder',
+                ];
+            }
+            $this->appendNormalizationDiagnostic($diagnostics, 'info', 'field.' . $normalizedField['code'] . '.code', $field['code'] ?? null, $normalizedField['code']);
+            $this->appendNormalizationDiagnostic($diagnostics, 'info', 'field.' . $normalizedField['code'] . '.columnName', $field['columnName'] ?? null, $normalizedField['columnName']);
+        }
+
+        return $diagnostics;
+    }
+
+    private function appendNormalizationDiagnostic(array &$diagnostics, string $level, string $path, mixed $rawValue, mixed $normalizedValue): void
+    {
+        if ($rawValue === null || $rawValue === '') {
+            return;
+        }
+        $raw = trim((string) $rawValue);
+        $normalized = trim((string) $normalizedValue);
+        if ($raw === '' || $raw === $normalized) {
+            return;
+        }
+        $diagnostics[] = [
+            'level' => $level,
+            'message' => $path . ' foi normalizado de "' . $raw . '" para "' . $normalized . '".',
+            'source' => 'builder',
+        ];
     }
 
     private function createEntityVersionSnapshot(
@@ -1503,6 +3005,946 @@ class ProgramBuilderService
         }
 
         return $normalized;
+    }
+
+    private function normalizeApiJsonPath(string $path): string
+    {
+        $normalized = trim($path);
+        if ($normalized === '') {
+            return '';
+        }
+        if ($normalized === '$') {
+            return '$';
+        }
+        if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/', $normalized)) {
+            throw new RuntimeHttpException('ENTITY_API_JSON_PATH_INVALID', 'Path JSON da entidade API invalido.', 422, [
+                'path' => $path,
+            ]);
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeApiSource(array $payload): array
+    {
+        $baseUrl = $this->normalizeApiUrl((string) ($payload['baseUrl'] ?? ''), false);
+        $listEndpoint = $this->normalizeApiEndpointConfig(is_array($payload['listEndpoint'] ?? null) ? $payload['listEndpoint'] : [], 'list', true, $baseUrl);
+        $listResponse = is_array($payload['listResponse'] ?? null) ? $payload['listResponse'] : [];
+        $itemsPath = $this->normalizeApiJsonPath((string) ($listResponse['itemsPath'] ?? ''));
+        if ($itemsPath === '') {
+            throw new RuntimeHttpException('ENTITY_API_ITEMS_PATH_REQUIRED', 'Entidade API exige itemsPath para a resposta da lista.', 422);
+        }
+        $totalPath = $this->normalizeApiJsonPath((string) ($listResponse['totalPath'] ?? ''));
+        $detailPayload = is_array($payload['detailEndpoint'] ?? null) ? $payload['detailEndpoint'] : [];
+        $detailEnabled = !empty($detailPayload['url']);
+        $detailEndpoint = $detailEnabled ? $this->normalizeApiEndpointConfig($detailPayload, 'detail', false, $baseUrl) : null;
+        $detailResponse = is_array($payload['detailResponse'] ?? null) ? $payload['detailResponse'] : [];
+        $itemPath = $detailEnabled ? $this->normalizeApiJsonPath((string) ($detailResponse['itemPath'] ?? '')) : '';
+        if ($detailEnabled && $itemPath === '') {
+            throw new RuntimeHttpException('ENTITY_API_DETAIL_ITEM_PATH_REQUIRED', 'Ao informar endpoint de detalhe, informe itemPath.', 422);
+        }
+        $createEndpoint = $this->normalizeApiEndpointConfig(is_array($payload['createEndpoint'] ?? null) ? $payload['createEndpoint'] : [], 'create', false, $baseUrl);
+        $createResponse = is_array($payload['createResponse'] ?? null) ? $payload['createResponse'] : [];
+        $createItemPath = $createEndpoint ? $this->normalizeApiJsonPath((string) ($createResponse['itemPath'] ?? '$')) : '';
+        $updateEndpoint = $this->normalizeApiEndpointConfig(is_array($payload['updateEndpoint'] ?? null) ? $payload['updateEndpoint'] : [], 'update', false, $baseUrl);
+        $updateResponse = is_array($payload['updateResponse'] ?? null) ? $payload['updateResponse'] : [];
+        $updateItemPath = $updateEndpoint ? $this->normalizeApiJsonPath((string) ($updateResponse['itemPath'] ?? '$')) : '';
+        $deleteEndpoint = $this->normalizeApiEndpointConfig(is_array($payload['deleteEndpoint'] ?? null) ? $payload['deleteEndpoint'] : [], 'delete', false, $baseUrl);
+
+        return [
+            'mode' => ($createEndpoint || $updateEndpoint || $deleteEndpoint) ? 'crud' : 'readonly',
+            'baseUrl' => $baseUrl !== '' ? $baseUrl : null,
+            'authHeaders' => $this->normalizeApiKeyValueMap($payload['authHeaders'] ?? [], 'authHeaders'),
+            'timeoutSeconds' => max(1, min(120, (int) ($payload['timeoutSeconds'] ?? 20))),
+            'listEndpoint' => $listEndpoint,
+            'listResponse' => [
+                'itemsPath' => $itemsPath,
+                'totalPath' => $totalPath !== '' ? $totalPath : null,
+            ],
+            'detailEndpoint' => $detailEndpoint,
+            'detailResponse' => $detailEnabled ? ['itemPath' => $itemPath] : null,
+            'createEndpoint' => $createEndpoint,
+            'createResponse' => $createEndpoint ? ['itemPath' => $createItemPath !== '' ? $createItemPath : '$'] : null,
+            'updateEndpoint' => $updateEndpoint,
+            'updateResponse' => $updateEndpoint ? ['itemPath' => $updateItemPath !== '' ? $updateItemPath : '$'] : null,
+            'deleteEndpoint' => $deleteEndpoint,
+        ];
+    }
+
+    private function normalizeApiSourceRegistryPayload(array $payload): array
+    {
+        $code = $this->safeCode((string) ($payload['code'] ?? ''));
+        $name = trim((string) ($payload['name'] ?? ''));
+        $providerType = strtolower(trim((string) ($payload['providerType'] ?? 'generic')));
+        $authMode = strtolower(trim((string) ($payload['authMode'] ?? 'none')));
+        $baseUrl = $this->normalizeApiUrl((string) ($payload['baseUrl'] ?? ''), false);
+        $openapiUrl = trim((string) ($payload['openapiUrl'] ?? ''));
+        $status = strtolower(trim((string) ($payload['status'] ?? 'active')));
+        $timeoutSeconds = max(1, min(120, (int) ($payload['timeoutSeconds'] ?? 20)));
+        $authHeaders = $this->normalizeApiKeyValueMap($payload['authHeaders'] ?? [], 'apiSource.authHeaders');
+        $operations = $this->normalizeApiOperationsRegistry($payload['operations'] ?? [], $baseUrl);
+
+        if ($code === '' || $name === '') {
+            throw new RuntimeHttpException('API_SOURCE_REQUIRED_FIELDS', 'Informe codigo e nome do cadastro da API.', 422);
+        }
+        if (!in_array($providerType, ['generic', 'odoo'], true)) {
+            throw new RuntimeHttpException('API_SOURCE_PROVIDER_INVALID', 'Tipo de provedor da API invalido.', 422, [
+                'providerType' => $providerType,
+            ]);
+        }
+        if (!in_array($authMode, ['none', 'header_static', 'bearer_static', 'basic_static'], true)) {
+            throw new RuntimeHttpException('API_SOURCE_AUTH_MODE_INVALID', 'Modo de autenticacao da API invalido.', 422, [
+                'authMode' => $authMode,
+            ]);
+        }
+        if (!in_array($status, ['active', 'inactive'], true)) {
+            $status = 'active';
+        }
+
+        return [
+            'code' => $code,
+            'name' => $name,
+            'providerType' => $providerType,
+            'authMode' => $authMode,
+            'baseUrl' => $baseUrl !== '' ? $baseUrl : null,
+            'openapiUrl' => $providerType === 'generic' && $openapiUrl !== '' ? $openapiUrl : null,
+            'status' => $status,
+            'timeoutSeconds' => $timeoutSeconds,
+            'authHeaders' => $providerType === 'generic' ? $authHeaders : [],
+            'operations' => $providerType === 'generic' ? $operations : [],
+            'odoo' => $providerType === 'odoo' ? $this->normalizeOdooSourceConfig($payload, $baseUrl !== '' ? $baseUrl : null, $timeoutSeconds) : null,
+        ];
+    }
+
+    private function normalizeOdooSourceConfig(array $payload, ?string $resolvedBaseUrl, int $timeoutSeconds): array
+    {
+        $odoo = is_array($payload['odoo'] ?? null) ? $payload['odoo'] : [];
+        $baseUrl = $resolvedBaseUrl ?: $this->normalizeApiUrl((string) ($odoo['baseUrl'] ?? $payload['baseUrl'] ?? ''), true);
+        $transport = strtolower(trim((string) ($odoo['transport'] ?? 'xmlrpc')));
+        $database = trim((string) ($odoo['database'] ?? ''));
+        $login = trim((string) ($odoo['login'] ?? ''));
+        $secretMode = strtolower(trim((string) ($odoo['secretMode'] ?? 'password')));
+        $secretValue = trim((string) ($odoo['secretValue'] ?? ''));
+        $model = trim((string) ($odoo['model'] ?? ''));
+        $defaultContext = $odoo['defaultContext'] ?? [];
+        $defaultDomain = $odoo['defaultDomain'] ?? [];
+        $defaultOrder = trim((string) ($odoo['defaultOrder'] ?? ''));
+        $defaultLimit = max(1, min(500, (int) ($odoo['defaultLimit'] ?? 80)));
+        $json2Ready = ($odoo['json2Ready'] ?? true) !== false;
+
+        if ($database === '' || $login === '' || $secretValue === '' || $model === '') {
+            throw new RuntimeHttpException('ODOO_SOURCE_REQUIRED_FIELDS', 'Informe URL, banco, login, segredo e modelo do Odoo.', 422);
+        }
+        if (!in_array($transport, ['xmlrpc', 'jsonrpc'], true)) {
+            throw new RuntimeHttpException('ODOO_SOURCE_TRANSPORT_INVALID', 'Transporte do Odoo invalido. Use xmlrpc ou jsonrpc.', 422, [
+                'transport' => $transport,
+            ]);
+        }
+        if (!in_array($secretMode, ['password', 'api_key'], true)) {
+            throw new RuntimeHttpException('ODOO_SOURCE_SECRET_MODE_INVALID', 'Tipo de segredo do Odoo invalido.', 422, [
+                'secretMode' => $secretMode,
+            ]);
+        }
+        if (!is_array($defaultContext)) {
+            throw new RuntimeHttpException('ODOO_SOURCE_CONTEXT_INVALID', 'O contexto padrao do Odoo deve ser um objeto JSON.', 422);
+        }
+        if (!is_array($defaultDomain)) {
+            throw new RuntimeHttpException('ODOO_SOURCE_DOMAIN_INVALID', 'O dominio padrao do Odoo deve ser um array JSON.', 422);
+        }
+
+        return [
+            'transport' => $transport,
+            'baseUrl' => $baseUrl,
+            'database' => $database,
+            'login' => $login,
+            'secretMode' => $secretMode,
+            'secretValue' => $secretValue,
+            'model' => $model,
+            'defaultContext' => $defaultContext,
+            'defaultDomain' => $defaultDomain,
+            'defaultOrder' => $defaultOrder !== '' ? $defaultOrder : null,
+            'defaultLimit' => $defaultLimit,
+            'timeoutSeconds' => $timeoutSeconds,
+            'json2Ready' => $json2Ready,
+        ];
+    }
+
+    private function apiSourceOperationsFromMetadata(array $metadata): array
+    {
+        $providerType = (string) ($metadata['providerType'] ?? 'generic');
+        if ($providerType === 'odoo') {
+            return [
+                [
+                    'code' => 'odoo_list',
+                    'name' => 'Lista do modelo Odoo',
+                    'type' => 'list',
+                    'method' => 'RPC',
+                    'path' => '',
+                    'headers' => [],
+                    'queryParams' => [],
+                    'bodyTemplate' => null,
+                    'itemsPath' => '$',
+                    'itemPath' => null,
+                    'totalPath' => null,
+                ],
+                [
+                    'code' => 'odoo_detail',
+                    'name' => 'Detalhe do modelo Odoo',
+                    'type' => 'detail',
+                    'method' => 'RPC',
+                    'path' => '',
+                    'headers' => [],
+                    'queryParams' => [],
+                    'bodyTemplate' => null,
+                    'itemsPath' => null,
+                    'itemPath' => '$',
+                    'totalPath' => null,
+                ],
+            ];
+        }
+
+        return is_array($metadata['operations'] ?? null) ? $metadata['operations'] : [];
+    }
+
+    private function resolveOdooSourceConfig(array $payload): array
+    {
+        $sourceCode = $this->safeCode((string) ($payload['sourceCode'] ?? ''));
+        if ($sourceCode !== '') {
+            $source = $this->apiSources->findOneBy(['code' => $sourceCode]);
+            if (!$source) {
+                throw new RuntimeHttpException('API_SOURCE_NOT_FOUND', 'Cadastro de API nao encontrado.', 404, [
+                    'sourceCode' => $sourceCode,
+                ]);
+            }
+            $metadata = $source->getMetadata();
+            if ((string) ($metadata['providerType'] ?? 'generic') !== 'odoo') {
+                throw new RuntimeHttpException('ODOO_SOURCE_PROVIDER_REQUIRED', 'O cadastro selecionado nao usa o provedor Odoo.', 422, [
+                    'sourceCode' => $sourceCode,
+                ]);
+            }
+
+            return is_array($metadata['odoo'] ?? null) ? $metadata['odoo'] : [];
+        }
+
+        return $this->normalizeOdooSourceConfig($payload, null, max(1, min(120, (int) ($payload['timeoutSeconds'] ?? 20))));
+    }
+
+    private function mapOdooModelField(string $fieldName, array $definition): ?array
+    {
+        $type = strtolower(trim((string) ($definition['type'] ?? 'char')));
+        $label = trim((string) ($definition['string'] ?? $fieldName));
+        $relation = trim((string) ($definition['relation'] ?? ''));
+        $selection = is_array($definition['selection'] ?? null) ? $definition['selection'] : [];
+        $dataType = match ($type) {
+            'integer' => 'integer',
+            'float', 'monetary' => 'decimal',
+            'boolean' => 'boolean',
+            'date' => 'date',
+            'datetime' => 'datetime',
+            'text', 'html' => 'text',
+            'one2many', 'many2many' => 'json',
+            default => 'string',
+        };
+        if ($fieldName === 'id') {
+            $dataType = 'integer';
+        }
+
+        return [
+            'code' => $this->safeSqlIdentifier($fieldName),
+            'label' => $label !== '' ? $label : $fieldName,
+            'dataType' => $dataType,
+            'columnName' => $this->safeSqlIdentifier($fieldName),
+            'apiJsonPath' => $fieldName,
+            'apiWritePath' => $fieldName,
+            'apiShowInGrid' => true,
+            'apiShowInForm' => true,
+            'apiShowInFilter' => in_array($dataType, ['string', 'integer', 'decimal', 'boolean', 'date', 'datetime'], true),
+            'required' => ($definition['required'] ?? false) === true,
+            'primaryKey' => $fieldName === 'id',
+            'readonlyField' => $fieldName === 'id' || ($definition['readonly'] ?? false) === true,
+            'optionItems' => array_map(static fn ($item) => [
+                'value' => is_array($item) ? ($item[0] ?? '') : '',
+                'text' => is_array($item) ? ($item[1] ?? '') : '',
+            ], $selection),
+            'options' => [
+                'odoo' => [
+                    'fieldType' => $type,
+                    'relation' => $relation !== '' ? $relation : null,
+                ],
+            ],
+        ];
+    }
+
+    private function normalizeApiOperationsRegistry(mixed $value, string $baseUrl): array
+    {
+        if (!is_array($value)) {
+            return [];
+        }
+        $operations = [];
+        foreach ($value as $index => $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $code = $this->safeCode((string) ($item['code'] ?? ''));
+            $name = trim((string) ($item['name'] ?? ''));
+            $type = strtolower(trim((string) ($item['type'] ?? 'custom')));
+            $endpoint = $this->normalizeApiEndpointConfig([
+                'url' => (string) ($item['path'] ?? $item['url'] ?? ''),
+                'method' => (string) ($item['method'] ?? 'GET'),
+                'headers' => $item['headers'] ?? [],
+                'queryParams' => $item['queryParams'] ?? [],
+                'bodyTemplate' => $item['bodyTemplate'] ?? null,
+            ], 'operation.' . $index, true, $baseUrl);
+            $itemsPath = $this->normalizeApiJsonPath((string) ($item['itemsPath'] ?? ''));
+            $itemPath = $this->normalizeApiJsonPath((string) ($item['itemPath'] ?? ''));
+            $totalPath = $this->normalizeApiJsonPath((string) ($item['totalPath'] ?? ''));
+            if ($code === '' || $name === '') {
+                continue;
+            }
+            $operations[] = [
+                'code' => $code,
+                'name' => $name,
+                'type' => in_array($type, ['list', 'detail', 'create', 'update', 'delete', 'custom'], true) ? $type : 'custom',
+                'method' => $endpoint['method'],
+                'path' => $endpoint['url'],
+                'headers' => $endpoint['headers'],
+                'queryParams' => $endpoint['queryParams'],
+                'bodyTemplate' => $endpoint['bodyTemplate'],
+                'itemsPath' => $itemsPath !== '' ? $itemsPath : null,
+                'itemPath' => $itemPath !== '' ? $itemPath : null,
+                'totalPath' => $totalPath !== '' ? $totalPath : null,
+            ];
+        }
+
+        return $operations;
+    }
+
+    private function resolveApiSourceBinding(BuilderApiSource $source, string $listOperationCode, string $detailOperationCode, string $createOperationCode = '', string $updateOperationCode = '', string $deleteOperationCode = ''): array
+    {
+        $metadata = $source->getMetadata();
+        if ((string) ($metadata['providerType'] ?? 'generic') === 'odoo') {
+            $odoo = is_array($metadata['odoo'] ?? null) ? $metadata['odoo'] : [];
+            if (!$odoo) {
+                throw new RuntimeHttpException('ODOO_SOURCE_NOT_CONFIGURED', 'Cadastro Odoo sem configuracao valida.', 422, [
+                    'apiSourceCode' => $source->getCode(),
+                ]);
+            }
+
+            return [
+                'providerType' => 'odoo',
+                'mode' => 'readonly',
+                'odoo' => $odoo,
+            ];
+        }
+
+        $operations = is_array($metadata['operations'] ?? null) ? $metadata['operations'] : [];
+        $listOperation = null;
+        $detailOperation = null;
+        $createOperation = null;
+        $updateOperation = null;
+        $deleteOperation = null;
+        foreach ($operations as $operation) {
+            if (!is_array($operation)) {
+                continue;
+            }
+            if ($listOperationCode !== '' && (string) ($operation['code'] ?? '') === $listOperationCode) {
+                $listOperation = $operation;
+            }
+            if ($detailOperationCode !== '' && (string) ($operation['code'] ?? '') === $detailOperationCode) {
+                $detailOperation = $operation;
+            }
+            if ($createOperationCode !== '' && (string) ($operation['code'] ?? '') === $createOperationCode) {
+                $createOperation = $operation;
+            }
+            if ($updateOperationCode !== '' && (string) ($operation['code'] ?? '') === $updateOperationCode) {
+                $updateOperation = $operation;
+            }
+            if ($deleteOperationCode !== '' && (string) ($operation['code'] ?? '') === $deleteOperationCode) {
+                $deleteOperation = $operation;
+            }
+        }
+        if (!$listOperation) {
+            $listOperation = $this->findFirstApiOperationByType($operations, 'list');
+        }
+        if (!$detailOperation) {
+            $detailOperation = $this->findFirstApiOperationByType($operations, 'detail');
+        }
+        if (!$createOperation && $createOperationCode === '') {
+            $createOperation = $this->findFirstApiOperationByType($operations, 'create');
+        }
+        if (!$updateOperation && $updateOperationCode === '') {
+            $updateOperation = $this->findFirstApiOperationByType($operations, 'update');
+        }
+        if (!$deleteOperation && $deleteOperationCode === '') {
+            $deleteOperation = $this->findFirstApiOperationByType($operations, 'delete');
+        }
+        if (!is_array($listOperation)) {
+            throw new RuntimeHttpException('ENTITY_API_LIST_OPERATION_REQUIRED', 'Selecione uma operacao de lista no cadastro da API.', 422, [
+                'apiSourceCode' => $source->getCode(),
+            ]);
+        }
+
+        return [
+            'providerType' => 'generic',
+            'mode' => (is_array($createOperation) || is_array($updateOperation) || is_array($deleteOperation)) ? 'crud' : 'readonly',
+            'baseUrl' => $source->getBaseUrl(),
+            'authHeaders' => is_array($metadata['authHeaders'] ?? null) ? $metadata['authHeaders'] : [],
+            'timeoutSeconds' => max(1, min(120, (int) ($metadata['timeoutSeconds'] ?? 20))),
+            'listEndpoint' => [
+                'url' => (string) ($listOperation['path'] ?? ''),
+                'method' => strtoupper((string) ($listOperation['method'] ?? 'GET')),
+                'headers' => is_array($listOperation['headers'] ?? null) ? $listOperation['headers'] : [],
+                'queryParams' => is_array($listOperation['queryParams'] ?? null) ? $listOperation['queryParams'] : [],
+                'bodyTemplate' => $listOperation['bodyTemplate'] ?? null,
+            ],
+            'listResponse' => [
+                'itemsPath' => (string) ($listOperation['itemsPath'] ?? ''),
+                'totalPath' => $listOperation['totalPath'] ?? null,
+            ],
+            'detailEndpoint' => is_array($detailOperation) ? [
+                'url' => (string) ($detailOperation['path'] ?? ''),
+                'method' => strtoupper((string) ($detailOperation['method'] ?? 'GET')),
+                'headers' => is_array($detailOperation['headers'] ?? null) ? $detailOperation['headers'] : [],
+                'queryParams' => is_array($detailOperation['queryParams'] ?? null) ? $detailOperation['queryParams'] : [],
+                'bodyTemplate' => $detailOperation['bodyTemplate'] ?? null,
+            ] : null,
+            'detailResponse' => is_array($detailOperation) ? [
+                'itemPath' => (string) ($detailOperation['itemPath'] ?? '$'),
+            ] : null,
+            'createEndpoint' => is_array($createOperation) ? [
+                'url' => (string) ($createOperation['path'] ?? ''),
+                'method' => strtoupper((string) ($createOperation['method'] ?? 'POST')),
+                'headers' => is_array($createOperation['headers'] ?? null) ? $createOperation['headers'] : [],
+                'queryParams' => is_array($createOperation['queryParams'] ?? null) ? $createOperation['queryParams'] : [],
+                'bodyTemplate' => $createOperation['bodyTemplate'] ?? null,
+            ] : null,
+            'createResponse' => is_array($createOperation) ? [
+                'itemPath' => (string) ($createOperation['itemPath'] ?? '$'),
+            ] : null,
+            'updateEndpoint' => is_array($updateOperation) ? [
+                'url' => (string) ($updateOperation['path'] ?? ''),
+                'method' => strtoupper((string) ($updateOperation['method'] ?? 'PUT')),
+                'headers' => is_array($updateOperation['headers'] ?? null) ? $updateOperation['headers'] : [],
+                'queryParams' => is_array($updateOperation['queryParams'] ?? null) ? $updateOperation['queryParams'] : [],
+                'bodyTemplate' => $updateOperation['bodyTemplate'] ?? null,
+            ] : null,
+            'updateResponse' => is_array($updateOperation) ? [
+                'itemPath' => (string) ($updateOperation['itemPath'] ?? '$'),
+            ] : null,
+            'deleteEndpoint' => is_array($deleteOperation) ? [
+                'url' => (string) ($deleteOperation['path'] ?? ''),
+                'method' => strtoupper((string) ($deleteOperation['method'] ?? 'DELETE')),
+                'headers' => is_array($deleteOperation['headers'] ?? null) ? $deleteOperation['headers'] : [],
+                'queryParams' => is_array($deleteOperation['queryParams'] ?? null) ? $deleteOperation['queryParams'] : [],
+                'bodyTemplate' => $deleteOperation['bodyTemplate'] ?? null,
+            ] : null,
+        ];
+    }
+
+    private function findFirstApiOperationByType(array $operations, string $type): ?array
+    {
+        foreach ($operations as $operation) {
+            if (is_array($operation) && (string) ($operation['type'] ?? '') === $type) {
+                return $operation;
+            }
+        }
+
+        return null;
+    }
+
+    private function normalizeApiEndpointConfig(array $payload, string $name, bool $required, string $baseUrl = ''): ?array
+    {
+        $url = $this->normalizeApiUrl((string) ($payload['url'] ?? ''), $required, $baseUrl);
+        if ($url === '') {
+            return null;
+        }
+        $method = strtoupper(trim((string) ($payload['method'] ?? 'GET')));
+        if (!in_array($method, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+            throw new RuntimeHttpException('ENTITY_API_METHOD_INVALID', 'Metodo da entidade API invalido. Use GET, POST, PUT, PATCH ou DELETE.', 422, [
+                'endpoint' => $name,
+                'method' => $method,
+            ]);
+        }
+
+        return [
+            'url' => $url,
+            'method' => $method,
+            'headers' => $this->normalizeApiKeyValueMap($payload['headers'] ?? [], $name . '.headers'),
+            'queryParams' => $this->normalizeApiKeyValueMap($payload['queryParams'] ?? [], $name . '.queryParams'),
+            'bodyTemplate' => in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true) ? $this->normalizeApiBodyTemplate($payload['bodyTemplate'] ?? null, $name . '.bodyTemplate') : null,
+        ];
+    }
+
+    private function normalizeApiBodyTemplate(mixed $value, string $name): mixed
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (is_scalar($value)) {
+            return $value;
+        }
+        if (!is_array($value)) {
+            throw new RuntimeHttpException('ENTITY_API_BODY_TEMPLATE_INVALID', 'Body template da entidade API aceita apenas valores estaticos.', 422, [
+                'field' => $name,
+            ]);
+        }
+
+        foreach ($value as $key => $item) {
+            if (!is_scalar($key) || !(is_scalar($item) || $item === null)) {
+                throw new RuntimeHttpException('ENTITY_API_BODY_TEMPLATE_INVALID', 'Body template da entidade API aceita apenas pares estaticos.', 422, [
+                    'field' => $name,
+                ]);
+            }
+        }
+
+        return $value;
+    }
+
+    private function normalizeApiKeyValueMap(mixed $value, string $name): array
+    {
+        if ($value === null || $value === '') {
+            return [];
+        }
+        if (!is_array($value)) {
+            throw new RuntimeHttpException('ENTITY_API_MAP_INVALID', 'Configuracao da entidade API invalida.', 422, [
+                'field' => $name,
+            ]);
+        }
+        $normalized = [];
+        foreach ($value as $key => $item) {
+            $normalizedKey = trim((string) $key);
+            if ($normalizedKey === '' || !(is_scalar($item) || $item === null)) {
+                throw new RuntimeHttpException('ENTITY_API_MAP_INVALID', 'Configuracao da entidade API aceita apenas pares estaticos.', 422, [
+                    'field' => $name,
+                ]);
+            }
+            $normalized[$normalizedKey] = $item === null ? '' : (string) $item;
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeApiUrl(string $url, bool $required, string $baseUrl = ''): string
+    {
+        $normalized = trim($url);
+        if ($normalized === '') {
+            if ($required) {
+                throw new RuntimeHttpException('ENTITY_API_URL_REQUIRED', 'Informe a URL do endpoint da entidade API.', 422);
+            }
+
+            return '';
+        }
+        if ($baseUrl !== '' && !preg_match('/^https?:\/\//i', $normalized)) {
+            $normalized = rtrim($baseUrl, '/') . '/' . ltrim($normalized, '/');
+        }
+        if (!preg_match('/^https?:\/\//i', $normalized)) {
+            throw new RuntimeHttpException('ENTITY_API_URL_INVALID', 'URL da entidade API deve ser absoluta.', 422, [
+                'url' => $normalized,
+            ]);
+        }
+        $parts = parse_url($normalized) ?: [];
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        $allowHttpLocal = $scheme === 'http' && in_array($host, ['localhost', '127.0.0.1', '::1'], true);
+        if ($scheme !== 'https' && !$allowHttpLocal) {
+            throw new RuntimeHttpException('ENTITY_API_URL_UNSAFE', 'URL da entidade API deve usar https. Http fica restrito ao ambiente local.', 422, [
+                'url' => $normalized,
+            ]);
+        }
+
+        return $normalized;
+    }
+
+    private function maskApiSourceSecrets(?array $apiSource): ?array
+    {
+        if ($apiSource === null) {
+            return null;
+        }
+        if ((string) ($apiSource['providerType'] ?? 'generic') === 'odoo') {
+            $apiSource['odoo'] = $this->maskOdooSourceSecrets(is_array($apiSource['odoo'] ?? null) ? $apiSource['odoo'] : []);
+            return $apiSource;
+        }
+
+        return $this->mapApiSourceSecrets($apiSource, static fn (string $key, string $value, array $context = []): string => self::isSensitiveApiHeaderName($key) && $value !== '' ? '********' : $value);
+    }
+
+    private function restoreMaskedApiSourceSecrets(?array $apiSource, array $existing): ?array
+    {
+        if ($apiSource === null) {
+            return null;
+        }
+        if ((string) ($apiSource['providerType'] ?? 'generic') === 'odoo') {
+            $apiSource['odoo'] = $this->restoreMaskedOdooSourceSecrets(
+                is_array($apiSource['odoo'] ?? null) ? $apiSource['odoo'] : [],
+                is_array($existing['odoo'] ?? null) ? $existing['odoo'] : []
+            );
+            return $apiSource;
+        }
+
+        return $this->mapApiSourceSecrets($apiSource, static function (string $key, string $value, array $context) use ($existing): string {
+            if ($value !== '********' || !self::isSensitiveApiHeaderName($key)) {
+                return $value;
+            }
+            if (($context['endpoint'] ?? null) !== null) {
+                return (string) ($existing[$context['group']][$context['endpoint']][$key] ?? '');
+            }
+            return (string) ($existing[$context['group']][$key] ?? '');
+        });
+    }
+
+    private function mapApiSourceSecrets(array $apiSource, callable $resolver): array
+    {
+        $groups = [
+            ['group' => 'authHeaders', 'endpoint' => null],
+            ['group' => 'listEndpoint', 'endpoint' => 'headers'],
+            ['group' => 'detailEndpoint', 'endpoint' => 'headers'],
+        ];
+        foreach ($groups as $group) {
+            if ($group['endpoint'] === null) {
+                $map = is_array($apiSource[$group['group']] ?? null) ? $apiSource[$group['group']] : [];
+                foreach ($map as $key => $value) {
+                    $apiSource[$group['group']][$key] = $resolver((string) $key, (string) $value, $group);
+                }
+                continue;
+            }
+            $map = is_array($apiSource[$group['group']][$group['endpoint']] ?? null) ? $apiSource[$group['group']][$group['endpoint']] : [];
+            foreach ($map as $key => $value) {
+                $apiSource[$group['group']][$group['endpoint']][$key] = $resolver((string) $key, (string) $value, $group);
+            }
+        }
+
+        return $apiSource;
+    }
+
+    private static function isSensitiveApiHeaderName(string $name): bool
+    {
+        return (bool) preg_match('/(authorization|token|api[-_]?key|secret)/i', $name);
+    }
+
+    private function maskApiHeaderSecrets(array $headers): array
+    {
+        $normalized = [];
+        foreach ($headers as $key => $value) {
+            $normalized[(string) $key] = self::isSensitiveApiHeaderName((string) $key) && (string) $value !== '' ? '********' : (string) $value;
+        }
+
+        return $normalized;
+    }
+
+    private function restoreMaskedApiHeaderSecrets(array $headers, array $existing): array
+    {
+        $normalized = [];
+        foreach ($headers as $key => $value) {
+            $name = (string) $key;
+            $text = (string) $value;
+            $normalized[$name] = ($text === '********' && self::isSensitiveApiHeaderName($name)) ? (string) ($existing[$name] ?? '') : $text;
+        }
+
+        return $normalized;
+    }
+
+    private function maskOdooSourceSecrets(array $config): array
+    {
+        if (($config['secretValue'] ?? '') !== '') {
+            $config['secretValue'] = '********';
+        }
+
+        return $config;
+    }
+
+    private function restoreMaskedOdooSourceSecrets(array $config, array $existing): array
+    {
+        if (($config['secretValue'] ?? '') === '********') {
+            $config['secretValue'] = (string) ($existing['secretValue'] ?? '');
+        }
+
+        return $config;
+    }
+
+    private function maskApiOperationSecrets(array $operations): array
+    {
+        return array_map(function ($operation) {
+            if (!is_array($operation)) {
+                return $operation;
+            }
+            $copy = $operation;
+            $copy['headers'] = $this->maskApiHeaderSecrets(is_array($copy['headers'] ?? null) ? $copy['headers'] : []);
+            return $copy;
+        }, $operations);
+    }
+
+    private function restoreMaskedApiOperationSecrets(array $operations, array $existing): array
+    {
+        $existingByCode = [];
+        foreach ($existing as $item) {
+            if (is_array($item) && !empty($item['code'])) {
+                $existingByCode[(string) $item['code']] = $item;
+            }
+        }
+
+        return array_map(function ($operation) use ($existingByCode) {
+            if (!is_array($operation)) {
+                return $operation;
+            }
+            $copy = $operation;
+            $current = $existingByCode[(string) ($copy['code'] ?? '')] ?? [];
+            $copy['headers'] = $this->restoreMaskedApiHeaderSecrets(
+                is_array($copy['headers'] ?? null) ? $copy['headers'] : [],
+                is_array($current['headers'] ?? null) ? $current['headers'] : []
+            );
+            return $copy;
+        }, $operations);
+    }
+
+    private function fetchRemoteApiDocument(string $url): string
+    {
+        $resolved = $this->normalizeApiUrl($url, true);
+        $ch = curl_init($resolved);
+        if ($ch === false) {
+            throw new RuntimeHttpException('API_OPENAPI_REQUEST_FAILED', 'Nao foi possivel iniciar a leitura do documento OpenAPI.', 422);
+        }
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_TIMEOUT => 20,
+            CURLOPT_HTTPHEADER => ['Accept: application/json, application/yaml, text/yaml, text/plain, */*'],
+        ]);
+        $body = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+        $error = curl_error($ch);
+        curl_close($ch);
+
+        if ($body === false || $status >= 400 || $error !== '') {
+            throw new RuntimeHttpException('API_OPENAPI_REQUEST_FAILED', 'Falha ao carregar o documento OpenAPI.', 422, [
+                'url' => $resolved,
+                'status' => $status,
+                'curlError' => $error,
+            ]);
+        }
+
+        return (string) $body;
+    }
+
+    private function parseOpenApiDocument(string $document, string $url): array
+    {
+        $trimmed = trim(preg_replace('/^\xEF\xBB\xBF/', '', $document) ?? $document);
+        if ($trimmed === '') {
+            throw new RuntimeHttpException('API_OPENAPI_EMPTY', 'Documento OpenAPI vazio.', 422, ['url' => $url]);
+        }
+        $json = json_decode($trimmed, true);
+        if (is_array($json)) {
+            return $json;
+        }
+        try {
+            $yaml = Yaml::parse($trimmed);
+        } catch (ParseException) {
+            throw new RuntimeHttpException('API_OPENAPI_PARSE_FAILED', 'Documento OpenAPI invalido.', 422, ['url' => $url]);
+        }
+        if (!is_array($yaml)) {
+            throw new RuntimeHttpException('API_OPENAPI_PARSE_FAILED', 'Documento OpenAPI invalido.', 422, ['url' => $url]);
+        }
+
+        return $yaml;
+    }
+
+    private function extractOpenApiBaseUrl(array $document): ?string
+    {
+        $servers = is_array($document['servers'] ?? null) ? $document['servers'] : [];
+        foreach ($servers as $server) {
+            $url = trim((string) ($server['url'] ?? ''));
+            if ($url !== '') {
+                return $url;
+            }
+        }
+
+        return null;
+    }
+
+    private function extractOpenApiOperations(array $document, string $baseUrl): array
+    {
+        $operations = [];
+        $paths = is_array($document['paths'] ?? null) ? $document['paths'] : [];
+        foreach ($paths as $path => $pathConfig) {
+            if (!is_array($pathConfig)) {
+                continue;
+            }
+            foreach (['get', 'post', 'put', 'patch', 'delete'] as $method) {
+                if (!is_array($pathConfig[$method] ?? null)) {
+                    continue;
+                }
+                $operation = $pathConfig[$method];
+                $type = $this->inferOpenApiOperationType($method, (string) $path);
+                $schema = $this->extractOpenApiResponseSchema($operation);
+                $operationCode = $this->safeCode((string) ($operation['operationId'] ?? ($method . '_' . $this->slugToCode((string) $path))));
+                $itemsPath = $type === 'list' ? ($this->guessOpenApiArrayPath($schema) ?? '$') : null;
+                $itemPath = $type === 'detail' ? ($this->guessOpenApiObjectPath($schema) ?? '$') : null;
+                $totalPath = $type === 'list' && is_array($schema['properties']['total'] ?? null) ? 'total' : null;
+                $operations[] = [
+                    'code' => $operationCode,
+                    'name' => trim((string) ($operation['summary'] ?? $operation['operationId'] ?? strtoupper($method) . ' ' . $path)),
+                    'type' => $type,
+                    'method' => strtoupper($method),
+                    'path' => $this->normalizeApiUrl((string) $path, true, $baseUrl),
+                    'headers' => [],
+                    'queryParams' => $this->extractOpenApiStaticQueryParams($operation, $pathConfig),
+                    'bodyTemplate' => null,
+                    'itemsPath' => $itemsPath,
+                    'itemPath' => $itemPath,
+                    'totalPath' => $totalPath,
+                ];
+            }
+        }
+
+        return $operations;
+    }
+
+    private function inferOpenApiOperationType(string $method, string $path): string
+    {
+        $hasPathParam = (bool) preg_match('/\{[^}]+\}/', $path);
+        return match (strtolower($method)) {
+            'get' => $hasPathParam ? 'detail' : 'list',
+            'post' => $hasPathParam ? 'custom' : 'create',
+            'put', 'patch' => 'update',
+            'delete' => 'delete',
+            default => 'custom',
+        };
+    }
+
+    private function extractOpenApiResponseSchema(array $operation): array
+    {
+        $responses = is_array($operation['responses'] ?? null) ? $operation['responses'] : [];
+        foreach (['200', '201', 'default'] as $status) {
+            $response = is_array($responses[$status] ?? null) ? $responses[$status] : null;
+            if (!$response) {
+                continue;
+            }
+            $content = is_array($response['content'] ?? null) ? $response['content'] : [];
+            foreach (['application/json', 'application/*+json', '*/*'] as $contentType) {
+                $entry = is_array($content[$contentType] ?? null) ? $content[$contentType] : null;
+                if ($entry && is_array($entry['schema'] ?? null)) {
+                    return $entry['schema'];
+                }
+            }
+            foreach ($content as $entry) {
+                if (is_array($entry) && is_array($entry['schema'] ?? null)) {
+                    return $entry['schema'];
+                }
+            }
+        }
+
+        return [];
+    }
+
+    private function guessOpenApiArrayPath(array $schema): ?string
+    {
+        if (($schema['type'] ?? null) === 'array') {
+            return '$';
+        }
+        $properties = is_array($schema['properties'] ?? null) ? $schema['properties'] : [];
+        foreach (['data', 'items', 'results'] as $name) {
+            if (($properties[$name]['type'] ?? null) === 'array') {
+                return $name;
+            }
+        }
+
+        return null;
+    }
+
+    private function guessOpenApiObjectPath(array $schema): ?string
+    {
+        if (($schema['type'] ?? null) === 'object' || !empty($schema['properties'])) {
+            $properties = is_array($schema['properties'] ?? null) ? $schema['properties'] : [];
+            foreach (['data', 'item'] as $name) {
+                if (($properties[$name]['type'] ?? null) === 'object' || !empty($properties[$name]['properties'])) {
+                    return $name;
+                }
+            }
+            return '$';
+        }
+
+        return null;
+    }
+
+    private function extractOpenApiStaticQueryParams(array $operation, array $pathConfig): array
+    {
+        $params = [];
+        foreach ([is_array($pathConfig['parameters'] ?? null) ? $pathConfig['parameters'] : [], is_array($operation['parameters'] ?? null) ? $operation['parameters'] : []] as $list) {
+            foreach ($list as $parameter) {
+                if (!is_array($parameter) || (string) ($parameter['in'] ?? '') !== 'query') {
+                    continue;
+                }
+                $name = trim((string) ($parameter['name'] ?? ''));
+                if ($name === '') {
+                    continue;
+                }
+                $default = $parameter['schema']['default'] ?? $parameter['example'] ?? '';
+                $params[$name] = is_scalar($default) ? (string) $default : '';
+            }
+        }
+
+        return $params;
+    }
+
+    private function isApiEntity(mixed $entity): bool
+    {
+        return $entity instanceof BuilderEntity && $entity->getEntityType() === 'api';
+    }
+
+    private function isApiEntityVersion(BuilderProgramVersion $version): bool
+    {
+        $entityCode = trim((string) $version->getBuilderEntityCode());
+        if ($entityCode === '') {
+            return false;
+        }
+        $entity = $this->entities->findOneBy(['code' => $entityCode]);
+
+        return $entity instanceof BuilderEntity && $entity->getEntityType() === 'api';
+    }
+
+    private function isOdooApiEntityVersion(BuilderProgramVersion $version): bool
+    {
+        $entityCode = trim((string) $version->getBuilderEntityCode());
+        if ($entityCode === '') {
+            return false;
+        }
+        $entity = $this->entities->findOneBy(['code' => $entityCode]);
+
+        return $this->isOdooApiEntity($entity);
+    }
+
+    private function apiEntitySupportsOperation(mixed $entity, string $operation): bool
+    {
+        if (!$entity instanceof BuilderEntity || $entity->getEntityType() !== 'api') {
+            return false;
+        }
+        if ($this->isOdooApiEntity($entity)) {
+            return false;
+        }
+        $apiSource = is_array($entity->getMetadata()['apiSource'] ?? null) ? $entity->getMetadata()['apiSource'] : [];
+
+        return !empty($apiSource[$operation . 'Endpoint']['url']);
+    }
+
+    private function apiEntityHasDetailEndpoint(mixed $entity): bool
+    {
+        if (!$entity instanceof BuilderEntity) {
+            return false;
+        }
+        if ($this->isOdooApiEntity($entity)) {
+            return true;
+        }
+        $apiSource = is_array($entity->getMetadata()['apiSource'] ?? null) ? $entity->getMetadata()['apiSource'] : [];
+
+        return !empty($apiSource['detailEndpoint']['url']);
+    }
+
+    private function isOdooApiEntity(mixed $entity): bool
+    {
+        if (!$entity instanceof BuilderEntity || $entity->getEntityType() !== 'api') {
+            return false;
+        }
+
+        return (string) (($entity->getMetadata()['apiSource']['providerType'] ?? 'generic')) === 'odoo';
     }
 
     private function normalizeFieldLength(mixed $value, string $dataType): ?int
@@ -1834,6 +4276,13 @@ class ProgramBuilderService
     {
         $value = strtolower(trim($value));
         $value = preg_replace('/[^a-z0-9._-]+/', '-', $value) ?: '';
+        return trim($value, '-');
+    }
+
+    private function slugToCode(string $value): string
+    {
+        $value = strtolower(trim($value));
+        $value = preg_replace('/[^a-z0-9]+/', '-', $value) ?: '';
         return trim($value, '-');
     }
 

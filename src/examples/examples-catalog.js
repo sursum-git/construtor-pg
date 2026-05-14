@@ -9,7 +9,7 @@
       engine: "home",
       category: "Home",
       title: "Pagina inicial por JSON",
-      summary: "Monta menu lateral, appbar global, jobs, suporte com contexto do programa corrente e abertura por iframe, CrudEngine, ProcessEngine ou HTML sanitizado.",
+      summary: "Monta menu lateral, appbar global, jobs, suporte com contexto do programa corrente e abertura por iframe, CrudEngine, ProcessEngine, programa custom ou HTML sanitizado.",
       code: {
         pageType: "home",
         app: {
@@ -137,6 +137,7 @@
               moduleId: "ferramentas",
               items: [
                 { programId: "clientes-iframe", title: "Clientes via iframe" },
+                { programId: "programa-manual", title: "Programa manual" },
                 { programId: "exemplos", title: "Exemplos", favorite: true },
                 { programId: "tema", title: "Editor de tema" }
               ]
@@ -148,6 +149,27 @@
           { id: "clientes-crud", type: "crud", title: "Clientes", openUrl: "index.html", definitionUrl: "examples/clientes.crud.json" },
           { id: "processamento-clientes", type: "process", title: "Processamento de Clientes", definitionUrl: "examples/processamento-relatorio.process.json" },
           { id: "clientes-iframe", type: "iframe", title: "Clientes via iframe", version: "1.0.0", url: "index.html" },
+          {
+            id: "programa-manual",
+            type: "custom",
+            title: "Programa manual",
+            definition: {
+              schemaVersion: "1.0",
+              pageType: "custom",
+              screenId: "manual.demo",
+              program: {
+                id: "manual.demo",
+                title: "Programa manual demo",
+                version: "1.0.0",
+                subtitle: "Tela fora do padrao CRUD"
+              },
+              custom: {
+                mode: "iframe",
+                entryUrl: "production/custom/programa-manual-demo.html",
+                frameTitle: "Programa manual demo"
+              }
+            }
+          },
           { id: "troca-assinante", type: "html", title: "Troca de assinante", html: "<section><h2>Troca de assinante</h2></section>" },
           { id: "meus-jobs", type: "crud", title: "Meus Jobs", screenId: "runtime.jobs.mine" }
         ]
@@ -264,6 +286,218 @@
         }
       },
       apply: function() {}
+    },
+    {
+      id: "consulta-api-readonly",
+      category: "Consulta",
+      title: "Consulta externa por API",
+      summary: "Mostra um CRUD somente leitura usando lista externa em JSON e detalhe opcional por API.",
+      code: {},
+      apply: function(definition) {
+        definition.screenId = "consultas.api.produtos";
+        definition.program.id = "api-produtos";
+        definition.program.title = "Produtos externos";
+        definition.program.subtitle = "Consulta por API externa";
+        definition.program.subtitleTooltip = "Exemplo de entityType=api em modo somente leitura.";
+        definition.program.permission = "consultas.api.produtos.read";
+        definition.program.entity = "produtos_api";
+        definition.permissions.read = "consultas.api.produtos.read";
+        definition.permissions.create = false;
+        definition.permissions.edit = false;
+        definition.permissions.delete = false;
+        definition.runtime.entityCode = "produtos_api";
+        definition.runtime.mode = "readonly-api";
+        definition.runtime.lock = { enabled: false, modes: [] };
+        definition.runtime.messages = { enabled: false, pollIntervalSeconds: 30, events: { enabled: false } };
+        definition.dataSource.api = {
+          read: { url: "/api/mock/externo/produtos", method: "POST" },
+          get: { url: "/api/mock/externo/produtos/{id}", method: "GET" },
+          saveLayout: { url: "/api/crud-layout/cadastros/clientes", method: "POST" },
+          restoreLayout: { url: "/api/crud-layout/cadastros/clientes", method: "DELETE" },
+          saveSort: { url: "/api/crud-layout/cadastros/clientes/sorts", method: "POST" },
+          deleteSort: { url: "/api/crud-layout/cadastros/clientes/sorts/{id}", method: "DELETE" },
+          saveGroup: { url: "/api/crud-layout/cadastros/clientes/groups", method: "POST" },
+          deleteGroup: { url: "/api/crud-layout/cadastros/clientes/groups/{id}", method: "DELETE" },
+          saveFilter: { url: "/api/crud-layout/cadastros/clientes/filters", method: "POST" },
+          deleteFilter: { url: "/api/crud-layout/cadastros/clientes/filters/{id}", method: "DELETE" },
+          saveMobileTemplate: { url: "/api/crud-layout/cadastros/clientes/mobile-templates", method: "POST" },
+          deleteMobileTemplate: { url: "/api/crud-layout/cadastros/clientes/mobile-templates/{id}", method: "DELETE" }
+        };
+        definition.dataModel.primaryKey = "id";
+        definition.dataModel.fields = {
+          id: { label: "ID", type: "integer", readonly: true },
+          nome: { label: "Nome", type: "text", readonly: true },
+          status: { label: "Status", type: "text", readonly: true },
+          categoria: { label: "Categoria", type: "text", readonly: true },
+          preco: { label: "Preco", type: "number", readonly: true },
+          atualizado_em: { label: "Atualizado em", type: "datetime", readonly: true }
+        };
+        definition.crud.filter.fields = [];
+        definition.crud.grid.filterable = false;
+        definition.crud.grid.toolbar = [
+          { id: "refresh", label: "Atualizar", icon: "arrow-rotate-cw", action: "refresh", permission: "read" }
+        ];
+        definition.crud.grid.columns = [
+          { field: "id", title: "ID", width: 90 },
+          { field: "nome", title: "Nome", width: 220 },
+          { field: "categoria", title: "Categoria", width: 160 },
+          { field: "status", title: "Status", width: 120 },
+          { field: "preco", title: "Preco", width: 140, format: "number" },
+          { field: "atualizado_em", title: "Atualizado em", width: 180 }
+        ];
+        definition.crud.grid.rowActions = [
+          { id: "view", label: "Visualizar", action: "view", icon: "eye", permission: "read" }
+        ];
+        definition.crud.form.tabs = [
+          {
+            id: "geral",
+            title: "Geral",
+            sections: [
+              {
+                id: "principal",
+                title: "Principal",
+                columns: 2,
+                fields: [
+                  { field: "id", readonly: true },
+                  { field: "nome", readonly: true, colSpan: 2 },
+                  { field: "categoria", readonly: true },
+                  { field: "status", readonly: true },
+                  { field: "preco", readonly: true },
+                  { field: "atualizado_em", readonly: true }
+                ]
+              }
+            ]
+          }
+        ];
+        definition.crud.form.fields = [
+          { field: "id", readonly: true },
+          { field: "nome", readonly: true },
+          { field: "categoria", readonly: true },
+          { field: "status", readonly: true },
+          { field: "preco", readonly: true },
+          { field: "atualizado_em", readonly: true }
+        ];
+        definition.crud.form.buttons = [];
+        definition.crud.form.otherActions = { enabled: false, actions: [] };
+        definition.crud.form.logs = { enabled: false };
+        definition.crud.form.print = { enabled: false, options: [] };
+      }
+    },
+    {
+      id: "consulta-api-crud",
+      category: "Consulta",
+      title: "CRUD externo por API",
+      summary: "Mostra um CRUD basico de API JSON previsivel com inclusao, alteracao e exclusao via mock local.",
+      code: {},
+      apply: function(definition) {
+        definition.screenId = "consultas.api.produtos-crud";
+        definition.program.id = "api-produtos-crud";
+        definition.program.title = "Produtos externos CRUD";
+        definition.program.subtitle = "CRUD por API externa";
+        definition.program.subtitleTooltip = "Exemplo basico de entityType=api em modo CRUD.";
+        definition.program.permission = "consultas.api.produtos-crud.read";
+        definition.program.entity = "produtos_api_crud";
+        definition.permissions.read = "consultas.api.produtos-crud.read";
+        definition.permissions.create = "consultas.api.produtos-crud.create";
+        definition.permissions.edit = "consultas.api.produtos-crud.edit";
+        definition.permissions.delete = "consultas.api.produtos-crud.delete";
+        definition.runtime.entityCode = "produtos_api_crud";
+        definition.runtime.mode = "api-crud";
+        definition.runtime.lock = { enabled: false, modes: [] };
+        definition.runtime.messages = { enabled: false, pollIntervalSeconds: 30, events: { enabled: false } };
+        definition.dataSource.api = {
+          read: { url: "/api/mock/externo/produtos-crud", method: "POST" },
+          get: { url: "/api/mock/externo/produtos-crud/{id}", method: "GET" },
+          create: { url: "/api/mock/externo/produtos-crud", method: "POST" },
+          update: { url: "/api/mock/externo/produtos-crud/{id}", method: "PUT" },
+          delete: { url: "/api/mock/externo/produtos-crud/{id}", method: "DELETE" },
+          saveLayout: { url: "/api/crud-layout/cadastros/clientes", method: "POST" },
+          restoreLayout: { url: "/api/crud-layout/cadastros/clientes", method: "DELETE" },
+          saveSort: { url: "/api/crud-layout/cadastros/clientes/sorts", method: "POST" },
+          deleteSort: { url: "/api/crud-layout/cadastros/clientes/sorts/{id}", method: "DELETE" },
+          saveGroup: { url: "/api/crud-layout/cadastros/clientes/groups", method: "POST" },
+          deleteGroup: { url: "/api/crud-layout/cadastros/clientes/groups/{id}", method: "DELETE" },
+          saveFilter: { url: "/api/crud-layout/cadastros/clientes/filters", method: "POST" },
+          deleteFilter: { url: "/api/crud-layout/cadastros/clientes/filters/{id}", method: "DELETE" },
+          saveMobileTemplate: { url: "/api/crud-layout/cadastros/clientes/mobile-templates", method: "POST" },
+          deleteMobileTemplate: { url: "/api/crud-layout/cadastros/clientes/mobile-templates/{id}", method: "DELETE" }
+        };
+        definition.dataModel.primaryKey = "id";
+        definition.dataModel.fields = {
+          id: { label: "ID", type: "integer", readonly: true, editable: false },
+          nome: { label: "Nome", type: "text", nullable: false },
+          ativo: { label: "Ativo", type: "boolean", nullable: true }
+        };
+        definition.crud.filter.fields = [
+          { id: "nome", field: "nome", label: "Nome", type: "text", operator: "contains" },
+          { id: "ativo", field: "ativo", label: "Ativo", type: "boolean", operator: "eq" }
+        ];
+        definition.crud.grid.filterable = false;
+        definition.crud.grid.toolbar = [
+          { id: "create", label: "Incluir", icon: "plus", action: "create", permission: "create" },
+          { id: "refresh", label: "Atualizar", icon: "arrow-rotate-cw", action: "refresh", permission: "read" }
+        ];
+        definition.crud.grid.columns = [
+          { field: "id", title: "ID", width: 120 },
+          { field: "nome", title: "Nome", width: 240 },
+          { field: "ativo", title: "Ativo", width: 140 }
+        ];
+        definition.crud.grid.rowActions = [
+          { id: "view", label: "Visualizar", action: "view", icon: "eye", permission: "read" },
+          { id: "edit", label: "Alterar", action: "edit", icon: "pencil", permission: "edit" },
+          { id: "delete", label: "Excluir", action: "delete", icon: "trash", permission: "delete" }
+        ];
+        definition.crud.form.title = {
+          create: "Incluir produto externo",
+          view: "Detalhe do produto externo",
+          edit: "Alterar produto externo",
+          delete: "Excluir produto externo"
+        };
+        definition.crud.form.tabs = [
+          {
+            id: "geral",
+            title: "Geral",
+            sections: [
+              {
+                id: "principal",
+                title: "Principal",
+                columns: 2,
+                fields: [
+                  { field: "id", readonly: true },
+                  { field: "nome", colSpan: 2 },
+                  { field: "ativo" }
+                ]
+              }
+            ]
+          }
+        ];
+        definition.crud.form.fields = [
+          { field: "id", readonly: true },
+          { field: "nome" },
+          { field: "ativo" }
+        ];
+        definition.crud.form.buttons = [];
+        definition.crud.form.otherActions = { enabled: false, actions: [] };
+        definition.crud.form.logs = { enabled: false };
+        definition.crud.form.print = { enabled: false, options: [] };
+        definition.crud.userLayout.storageKey = "api-crud-layout";
+      }
+    },
+    {
+      id: "manual-programas",
+      category: "Documentacao",
+      title: "Manual por programa",
+      summary: "Pagina com manual operacional e funcional dos principais programas web, com indice navegavel por programa e screenId.",
+      page: pagePath + "manual-programas.html",
+      code: {}
+    },
+    {
+      id: "import-export-mappings",
+      category: "Integracao",
+      title: "Mapeamentos de importacao e exportacao",
+      summary: "Documenta o contrato da engine de mapeamentos para API, tabela, CSV e TXT, incluindo leiaute posicional, por separador e arvore hierarquica com TreeView para registros pai, filhos e totalizadores.",
+      page: pagePath + "import-export-mappings.html",
+      code: {}
     },
     {
       id: "filtro-inicial",
@@ -725,13 +959,21 @@
           validation: {
             status: "blocked",
             title: "Inconsistencias encontradas",
+            titleKey: "validation.title.inconsistencies",
             messages: [
               {
                 field: "observacao",
                 type: "error",
-                message: "Observacao e obrigatoria para cliente inativo."
+                message: "Observacao e obrigatoria para cliente inativo.",
+                messageKey: "validation.message.field_required",
+                messageParams: {
+                  field: "observacao",
+                  fieldCode: "observacao",
+                  fieldLabel: "Observacao"
+                }
               }
-            ]
+            ],
+            closeTextKey: "literal.button.close"
           },
           effects: [
             {
@@ -991,6 +1233,20 @@
         screenId: "admin.parametro-valores",
         relatedScreens: ["admin.parametros"],
         productionUrl: "production/app.html?screenId=admin.parametro-valores"
+      }
+    },
+    {
+      id: "admin-literais",
+      category: "Backend",
+      title: "Admin de literais e traducoes",
+      summary: "Tela administrativa para manter os textos por chave e locale usados pelo frontend.",
+      page: pagePath + "admin-literais.html",
+      loadByScreenId: true,
+      screenId: "admin.literais",
+      code: {
+        screenId: "admin.literais",
+        relatedScreens: ["admin.parametros"],
+        productionUrl: "production/app.html?screenId=admin.literais"
       }
     },
     {
@@ -1310,7 +1566,7 @@
 
   const propertyOptions = [
     option("Raiz", "schemaVersion", "\"1.0\"", "Obrigatorio", "Versao atual do contrato."),
-    option("Raiz", "pageType", "\"crud\" | \"home\" | \"process\"", "Obrigatorio", "Define qual motor fechado renderiza a pagina."),
+    option("Raiz", "pageType", "\"crud\" | \"home\" | \"process\" | \"custom\"", "Obrigatorio", "Define qual motor fechado renderiza a pagina."),
     option("Programa", "program.help.kind", "text | link | video", "text", "Define o conteudo principal da ajuda da tela."),
     option("Programa", "program.help.items[].kind", "text | link | video", "text", "Itens adicionais exibidos na janela de ajuda/novidades."),
     option("Programa", "program.logs.url", "URL relativa | http | https", "vazio", "Se vazio, o botao de log da tela nao aparece."),
@@ -1401,6 +1657,9 @@
     option("Formulario", "crud.form.buttons[].formValues.transport", "auto | query | post", "auto", "query acrescenta parametros na URL; post envia formulario oculto para a pagina."),
     option("Formulario", "crud.form.buttons[].passFormValues", "true | false", "false", "Atalho para enviar todos os valores do formulario."),
     option("Backend", "validation.status", "blocked | warning | info | success", "blocked", "Status retornado pelo backend para consistencias de regra de negocio."),
+    option("Backend", "validation.titleKey", "chave de literal", "opcional", "Permite o backend devolver o titulo por chave, com fallback para validation.title."),
+    option("Backend", "validation.messages[].messageKey", "chave de literal", "opcional", "Permite o backend devolver a mensagem por chave, com fallback para validation.messages[].message."),
+    option("Backend", "validation.messages[].messageParams", "objeto", "opcional", "Parametros simples usados para interpolar o literal da mensagem."),
     option("Backend", "validation.messages[].field", "nome do campo", "opcional", "Campo que deve ser marcado quando o backend bloquear ou avisar uma consistencia."),
     option("Backend", "validation.requiresConfirmation", "true | false", "false", "Quando true, o frontend pede confirmacao Kendo e reenvia a chamada com token."),
     option("Backend", "effects[]", "lista de efeitos seguros", "opcional", "Efeitos retornados pelo backend e aplicados no formulario apos consistencia."),
@@ -1470,16 +1729,19 @@
     option("Home", "navigation.initialModuleId", "vazio | __all__ | id de modulo", "vazio", "Modulo selecionado no ComboBox ao abrir a pagina inicial. Vazio, ausente ou __all__ mostra Todos."),
     option("Home", "navigation.modules[]", "id, title, permission", "vazio", "Lista de sistemas/modulos exibidos no ComboBox acima do TreeView. A opcao Todos e criada pelo motor."),
     option("Home", "navigation.groups[].moduleId", "id de modulo", "primeiro modulo configurado", "Vincula um grupo da TreeView ao sistema/modulo selecionado."),
-    option("Home", "programs[].type", "iframe | crud | html | process", "iframe", "Modo fechado usado para abrir o programa."),
+    option("Home", "programs[].type", "iframe | crud | html | process | custom", "iframe", "Modo fechado usado para abrir o programa."),
     option("Home", "programs[].title/subtitle/version", "texto", "vazio", "Metadados exibidos na appbar global quando o programa abre na Home."),
     option("Home", "programs[].subtitleTooltip", "texto", "vazio", "Texto longo aberto pelo subtitulo na appbar global."),
     option("Home", "programs[].help", "body | linkUrl | videoUrl | items[]", "vazio", "Ajuda/novidades exibidas na appbar global para programas sem CrudEngine embutido."),
     option("Home", "programs[].logs.url", "URL relativa | http | https", "vazio", "Log exibido na appbar global para programas sem CrudEngine embutido."),
     option("Home", "programs[].openUrl", "URL relativa | http | https", "vazio", "URL navegavel preferencial usada pelo botao de abrir em nova aba no menu."),
     option("Home", "programs[].url", "URL relativa | http | https", "vazio", "Obrigatorio para programas type=iframe."),
-    option("Home", "programs[].definitionUrl", "URL relativa | http | https", "vazio", "Usado por programas type=crud ou type=process em demo."),
+    option("Home", "programs[].definitionUrl", "URL relativa | http | https", "vazio", "Usado por programas type=crud, type=process ou type=custom em demo."),
     option("Home", "programs[].html", "HTML sem script/eventos", "vazio", "HTML sanitizado antes da injecao."),
     option("Home", "programs[].htmlUrl", "URL relativa | http | https", "vazio", "Carrega fragmento HTML para programas type=html."),
+    option("Custom", "custom.mode", "iframe | htmlUrl", "iframe", "Define se o programa manual abre em iframe interno ou carrega um fragmento HTML sanitizado."),
+    option("Custom", "custom.entryUrl", "URL relativa interna", "Obrigatorio", "Entrypoint manual do programa custom, sempre relativo ao proprio sistema."),
+    option("Custom", "custom.frameTitle", "texto", "program.title", "Titulo acessivel usado no iframe do programa manual."),
     option("Processamento", "process.parameters.fields[].type", "text | string | number | integer | decimal | date | datetime | boolean | enum | option | dropdown", "text", "Tipo de campo usado para montar os parametros do processamento."),
     option("Processamento", "process.parameters.fields[].required", "true | false", "false", "Impede processar sem valor no parametro."),
     option("Processamento", "process.actions.process.label/icon", "texto", "Processar / play", "Texto e icone do botao principal de processamento."),

@@ -2538,19 +2538,19 @@
       const canCancel = Boolean(this.actionMode) || closeOnCancel;
       const confirmButtonConfig = this.getFormButton("confirm") || this.getFormButton("save");
       const cancelButtonConfig = this.getFormButton("cancel");
-      $("<button type=\"button\"></button>")
-        .text(confirmButtonConfig && confirmButtonConfig.label ? confirmButtonConfig.label : "Confirmar")
-        .appendTo(actions)
-        .kendoButton({
-          themeColor: "primary",
-          icon: confirmButtonConfig && confirmButtonConfig.icon || "check",
-          enable: canConfirm
-        })
-        .on("click", () => {
-          if (canConfirm) {
+      if (canConfirm) {
+        $("<button type=\"button\"></button>")
+          .text(confirmButtonConfig && confirmButtonConfig.label ? confirmButtonConfig.label : "Confirmar")
+          .appendTo(actions)
+          .kendoButton({
+            themeColor: "primary",
+            icon: confirmButtonConfig && confirmButtonConfig.icon || "check",
+            enable: true
+          })
+          .on("click", () => {
             this.confirmAction(confirmButtonConfig);
-          }
-        });
+          });
+      }
       $("<button type=\"button\"></button>")
         .text(cancelButtonConfig && cancelButtonConfig.label ? cancelButtonConfig.label : "Cancelar")
         .appendTo(actions)

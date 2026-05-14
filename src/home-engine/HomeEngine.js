@@ -117,7 +117,7 @@
         this.applyKendoTheme();
         this.currentTheme = this.resolveInitialTheme();
         this.applyTheme(this.currentTheme, { persist: false });
-        return this.config;
+        return global.CrudUtils.loadLiteralBundle(this.config.literals || {}, this.httpClient).then(() => this.config);
       });
     }
 
@@ -3239,6 +3239,9 @@
       if (program.type === "process") {
         return this.renderProcessProgram(program);
       }
+      if (program.type === "custom") {
+        return this.renderCustomProgram(program);
+      }
       if (program.type === "html") {
         return this.renderHtmlProgram(program);
       }
@@ -3308,6 +3311,34 @@
         hideHeader: true,
         onLastUpdated: (date) => this.updateProgramLastUpdated(date),
         onJobCompleted: (event) => this.handleProcessJobCompleted(event),
+        httpClient: this.httpClient
+      });
+      this.currentProgramEngine = engine;
+      return engine.init().then((instance) => {
+        if (this.currentProgram && this.currentProgram.id === program.id) {
+          this.currentProgramEngine = instance;
+          this.updateProgramHeader(program, instance.definition);
+        }
+        return instance;
+      });
+    }
+
+    renderCustomProgram(program) {
+      this.contentRoot.empty();
+      const rootId = "home-custom-program-" + this.normalizeDomId(program.id);
+      $("<main></main>")
+        .attr("id", rootId)
+        .addClass("home-custom-root custom-page-shell")
+        .appendTo(this.contentRoot);
+
+      const engine = new global.CustomPageEngine({
+        root: "#" + rootId,
+        screenId: program.screenId,
+        definitionUrl: program.definitionUrl,
+        definition: program.definition,
+        config: this.getEmbeddedProgramConfig(),
+        hideHeader: true,
+        hideThemeSwitch: true,
         httpClient: this.httpClient
       });
       this.currentProgramEngine = engine;

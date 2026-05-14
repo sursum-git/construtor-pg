@@ -18,6 +18,8 @@ class RuntimeEndpointDispatcher
         private readonly RuntimeSessionGuard $sessions,
         private readonly RuntimeTransactionService $transactions,
         private readonly RuntimeEntityActionService $entities,
+        private readonly RuntimeApiEntityActionService $apiEntities,
+        private readonly RuntimeOdooEntityActionService $odooEntities,
         private readonly RuntimeJobEnqueueService $jobEnqueue,
         private readonly RuntimeExecutionContext $executionContext,
         private readonly RuntimeAsyncJobService $asyncJobs,
@@ -79,6 +81,9 @@ class RuntimeEndpointDispatcher
 
         return match ($handler) {
             'entity.crud' => $this->entities->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
+            'entity.api.readonly' => $this->apiEntities->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
+            'entity.api.crud' => $this->apiEntities->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
+            'entity.api.odoo.readonly' => $this->odooEntities->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
             'cliente.read' => $this->entities->handle($screenId, 'read', ['entityCode' => 'cliente', 'operation' => 'read'], $payload),
             'cliente.get' => $this->entities->handle($screenId, 'get', ['entityCode' => 'cliente', 'operation' => 'get'], $payload),
             'cliente.create' => $this->entities->handle($screenId, 'create', ['entityCode' => 'cliente', 'operation' => 'create'], $payload),
@@ -139,7 +144,7 @@ class RuntimeEndpointDispatcher
     private function enrichPayloadFromEndpoint(RuntimeEndpoint $endpoint, array $payload): array
     {
         $config = $endpoint->getConfig();
-        if (!in_array($endpoint->getHandler(), ['entity.crud', 'runtime.job.enqueue'], true)) {
+        if (!in_array($endpoint->getHandler(), ['entity.crud', 'entity.api.readonly', 'entity.api.crud', 'entity.api.odoo.readonly', 'runtime.job.enqueue'], true)) {
             return $payload;
         }
 

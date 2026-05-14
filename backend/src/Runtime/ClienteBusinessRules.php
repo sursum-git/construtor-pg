@@ -4,6 +4,10 @@ namespace App\Runtime;
 
 class ClienteBusinessRules extends AbstractRuntimeBusinessRuleHandler
 {
+    private const TITLE_KEY = 'validation.title.inconsistencies';
+    private const FIELD_REQUIRED_KEY = 'validation.message.field_required';
+    private const INACTIVE_WARNING_KEY = 'validation.message.inactive_customer_note_required';
+
     public function supports(string $entityCode, string $actionId): bool
     {
         return $entityCode === 'cliente' && in_array($actionId, ['create', 'update', 'edit'], true);
@@ -20,19 +24,14 @@ class ClienteBusinessRules extends AbstractRuntimeBusinessRuleHandler
             return;
         }
 
-        throw new RuntimeValidationException(
+        $context->throwValidation(
             'CLIENTE_OBSERVACAO_REQUIRED',
-            'Existem inconsistencias no formulario.',
             [
-                'status' => 'blocked',
-                'title' => 'Inconsistencias encontradas',
-                'messages' => [
-                    [
-                        'field' => 'observacao',
-                        'type' => 'error',
-                        'message' => 'Observacao e obrigatoria para cliente inativo.',
-                    ],
-                ],
+                $context->messageItem('observacao', self::FIELD_REQUIRED_KEY, [
+                    'field' => 'observacao',
+                    'fieldCode' => 'observacao',
+                    'fieldLabel' => 'Observacao',
+                ], 'error', 'Observacao e obrigatoria para cliente inativo.'),
             ],
             [
                 [
@@ -44,8 +43,16 @@ class ClienteBusinessRules extends AbstractRuntimeBusinessRuleHandler
                     'action' => 'showMessage',
                     'type' => 'warning',
                     'message' => 'Informe uma observacao ao inativar o cliente.',
+                    'messageKey' => self::INACTIVE_WARNING_KEY,
+                    'messageParams' => [
+                        'field' => 'observacao',
+                        'fieldCode' => 'observacao',
+                        'fieldLabel' => 'Observacao',
+                    ],
                 ],
             ],
+            self::TITLE_KEY,
+            title: 'Inconsistencias encontradas',
         );
     }
 }

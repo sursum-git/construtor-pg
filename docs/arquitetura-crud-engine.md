@@ -10,13 +10,266 @@ Frontend renderiza.
 Esse mesmo principio tambem existe para a pagina inicial via `HomeEngine`.
 O `HomeEngine` e separado do `CrudEngine`: ele monta o shell global e pode chamar um CRUD como um dos tipos fechados de programa.
 Para paginas de processamento por parametros existe tambem o `ProcessEngine`, separado do CRUD para evitar misturar consultas com execucoes de jobs.
-Para geracao visual de novos programas existe uma interface administrativa separada, que gera definicoes CRUD a partir de `builder_entity` e publica o resultado no runtime.
+Para geracao visual de novos programas existe uma interface administrativa separada, que gera definicoes CRUD ou registra programas custom e publica o resultado no runtime.
+Esse editor agora tambem possui painel contextual de propriedades, visao de relacionamentos, comparativo entre revisoes/versoes, reordenacao por drag-and-drop para campos/regras/chaves, lock de edicao com heartbeat no backend e importacao de tabelas PostgreSQL existentes.
+Existe tambem um MVP opcional e separado em `desktop-wpf/`, criado apenas para validar uma experiencia desktop de autoria sem impactar o frontend web atual.
 
 Na demo, o JSON pode vir de arquivo/local embed e as chamadas podem passar pelo mock HTTP.
 Na producao inicial, o backend Symfony ja entrega telas por `screenId`, endpoints por `endpointId` e documentos autorizados pelo runtime.
 
 Para uma primeira versao de producao, o motor tambem aceita carregar a tela por `screenId`.
 Nesse modo o frontend nao recebe uma URL livre de JSON: ele pede ao backend uma tela conhecida, e o backend devolve somente a definicao autorizada para o usuario.
+
+## Entidade API
+
+O construtor agora aceita `entityType=api` para consultas externas em JSON.
+
+Escopo atual:
+
+- endpoint de lista obrigatorio;
+- endpoint de detalhe opcional;
+- autenticacao por headers fixos cadastrados na entidade;
+- mapeamento por `jsonPath`;
+- renderizacao em grid + formulario;
+- sem tabela fisica e sem lock de escrita;
+- cadastro reutilizavel de metadados da API em `builder_api_source`;
+- importacao basica de contrato OpenAPI/Swagger para montar as operacoes;
+- dois modos:
+  - `readonly`;
+  - `crud` basico para APIs JSON previsiveis.
+- tambem existe um provedor especifico `odoo` dentro do cadastro reutilizavel de APIs, em modo `readonly`, com suporte a `XML-RPC` e `JSON-RPC`, teste de conexao, leitura de metadados do modelo e geracao de CRUD em modo consulta.
+
+No backend:
+
+- o builder salva a configuracao em `builder_entity.metadata.apiSource`;
+- a entidade pode apontar para um cadastro reutilizavel em `builder_api_source`, usando `apiSourceCode`, `apiListOperationCode`, `apiDetailOperationCode`, `apiCreateOperationCode`, `apiUpdateOperationCode` e `apiDeleteOperationCode`;
+- o builder expõe `GET /api/admin/program-builder/api-sources/{apiSourceCode}`, `POST /api/admin/program-builder/api-sources` e `POST /api/admin/program-builder/api-sources/import-openapi`;
+- o importador OpenAPI/Swagger cria um rascunho revisavel de operacoes da API, sem publicar nem gerar tela automaticamente;
+- para Odoo, o builder tambem expoe `POST /api/admin/program-builder/api-sources/odoo/test-connection` e `POST /api/admin/program-builder/api-sources/odoo/model-metadata`;
+- o runtime publica endpoints `read`, `get` e, quando configurado, `create`, `update` e `delete`;
+- o handler usado passa a ser `entity.api.crud`, separado do `entity.crud`;
+- quando a fonte vinculada usa `providerType=odoo`, o runtime muda para `entity.api.odoo.readonly`, com `search_read`, `search_count` e `read` montados internamente, sem expor `create`, `update` ou `delete`.
+
+Na definicao gerada:
+
+- o `pageType` continua `crud`;
+- quando nao houver operacoes de escrita, `permissions.create/edit/delete` ficam `false`, a toolbar nao mostra `Incluir` e as acoes de linha ficam apenas com `Visualizar`;
+- quando houver operacoes de escrita, a tela habilita `Incluir`, `Alterar` e `Excluir` conforme os endpoints publicados;
+- `runtime.lock.enabled=false`;
+- `runtime.messages.enabled=false`.
+
+No construtor:
+
+- o cadastro da API centraliza `baseUrl`, `authMode`, `authHeaders`, `timeoutSeconds`, `openapiUrl` e as operacoes disponiveis;
+- a entidade `api` deixa de depender de configuracao solta e passa a vincular uma API cadastrada + operacoes de lista/detalhe/escrita;
+- o bloco inline continua existindo apenas como contrato expandido que o runtime usa internamente depois da validacao do cadastro;
+- quando a fonte usa Odoo, o editor troca o cadastro generico por um formulario proprio com:
+  - `transport`
+  - `baseUrl`
+  - `database`
+  - `login`
+  - `secretMode`
+  - `secretValue`
+  - `model`
+  - `defaultContext`
+  - `defaultDomain`
+  - `defaultOrder`
+  - `defaultLimit`
+  - `timeoutSeconds`
+- nesse modo o construtor disponibiliza:
+  - `Testar conexao`
+  - `Ler metadados do modelo`
+  - `Carregar campos do modelo`
+- as operacoes de lista e detalhe passam a usar os codigos sinteticos `odoo_list` e `odoo_detail`.
+
+### Odoo
+
+No cadastro reutilizavel, `providerType=odoo` salva o bloco `metadata.odoo` com:
+
+- `transport`
+- `baseUrl`
+- `database`
+- `login`
+- `secretMode`
+- `secretValue`
+- `model`
+- `defaultContext`
+- `defaultDomain`
+- `defaultOrder`
+- `defaultLimit`
+- `timeoutSeconds`
+- `json2Ready`
+
+O segredo volta mascarado para a UI administrativa e segue o mesmo fluxo de restauracao de valor mascarado usado no restante do builder.
+
+Mapeamento inicial dos tipos do Odoo:
+
+- `char`, `selection`, `many2one` -> `string`
+- `text`, `html` -> `text`
+- `integer` -> `integer`
+- `float`, `monetary` -> `decimal`
+- `boolean` -> `boolean`
+- `date` -> `date`
+- `datetime` -> `datetime`
+- `one2many`, `many2many` -> `json`
+
+Limites desta fase:
+
+- somente leitura;
+- metodos ORM expostos:
+  - `search_read`
+  - `search_count`
+  - `read`
+- sem `create`, `write` e `unlink`;
+- `many2one` entra como valor legivel;
+- `one2many` e `many2many` entram como `json`;
+- `JSON-2` fica apenas como preparo de cadastro, sem execucao nesta entrega.
+
+Limites desta fase de escrita:
+
+- apenas APIs JSON previsiveis;
+- `GET`, `POST`, `PUT`, `PATCH` e `DELETE`;
+- headers e parametros estaticos;
+- sem transformacao por JavaScript;
+- sem upload, GraphQL, SOAP/XML, refresh dinamico de token ou multiplas chamadas por operacao.
+
+## Importacao e exportacao entre entidades
+
+Existe agora um catalogo inicial de mapeamentos em `import_export_mapping`, exposto pelos endpoints administrativos:
+
+- `GET /api/admin/import-export-mappings`
+- `GET /api/admin/import-export-mappings/{code}`
+- `POST /api/admin/import-export-mappings`
+- `POST /api/admin/import-export-mappings/preview`
+- `POST /api/admin/import-export-mappings/execute`
+
+Escopo atual:
+
+- origem:
+  - entidade `persistence`;
+  - entidade `api` generica;
+  - entidade `api` com provedor Odoo readonly;
+- destino:
+  - entidade `persistence`;
+  - entidade `api` generica com CRUD previsivel;
+  - arquivo `csv`;
+  - arquivo `txt_layout`.
+
+No `txt_layout`, a engine aceita tanto estrutura plana quanto hierarquica.
+
+Contratos suportados na primeira entrega:
+
+- `api -> tabela`;
+- `tabela -> api`;
+- `entidade -> csv`;
+- `entidade -> txt_layout`.
+
+O corpo do mapeamento usa:
+
+- `source` ou `sources[]`;
+- `destination`;
+- `fieldMappings[]`;
+- `options`.
+
+Para arquivo TXT, cada item de `recordLayouts[]` aceita:
+
+- `sourceAlias`;
+- `lineMode: "fixed" | "delimited"`;
+- `fields[]`.
+- opcionalmente `nodeType: "record" | "group" | "totalizer"`;
+- opcionalmente `children[]` para arvore hierarquica.
+
+### TXT posicional
+
+Quando `lineMode="fixed"`, cada campo aceita:
+
+- `sourcePath` ou `constant`;
+- `start` opcional;
+- `length` obrigatorio;
+- `align: "left" | "right"`;
+- `padChar`;
+- `transforms[]`.
+
+Se `start` nao for informado, o motor continua da posicao anterior.
+
+### TXT por separador
+
+Quando `lineMode="delimited"`, cada campo aceita:
+
+- `sourcePath` ou `constant`;
+- `transforms[]`.
+
+Nesse modo:
+
+- nao existe coluna fixa por posicao;
+- a ordem do array `fields[]` define a ordem da linha;
+- `separator` define o delimitador da linha.
+
+Exemplo:
+
+```json
+{
+  "sourceAlias": "cliente",
+  "lineMode": "delimited",
+  "separator": "|",
+  "fields": [
+    { "constant": "02" },
+    { "sourcePath": "id" },
+    { "sourcePath": "nome" },
+    { "sourcePath": "cidade" }
+  ]
+}
+```
+
+### TXT hierarquico
+
+Quando o leiaute precisa de registros pai, filhos e totalizadores, `recordLayouts[]` pode formar uma arvore.
+
+Nos suportados:
+
+- `group`: so organiza a arvore; nao precisa gerar linha;
+- `record`: renderiza a linha e depois pode abrir filhos em `children[]`;
+- `totalizer`: calcula agregados sobre uma fonte filtrada e renderiza a linha de fechamento.
+
+Vinculo entre pai e filho:
+
+```json
+{
+  "linkBy": [
+    { "parentPath": "id", "childField": "nota_id", "operator": "eq" }
+  ]
+}
+```
+
+No totalizador, a linha pode usar:
+
+- `_parent.*` para ler valores do registro pai;
+- `_summary.count`;
+- `_summary.<nome_da_agregacao>`.
+
+Agregacoes iniciais suportadas:
+
+- `count`
+- `sum`
+
+Transformacoes fechadas suportadas nesta etapa:
+
+- `trim`
+- `upper`
+- `lower`
+- `constant`
+- `concat`
+- `date_format`
+- `number_format`
+- `pad_left`
+- `pad_right`
+
+Limites desta fase:
+
+- execucao apenas manual por endpoint administrativo;
+- ainda nao existe tela administrativa completa para o catalogo;
+- ainda nao existe `xml`;
+- ainda nao existe historico funcional dedicado das execucoes fora do runtime padrao.
 
 ## Estrutura principal
 
@@ -46,6 +299,9 @@ src/process-engine/
   ProcessEngine.js
   ProcessDefinitionLoader.js
   ProcessDefinitionValidator.js
+
+src/custom-page/
+  CustomPageEngine.js
 
 src/demo/
   demo.js
@@ -111,6 +367,101 @@ src/examples/
 - Monta formulario em popup Kendo.
 - Suporta abas, etapas, appbars, navegacao, logs, impressao, outras acoes, eventos seguros e situacao.
 - Renderiza tambem `editor="customCode"` com assistente declarativo para propriedades da codificacao.
+
+## Importacao de tabelas existentes no construtor
+
+O `program-builder` agora consegue ler uma tabela fisica ja existente no PostgreSQL e gerar:
+
+- um rascunho de `builder_entity` com campos, PK, FKs, `unique`, `default`, tipos e readonly sugerido;
+- classificacao automatica da tabela (`master`, `support`, `transactional`, `junction`);
+- um rascunho basico de programa CRUD, ainda sujeito a revisao humana antes de publicar.
+
+Fluxo:
+
+1. `GET /api/admin/program-builder/database/tables`
+   - lista tabelas importaveis do banco;
+   - exclui tabelas internas do runtime/construtor.
+2. `POST /api/admin/program-builder/database/inspect`
+   - inspeciona uma tabela;
+   - devolve `classification`, `diagnostics`, `entityDraft` e `programDraft`.
+3. `POST /api/admin/program-builder/database/import`
+   - grava a entidade importada;
+   - gera revisao da entidade;
+   - opcionalmente cria um rascunho de programa CRUD.
+
+Decisoes do fluxo:
+
+- a importacao nao publica automaticamente;
+- a tabela fisica importada nao e renomeada nem recriada;
+- validacao de nomenclatura estrutural e relaxada quando o nome fisico importado e mantido como origem;
+- o codigo do programa continua manual e precisa respeitar o modulo escolhido.
+
+## Importacao de JSON externo no construtor
+
+O `program-builder` tambem aceita um segundo fluxo para trabalhar com IA externa ou JSON montado fora do sistema.
+
+Fluxo:
+
+1. `GET /api/public/program-builder/external-context`
+   - endpoint publico protegido pelo cabecalho `X-Builder-Public-Key`;
+   - expone apenas contrato tecnico, tipos suportados, regras de nomenclatura, exemplos minimos, modulos e resumo de entidades existentes.
+2. `POST /api/admin/program-builder/external/validate`
+   - recebe um objeto com `entityDraft` e `programDraft`;
+   - valida o payload com o mesmo nucleo do builder;
+   - recusa `pageType` diferente de `crud`;
+   - devolve `entityDraft`, `programDraft`, `generatedDefinition`, `diagnostics` e `readyToApply`.
+
+Decisoes do fluxo:
+
+- o endpoint publico nao cria nada, apenas orienta uma IA externa;
+- a chave do endpoint publico usa os parametros `ai.builder.public_context_enabled` e `ai.builder.public_context_key`;
+- a importacao administrativa nao salva nem publica automaticamente;
+- o frontend apenas carrega o rascunho normalizado para revisao humana no proprio construtor.
+
+## Assistente de IA interno no construtor
+
+O `program-builder` agora tambem tem um fluxo interno por chat para montar rascunhos CRUD dentro do proprio sistema.
+
+Endpoints:
+
+1. `GET /api/admin/program-builder/ai/settings`
+   - devolve a configuracao atual do assistente, com token mascarado.
+2. `POST /api/admin/program-builder/ai/settings`
+   - salva configuracao do assistente.
+3. `POST /api/admin/program-builder/ai/session`
+   - inicia sessao e devolve a mensagem inicial.
+4. `POST /api/admin/program-builder/ai/message`
+   - recebe a conversa e devolve mensagens + rascunho validado quando houver informacao suficiente.
+5. `POST /api/admin/program-builder/ai/transcribe`
+   - processa `transcriptText` ou `audioBase64`.
+6. `POST /api/admin/program-builder/ai/finalize-draft`
+   - revalida o rascunho antes de carregar a modelagem.
+
+Parametros administrativos usados:
+
+- `ai.builder.enabled`
+- `ai.builder.provider`
+- `ai.builder.agent_name`
+- `ai.builder.base_url`
+- `ai.builder.model`
+- `ai.builder.api_token`
+- `ai.builder.transcription_enabled`
+- `ai.builder.transcription_model`
+
+Regras do fluxo:
+
+- provider suportado nesta etapa: `mock` e `openai_compatible`;
+- o chat nunca salva nem publica por conta propria;
+- o rascunho passa pela mesma validacao do fluxo externo (`entityDraft` + `programDraft`);
+- `ai.builder.api_token` e `ai.builder.public_context_key` sao tratados como segredos e nao retornam em claro nem no CRUD administrativo de parametros.
+
+No frontend:
+
+- o appbar do `program-builder` ganhou os botoes `Assistente IA` e `Configurar IA`;
+- a janela usa `kendoChat`;
+- o painel lateral mostra resumo do rascunho e diagnosticos;
+- `Carregar na modelagem` so aplica o rascunho depois de nova validacao no backend;
+- o audio tenta `SpeechRecognition` primeiro e usa `MediaRecorder` como fallback.
 
 `CrudLayoutManager.js`
 
@@ -183,10 +534,30 @@ As APIs da tela devem usar `endpointId` ou `actionId`; o motor converte esses id
 As demos continuam em `index.html`, `home.html` e `examples/pages/*.html`.
 Para producao, usar entradas separadas:
 
-- `production/app.html?screenId=cadastros.clientes`: abre um CRUD por `screenId`.
+- `production/app.html?screenId=cadastros.clientes`: abre uma tela por `screenId`, detectando `crud`, `process` ou `custom`.
 - `production/home.html?screenId=home`: abre a Home por `screenId`; se ausente, usa `home`.
 - Programas `type="process"` podem ser abertos pela Home usando `screenId` em producao.
+- Programas `type="custom"` podem ser abertos pela Home ou diretamente em `production/app.html`, usando definicao runtime com `custom.mode` e `custom.entryUrl`.
 - O backend ja publica `screenId=processamento.relatorio-clientes`, com endpoints `process` e `status`.
+
+## Programas custom
+
+O tipo `pageType="custom"` foi criado para telas especificas demais para cair cedo em `crud` ou `process`.
+
+Contrato:
+
+- `pageType: "custom"`
+- `program`: metadados catalogados no runtime
+- `custom.mode`: `iframe` ou `htmlUrl`
+- `custom.entryUrl`: caminho relativo do proprio sistema
+- `custom.frameTitle`: titulo acessivel para o iframe
+
+Regras:
+
+- nao aceita `http` ou `https` livre no entrypoint publicado pelo builder;
+- `iframe` abre uma pagina manual isolada;
+- `htmlUrl` carrega um fragmento HTML sanitizado, sem scripts, eventos inline ou URLs inseguras;
+- endpoints runtime do programa ficam desabilitados quando o tipo nao e CRUD.
 
 Essas entradas:
 
@@ -233,11 +604,18 @@ Consistencia de regra de negocio:
   "validation": {
     "status": "blocked",
     "title": "Inconsistencias encontradas",
+    "titleKey": "validation.title.inconsistencies",
     "messages": [
       {
         "field": "observacao",
         "type": "error",
-        "message": "Observacao e obrigatoria para cliente inativo."
+        "message": "Observacao e obrigatoria para cliente inativo.",
+        "messageKey": "validation.message.field_required",
+        "messageParams": {
+          "field": "observacao",
+          "fieldCode": "observacao",
+          "fieldLabel": "Observacao"
+        }
       }
     ]
   },
@@ -250,6 +628,21 @@ Consistencia de regra de negocio:
   ]
 }
 ```
+
+O frontend agora resolve os textos do contrato de validacao assim:
+
+- se vier `messageKey`/`messageParams`, usa o catalogo interno de literais;
+- se vier `titleKey`/`titleParams`, usa o catalogo interno de literais;
+- se a chave nao existir, cai para `message` e `title`;
+- se nada vier, usa os defaults pt-BR do motor.
+
+Existe agora tambem um bundle runtime de literais por locale:
+
+- rota: `GET /api/runtime/literals/{locale}`;
+- protegido pela mesma sessao runtime das telas de producao;
+- carregado pelo frontend quando `config.literals.enabled=true`;
+- mergeado sobre o catalogo interno pt-BR;
+- se o endpoint falhar ou a chave nao existir, o motor usa o dicionario embutido e, por fim, o texto legado do payload.
 
 ## JSON de tela
 
@@ -330,7 +723,8 @@ Endpoints atuais:
 - `POST /api/admin/program-builder/preview`: gera preview real da definicao sem persistir;
 - `POST /api/admin/program-builder/drafts`: salva ou atualiza um rascunho;
 - `POST /api/admin/program-builder/versions/{id}/publish`: publica a versao selecionada;
-- `POST /api/admin/program-builder/versions/{id}/duplicate`: cria novo rascunho com incremento de versao.
+- `POST /api/admin/program-builder/versions/{id}/duplicate`: cria novo rascunho com incremento de versao;
+- `POST /api/admin/program-builder/external/validate`: valida JSON externo e devolve rascunho normalizado para revisao.
 
 Primeiro escopo suportado:
 
@@ -367,6 +761,7 @@ Limites atuais:
 - situacao/transicoes avancadas ainda nao possuem editor visual dedicado nessa tela.
 
 A interface visual fica em `program-builder.html` e `production/program-builder.html`.
+Ela agora usa composicao mais proxima de editor em Kendo, com `Splitter`, `TreeView` e `TabStrip`: arvore lateral para navegar por modulo/entidade/programa, filtros rapidos por tipo/estado, badges visuais por no, abas centrais para os formularios e painel lateral para preview, historicos e diagnostico de pendencias.
 Ela usa `CrudHttpClient`, portanto respeita token, sessao e tenant ja usados nas outras entradas do projeto.
 Antes de usar a interface, o backend precisa ter as migrations `Version20260509093000`, `Version20260510113000`, `Version20260510143000` e `Version20260510170000` aplicadas; sem isso a API responde `PROGRAM_BUILDER_STORAGE_NOT_READY`.
 
@@ -395,6 +790,29 @@ O frontend apenas coleta propriedades extras do assistente e envia em `_customCo
 O primeiro assistente seguro fechado no backend e `screenId=assistente.codificacao.produto-pdm`, com endpoint `process` e handler `process.customCode.pdm`. Ele devolve `result.type="properties"`, `previewTitle`, `previewCode` e `values` saneados para o formulario.
 
 Para regras por classe/metodo, existe uma classe de exemplo em [ConfiguredEntityRuleMethods.php](C:/construtor-pg/backend/src/Runtime/BusinessRule/ConfiguredEntityRuleMethods.php).
+
+O padrao recomendado para essas classes agora e:
+
+- manter as chaves de literal como constantes da propria classe;
+- devolver `messageKey/messageParams` quando retornar array;
+- usar `RuntimeBusinessRuleContext::messageItem(...)` para montar mensagens por campo;
+- usar `RuntimeBusinessRuleContext::throwValidation(...)` quando a regra precisar interromper o fluxo com `RuntimeValidationException`;
+- deixar `message` literal apenas como fallback de compatibilidade.
+
+Exemplo resumido:
+
+```php
+$context->throwValidation(
+    'CLIENTE_OBSERVACAO_REQUIRED',
+    [
+        $context->messageItem('observacao', 'validation.message.field_required', [
+            'fieldLabel' => 'Observacao',
+        ]),
+    ],
+);
+```
+
+No executor, `messageKey` ja e tratado como contrato de primeira classe. Se a regra devolver apenas chave e parametros, o frontend resolve o texto pelo catalogo de literais sem depender de string fixa dentro da classe.
 
 Padrao de nomenclatura agora validado no construtor:
 

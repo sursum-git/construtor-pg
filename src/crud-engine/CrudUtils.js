@@ -2,6 +2,39 @@
   "use strict";
 
   const CrudUtils = {
+    literalCatalogs: {
+      "pt-BR": {
+        "literal.button.continue": "Continuar",
+        "literal.button.cancel": "Cancelar",
+        "literal.button.close": "Fechar",
+        "literal.button.confirm": "Confirmar",
+        "literal.button.understood": "Entendi",
+        "literal.title.confirm": "Confirmar",
+        "literal.title.warning": "Aviso",
+        "validation.title.consistency_warning": "Aviso de consistencia",
+        "validation.title.inconsistencies": "Inconsistencias encontradas",
+        "validation.title.invalid_situation": "Situacao invalida",
+        "validation.title.situation_not_allowed": "Situacao nao permitida",
+        "validation.title.situation_blocked": "Mudanca de situacao bloqueada",
+        "validation.message.confirm_default": "Deseja continuar?",
+        "validation.message.form_inconsistencies": "Existem inconsistencias no formulario.",
+        "validation.message.no_allowed_fields": "Nenhum campo permitido foi informado.",
+        "validation.message.field_required": "{fieldLabel} e obrigatorio.",
+        "validation.message.field_min_length": "{fieldLabel} precisa ter ao menos {min} caracteres.",
+        "validation.message.field_required_for_situation": "{fieldLabel} e obrigatorio para esta mudanca de situacao.",
+        "validation.message.inactive_customer_note_required": "Informe uma observacao ao inativar o cliente.",
+        "validation.message.json_invalid": "{fieldLabel} precisa conter um JSON valido.",
+        "validation.message.situation_not_registered": "A situacao informada nao esta cadastrada para esta entidade.",
+        "validation.message.situation_transition_not_allowed": "Nao e permitido mudar a situacao de {from} para {to} nesta acao.",
+        "validation.message.situation_transition_blocked": "Transicao de situacao nao permitida.",
+        "validation.message.situation_rules_pending": "Existem regras pendentes para mudar a situacao.",
+        "validation.message.version_reference_not_found": "Nao foi encontrada uma versao historica valida para {fieldLabel}.",
+        "runtime.message.operation_blocked": "Operacao bloqueada."
+      }
+    },
+    runtimeLiteralCatalogs: {},
+    literalLoadCache: {},
+
     clone(value) {
       return value == null ? value : JSON.parse(JSON.stringify(value));
     },
@@ -52,6 +85,108 @@
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#039;");
+    },
+
+    getCurrentLocale() {
+      if (global.kendo && typeof global.kendo.culture === "function") {
+        const culture = global.kendo.culture();
+        if (culture && culture.name) {
+          return culture.name;
+        }
+      }
+      const documentLanguage = global.document && global.document.documentElement && global.document.documentElement.lang;
+      return documentLanguage || "pt-BR";
+    },
+
+    getLiteralCatalog(locale) {
+      const current = String(locale || this.getCurrentLocale() || "pt-BR");
+      return Object.assign(
+        {},
+        this.literalCatalogs["pt-BR"] || {},
+        this.literalCatalogs[current] || {},
+        this.runtimeLiteralCatalogs["pt-BR"] || {},
+        this.runtimeLiteralCatalogs[current] || {}
+      );
+    },
+
+    setRuntimeLiterals(locale, literals) {
+      const current = String(locale || this.getCurrentLocale() || "pt-BR");
+      const catalog = literals && typeof literals === "object" ? literals : {};
+      this.runtimeLiteralCatalogs[current] = Object.assign({}, this.runtimeLiteralCatalogs[current] || {}, catalog);
+      return this.runtimeLiteralCatalogs[current];
+    },
+
+    loadLiteralBundle(settings, httpClient) {
+      const config = settings && typeof settings === "object" ? settings : {};
+      if (config.enabled !== true) {
+        return Promise.resolve(null);
+      }
+
+      const locale = String(config.locale || this.getCurrentLocale() || "pt-BR").trim() || "pt-BR";
+      if (this.literalLoadCache[locale]) {
+        return this.literalLoadCache[locale];
+      }
+
+      const endpoint = config.endpoint && typeof config.endpoint === "object" ? config.endpoint : {};
+      const url = this.replaceUrlParams(endpoint.url || "", { locale: locale });
+      if (!url) {
+        return Promise.resolve(null);
+      }
+
+      const client = httpClient || (global.CrudHttpClient ? new global.CrudHttpClient() : null);
+      if (!client || typeof client.request !== "function") {
+        return Promise.resolve(null);
+      }
+
+      this.literalLoadCache[locale] = client.request({
+        url: url,
+        method: endpoint.method || "GET"
+      }).then((payload) => {
+        const literals = payload && payload.literals && typeof payload.literals === "object" ? payload.literals : {};
+        this.setRuntimeLiterals(locale, literals);
+        return payload || null;
+      }).catch((error) => {
+        delete this.literalLoadCache[locale];
+        if (global.console && typeof global.console.warn === "function") {
+          global.console.warn("Falha ao carregar literais runtime.", error);
+        }
+        return null;
+      });
+
+      return this.literalLoadCache[locale];
+    },
+
+    formatLiteral(template, params) {
+      if (typeof template !== "string" || template === "") {
+        return "";
+      }
+      const values = params && typeof params === "object" ? params : {};
+      return template.replace(/\{([^}]+)\}/g, function(match, key) {
+        return values[key] != null ? String(values[key]) : "";
+      });
+    },
+
+    resolveLiteral(key, params, fallback) {
+      const template = key ? this.getLiteralCatalog()[key] : null;
+      if (typeof template === "string" && template !== "") {
+        return this.formatLiteral(template, params);
+      }
+      if (typeof fallback === "string" && fallback !== "") {
+        return this.formatLiteral(fallback, params);
+      }
+      return typeof key === "string" && key !== "" ? key : "";
+    },
+
+    resolveValidationMessage(item, fallbackType) {
+      const source = item && typeof item === "object" ? item : { message: item };
+      const params = source.messageParams && typeof source.messageParams === "object" ? source.messageParams : {};
+      const message = this.resolveLiteral(source.messageKey, params, source.message || "");
+      return Object.assign({
+        type: fallbackType || "error",
+        message
+      }, source, {
+        message
+      });
     },
 
     toKendoFormat(format, type) {
@@ -131,14 +266,18 @@
       const details = error && error.details || {};
       const validation = source.validation || error.validation || details.validation || null;
       const effects = this.ensureArray(source.effects || error.effects || details.effects);
-      const messages = this.ensureArray(validation && validation.messages).map(function(item) {
+      const rootStatus = validation && validation.status || error.severity || "error";
+      const messages = this.ensureArray(validation && validation.messages).map((item) => {
         if (typeof item === "string") {
           return { message: item, type: "error" };
         }
-        return Object.assign({
-          type: item && item.type || validation.status || error.severity || "error"
-        }, item || {});
+        return this.resolveValidationMessage(Object.assign({
+          type: item && item.type || rootStatus
+        }, item || {}), rootStatus);
       });
+      const title = validation
+        ? this.resolveLiteral(validation.titleKey, validation.titleParams, validation.title || error.message || "")
+        : this.resolveLiteral("validation.message.form_inconsistencies", null, error.message || "");
 
       if (!validation && !effects.length) {
         return {
@@ -154,9 +293,10 @@
         effects,
         validation: Object.assign({
           status: error.severity || "error",
-          title: error.message || "Inconsistencias encontradas",
+          title,
           messages
         }, validation || {}, {
+          title,
           messages
         })
       };
@@ -169,7 +309,11 @@
       const status = normalized.status || "blocked";
       const requiresConfirmation = normalized.requiresConfirmation === true;
       const $ = global.jQuery || global.$;
-      const title = normalized.title || (requiresConfirmation ? "Aviso de consistencia" : "Inconsistencias encontradas");
+      const title = normalized.title || this.resolveLiteral(
+        requiresConfirmation ? "validation.title.consistency_warning" : "validation.title.inconsistencies",
+        null,
+        requiresConfirmation ? "Aviso de consistencia" : "Inconsistencias encontradas"
+      );
 
       if (!$ || !global.kendo || !$.fn || !$.fn.kendoWindow) {
         const text = messages.map(function(item) { return item && item.message || ""; }).filter(Boolean).join("\n") || title;
@@ -196,10 +340,26 @@
         }
         const actions = $("<div class=\"crud-form-actions\"></div>").appendTo(content);
         const confirmButton = requiresConfirmation
-          ? $("<button type=\"button\"></button>").text(normalized.confirmText || "Continuar").appendTo(actions)
+          ? $("<button type=\"button\"></button>").text(
+            this.resolveLiteral(
+              normalized.confirmTextKey || "literal.button.continue",
+              normalized.confirmTextParams,
+              normalized.confirmText || "Continuar"
+            )
+          ).appendTo(actions)
           : null;
         const closeButton = $("<button type=\"button\"></button>")
-          .text(requiresConfirmation ? (normalized.cancelText || "Cancelar") : (settings.closeText || "Fechar"))
+          .text(requiresConfirmation
+            ? this.resolveLiteral(
+              normalized.cancelTextKey || "literal.button.cancel",
+              normalized.cancelTextParams,
+              normalized.cancelText || "Cancelar"
+            )
+            : this.resolveLiteral(
+              settings.closeTextKey || "literal.button.close",
+              settings.closeTextParams,
+              settings.closeText || "Fechar"
+            ))
           .appendTo(actions);
 
         const windowElement = wrapper.kendoWindow({
@@ -307,13 +467,25 @@
 
       const wrapper = $("<div></div>").appendTo(global.document.body);
       const content = $("<div class=\"crud-confirm-content\"></div>").appendTo(wrapper);
-      $("<p></p>").text(message || "Deseja continuar?").appendTo(content);
+      $("<p></p>").text(this.resolveLiteral(
+        settings.messageKey || "validation.message.confirm_default",
+        settings.messageParams,
+        message || "Deseja continuar?"
+      )).appendTo(content);
       const actions = $("<div class=\"crud-form-actions\"></div>").appendTo(content);
       const confirmButton = $("<button type=\"button\"></button>")
-        .text(settings.confirmText || "Confirmar")
+        .text(this.resolveLiteral(
+          settings.confirmTextKey || "literal.button.confirm",
+          settings.confirmTextParams,
+          settings.confirmText || "Confirmar"
+        ))
         .appendTo(actions);
       const cancelButton = $("<button type=\"button\"></button>")
-        .text(settings.cancelText || "Cancelar")
+        .text(this.resolveLiteral(
+          settings.cancelTextKey || "literal.button.cancel",
+          settings.cancelTextParams,
+          settings.cancelText || "Cancelar"
+        ))
         .appendTo(actions);
       let resolved = false;
 
@@ -325,7 +497,7 @@
 
       return new Promise(function(resolve) {
         wrapper.kendoWindow({
-          title: settings.title || "Confirmar",
+          title: this.resolveLiteral(settings.titleKey || "literal.title.confirm", settings.titleParams, settings.title || "Confirmar"),
           modal: true,
           width: Math.min(settings.width || 420, Math.max(300, global.innerWidth - 24)),
           visible: false,
@@ -364,15 +536,23 @@
 
       const wrapper = $("<div></div>").appendTo(global.document.body);
       const content = $("<div class=\"crud-confirm-content crud-blocking-message\"></div>").appendTo(wrapper);
-      $("<p></p>").text(message || title || "Operacao bloqueada.").appendTo(content);
+      $("<p></p>").text(this.resolveLiteral(
+        settings.messageKey || "runtime.message.operation_blocked",
+        settings.messageParams,
+        message || title || "Operacao bloqueada."
+      )).appendTo(content);
       const actions = $("<div class=\"crud-form-actions\"></div>").appendTo(content);
       const button = $("<button type=\"button\"></button>")
-        .text(settings.buttonText || "Entendi")
+        .text(this.resolveLiteral(
+          settings.buttonTextKey || "literal.button.understood",
+          settings.buttonTextParams,
+          settings.buttonText || "Entendi"
+        ))
         .appendTo(actions);
       button.kendoButton({ themeColor: settings.themeColor || "primary", icon: settings.icon || "lock" });
 
       wrapper.kendoWindow({
-        title: title || "Aviso",
+        title: this.resolveLiteral(settings.titleKey || "literal.title.warning", settings.titleParams, title || "Aviso"),
         modal: true,
         actions: [],
         width: Math.min(settings.width || 460, Math.max(300, global.innerWidth - 24)),

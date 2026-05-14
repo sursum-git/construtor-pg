@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Programa Manual Demo</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f7fb;
+      color: #1c2b39;
+    }
+    main {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    header {
+      margin-bottom: 20px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+    p {
+      margin: 0;
+      line-height: 1.5;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 20px;
+    }
+    .card {
+      padding: 16px;
+      border: 1px solid #d7deea;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .card h2 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Programa manual</h1>
+      <p>Esta pagina existe fora do motor CRUD. O catalogo runtime apenas registra `screenId`, permissao e entrypoint.</p>
+    </header>
+    <section class="cards">
+      <article class="card">
+        <h2>Uso</h2>
+        <p>Serve para fluxos muito especificos, como telas dinamicas baseadas em condicoes cadastradas.</p>
+      </article>
+      <article class="card">
+        <h2>Governanca</h2>
+        <p>Mesmo sendo manual, continua publicada pelo backend, com codigo de programa, versao e permissao.</p>
+      </article>
+      <article class="card">
+        <h2>Evolucao</h2>
+        <p>Se o padrao se repetir, depois pode virar um novo tipo de pagina fechado no runtime.</p>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

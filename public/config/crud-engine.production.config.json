@@ -52,5 +52,13 @@
       "method": "POST"
     },
     "items": []
+  },
+  "literals": {
+    "enabled": true,
+    "locale": "pt-BR",
+    "endpoint": {
+      "url": "/api/runtime/literals/{locale}",
+      "method": "GET"
+    }
   }
 }

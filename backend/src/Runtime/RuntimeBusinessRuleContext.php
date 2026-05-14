@@ -4,6 +4,8 @@ namespace App\Runtime;
 
 class RuntimeBusinessRuleContext
 {
+    public const DEFAULT_VALIDATION_MESSAGE = 'Existem inconsistencias no formulario.';
+
     /** @var callable|null */
     private $logger = null;
 
@@ -90,5 +92,60 @@ class RuntimeBusinessRuleContext
         }
 
         ($this->logger)($eventType, $message, $before, $after, $metadata);
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    public function messageItem(
+        ?string $field,
+        string $messageKey,
+        array $params = [],
+        string $type = 'error',
+        ?string $message = null,
+    ): array {
+        return [
+            'field' => $field,
+            'type' => $type,
+            'messageKey' => trim($messageKey),
+            'messageParams' => $params,
+            'message' => $message,
+        ];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $messages
+     * @param list<array<string, mixed>> $effects
+     * @param array<string, mixed> $titleParams
+     * @param array<string, mixed> $details
+     */
+    public function throwValidation(
+        string $errorCode,
+        array $messages,
+        array $effects = [],
+        string $titleKey = 'validation.title.inconsistencies',
+        array $titleParams = [],
+        ?string $title = 'Inconsistencias encontradas',
+        string $message = self::DEFAULT_VALIDATION_MESSAGE,
+        int $statusCode = 422,
+        array $details = [],
+        string $severity = 'error',
+    ): never {
+        throw new RuntimeValidationException(
+            $errorCode,
+            $message,
+            [
+                'status' => $severity === 'warning' ? 'warning' : 'blocked',
+                'title' => $title,
+                'titleKey' => $titleKey,
+                'titleParams' => $titleParams,
+                'messages' => $messages,
+            ],
+            $effects,
+            $statusCode,
+            $details,
+            $severity,
+        );
     }
 }

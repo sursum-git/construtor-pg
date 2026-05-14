@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Runtime\RuntimeEndpointDispatcher;
 use App\Runtime\RuntimeHttpException;
+use App\Runtime\RuntimeLiteralService;
 use App\Runtime\RuntimeMessageService;
 use App\Runtime\RuntimeProcessHandler;
 use App\Runtime\RuntimeSessionGuard;
@@ -22,6 +23,7 @@ class RuntimeController extends AbstractController
         private readonly ScreenDefinitionService $screens,
         private readonly RuntimeEndpointDispatcher $dispatcher,
         private readonly RuntimeMessageService $messages,
+        private readonly RuntimeLiteralService $literals,
         private readonly RuntimeProcessHandler $process,
         private readonly RuntimeSessionGuard $sessions,
     ) {
@@ -132,6 +134,18 @@ class RuntimeController extends AbstractController
         $response->headers->set('Connection', 'keep-alive');
 
         return $response;
+    }
+
+    #[Route('/api/runtime/literals/{locale}', name: 'runtime_literals', methods: ['GET'])]
+    public function literals(string $locale): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+
+            return $this->json($this->literals->bundle($locale));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
     }
 
     private function error(\Throwable $error): JsonResponse

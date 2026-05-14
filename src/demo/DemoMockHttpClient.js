@@ -11,8 +11,13 @@
       this.runtimeStorageKey = "crud-demo-runtime-v1" + storageSuffix;
       this.adminStorageKey = "crud-demo-admin-runtime-v1" + storageSuffix;
       this.processJobsStorageKey = "crud-demo-process-jobs-v1" + storageSuffix;
+      this.externalApiCrudProductsStorageKey = "crud-demo-external-api-crud-products-v1" + storageSuffix;
       this.records = this.loadInitialRecords();
       this.nextId = this.records.reduce(function(max, record) {
+        return Math.max(max, Number(record.id) || 0);
+      }, 0) + 1;
+      this.externalApiCrudProducts = this.loadInitialExternalApiCrudProducts();
+      this.nextExternalApiCrudProductId = this.externalApiCrudProducts.reduce(function(max, record) {
         return Math.max(max, Number(record.id) || 0);
       }, 0) + 1;
 
@@ -98,6 +103,147 @@
           telefone: phones[id] || ""
         });
       });
+    }
+
+    getExternalApiProductsSeed() {
+      return [
+        { id: 101, attributes: { nome: "Mouse ergonomico", categoria: "Perifericos", status: "ATIVO", preco: 89.9, atualizado_em: "2026-05-01T09:30:00Z" } },
+        { id: 102, attributes: { nome: "Teclado mecanico", categoria: "Perifericos", status: "ATIVO", preco: 249.5, atualizado_em: "2026-05-02T14:15:00Z" } },
+        { id: 103, attributes: { nome: "Monitor 27", categoria: "Video", status: "INATIVO", preco: 1299.99, atualizado_em: "2026-05-03T11:00:00Z" } },
+        { id: 104, attributes: { nome: "Dock USB-C", categoria: "Acessorios", status: "ATIVO", preco: 319, atualizado_em: "2026-05-04T08:45:00Z" } }
+      ];
+    }
+
+    getExternalApiCrudProductsSeed() {
+      return [
+        { id: 201, nome: "Produto API 1", ativo: true },
+        { id: 202, nome: "Produto API 2", ativo: false },
+        { id: 203, nome: "Produto API 3", ativo: true }
+      ];
+    }
+
+    loadInitialExternalApiCrudProducts() {
+      const stored = this.loadJson(this.externalApiCrudProductsStorageKey);
+      if (Array.isArray(stored) && stored.length) {
+        return stored;
+      }
+      const records = this.getExternalApiCrudProductsSeed();
+      this.saveJson(this.externalApiCrudProductsStorageKey, records);
+      return records;
+    }
+
+    persistExternalApiCrudProducts() {
+      this.saveJson(this.externalApiCrudProductsStorageKey, this.externalApiCrudProducts);
+    }
+
+    listExternalApiProducts(data) {
+      const items = this.getExternalApiProductsSeed().map(function(item) {
+        return Object.assign({ id: item.id }, item.attributes || {});
+      });
+      const sort = global.CrudUtils.ensureArray(data && data.sort);
+      if (sort.length) {
+        items.sort(function(left, right) {
+          const field = String(sort[0].field || "");
+          const dir = String(sort[0].dir || "asc").toLowerCase() === "desc" ? -1 : 1;
+          const resolve = function(item) {
+            return item[field];
+          };
+          const leftValue = resolve(left);
+          const rightValue = resolve(right);
+          return (leftValue > rightValue ? 1 : leftValue < rightValue ? -1 : 0) * dir;
+        });
+      }
+      return {
+        data: items,
+        total: items.length
+      };
+    }
+
+    getExternalApiProduct(id) {
+      const item = this.getExternalApiProductsSeed().find(function(entry) {
+        return Number(entry.id) === Number(id);
+      });
+      if (!item) {
+        throw global.CrudUtils.makeError("API_PRODUCT_NOT_FOUND", "Produto externo nao encontrado.", { id: id });
+      }
+      return Object.assign({ id: item.id }, item.attributes || {});
+    }
+
+    listExternalApiCrudProducts(data) {
+      const items = global.CrudUtils.clone(this.externalApiCrudProducts);
+      const sort = global.CrudUtils.ensureArray(data && data.sort);
+      if (sort.length) {
+        items.sort(function(left, right) {
+          const field = String(sort[0].field || "");
+          const dir = String(sort[0].dir || "asc").toLowerCase() === "desc" ? -1 : 1;
+          const leftValue = left[field];
+          const rightValue = right[field];
+          return (leftValue > rightValue ? 1 : leftValue < rightValue ? -1 : 0) * dir;
+        });
+      }
+      return {
+        data: items,
+        total: items.length
+      };
+    }
+
+    getExternalApiCrudProduct(id) {
+      const item = this.externalApiCrudProducts.find(function(entry) {
+        return Number(entry.id) === Number(id);
+      });
+      if (!item) {
+        throw global.CrudUtils.makeError("API_CRUD_PRODUCT_NOT_FOUND", "Produto da API nao encontrado.", { id: id });
+      }
+      return global.CrudUtils.clone(item);
+    }
+
+    createExternalApiCrudProduct(data) {
+      const payload = data || {};
+      const nome = String(payload.nome || "").trim();
+      if (!nome) {
+        throw global.CrudUtils.makeError("API_CRUD_PRODUCT_NAME_REQUIRED", "Nome e obrigatorio.");
+      }
+      const item = {
+        id: this.nextExternalApiCrudProductId++,
+        nome: nome,
+        ativo: payload.ativo !== false
+      };
+      this.externalApiCrudProducts.push(item);
+      this.persistExternalApiCrudProducts();
+      return global.CrudUtils.clone(item);
+    }
+
+    updateExternalApiCrudProduct(id, data) {
+      const index = this.externalApiCrudProducts.findIndex(function(entry) {
+        return Number(entry.id) === Number(id);
+      });
+      if (index === -1) {
+        throw global.CrudUtils.makeError("API_CRUD_PRODUCT_NOT_FOUND", "Produto da API nao encontrado.", { id: id });
+      }
+      const payload = data || {};
+      const nome = String(payload.nome || "").trim();
+      if (!nome) {
+        throw global.CrudUtils.makeError("API_CRUD_PRODUCT_NAME_REQUIRED", "Nome e obrigatorio.");
+      }
+      const updated = Object.assign({}, this.externalApiCrudProducts[index], {
+        nome: nome,
+        ativo: payload.ativo === true
+      });
+      this.externalApiCrudProducts[index] = updated;
+      this.persistExternalApiCrudProducts();
+      return global.CrudUtils.clone(updated);
+    }
+
+    deleteExternalApiCrudProduct(id) {
+      const index = this.externalApiCrudProducts.findIndex(function(entry) {
+        return Number(entry.id) === Number(id);
+      });
+      if (index === -1) {
+        throw global.CrudUtils.makeError("API_CRUD_PRODUCT_NOT_FOUND", "Produto da API nao encontrado.", { id: id });
+      }
+      this.externalApiCrudProducts.splice(index, 1);
+      this.persistExternalApiCrudProducts();
+      return { ok: true, deleted: true };
     }
 
     loadJson(key) {
@@ -285,6 +431,27 @@
       }
       if (/^\/api\/cadastros\/clientes\/\d+$/.test(url) && method === "DELETE") {
         return this.delete(this.extractId(url), data || {});
+      }
+      if (url === "/api/mock/externo/produtos" && method === "POST") {
+        return this.listExternalApiProducts(data);
+      }
+      if (/^\/api\/mock\/externo\/produtos\/\d+$/.test(url) && method === "GET") {
+        return this.getExternalApiProduct(this.extractId(url));
+      }
+      if (url === "/api/mock/externo/produtos-crud" && method === "POST") {
+        if (data && (data.page || data.pageSize || data.take || data.skip || data.sort || data.filters)) {
+          return this.listExternalApiCrudProducts(data);
+        }
+        return this.createExternalApiCrudProduct(data);
+      }
+      if (/^\/api\/mock\/externo\/produtos-crud\/\d+$/.test(url) && method === "GET") {
+        return this.getExternalApiCrudProduct(this.extractId(url));
+      }
+      if (/^\/api\/mock\/externo\/produtos-crud\/\d+$/.test(url) && method === "PUT") {
+        return this.updateExternalApiCrudProduct(this.extractId(url), data);
+      }
+      if (/^\/api\/mock\/externo\/produtos-crud\/\d+$/.test(url) && method === "DELETE") {
+        return this.deleteExternalApiCrudProduct(this.extractId(url));
       }
       if (url === "/api/cadastros/clientes/form-rules/status" && method === "POST") {
         return this.validateStatusRules(data);
@@ -1230,6 +1397,30 @@
           ],
           defaultSort: [{ field: "starts_at", dir: "desc" }]
         },
+        "admin.literais": {
+          programId: "admin-literais",
+          entity: "system_literal_translation",
+          title: "Literais e Traducoes",
+          subtitle: "Cadastro de literais por locale usados pelo frontend.",
+          editable: true,
+          fields: Object.assign({
+            id: f("integer", "ID", false, false, { width: 80 }),
+            code: f("string", "Chave", true, false),
+            locale: f("string", "Locale", true, false),
+            context: f("string", "Contexto", true, true),
+            text: f("text", "Texto", true, false, { editor: "textarea" }),
+            description: f("text", "Descricao", true, true, { editor: "textarea" }),
+            enabled: f("boolean", "Ativo", true, false)
+          }, commonDates),
+          filters: ["code", "locale", "context", "enabled"],
+          columns: ["id", "code", "locale", "context", "enabled", "updated_at"],
+          tabs: [
+            { id: "geral", title: "Geral", fields: ["id", "code", "locale", "context", "enabled"] },
+            { id: "texto", title: "Texto", fields: ["text", "description"] },
+            { id: "auditoria", title: "Auditoria", fields: ["created_at", "updated_at"] }
+          ],
+          defaultSort: [{ field: "code", dir: "asc" }, { field: "locale", dir: "asc" }]
+        },
         "admin.listas-opcoes": {
           programId: "admin-listas-opcoes",
           entity: "system_option_list",
@@ -1564,6 +1755,12 @@
         ],
         "admin.parametro-valores": [
           { id: 1, parameter_id: 1, establishment_code: "", starts_at: "2000-01-01 00:00:00", ends_at: null, value: "false", enabled: true, created_at: "2026-05-08 09:00:00", updated_at: "2026-05-08 09:00:00" }
+        ],
+        "admin.literais": [
+          { id: 1, code: "literal.button.confirm", locale: "pt-BR", context: "crud", text: "Confirmar", description: "Botao padrao de confirmacao.", enabled: true, created_at: now, updated_at: now },
+          { id: 2, code: "literal.button.cancel", locale: "pt-BR", context: "crud", text: "Cancelar", description: "Botao padrao de cancelamento.", enabled: true, created_at: now, updated_at: now },
+          { id: 3, code: "validation.title.inconsistencies", locale: "pt-BR", context: "validation", text: "Inconsistencias encontradas", description: "Titulo padrao de validacao.", enabled: true, created_at: now, updated_at: now },
+          { id: 4, code: "validation.message.field_required", locale: "pt-BR", context: "validation", text: "{fieldLabel} e obrigatorio.", description: "Mensagem de campo obrigatorio.", enabled: true, created_at: now, updated_at: now }
         ],
         "admin.listas-opcoes": [
           { id: 1, code: "sim_nao", name: "Sim/Nao", description: "Lista demonstrativa.", enabled: true, created_at: now, updated_at: now }
@@ -3387,11 +3584,18 @@
       error.payload.validation = {
         status: "blocked",
         title: "Inconsistencias encontradas",
+        titleKey: "validation.title.inconsistencies",
         messages: [
           {
             field: "observacao",
             type: "error",
-            message: "Observacao e obrigatoria para cliente inativo."
+            message: "Observacao e obrigatoria para cliente inativo.",
+            messageKey: "validation.message.field_required",
+            messageParams: {
+              field: "observacao",
+              fieldCode: "observacao",
+              fieldLabel: "Observacao"
+            }
           }
         ]
       };

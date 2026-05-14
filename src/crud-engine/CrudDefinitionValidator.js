@@ -1102,9 +1102,12 @@
         return;
       }
       const pattern = new RegExp(this.securityPolicy.blockedKeyPattern, "i");
+      const allowedSensitiveLikeKeys = {
+        forcePasswordChange: true
+      };
       Object.keys(value).forEach((key) => {
         const currentPath = path ? path + "." + key : key;
-        if (pattern.test(key)) {
+        if (pattern.test(key) && !allowedSensitiveLikeKeys[key]) {
           errors.push(currentPath + " nao deve existir no JSON de tela. Segredos e tokens devem ficar no backend.");
         }
         this.validateSensitiveKeys(value[key], currentPath, errors);

@@ -19,6 +19,7 @@ use App\Entity\RuntimeLockPolicy;
 use App\Entity\ScreenDefinition;
 use App\Entity\SystemParameter;
 use App\Entity\SystemParameterValue;
+use App\Entity\SystemLiteralTranslation;
 use App\Repository\AuthProviderConfigRepository;
 use App\Repository\AuthSubscriberRepository;
 use App\Repository\AuthUserRepository;
@@ -35,6 +36,7 @@ use App\Repository\RuntimeLockPolicyRepository;
 use App\Repository\ScreenDefinitionRepository;
 use App\Repository\SystemParameterRepository;
 use App\Repository\SystemParameterValueRepository;
+use App\Repository\SystemLiteralTranslationRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -146,6 +148,7 @@ class SeedRuntimeMetadataCommand extends Command
         private readonly AuthUserSubscriberRepository $authUserSubscribers,
         private readonly SystemParameterRepository $systemParameters,
         private readonly SystemParameterValueRepository $systemParameterValues,
+        private readonly SystemLiteralTranslationRepository $systemLiteralTranslations,
     ) {
         parent::__construct();
     }
@@ -214,6 +217,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertAuthDefaults();
         $this->upsertSubscriberDefaults();
         $this->upsertSystemParameters();
+        $this->upsertLiteralTranslations();
         $this->upsertBuilderModuleDefaults();
         $this->seedClientes();
         $this->seedClienteTelefones();
@@ -1053,36 +1057,211 @@ class SeedRuntimeMetadataCommand extends Command
 
     private function upsertSystemParameters(): void
     {
-        $parameter = $this->systemParameters->findOneBy(['code' => 'subscriber.enabled']) ?? new SystemParameter();
+        $subscriberEnabled = $this->upsertSystemParameterDefinition(
+            'subscriber.enabled',
+            'Habilitar conceito de assinante',
+            'Controla se o login deve selecionar assinante/tenant apos autenticacao.',
+            'boolean',
+            true,
+            false
+        );
+        $this->upsertGlobalSystemParameterValue($subscriberEnabled, false);
+
+        $publicContextEnabled = $this->upsertSystemParameterDefinition(
+            'ai.builder.public_context_enabled',
+            'Habilitar contexto publico do construtor',
+            'Controla se o endpoint publico protegido por chave pode expor o contrato do builder para uso externo.',
+            'boolean',
+            true,
+            false
+        );
+        $this->upsertGlobalSystemParameterValue($publicContextEnabled, false);
+
+        $this->upsertSystemParameterDefinition(
+            'ai.builder.public_context_key',
+            'Chave publica do construtor',
+            'Chave estatica exigida no cabecalho X-Builder-Public-Key para acessar o contexto publico do builder.',
+            'string',
+            false,
+            null
+        );
+
+        $aiEnabled = $this->upsertSystemParameterDefinition(
+            'ai.builder.enabled',
+            'Habilitar assistente IA do construtor',
+            'Controla se o construtor pode usar o assistente interno por texto e audio.',
+            'boolean',
+            true,
+            false
+        );
+        $this->upsertGlobalSystemParameterValue($aiEnabled, false);
+
+        $aiProvider = $this->upsertSystemParameterDefinition(
+            'ai.builder.provider',
+            'Provedor do assistente IA do construtor',
+            'Provedor usado pelo construtor. Valores suportados: mock e openai_compatible.',
+            'string',
+            true,
+            'mock'
+        );
+        $this->upsertGlobalSystemParameterValue($aiProvider, 'mock');
+
+        $aiAgentName = $this->upsertSystemParameterDefinition(
+            'ai.builder.agent_name',
+            'Nome do agente IA do construtor',
+            'Nome exibido no chat do construtor.',
+            'string',
+            false,
+            'Assistente do construtor'
+        );
+        $this->upsertGlobalSystemParameterValue($aiAgentName, 'Assistente do construtor');
+
+        $aiBaseUrl = $this->upsertSystemParameterDefinition(
+            'ai.builder.base_url',
+            'Base URL do provedor IA do construtor',
+            'URL base do provedor compatível com OpenAI para o assistente do construtor.',
+            'string',
+            false,
+            'https://api.openai.com/v1'
+        );
+        $this->upsertGlobalSystemParameterValue($aiBaseUrl, 'https://api.openai.com/v1');
+
+        $aiModel = $this->upsertSystemParameterDefinition(
+            'ai.builder.model',
+            'Modelo do assistente IA do construtor',
+            'Modelo principal usado para gerar rascunhos CRUD no construtor.',
+            'string',
+            false,
+            ''
+        );
+        $this->upsertGlobalSystemParameterValue($aiModel, null);
+
+        $this->upsertSystemParameterDefinition(
+            'ai.builder.api_token',
+            'Token do assistente IA do construtor',
+            'Token secreto do provedor do assistente IA do construtor.',
+            'string',
+            false,
+            null
+        );
+
+        $aiTranscriptionEnabled = $this->upsertSystemParameterDefinition(
+            'ai.builder.transcription_enabled',
+            'Habilitar transcricao por audio no construtor',
+            'Controla se o assistente do construtor pode enviar audio para transcricao no backend.',
+            'boolean',
+            true,
+            false
+        );
+        $this->upsertGlobalSystemParameterValue($aiTranscriptionEnabled, false);
+
+        $aiTranscriptionModel = $this->upsertSystemParameterDefinition(
+            'ai.builder.transcription_model',
+            'Modelo de transcricao do assistente IA do construtor',
+            'Modelo usado para converter audio em texto no backend do construtor.',
+            'string',
+            false,
+            ''
+        );
+        $this->upsertGlobalSystemParameterValue($aiTranscriptionModel, null);
+    }
+
+    private function upsertLiteralTranslations(): void
+    {
+        foreach ($this->defaultLiteralTranslations() as $item) {
+            $row = $this->systemLiteralTranslations->findOneBy([
+                'code' => $item['code'],
+                'locale' => $item['locale'],
+            ]) ?? new SystemLiteralTranslation();
+            $row
+                ->setCode($item['code'])
+                ->setLocale($item['locale'])
+                ->setContext($item['context'])
+                ->setDescription($item['description'])
+                ->setText($item['text'])
+                ->setEnabled(true);
+            $this->entityManager->persist($row);
+        }
+    }
+
+    /**
+     * @return list<array{code: string, locale: string, context: ?string, description: ?string, text: string}>
+     */
+    private function defaultLiteralTranslations(): array
+    {
+        return [
+            ['code' => 'literal.button.continue', 'locale' => 'pt-BR', 'context' => 'crud', 'description' => 'Botao de continuar em confirmacoes.', 'text' => 'Continuar'],
+            ['code' => 'literal.button.cancel', 'locale' => 'pt-BR', 'context' => 'crud', 'description' => 'Botao de cancelar em janelas.', 'text' => 'Cancelar'],
+            ['code' => 'literal.button.close', 'locale' => 'pt-BR', 'context' => 'crud', 'description' => 'Botao padrao de fechar janela.', 'text' => 'Fechar'],
+            ['code' => 'literal.button.confirm', 'locale' => 'pt-BR', 'context' => 'crud', 'description' => 'Botao padrao de confirmacao.', 'text' => 'Confirmar'],
+            ['code' => 'literal.button.understood', 'locale' => 'pt-BR', 'context' => 'crud', 'description' => 'Botao padrao de entendimento/bloqueio.', 'text' => 'Entendi'],
+            ['code' => 'literal.title.confirm', 'locale' => 'pt-BR', 'context' => 'crud', 'description' => 'Titulo padrao de janela de confirmacao.', 'text' => 'Confirmar'],
+            ['code' => 'literal.title.warning', 'locale' => 'pt-BR', 'context' => 'crud', 'description' => 'Titulo padrao de janela de aviso.', 'text' => 'Aviso'],
+            ['code' => 'validation.title.consistency_warning', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Titulo de aviso de consistencia.', 'text' => 'Aviso de consistencia'],
+            ['code' => 'validation.title.inconsistencies', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Titulo padrao para inconsistencias.', 'text' => 'Inconsistencias encontradas'],
+            ['code' => 'validation.title.invalid_situation', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Titulo para situacao invalida.', 'text' => 'Situacao invalida'],
+            ['code' => 'validation.title.situation_not_allowed', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Titulo para transicao nao permitida.', 'text' => 'Situacao nao permitida'],
+            ['code' => 'validation.title.situation_blocked', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Titulo para mudanca de situacao bloqueada.', 'text' => 'Mudanca de situacao bloqueada'],
+            ['code' => 'validation.message.confirm_default', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Mensagem padrao de confirmacao.', 'text' => 'Deseja continuar?'],
+            ['code' => 'validation.message.form_inconsistencies', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Mensagem padrao para inconsistencias de formulario.', 'text' => 'Existem inconsistencias no formulario.'],
+            ['code' => 'validation.message.no_allowed_fields', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Mensagem quando nao ha campos permitidos para gravacao.', 'text' => 'Nenhum campo permitido foi informado.'],
+            ['code' => 'validation.message.field_required', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Mensagem para campo obrigatorio.', 'text' => '{fieldLabel} e obrigatorio.'],
+            ['code' => 'validation.message.field_min_length', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Mensagem para tamanho minimo de campo.', 'text' => '{fieldLabel} precisa ter ao menos {min} caracteres.'],
+            ['code' => 'validation.message.field_required_for_situation', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Mensagem para campo obrigatorio por situacao.', 'text' => '{fieldLabel} e obrigatorio para esta mudanca de situacao.'],
+            ['code' => 'validation.message.inactive_customer_note_required', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Mensagem para obrigatoriedade de observacao ao inativar cliente.', 'text' => 'Informe uma observacao ao inativar o cliente.'],
+            ['code' => 'validation.message.json_invalid', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Mensagem para JSON invalido.', 'text' => '{fieldLabel} precisa conter um JSON valido.'],
+            ['code' => 'validation.message.situation_not_registered', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Mensagem quando a situacao nao esta cadastrada.', 'text' => 'A situacao informada nao esta cadastrada para esta entidade.'],
+            ['code' => 'validation.message.situation_transition_not_allowed', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Mensagem detalhada para transicao nao permitida.', 'text' => 'Nao e permitido mudar a situacao de {from} para {to} nesta acao.'],
+            ['code' => 'validation.message.situation_transition_blocked', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Mensagem curta para transicao nao permitida.', 'text' => 'Transicao de situacao nao permitida.'],
+            ['code' => 'validation.message.situation_rules_pending', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Mensagem de regras pendentes por situacao.', 'text' => 'Existem regras pendentes para mudar a situacao.'],
+            ['code' => 'validation.message.version_reference_not_found', 'locale' => 'pt-BR', 'context' => 'validation', 'description' => 'Mensagem para referencia historica nao encontrada.', 'text' => 'Nao foi encontrada uma versao historica valida para {fieldLabel}.'],
+            ['code' => 'runtime.message.operation_blocked', 'locale' => 'pt-BR', 'context' => 'runtime', 'description' => 'Mensagem padrao para operacao bloqueada.', 'text' => 'Operacao bloqueada.'],
+        ];
+    }
+
+    private function upsertSystemParameterDefinition(
+        string $code,
+        string $name,
+        string $description,
+        string $dataType,
+        bool $required,
+        mixed $defaultValue
+    ): SystemParameter {
+        $parameter = $this->systemParameters->findOneBy(['code' => $code]) ?? new SystemParameter();
         $parameter
-            ->setCode('subscriber.enabled')
-            ->setName('Habilitar conceito de assinante')
-            ->setDescription('Controla se o login deve selecionar assinante/tenant apos autenticacao.')
-            ->setDataType('boolean')
+            ->setCode($code)
+            ->setName($name)
+            ->setDescription($description)
+            ->setDataType($dataType)
             ->setOptionList(null)
-            ->setRequired(true)
-            ->setDefaultValue(false)
+            ->setRequired($required)
+            ->setDefaultValue($defaultValue)
             ->setEnabled(true);
 
         $this->entityManager->persist($parameter);
         $this->entityManager->flush();
 
-        $value = $this->systemParameterValues->findOneBy([
+        return $parameter;
+    }
+
+    private function upsertGlobalSystemParameterValue(SystemParameter $parameter, mixed $value): void
+    {
+        $parameterValue = $this->systemParameterValues->findOneBy([
             'parameter' => $parameter,
             'establishmentCode' => null,
         ]) ?? $this->systemParameterValues->findOneBy([
             'parameter' => $parameter,
             'establishmentCode' => '',
         ]) ?? new SystemParameterValue();
-        $value
+        $parameterValue
             ->setParameter($parameter)
             ->setEstablishmentCode(null)
             ->setStartsAt(new \DateTimeImmutable('2000-01-01 00:00:00'))
             ->setEndsAt(null)
-            ->setValue(false)
+            ->setValue($value)
             ->setEnabled(true);
 
-        $this->entityManager->persist($value);
+        $this->entityManager->persist($parameterValue);
     }
 
     private function upsertLockPolicy(

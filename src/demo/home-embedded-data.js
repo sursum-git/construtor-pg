@@ -22,6 +22,7 @@
         "home.read": true,
         "clientes.read": true,
         "processamento.read": true,
+        "programa.manual.read": true,
         "jobs.read": true,
         "examples.read": true,
         "theme.read": true,
@@ -272,6 +273,10 @@
                 "title": "Clientes via iframe"
               },
               {
+                "programId": "programa-manual",
+                "title": "Programa manual"
+              },
+              {
                 "programId": "exemplos",
                 "title": "Exemplos",
                 "favorite": true
@@ -339,7 +344,7 @@
           "type": "html",
           "icon": "home",
           "permission": "home.read",
-          "html": "<section class=\"home-dashboard\"><div class=\"home-dashboard-hero\"><h2>Pagina inicial por JSON</h2><p>Este conteudo foi definido no JSON da home e injetado pelo HomeEngine apos sanitizacao. O motor nao executa scripts nem eventos vindos do JSON.</p></div><div class=\"home-dashboard-grid\"><article class=\"home-dashboard-card\"><span class=\"home-dashboard-number\">3</span><h3>Modos fechados</h3><p>iframe, crud e html.</p></article><article class=\"home-dashboard-card\"><span class=\"home-dashboard-number\">1</span><h3>Appbar global</h3><p>Cabecalho unico para programas.</p></article><article class=\"home-dashboard-card\"><span class=\"home-dashboard-number\">JSON</span><h3>Backend decide</h3><p>O frontend apenas renderiza opcoes permitidas.</p></article></div></section>"
+          "html": "<section class=\"home-dashboard\"><div class=\"home-dashboard-hero\"><h2>Pagina inicial por JSON</h2><p>Este conteudo foi definido no JSON da home e injetado pelo HomeEngine apos sanitizacao. O motor nao executa scripts nem eventos vindos do JSON.</p></div><div class=\"home-dashboard-grid\"><article class=\"home-dashboard-card\"><span class=\"home-dashboard-number\">4</span><h3>Modos fechados</h3><p>iframe, crud, process e custom.</p></article><article class=\"home-dashboard-card\"><span class=\"home-dashboard-number\">1</span><h3>Appbar global</h3><p>Cabecalho unico para programas.</p></article><article class=\"home-dashboard-card\"><span class=\"home-dashboard-number\">JSON</span><h3>Backend decide</h3><p>O frontend apenas renderiza opcoes permitidas.</p></article></div></section>"
         },
         {
           "id": "clientes-crud",
@@ -382,6 +387,30 @@
             "url": "docs/clientes-logs.html"
           },
           "url": "index.html"
+        },
+        {
+          "id": "programa-manual",
+          "title": "Programa manual",
+          "subtitle": "Tela especifica registrada no catalogo por screenId ou definicao custom",
+          "type": "custom",
+          "icon": "window-maximize",
+          "permission": "programa.manual.read",
+          "definition": {
+            "schemaVersion": "1.0",
+            "pageType": "custom",
+            "screenId": "manual.demo",
+            "program": {
+              "id": "manual.demo",
+              "title": "Programa manual demo",
+              "version": "1.0.0",
+              "subtitle": "Tela fora do padrao CRUD"
+            },
+            "custom": {
+              "mode": "iframe",
+              "entryUrl": "production/custom/programa-manual-demo.html",
+              "frameTitle": "Programa manual demo"
+            }
+          }
         },
         {
           "id": "exemplos",
@@ -427,6 +456,15 @@
           "icon": "sliders",
           "permission": "admin.read",
           "screenId": "admin.parametro-valores"
+        },
+        {
+          "id": "admin-literais",
+          "title": "Literais e Traducoes",
+          "subtitle": "Catalogo de textos por locale usados pelo frontend",
+          "type": "crud",
+          "icon": "globe",
+          "permission": "admin.read",
+          "screenId": "admin.literais"
         },
         {
           "id": "admin-listas-opcoes",

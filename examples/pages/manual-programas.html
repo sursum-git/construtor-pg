@@ -1,0 +1,1047 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manual operacional e funcional por programa</title>
+  <link id="kendo-theme-link" rel="stylesheet" href="../../kendo/styles/default-urban.css">
+  <link rel="stylesheet" href="../../src/styles/crud-engine.css">
+  <link rel="stylesheet" href="../../src/styles/examples-guide.css">
+  <style>
+    .manual-layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+      gap: 16px;
+      margin-top: 16px;
+      align-items: start;
+    }
+
+    .manual-panel {
+      padding: 16px;
+      border: 1px solid var(--crud-border);
+      border-radius: 6px;
+      background: var(--crud-surface);
+      box-shadow: 0 1px 2px var(--crud-shadow);
+    }
+
+    .manual-index {
+      display: grid;
+      gap: 12px;
+      position: sticky;
+      top: 12px;
+    }
+
+    .manual-filter {
+      width: 100%;
+    }
+
+    .manual-tree {
+      min-height: 560px;
+      padding: 10px;
+      border: 1px solid var(--crud-border);
+      border-radius: 6px;
+      background: var(--crud-readonly-bg);
+      overflow: auto;
+    }
+
+    .manual-content {
+      display: grid;
+      gap: 12px;
+    }
+
+    .manual-header {
+      display: grid;
+      gap: 8px;
+    }
+
+    .manual-header h2 {
+      margin: 0;
+      color: var(--crud-title);
+      font-size: 24px;
+    }
+
+    .manual-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .manual-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 10px;
+      border: 1px solid var(--crud-accent-border);
+      border-radius: 999px;
+      background: var(--crud-accent-soft);
+      color: var(--crud-accent);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .manual-summary {
+      margin: 0;
+      color: var(--crud-muted);
+      line-height: 1.5;
+    }
+
+    .manual-tabstrip .k-content {
+      padding: 16px;
+    }
+
+    .manual-section {
+      display: grid;
+      gap: 14px;
+    }
+
+    .manual-section h3 {
+      margin: 0;
+      color: var(--crud-title);
+      font-size: 18px;
+    }
+
+    .manual-card {
+      padding: 14px;
+      border: 1px solid var(--crud-border);
+      border-radius: 6px;
+      background: var(--crud-readonly-bg);
+    }
+
+    .manual-card h4 {
+      margin: 0 0 8px;
+      color: var(--crud-title);
+      font-size: 15px;
+    }
+
+    .manual-card p,
+    .manual-card li {
+      color: var(--crud-text);
+      line-height: 1.45;
+    }
+
+    .manual-card ul,
+    .manual-card ol {
+      margin: 8px 0 0 18px;
+      padding: 0;
+    }
+
+    .manual-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .manual-definition {
+      margin: 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .manual-definition div {
+      display: grid;
+      gap: 2px;
+    }
+
+    .manual-definition dt {
+      margin: 0;
+      color: var(--crud-muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .manual-definition dd {
+      margin: 0;
+      color: var(--crud-text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    @media (max-width: 980px) {
+      .manual-layout,
+      .manual-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .manual-index {
+        position: static;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="example-page-shell">
+    <header class="example-page-header">
+      <div>
+        <p class="example-kicker">Documentacao</p>
+        <h1>Manual operacional e funcional por programa</h1>
+        <p>Indice navegavel dos programas web principais do projeto, com objetivo funcional, rotina operacional, acessos e referencias de uso.</p>
+      </div>
+      <nav class="example-page-actions" aria-label="Navegacao do exemplo">
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../exemplos.html">Indice</a>
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../home.html">Home</a>
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../program-builder.html">Construtor</a>
+      </nav>
+    </header>
+
+    <section class="manual-layout">
+      <aside class="manual-panel manual-index">
+        <label class="example-config-field" for="manual-filter">
+          <span>Filtrar programa</span>
+          <input id="manual-filter" class="manual-filter">
+        </label>
+        <div class="manual-tree">
+          <div id="manual-tree"></div>
+        </div>
+      </aside>
+
+      <section class="manual-panel manual-content" aria-live="polite">
+        <div class="manual-header">
+          <h2 id="manual-title">Selecione um programa</h2>
+          <div id="manual-meta" class="manual-meta"></div>
+          <p id="manual-summary" class="manual-summary"></p>
+        </div>
+
+        <div id="manual-tabs" class="manual-tabstrip">
+          <ul>
+            <li>Arquitetura</li>
+            <li class="k-active">Funcional</li>
+            <li>Operacional</li>
+            <li>Referencias</li>
+          </ul>
+          <div>
+            <div id="manual-architecture" class="manual-section"></div>
+          </div>
+          <div>
+            <div id="manual-functional" class="manual-section"></div>
+          </div>
+          <div>
+            <div id="manual-operational" class="manual-section"></div>
+          </div>
+          <div>
+            <div id="manual-references" class="manual-section"></div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="../../vendor/jquery/jquery-4.0.0.min.js"></script>
+  <script src="../../kendo/js/kendo.all.min.js"></script>
+  <script src="../../kendo/kendo-license.js"></script>
+  <script src="../../kendo/js/cultures/kendo.culture.pt-BR.min.js"></script>
+  <script src="../../kendo/js/messages/kendo.messages.pt-BR.min.js"></script>
+  <script>kendo.culture("pt-BR");</script>
+  <script>
+    (function(global, $) {
+      "use strict";
+
+      const manuals = {
+        "login": {
+          title: "Login",
+          module: "Acesso",
+          type: "Login",
+          route: "../../login.html",
+          screenId: "",
+          summary: "Ponto de entrada do usuario. Faz autenticacao, pode pedir selecao de assinante e define se o administrador entra na area principal ou administrativa.",
+          functional: {
+            objective: "Garantir a autenticacao inicial e encaminhar o usuario para o contexto certo de trabalho.",
+            scope: [
+              "Usuario comum entra direto na area principal.",
+              "Usuario com mais de um assinante escolhe o assinante depois da credencial.",
+              "Administrador pode escolher entre area principal e administrativa."
+            ],
+            outputs: [
+              "Sessao autenticada.",
+              "Assinante corrente selecionado quando aplicavel.",
+              "Redirecionamento para a Home."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Usuario ativo no backend.",
+              "Configuracao de login habilitada.",
+              "Recuperacao de senha depende do backend de autenticacao."
+            ],
+            steps: [
+              "Informar usuario e senha.",
+              "Marcar manter logado quando fizer sentido.",
+              "Se houver mais de um assinante, escolher o assinante.",
+              "Se for administrador, escolher a area de entrada."
+            ],
+            cautions: [
+              "A troca de assinante nao ocorre no formulario inicial; ocorre depois da credencial.",
+              "A recuperacao de senha abre janela Kendo, nao usa prompt nativo."
+            ]
+          },
+          references: {
+            permissions: ["home.read"],
+            relatedPrograms: ["Home", "Administracao de sessoes"],
+            notes: ["Tela local: ../../login.html", "Entrada de producao: ../../production/login.html"]
+          }
+        },
+        "home": {
+          title: "Home",
+          module: "Navegacao",
+          type: "Home Engine",
+          route: "../../home.html",
+          screenId: "home.producao",
+          summary: "Shell principal da aplicacao. Exibe appbar, menu lateral, favoritos, suporte, chat, jobs e abre programas do sistema.",
+          functional: {
+            objective: "Centralizar a navegacao do usuario e o contexto global de execucao dos programas.",
+            scope: [
+              "Escolha de sistema/modulo.",
+              "Menu lateral em TreeView.",
+              "Abertura de programas `crud`, `process`, `custom`, `iframe` e `html`."
+            ],
+            outputs: [
+              "Programa corrente aberto na area central.",
+              "Contexto de assinante e usuario visivel na appbar.",
+              "Alertas, solicitacoes e jobs acessiveis pelo cabecalho."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Usuario autenticado.",
+              "Definicao da Home carregada por JSON ou `screenId`."
+            ],
+            steps: [
+              "Selecionar modulo quando houver mais de um.",
+              "Abrir programa pelo menu lateral.",
+              "Usar favoritos e filtros para localizar programas.",
+              "Usar o menu do usuario para sair ou abrir preferencias."
+            ],
+            cautions: [
+              "Em producao, programas devem abrir por `screenId` e `endpointId`.",
+              "Programas abertos dentro da Home nao devem duplicar cabecalho interno."
+            ]
+          },
+          references: {
+            permissions: ["home.read"],
+            relatedPrograms: ["Clientes", "Processamento", "Meus Jobs", "Programa custom"],
+            notes: ["Tela local: ../../home.html", "Entrada de producao: ../../production/home.html?screenId=home.producao"]
+          }
+        },
+        "clientes": {
+          title: "Cadastro de clientes",
+          module: "Operacional",
+          type: "CRUD",
+          route: "../../index.html",
+          screenId: "cadastros.clientes",
+          summary: "Programa CRUD de referencia do projeto. Demonstra consulta, formulario, filtros, layout do usuario, semaforo, mensagens runtime e acoes de linha.",
+          functional: {
+            objective: "Manter o cadastro base de clientes com consulta, inclusao, alteracao, exclusao e configuracoes de layout do usuario.",
+            scope: [
+              "Grid com filtros, ordenacao, agrupamento e menu de colunas.",
+              "Formulario com modos criar, visualizar, editar e excluir.",
+              "Acoes de runtime como semaforo e mensagens."
+            ],
+            outputs: [
+              "Registros persistidos no backend ou mock.",
+              "Preferencias de layout, filtro e agrupamento do usuario.",
+              "Mensagens de validacao e retorno operacional."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao de leitura da tela.",
+              "Permissoes adicionais para incluir, alterar e excluir."
+            ],
+            steps: [
+              "Abrir a tela e aplicar filtros quando necessario.",
+              "Usar `Incluir` para criar registro novo.",
+              "Usar o menu de linha para visualizar, alterar ou excluir.",
+              "Salvar leiaute, filtros e ordenacoes quando a configuracao do usuario precisar ser reutilizada."
+            ],
+            cautions: [
+              "Edicao pode abrir aviso de concorrencia e semaforo.",
+              "As acoes disponiveis dependem das permissoes da tela."
+            ]
+          },
+          references: {
+            permissions: ["clientes.read", "clientes.create", "clientes.edit", "clientes.delete"],
+            relatedPrograms: ["Administracao de transacoes", "Administracao de sessoes"],
+            notes: ["Tela local: ../../index.html", "Entrada de producao: ../../production/app.html?screenId=cadastros.clientes"]
+          }
+        },
+        "processamento-clientes": {
+          title: "Processamento de clientes",
+          module: "Operacional",
+          type: "Process",
+          route: "../../examples/pages/processamento-parametros.html",
+          screenId: "processamento.relatorio-clientes",
+          summary: "Tela de processamento por parametros. Coleta parametros, chama backend, acompanha status do job e devolve mensagem, grid, documento ou job.",
+          functional: {
+            objective: "Executar rotinas parametrizadas sem misturar isso com o CRUD tradicional.",
+            scope: [
+              "Formulario declarativo de parametros.",
+              "Execucao de processamento com `ProcessEngine`.",
+              "Acompanhamento por polling ou SSE."
+            ],
+            outputs: [
+              "Mensagem de retorno.",
+              "Grid de resultado.",
+              "Documento seguro ou job assíncrono."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao de processamento.",
+              "Endpoint de `process` e `status` configurados."
+            ],
+            steps: [
+              "Preencher os parametros obrigatorios.",
+              "Acionar `Processar`.",
+              "Aguardar o retorno direto ou acompanhar o job.",
+              "Abrir relatorio ou consultar jobs quando o processamento for assíncrono."
+            ],
+            cautions: [
+              "A tela nao e CRUD e nao deve ser modelada como consulta de tabela.",
+              "Em producao, usar `endpointId` ou `actionId`, nao URL livre."
+            ]
+          },
+          references: {
+            permissions: ["processamento.read"],
+            relatedPrograms: ["Meus Jobs"],
+            notes: ["Exemplo local: ../../examples/pages/processamento-parametros.html", "Entrada de producao: ../../production/app.html?screenId=processamento.relatorio-clientes"]
+          }
+        },
+        "jobs": {
+          title: "Meus Jobs / Administracao de jobs",
+          module: "Operacional e administracao",
+          type: "CRUD somente consulta",
+          route: "../../examples/pages/consulta-jobs-assincronos.html",
+          screenId: "runtime.jobs.mine / admin.jobs",
+          summary: "Consulta jobs gerados por processamentos e acoes assíncronas. Permite verificar situacao, payload, resultados e falhas.",
+          functional: {
+            objective: "Dar rastreabilidade operacional a processamentos assíncronos do usuario e da administracao.",
+            scope: [
+              "Consulta de jobs por usuario corrente.",
+              "Consulta administrativa completa.",
+              "Abertura de detalhes do job."
+            ],
+            outputs: [
+              "Estado do job.",
+              "Payload enviado.",
+              "Resultado ou erro do processamento."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Existencia de jobs registrados.",
+              "Worker ativo quando houver fila real."
+            ],
+            steps: [
+              "Abrir `Meus Jobs` para ver jobs iniciados pelo usuario.",
+              "Na administracao, usar a tela completa para acompanhar todos os jobs.",
+              "Entrar no detalhe quando precisar validar erro ou payload."
+            ],
+            cautions: [
+              "A tela e de consulta; nao substitui o acompanhamento de fila no backend.",
+              "Jobs concluidos podem aparecer como alerta na appbar da Home."
+            ]
+          },
+          references: {
+            permissions: ["jobs.read", "admin.read"],
+            relatedPrograms: ["Processamento de clientes", "Administracao de transacoes"],
+            notes: ["Exemplo local: ../../examples/pages/consulta-jobs-assincronos.html", "Produção: ../../production/app.html?screenId=admin.jobs"]
+          }
+        },
+        "admin-parametros": {
+          title: "Administracao de parametros",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../examples/pages/admin-parametros.html",
+          screenId: "admin.parametros",
+          summary: "Mantem o catalogo de parametros do sistema. Define nomes, tipos, agrupamentos e metadados usados por telas administrativas e configuracoes internas.",
+          functional: {
+            objective: "Centralizar a definicao dos parametros que podem receber valores globais ou por assinante.",
+            scope: [
+              "Cadastro do parametro.",
+              "Vinculo com listas de opcoes e configuracoes auxiliares.",
+              "Uso por outros programas administrativos."
+            ],
+            outputs: [
+              "Parametro cadastrado.",
+              "Metadado disponivel para `admin.parametro-valores`."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa.",
+              "Conhecimento do impacto funcional do parametro."
+            ],
+            steps: [
+              "Criar ou localizar o parametro.",
+              "Definir codigo, descricao e tipo.",
+              "Relacionar com lista de opcoes quando o valor for fechado."
+            ],
+            cautions: [
+              "Cadastro do parametro nao define o valor efetivo.",
+              "Parametros sensiveis devem usar tratamento de segredo no backend."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Valores de parametros", "Listas de opcoes", "Opcoes de listas"],
+            notes: ["Exemplo local: ../../examples/pages/admin-parametros.html", "Produção: ../../production/app.html?screenId=admin.parametros"]
+          }
+        },
+        "admin-parametro-valores": {
+          title: "Valores de parametros",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../examples/pages/admin-parametro-valores.html",
+          screenId: "admin.parametro-valores",
+          summary: "Mantem os valores efetivos dos parametros cadastrados, com escopo global ou por assinante.",
+          functional: {
+            objective: "Permitir que um parametro cadastrado receba valor operacional sem alterar sua definicao estrutural.",
+            scope: [
+              "Valor global.",
+              "Valor por assinante.",
+              "Controle de sobrescrita e mascaramento quando houver segredo."
+            ],
+            outputs: [
+              "Valor resolvido pelo backend conforme tenant ou fallback global."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Parametro previamente cadastrado.",
+              "Permissao administrativa."
+            ],
+            steps: [
+              "Selecionar o parametro.",
+              "Definir o escopo do valor.",
+              "Gravar o valor e revisar se houve sobrescrita correta."
+            ],
+            cautions: [
+              "Valor mascarado nao deve voltar em claro na interface.",
+              "Alteracao de valor pode impactar runtime sem mudar o cadastro do parametro."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Administracao de parametros"],
+            notes: ["Exemplo local: ../../examples/pages/admin-parametro-valores.html", "Produção: ../../production/app.html?screenId=admin.parametro-valores"]
+          }
+        },
+        "admin-literais": {
+          title: "Literais e traducoes",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../examples/pages/admin-literais.html",
+          screenId: "admin.literais",
+          summary: "Mantem as chaves de texto por locale usadas pelo frontend em validacoes, confirmacoes e mensagens operacionais.",
+          functional: {
+            objective: "Permitir cadastrar e sobrescrever os textos resolvidos pelo frontend sem editar o codigo.",
+            scope: [
+              "Cadastro por chave de literal.",
+              "Locale da traducao.",
+              "Texto efetivo entregue ao runtime."
+            ],
+            outputs: [
+              "Bundle de literais carregado em producao por locale."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa.",
+              "Conhecimento da chave usada pelo motor ou backend."
+            ],
+            steps: [
+              "Criar ou localizar a chave do literal.",
+              "Informar locale e texto desejado.",
+              "Salvar e validar a tela que consome a chave."
+            ],
+            cautions: [
+              "Se a chave nao existir no catalogo remoto, o frontend cai para o dicionario embutido.",
+              "Uma mesma chave pode impactar varias telas no locale informado."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Administracao de parametros"],
+            notes: ["Exemplo local: ../../examples/pages/admin-literais.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.literais"]
+          }
+        },
+        "admin-usuarios": {
+          title: "Administracao de usuarios",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../examples/pages/admin-usuarios.html",
+          screenId: "admin.usuarios",
+          summary: "Mantem o cadastro de usuarios e seus dados principais de acesso, perfil e status.",
+          functional: {
+            objective: "Manter a base de usuarios do sistema e preparar o vinculo com assinantes e permissoes.",
+            scope: [
+              "Cadastro do usuario.",
+              "Situacao e dados de acesso.",
+              "Abertura para configuracoes relacionadas."
+            ],
+            outputs: [
+              "Usuario ativo ou inativo no sistema.",
+              "Base para vinculo com assinantes e permissoes."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa."
+            ],
+            steps: [
+              "Cadastrar ou localizar o usuario.",
+              "Atualizar dados e status.",
+              "Seguir para programas relacionados quando precisar configurar acesso por assinante."
+            ],
+            cautions: [
+              "Permissoes finas e vinculo por assinante ficam em telas relacionadas.",
+              "Alteracoes de usuario impactam login e navegacao."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Usuario por assinante", "Permissoes"],
+            notes: ["Exemplo local: ../../examples/pages/admin-usuarios.html", "Produção: ../../production/app.html?screenId=admin.usuarios"]
+          }
+        },
+        "admin-usuario-assinantes": {
+          title: "Usuarios por assinante",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../examples/pages/admin-usuario-assinantes.html",
+          screenId: "admin.usuario-assinantes",
+          summary: "Controla quais usuarios pertencem a quais assinantes e como o contexto multi-tenant deve ser resolvido.",
+          functional: {
+            objective: "Restringir ou ampliar o acesso do usuario aos assinantes certos.",
+            scope: [
+              "Vinculo usuario-assinante.",
+              "Definicao do contexto multi-tenant."
+            ],
+            outputs: [
+              "Lista de assinantes que o usuario pode escolher ou usar."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Usuario e assinante existentes.",
+              "Permissao administrativa."
+            ],
+            steps: [
+              "Selecionar o usuario.",
+              "Adicionar ou remover vinculos com assinantes.",
+              "Revalidar o fluxo de login quando o usuario tiver mais de um assinante."
+            ],
+            cautions: [
+              "Isso interfere diretamente na selecao de assinante apos login.",
+              "Um vinculo incorreto pode bloquear ou ampliar acesso indevidamente."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Administracao de usuarios"],
+            notes: ["Exemplo local: ../../examples/pages/admin-usuario-assinantes.html", "Produção: ../../production/app.html?screenId=admin.usuario-assinantes"]
+          }
+        },
+        "admin-permissoes": {
+          title: "Permissoes",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../examples/pages/admin-permissoes.html",
+          screenId: "admin.permissoes",
+          summary: "Controla permissoes por recurso e define o que cada usuario ou grupo pode fazer nas telas do sistema.",
+          functional: {
+            objective: "Centralizar a autorizacao funcional do sistema.",
+            scope: [
+              "Leitura de recurso.",
+              "Escrita e acoes especificas.",
+              "Comportamento condicional de programas."
+            ],
+            outputs: [
+              "Conjunto de permissoes usado pelo runtime e pela Home."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa ampla."
+            ],
+            steps: [
+              "Pesquisar o recurso ou usuario alvo.",
+              "Adicionar, alterar ou retirar permissoes.",
+              "Validar o comportamento da tela depois da mudanca."
+            ],
+            cautions: [
+              "Permissoes erradas afetam menus, acoes de grid e publicacao de recursos.",
+              "Sempre testar a tela impactada depois de alterar permissao."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Administracao de usuarios", "Usuarios por assinante"],
+            notes: ["Exemplo local: ../../examples/pages/admin-permissoes.html", "Produção: ../../production/app.html?screenId=admin.permissoes"]
+          }
+        },
+        "admin-sessoes": {
+          title: "Sessoes",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../examples/pages/admin-sessoes.html",
+          screenId: "admin.sessoes",
+          summary: "Consulta sessoes abertas e permite a acao administrativa de derrubar sessao do usuario.",
+          functional: {
+            objective: "Dar visibilidade e controle administrativo sobre sessoes ativas.",
+            scope: [
+              "Consulta de sessoes.",
+              "Acao de force logout."
+            ],
+            outputs: [
+              "Sessao encerrada administrativamente quando necessario."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa."
+            ],
+            steps: [
+              "Abrir a lista de sessoes.",
+              "Identificar a sessao alvo.",
+              "Executar a acao de derrubar sessao."
+            ],
+            cautions: [
+              "Derrubar sessao interrompe a operacao do usuario imediatamente.",
+              "A acao depende do endpoint runtime administrativo."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Transacoes", "Logs de transacoes"],
+            notes: ["Exemplo local: ../../examples/pages/admin-sessoes.html", "Produção: ../../production/app.html?screenId=admin.sessoes"]
+          }
+        },
+        "admin-transacoes": {
+          title: "Transacoes",
+          module: "Administracao",
+          type: "CRUD somente consulta",
+          route: "../../examples/pages/admin-transacoes.html",
+          screenId: "admin.transacoes",
+          summary: "Consulta o historico das transacoes de runtime, com contexto de programa, tela, usuario e tenant.",
+          functional: {
+            objective: "Rastrear a execucao das telas e processos no runtime.",
+            scope: [
+              "Consulta do cabecalho da transacao.",
+              "Ligacao com logs detalhados."
+            ],
+            outputs: [
+              "Linha de rastreabilidade funcional e tecnica."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa de consulta."
+            ],
+            steps: [
+              "Filtrar por tela, programa, usuario ou periodo.",
+              "Abrir o detalhe quando precisar de diagnostico.",
+              "Seguir para logs quando a transacao exigir mais detalhe."
+            ],
+            cautions: [
+              "A tela nao substitui logs de infraestrutura.",
+              "Use junto com logs de transacao para ver mensagens detalhadas."
+            ]
+          },
+          references: {
+            permissions: ["admin.read"],
+            relatedPrograms: ["Logs de transacoes", "Sessoes"],
+            notes: ["Exemplo local: ../../examples/pages/admin-transacoes.html", "Produção: ../../production/app.html?screenId=admin.transacoes"]
+          }
+        },
+        "admin-logs-transacoes": {
+          title: "Logs de transacoes",
+          module: "Administracao",
+          type: "CRUD somente consulta",
+          route: "../../examples/pages/admin-logs-transacoes.html",
+          screenId: "admin.logs-transacoes",
+          summary: "Exibe as mensagens registradas dentro de cada transacao de runtime, incluindo eventos de processo, importacao/exportacao e integrações.",
+          functional: {
+            objective: "Permitir leitura detalhada do que ocorreu dentro de uma transacao.",
+            scope: [
+              "Mensagens informativas.",
+              "Falhas e diagnósticos.",
+              "Metadados adicionais por evento."
+            ],
+            outputs: [
+              "Rastro detalhado para analise operacional e tecnica."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa de consulta."
+            ],
+            steps: [
+              "Localizar a transacao de interesse.",
+              "Abrir os logs associados.",
+              "Ler mensagens e metadados para fechar o diagnostico."
+            ],
+            cautions: [
+              "Alguns logs sao tecnicos e devem ser lidos junto com a transacao principal.",
+              "Nao use a tela como fonte unica para problemas de infraestrutura."
+            ]
+          },
+          references: {
+            permissions: ["admin.read"],
+            relatedPrograms: ["Transacoes"],
+            notes: ["Exemplo local: ../../examples/pages/admin-logs-transacoes.html", "Produção: ../../production/app.html?screenId=admin.logs-transacoes"]
+          }
+        },
+        "program-builder": {
+          title: "Program Builder",
+          module: "Construcao",
+          type: "Editor administrativo",
+          route: "../../program-builder.html",
+          screenId: "",
+          summary: "Editor visual de modulos, entidades, programas, APIs, Odoo, importacao de tabelas, importacao de JSON externo, IA assistida, import/export e publicacao no runtime.",
+          functional: {
+            objective: "Permitir autoria de metadados do sistema sem editar JSON manualmente na maior parte dos casos.",
+            scope: [
+              "Cadastro de modulos.",
+              "Modelagem de entidades `persistence`, `query`, `io` e `api`.",
+              "Geracao, preview, versao, comparativo e publicacao de programas.",
+              "Integracoes com APIs genericas, Odoo RPC e importacao OpenAPI/Swagger.",
+              "Importacao de JSON externo validado e assistente interno de IA.",
+              "Mapeamentos de importacao/exportacao entre entidades e arquivos CSV/TXT.",
+              "Importacao de JSON externo, IA e integrações de API."
+            ],
+            outputs: [
+              "Entidades e programas versionados.",
+              "Preview do programa e diagnostico estrutural.",
+              "Publicacao no runtime.",
+              "Rascunhos validados para integracoes e CRUDs gerados."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa.",
+              "Conhecimento do modelo de dados ou da integracao que sera cadastrada."
+            ],
+            steps: [
+              "Selecionar ou criar modulo.",
+              "Modelar a entidade e seus campos.",
+              "Configurar integracoes, programa, preview e diagnostico.",
+              "Salvar, revisar versoes e publicar."
+            ],
+            cautions: [
+              "Publicacao afeta a camada runtime.",
+              "Recursos como API, Odoo, IA e import/export exigem validacao estrutural antes da publicacao.",
+              "Mensagens de regras por classe devem preferir `messageKey/messageParams` e o catalogo de literais."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Literais e traducoes", "Importacao e exportacao", "Programa custom", "APIs/Odoo"],
+            notes: ["Tela local: ../../program-builder.html", "Entrada de producao: ../../production/program-builder.html"]
+          }
+        }
+      };
+
+      const architecture = {
+        overview: "O sistema usa frontend em HTML simples com Kendo UI for jQuery e jQuery local. O backend Symfony entrega metadados, endpoints runtime, telas administrativas, persistencia, autenticacao, permissoes, locks, logs, fila, catalogo de literais, integracoes e publicacao do builder.",
+        rendering: [
+          "O backend decide e devolve definicoes por `screenId` ou arquivos de exemplo na camada local.",
+          "O frontend renderiza a tela com motores fechados por tipo de pagina.",
+          "O runtime seguro de producao resolve `endpointId` e `documentId`, evitando URL livre.",
+          "Mensagens e titulos podem vir por `titleKey/titleParams` e `messageKey/messageParams`, resolvidos pelo catalogo de literais runtime com fallback pt-BR embutido."
+        ],
+        engines: [
+          { name: "CrudEngine", role: "Renderiza grid, filtro, formulario, acoes de linha, runtime de lock, mensagens e preferencias do usuario." },
+          { name: "HomeEngine", role: "Monta o shell global com appbar, menu lateral, favoritos, jobs, suporte e abertura de programas." },
+          { name: "ProcessEngine", role: "Executa processos por parametros, acompanha status e mostra grid, mensagem, documento ou job." },
+          { name: "CustomPageEngine", role: "Abre programas manuais/custom registrados no catalogo runtime." },
+          { name: "Program Builder", role: "Editor visual para modulos, entidades, programas, APIs, Odoo, IA, import/export, literais e publicacao." }
+        ],
+        supportedToday: [
+          "CRUD de entidades `persistence` com grid e formulario.",
+          "Programas `process` por parametros.",
+          "Programas `custom` e `iframe` controlados.",
+          "Entidades `api` em modo consulta e CRUD basico para APIs JSON previsiveis.",
+          "Fonte Odoo em `entityType=api` readonly por XML-RPC e JSON-RPC.",
+          "Importacao de tabelas PostgreSQL para modelagem.",
+          "Importacao de JSON externo validado no builder.",
+          "Assistente interno de IA com rascunho validado.",
+          "Catalogo inicial de importacao/exportacao com CSV e TXT plano ou hierarquico.",
+          "Catalogo administrativo de literais e traducoes por locale.",
+          "Mensagens de validacao e regra por chave, com parametros substituiveis no frontend."
+        ],
+        constraints: [
+          "Nao aceita JavaScript vindo do JSON.",
+          "Nao usa `eval`, `Function` nem templates livres.",
+          "Em producao, o fluxo deve passar por `screenId`, `endpointId` e configuracao segura.",
+          "A pasta `kendo/` e biblioteca de terceiro e nao deve ser alterada."
+        ]
+      };
+
+      const treeData = [
+        { text: "Acesso e navegacao", expanded: true, items: [{ id: "login", text: "Login" }, { id: "home", text: "Home" }] },
+        { text: "Operacional", expanded: true, items: [{ id: "clientes", text: "Cadastro de clientes" }, { id: "processamento-clientes", text: "Processamento de clientes" }, { id: "jobs", text: "Meus Jobs / Jobs" }] },
+        { text: "Administracao", expanded: true, items: [
+          { id: "admin-parametros", text: "Parametros" },
+          { id: "admin-parametro-valores", text: "Valores de parametros" },
+          { id: "admin-literais", text: "Literais e traducoes" },
+          { id: "admin-usuarios", text: "Usuarios" },
+          { id: "admin-usuario-assinantes", text: "Usuarios por assinante" },
+          { id: "admin-permissoes", text: "Permissoes" },
+          { id: "admin-sessoes", text: "Sessoes" },
+          { id: "admin-transacoes", text: "Transacoes" },
+          { id: "admin-logs-transacoes", text: "Logs de transacoes" }
+        ]},
+        { text: "Construcao", expanded: true, items: [{ id: "program-builder", text: "Program Builder" }] }
+      ];
+
+      let treeWidget = null;
+
+      function escapeHtml(value) {
+        return String(value == null ? "" : value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function renderList(title, items) {
+        if (!Array.isArray(items) || !items.length) {
+          return "";
+        }
+        return "<div class='manual-card'><h4>" + escapeHtml(title) + "</h4><ul>" + items.map(function(item) {
+          return "<li>" + escapeHtml(item) + "</li>";
+        }).join("") + "</ul></div>";
+      }
+
+      function renderDefinition(values) {
+        return "<dl class='manual-definition'>" + values.map(function(item) {
+          return "<div><dt>" + escapeHtml(item.label) + "</dt><dd>" + escapeHtml(item.value || "-") + "</dd></div>";
+        }).join("") + "</dl>";
+      }
+
+      function renderManual(id) {
+        const entry = manuals[id];
+        if (!entry) {
+          return;
+        }
+
+        $("#manual-title").text(entry.title);
+        $("#manual-summary").text(entry.summary);
+        $("#manual-meta").html([
+          "<span class='manual-badge'>" + escapeHtml(entry.module) + "</span>",
+          "<span class='manual-badge'>" + escapeHtml(entry.type) + "</span>",
+          entry.screenId ? "<span class='manual-badge'>" + escapeHtml(entry.screenId) + "</span>" : ""
+        ].join(""));
+
+        $("#manual-architecture").html(
+          "<div class='manual-card'><h3>Arquitetura do sistema</h3><p>" + escapeHtml(architecture.overview) + "</p></div>" +
+          renderList("Como o motor de renderizacao funciona", architecture.rendering) +
+          "<div class='manual-card'><h4>Motores principais</h4><div class='manual-grid'>" +
+            architecture.engines.map(function(engine) {
+              return "<div class='manual-card'><h4>" + escapeHtml(engine.name) + "</h4><p>" + escapeHtml(engine.role) + "</p></div>";
+            }).join("") +
+          "</div></div>" +
+          renderList("O que ja pode ser suportado hoje", architecture.supportedToday) +
+          renderList("Restricoes e regras de seguranca", architecture.constraints)
+        );
+
+        $("#manual-functional").html(
+          "<div class='manual-card'><h3>Objetivo</h3><p>" + escapeHtml(entry.functional.objective) + "</p></div>" +
+          renderList("Escopo funcional", entry.functional.scope) +
+          renderList("Saidas e resultados", entry.functional.outputs)
+        );
+
+        $("#manual-operational").html(
+          renderList("Pre-condicoes", entry.operational.preconditions) +
+          "<div class='manual-card'><h4>Passo a passo</h4><ol>" + entry.operational.steps.map(function(step) {
+            return "<li>" + escapeHtml(step) + "</li>";
+          }).join("") + "</ol></div>" +
+          renderList("Cuidados operacionais", entry.operational.cautions)
+        );
+
+        $("#manual-references").html(
+          "<div class='manual-grid'>" +
+            "<div class='manual-card'>" +
+              "<h4>Identificacao</h4>" +
+              renderDefinition([
+                { label: "Modulo", value: entry.module },
+                { label: "Tipo", value: entry.type },
+                { label: "Screen ID", value: entry.screenId || "-" },
+                { label: "Rota local", value: entry.route || "-" }
+              ]) +
+            "</div>" +
+            "<div class='manual-card'>" +
+              "<h4>Acessos e relacoes</h4>" +
+              renderDefinition([
+                { label: "Permissoes", value: (entry.references.permissions || []).join(", ") || "-" },
+                { label: "Programas relacionados", value: (entry.references.relatedPrograms || []).join(", ") || "-" }
+              ]) +
+            "</div>" +
+          "</div>" +
+          renderList("Notas de referencia", entry.references.notes)
+        );
+      }
+
+      function buildFilteredTree(filterText) {
+        const query = String(filterText || "").trim().toLowerCase();
+        if (!query) {
+          return treeData;
+        }
+
+        return treeData.map(function(group) {
+          const items = (group.items || []).filter(function(item) {
+            const entry = manuals[item.id];
+            const haystack = [item.text, entry && entry.summary, entry && entry.screenId, entry && entry.module].join(" ").toLowerCase();
+            return haystack.indexOf(query) !== -1;
+          });
+          return Object.assign({}, group, { items: items });
+        }).filter(function(group) {
+          return Array.isArray(group.items) && group.items.length;
+        });
+      }
+
+      function renderTree(filterText) {
+        const data = buildFilteredTree(filterText);
+        $("#manual-tree").empty();
+        $("#manual-tree").kendoTreeView({
+          dataSource: data,
+          animation: false,
+          select: function(event) {
+            const item = this.dataItem(event.node);
+            if (item && item.id) {
+              renderManual(item.id);
+            }
+          }
+        });
+        treeWidget = $("#manual-tree").data("kendoTreeView");
+        if (treeWidget) {
+          treeWidget.expand(".k-item");
+          const candidates = treeWidget.element.find("li");
+          for (let index = 0; index < candidates.length; index += 1) {
+            const node = candidates.eq(index);
+            const dataItem = treeWidget.dataItem(node);
+            if (dataItem && dataItem.id) {
+              treeWidget.select(node);
+              renderManual(dataItem.id);
+              break;
+            }
+          }
+        }
+      }
+
+      $(function() {
+        $("#manual-tabs").kendoTabStrip({ animation: false });
+        $("#manual-filter").kendoTextBox({
+          placeholder: "Buscar por nome, modulo ou screenId..."
+        });
+        $("#manual-filter").on("input", function() {
+          renderTree(this.value);
+        });
+        renderTree("");
+      });
+    })(window, window.jQuery);
+  </script>
+</body>
+</html>

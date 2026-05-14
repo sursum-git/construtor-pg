@@ -131,8 +131,8 @@
         initialFilters,
         handlers: {
           create: () => this.openCreate(),
-          view: (id) => this.openRecord("view", id),
-          edit: (id) => this.openRecord("edit", id),
+          view: (id, options) => this.openRecord("view", id, options),
+          edit: (id, options) => this.openRecord("edit", id, options),
           delete: (id) => this.deleteRecord(id),
           selectionChange: (rows) => this.updateBulkSelection(rows),
           print: (format, option) => this.exportGrid(format, option),
@@ -383,7 +383,7 @@
         this.applyKendoTheme();
         this.currentTheme = this.resolveInitialTheme();
         this.applyTheme(this.currentTheme, { persist: false });
-        return this.config;
+        return global.CrudUtils.loadLiteralBundle(this.config.literals || {}, this.httpClient).then(() => this.config);
       });
     }
 
@@ -1094,8 +1094,8 @@
       this.formRenderer.open("create", {});
     }
 
-    openRecord(mode, id) {
-      return this.fetchRecord(id).then((record) => {
+    openRecord(mode, id, options) {
+      return this.fetchRecord(id, options).then((record) => {
         return this.prepareRecordAction(mode, record).then((allowed) => {
           if (allowed === false) {
             return null;
@@ -1110,14 +1110,21 @@
       });
     }
 
-    fetchRecord(id) {
+    fetchRecord(id, options) {
       const primaryKey = this.definition.dataModel.primaryKey;
       const endpoint = this.definition.api.get;
+      const record = options && options.record ? options.record : null;
+      if (!endpoint || !endpoint.url) {
+        if (record && typeof record === "object") {
+          return Promise.resolve(record);
+        }
+        return Promise.reject(global.CrudUtils.makeError("CRUD_GET_ENDPOINT_REQUIRED", "A tela nao possui endpoint de detalhe configurado."));
+      }
       const url = global.CrudUtils.replaceUrlParams(endpoint.url, { [primaryKey]: id });
       return this.httpClient.request({
         url,
         method: endpoint.method || "GET",
-        data: { [primaryKey]: id, id }
+        data: Object.assign({ [primaryKey]: id, id }, record ? { record } : {})
       });
     }
 
@@ -1321,7 +1328,10 @@
       if (nextId == null) {
         return Promise.resolve(null);
       }
-      return this.fetchRecord(nextId).catch((error) => {
+      const nextRecord = this.gridRenderer && typeof this.gridRenderer.getRecordById === "function"
+        ? this.gridRenderer.getRecordById(nextId)
+        : null;
+      return this.fetchRecord(nextId, nextRecord ? { record: nextRecord } : null).catch((error) => {
         const normalized = global.CrudUtils.unwrapError(error, "Erro ao carregar registro.");
         global.CrudUtils.showMessage(normalized.message, "error");
         return null;

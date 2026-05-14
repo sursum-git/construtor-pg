@@ -291,7 +291,10 @@
         const primaryKey = this.definition.dataModel && this.definition.dataModel.primaryKey;
         const id = primaryKey ? dataItem[primaryKey] : null;
         if (id != null && id !== "") {
-          this.handlers.view(id, { source: "rowDoubleClick" });
+          this.handlers.view(id, {
+            source: "rowDoubleClick",
+            record: typeof dataItem.toJSON === "function" ? dataItem.toJSON() : dataItem
+          });
         }
       });
     }
@@ -1962,9 +1965,10 @@
         const button = $(event.currentTarget);
         const action = button.data("action");
         const id = button.data("id");
+        const record = this.getRecordById(id);
         this.closeRowActionsMenu();
         if (this.handlers[action]) {
-          this.handlers[action](id);
+          this.handlers[action](id, record ? { record } : undefined);
         }
       });
 
@@ -2189,6 +2193,22 @@
         previous: this.getAdjacentRecordId(currentId, "previous") != null,
         next: this.getAdjacentRecordId(currentId, "next") != null
       };
+    }
+
+    getRecordById(id) {
+      if (!this.grid || !this.grid.dataSource) {
+        return null;
+      }
+      const primaryKey = this.definition.dataModel && this.definition.dataModel.primaryKey;
+      const items = this.grid.dataSource.view ? this.grid.dataSource.view() : [];
+      for (let index = 0; index < items.length; index += 1) {
+        const item = items[index];
+        const data = item && typeof item.toJSON === "function" ? item.toJSON() : item;
+        if (data && String(data[primaryKey]) === String(id)) {
+          return data;
+        }
+      }
+      return null;
     }
 
     clearSelection() {

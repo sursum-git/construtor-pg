@@ -12,6 +12,135 @@ Use este arquivo para retomar o trabalho em outra sessao.
 6. Para alteracoes em demo, exemplos ou mocks, execute a skill `construtor-pg-demo-production-parity` e atualize `docs/paridade-demo-producao.md`.
 7. Nao reverta alteracoes existentes sem pedido explicito do usuario.
 
+## Estado atual do program-builder
+
+- o clique direto na arvore lateral ficou deterministico apos corrigir o layout do painel de navegacao:
+  - a area de acoes estava crescendo sobre a area da arvore;
+  - agora a arvore tem altura util propria e as acoes ficam limitadas com scroll.
+- existe importacao de tabelas PostgreSQL existentes pelo proprio editor:
+  - listar tabelas importaveis;
+  - analisar tabela;
+  - carregar a modelagem na UI;
+  - importar entidade e gerar rascunho CRUD.
+- existe tambem importacao de JSON externo pelo proprio editor:
+  - colar `entityDraft + programDraft`;
+  - validar sintaxe no frontend;
+  - validar contrato no backend;
+  - carregar a modelagem normalizada para revisao sem salvar.
+- validacao real feita nesta sessao:
+  - clique direto na arvore abrindo `cliente`;
+  - `database/tables`, `database/inspect` e `database/import` no backend real;
+  - importacao de `public.condition` gerando entidade e rascunho CRUD;
+  - validacao UI do painel de importacao com screenshot em `tmp/program-builder-import-ui.png`.
+- o construtor agora tambem aceita `pageType=custom`:
+  - programa manual sem entidade base;
+  - `custom.mode = iframe | htmlUrl`;
+  - `custom.entryUrl` relativo ao proprio sistema;
+  - publicacao no runtime sem endpoints CRUD;
+  - `production/app.html` detecta `crud`, `process` e `custom` pelo `screenId`.
+- existe endpoint publico protegido por chave para orientar IA externa:
+  - `GET /api/public/program-builder/external-context`;
+  - cabecalho `X-Builder-Public-Key`;
+  - parametros `ai.builder.public_context_enabled` e `ai.builder.public_context_key`.
+- existe assistente interno de IA no appbar do construtor:
+  - `GET/POST /api/admin/program-builder/ai/settings`;
+  - `POST /api/admin/program-builder/ai/session`;
+  - `POST /api/admin/program-builder/ai/message`;
+  - `POST /api/admin/program-builder/ai/transcribe`;
+  - `POST /api/admin/program-builder/ai/finalize-draft`;
+  - provider `mock` validado ponta a ponta;
+  - token e chave publica mascarados no CRUD administrativo de parametros;
+  - screenshots atuais:
+    - `tmp/program-builder-ai-settings.png`
+    - `tmp/program-builder-ai-window.png`
+    - `tmp/program-builder-ai-flow.png`
+    - `tmp/program-builder-ai-applied.png`
+- existe `entityType=api` no construtor:
+  - modelagem de `apiSource` no `builder_entity.metadata`;
+  - cadastro reutilizavel de metadados da API em `builder_api_source`;
+  - importacao de contrato por `POST /api/admin/program-builder/api-sources/import-openapi`;
+  - vinculo da entidade por `apiSourceCode`, `apiListOperationCode`, `apiDetailOperationCode`, `apiCreateOperationCode`, `apiUpdateOperationCode` e `apiDeleteOperationCode`;
+  - campos com `jsonPath` e flags de exibir em grid/form/filtro;
+  - geracao de CRUD somente leitura e tambem CRUD basico para APIs JSON previsiveis;
+  - runtime separado por `entity.api.crud`;
+  - sem tabela fisica e sem lock de escrita;
+  - exemplos de demo em `consulta-api-readonly` e `consulta-api-crud` usando `DemoMockHttpClient`.
+- existe tambem suporte a Odoo dentro do cadastro de APIs:
+  - `providerType=odoo` em `builder_api_source`;
+  - configuracao de `XML-RPC` ou `JSON-RPC` em `metadata.odoo`;
+  - endpoints administrativos:
+    - `POST /api/admin/program-builder/api-sources/odoo/test-connection`
+    - `POST /api/admin/program-builder/api-sources/odoo/model-metadata`
+  - operacoes sinteticas `odoo_list` e `odoo_detail`;
+  - carga automatica de campos do modelo via `fields_get`;
+  - runtime separado por `entity.api.odoo.readonly`;
+  - publicacao de tela CRUD em modo consulta, com `create/edit/delete=false`.
+- validacao real mais recente desta frente:
+  - mock Odoo local em `tmp/mock-odoo-router.php`;
+  - `XML-RPC` e `JSON-RPC` com sucesso no teste de conexao;
+  - falha de autenticacao devolvendo `ODOO_AUTH_FAILED`;
+  - leitura de metadados do modelo `res.partner` com 8 campos;
+  - entidade `odoo_api_587379` publicada a partir da fonte `odoo_mock_587379`;
+  - tela `odoo.api.587379` publicada em modo readonly;
+  - runtime validado em `read` e `get`;
+  - validacao frontend do `program-builder` e do `production/app.html` via proxy local em `tmp/dev-proxy.js`;
+  - screenshots:
+    - `tmp/odoo-builder-ui.png`
+    - `tmp/odoo-runtime-ui.png`
+- existe um catalogo inicial de importacao/exportacao entre entidades e arquivos:
+  - endpoints administrativos:
+    - `GET /api/admin/import-export-mappings`
+    - `GET /api/admin/import-export-mappings/{code}`
+    - `POST /api/admin/import-export-mappings`
+    - `POST /api/admin/import-export-mappings/preview`
+    - `POST /api/admin/import-export-mappings/execute`
+  - formatos de arquivo suportados:
+    - `csv`
+    - `txt_layout`
+  - `txt_layout` agora aceita:
+    - `lineMode="fixed"` para leiaute posicional;
+    - `lineMode="delimited"` para leiaute por separador, usando apenas a ordem dos campos.
+    - estrutura hierarquica por `recordLayouts[]`, com `nodeType=record|group|totalizer`, `children[]`, `linkBy[]` e agregacoes `count/sum`.
+  - fluxos validados nesta sessao:
+    - `api_crud_mock_produto -> produto_builder`
+    - `cliente -> api_crud_mock_produto`
+    - `cliente -> csv`
+    - `cliente -> txt_layout` fixo
+    - `cliente -> txt_layout` delimitado
+    - `cliente -> txt_layout` hierarquico com filho e totalizador
+  - exemplo documental novo:
+    - `examples/pages/import-export-mappings.html`
+  - existe agora tambem uma pagina documental de manual por programa:
+    - `examples/pages/manual-programas.html`
+  - ela usa:
+    - `TreeView` para indice dos programas;
+    - `TabStrip` para separar visao funcional, operacional e referencias;
+    - secao adicional de arquitetura do sistema, motores de renderizacao e escopo suportado hoje;
+    - filtro por nome, modulo ou `screenId`.
+  - pendencia assumida:
+    - ainda nao existe tela administrativa completa do catalogo; nesta etapa o uso fica pelos endpoints e pelo exemplo documental.
+- o `CrudUtils` agora possui um resolvedor central de literais pt-BR:
+  - suporta `titleKey/titleParams` e `messageKey/messageParams` no contrato de validacao;
+  - mantem fallback para `title` e `message`;
+  - centraliza textos padrao de confirmacao, bloqueio e inconsistencias sem quebrar payloads antigos.
+- para regras por classe/metodo, o padrao oficial agora e:
+  - usar constantes de chave na classe;
+  - montar mensagens com `RuntimeBusinessRuleContext::messageItem(...)`;
+  - interromper validacao com `RuntimeBusinessRuleContext::throwValidation(...)`;
+  - evitar texto literal hardcoded, deixando `message` apenas como fallback.
+- existe agora tambem um catalogo administrativo de literais:
+  - tela `admin.literais`;
+  - entidade `system_literal_translation`;
+  - rota runtime `GET /api/runtime/literals/{locale}`;
+  - o frontend carrega esse bundle pela configuracao `config.literals` e faz merge sobre o dicionario pt-BR embutido.
+- validacao real mais recente desta frente:
+  - migration `Version20260512100000` aplicada;
+  - `POST /api/admin/program-builder/api-sources/import-openapi` validado contra OpenAPI local servido em `http://127.0.0.1:8765/tmp/openapi-api-source-test.json`;
+  - cadastro `api_produtos_ext` salvo no backend real;
+  - entidade `api_meta_teste_001` salva apontando para `api_produtos_ext`;
+  - `POST /api/admin/program-builder/preview` devolveu CRUD `readonly` com `create/edit/delete=false`;
+  - CRUD completo por tela runtime validado em `api.crud.mock.produtos` com create, update e delete reais via API externa mockada.
+
 ## Comandos uteis
 
 Validar sintaxe JS:
@@ -117,8 +246,14 @@ Validar no browser:
   - `file:///C:/construtor-pg/production/app.html?screenId=admin.parametros`
   - `file:///C:/construtor-pg/production/app.html?screenId=admin.sessoes`
   - `file:///C:/construtor-pg/production/app.html?screenId=admin.transacoes`
-  - `file:///C:/construtor-pg/production/home.html?screenId=home`
-  - `http://127.0.0.1:8765/production/program-builder.html`
+- `file:///C:/construtor-pg/production/home.html?screenId=home`
+- `http://127.0.0.1:8765/production/program-builder.html`
+
+Validar o MVP desktop WPF:
+
+- instalar SDK do .NET 8 ou superior;
+- abrir `desktop-wpf/ConstrutorPg.BuilderDesktop.sln`;
+- executar o projeto `ConstrutorPg.BuilderDesktop`.
 
 ## Quando implementar funcionalidade nova
 
@@ -188,6 +323,9 @@ Implementado ate agora, em nivel demo/frontend:
 - Entradas separadas de producao em `production/app.html` e `production/home.html`, com CSP em meta tag, sem inicializacao inline e sem fallback local no HTTP client.
 - Backend runtime Symfony/API Platform com auditoria, semaforo configuravel, heartbeat, mensagens runtime por SSE com polling fallback, derrubada de sessao e protecao contra perda de dados no frontend.
 - Construtor visual em `program-builder.html` e `production/program-builder.html`, agora cobrindo cadastro de modulo estrutural com abreviacao e faixa numerica inicial/final, modelagem de entidade, criacao de tabela fisica, preview backend, rascunho, publicacao, duplicacao, historico em `builder_program_version`, historico estrutural em `builder_entity_version`, campo `custom_code` com assistente declarativo e cadastro visual de regras de negocio por entidade.
+- O `program-builder` tambem foi reorganizado em layout de editor com `Splitter`, arvore lateral de navegacao, filtros rapidos por tipo/estado, badges por no, abas centrais e painel lateral de preview/historicos/diagnostico, ainda em Kendo/jQuery e sem mudar a stack web.
+- O `program-builder` agora tambem possui assistente interno de IA com `kendoChat`, configuracao segura por parametros administrativos, entrada por texto/audio e carga do rascunho apenas apos validacao backend.
+- O editor web agora inclui painel contextual de propriedades, visao lateral de relacionamentos, comparativo entre revisoes/versoes, reordenacao visual de campos/regras/chaves por drag-and-drop, validacao incremental por item com destaque visual e lock de edicao persistente em `builder_editor_lock`.
 - A sincronizacao fisica do construtor agora cria tabela, adiciona coluna, renomeia tabela/coluna, ajusta tipo/default/null/precision-scale, pode excluir colunas removidas quando a opcao estiver marcada e suporta rollback por revisao salva da entidade.
 - O runtime generico agora suporta cadastro mestre versionado em `runtime_entity_record_version`, referencia automatica de versao atual em campos transacionais e leitura de snapshot historico por campo virtual.
 - O `program-builder.html` agora tem assistente visual para esse padrao, gerando `*_version_id` e campos `*_historico` a partir de uma entidade mestre versionada.
@@ -215,6 +353,7 @@ Implementado ate agora, em nivel demo/frontend:
   - `pedido_item_hist` com `produto_version_id` preenchido automaticamente a partir de `produto_id`;
   - `produto_nome_historico` como campo virtual lendo `nome` do snapshot;
   - item antigo continuou exibindo `Produto A` e item novo exibiu `Produto A Atualizado` apos alteracao do cadastro mestre.
+- Existe um MVP desktop separado em `desktop-wpf/`, focado em arvore, propriedades contextuais e preview JSON em memoria. Nesta maquina nao ha SDK do .NET instalado, entao a estrutura foi preparada, mas o build local precisa ser validado em ambiente com SDK 8.
 
 ## Pontos conhecidos para atencao
 

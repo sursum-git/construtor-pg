@@ -18,6 +18,9 @@ final class RuntimeConfiguredRuleExecutor
 
         $messages = [];
         $effects = [];
+        $validationTitle = 'Inconsistencias encontradas';
+        $validationTitleKey = 'validation.title.inconsistencies';
+        $validationTitleParams = [];
         foreach ($rules as $rule) {
             try {
                 $result = $this->executeRule($rule, $context);
@@ -32,12 +35,17 @@ final class RuntimeConfiguredRuleExecutor
 
                 $ruleMessages = $this->normalizeMessages($rule, $normalized['messages'] ?? [], $normalized['message'] ?? null);
                 $ruleEffects = is_array($normalized['effects'] ?? null) ? $normalized['effects'] : [];
+                if (!empty($normalized['title']) || !empty($normalized['titleKey'])) {
+                    $validationTitle = trim((string) ($normalized['title'] ?? '')) !== '' ? trim((string) ($normalized['title'] ?? '')) : $validationTitle;
+                    $validationTitleKey = trim((string) ($normalized['titleKey'] ?? '')) !== '' ? trim((string) ($normalized['titleKey'] ?? '')) : $validationTitleKey;
+                    $validationTitleParams = is_array($normalized['titleParams'] ?? null) ? $normalized['titleParams'] : [];
+                }
                 $this->logRuleFailure($rule, $ruleMessages, $normalized['metadata'] ?? []);
                 $messages = array_merge($messages, $ruleMessages);
                 $effects = array_merge($effects, $ruleEffects);
 
                 if (($rule['continueOnError'] ?? false) !== true) {
-                    throw $this->buildValidationException($messages, $effects);
+                    throw $this->buildValidationException($messages, $effects, $validationTitle, $validationTitleKey, $validationTitleParams);
                 }
             } catch (RuntimeValidationException $error) {
                 $validation = $error->getValidation();
@@ -48,6 +56,11 @@ final class RuntimeConfiguredRuleExecutor
                         'type' => 'error',
                         'message' => $error->getMessage(),
                     ]];
+                if (!empty($validation['title']) || !empty($validation['titleKey'])) {
+                    $validationTitle = trim((string) ($validation['title'] ?? '')) !== '' ? trim((string) ($validation['title'] ?? '')) : $validationTitle;
+                    $validationTitleKey = trim((string) ($validation['titleKey'] ?? '')) !== '' ? trim((string) ($validation['titleKey'] ?? '')) : $validationTitleKey;
+                    $validationTitleParams = is_array($validation['titleParams'] ?? null) ? $validation['titleParams'] : [];
+                }
                 $this->logRuleFailure($rule, $ruleMessages, [
                     'exception' => $error::class,
                     'code' => $error->getErrorCode(),
@@ -55,13 +68,13 @@ final class RuntimeConfiguredRuleExecutor
                 $messages = array_merge($messages, $ruleMessages);
                 $effects = array_merge($effects, $error->getEffects());
                 if (($rule['continueOnError'] ?? false) !== true) {
-                    throw $this->buildValidationException($messages, $effects);
+                    throw $this->buildValidationException($messages, $effects, $validationTitle, $validationTitleKey, $validationTitleParams);
                 }
             }
         }
 
         if ($messages) {
-            throw $this->buildValidationException($messages, $effects);
+            throw $this->buildValidationException($messages, $effects, $validationTitle, $validationTitleKey, $validationTitleParams);
         }
     }
 
@@ -317,11 +330,14 @@ final class RuntimeConfiguredRuleExecutor
 
         return [
             'valid' => ($result['valid'] ?? true) !== false,
+            'title' => trim((string) ($result['title'] ?? '')),
             'message' => trim((string) ($result['message'] ?? '')),
             'messages' => is_array($result['messages'] ?? null) ? $result['messages'] : [],
             'effects' => is_array($result['effects'] ?? null) ? $result['effects'] : [],
             'metadata' => is_array($result['metadata'] ?? null) ? $result['metadata'] : [],
             'values' => is_array($result['values'] ?? null) ? $result['values'] : [],
+            'titleKey' => trim((string) ($result['titleKey'] ?? '')),
+            'titleParams' => is_array($result['titleParams'] ?? null) ? $result['titleParams'] : [],
         ];
     }
 
@@ -336,13 +352,16 @@ final class RuntimeConfiguredRuleExecutor
                 continue;
             }
             $message = trim((string) ($item['message'] ?? ''));
-            if ($message === '') {
+            $messageKey = trim((string) ($item['messageKey'] ?? ''));
+            if ($message === '' && $messageKey === '') {
                 continue;
             }
             $normalized[] = [
                 'field' => $this->safeFieldCode((string) ($item['field'] ?? '')) ?: null,
                 'type' => (string) ($item['type'] ?? 'error'),
                 'message' => $message,
+                'messageKey' => $messageKey !== '' ? $messageKey : null,
+                'messageParams' => is_array($item['messageParams'] ?? null) ? $item['messageParams'] : [],
             ];
         }
         if ($normalized) {
@@ -355,17 +374,31 @@ final class RuntimeConfiguredRuleExecutor
             'message' => $fallbackMessage && trim($fallbackMessage) !== ''
                 ? trim($fallbackMessage)
                 : ((string) ($rule['label'] ?? 'A regra falhou.')),
+            'messageKey' => empty($rule['message']) && !empty($rule['field']) ? 'validation.message.field_required' : null,
+            'messageParams' => empty($rule['message']) && !empty($rule['field']) ? [
+                'field' => $this->safeFieldCode((string) ($rule['field'] ?? '')),
+                'fieldCode' => $this->safeFieldCode((string) ($rule['field'] ?? '')),
+                'fieldLabel' => (string) ($rule['field'] ?? ''),
+            ] : [],
         ]];
     }
 
-    private function buildValidationException(array $messages, array $effects): RuntimeValidationException
+    private function buildValidationException(
+        array $messages,
+        array $effects,
+        string $title = 'Inconsistencias encontradas',
+        string $titleKey = 'validation.title.inconsistencies',
+        array $titleParams = [],
+    ): RuntimeValidationException
     {
         return new RuntimeValidationException(
             'BUSINESS_VALIDATION_FAILED',
             'Existem inconsistencias no formulario.',
             [
                 'status' => 'blocked',
-                'title' => 'Inconsistencias encontradas',
+                'title' => $title,
+                'titleKey' => $titleKey,
+                'titleParams' => $titleParams,
                 'messages' => $messages,
             ],
             $effects,

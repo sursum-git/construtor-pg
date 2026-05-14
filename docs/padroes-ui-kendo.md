@@ -42,6 +42,7 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - Programa chamado pelo menu nao deve duplicar o seletor claro/escuro da pagina inicial.
 - Usar Kendo TreeView no menu lateral para grupos de programas e programas filhos.
 - O TreeView do menu lateral deve usar `kendo.data.HierarchicalDataSource`.
+- Para editores de leiaute hierarquico, como importacao/exportacao com registros pai, filhos e totalizadores, preferir `Kendo TreeView` com painel lateral de propriedades do no selecionado.
 - Acima do TreeView, usar Kendo ComboBox para selecionar sistema/modulo quando houver mais de um.
 - O ComboBox de modulos deve iniciar em `Todos` quando `navigation.initialModuleId` nao vier preenchido; se vier um modulo valido, inicia nesse modulo.
 - O menu lateral deve permitir filtro por nome e filtro por favoritos.
@@ -64,9 +65,10 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - Ao clicar em programa que abre na area central, recolher o menu lateral.
 - Em viewport mobile, iniciar o menu lateral recolhido.
 - Cada programa do TreeView deve ter botao compacto para abrir em nova aba.
-- Programas podem abrir por modos fechados: `iframe`, `crud`, `process` ou `html`.
+- Programas podem abrir por modos fechados: `iframe`, `crud`, `process`, `custom` ou `html`.
 - `crud` deve instanciar o `CrudEngine` dentro da area central.
 - `process` deve instanciar o `ProcessEngine` dentro da area central.
+- `custom` deve instanciar um renderer fechado que aceite apenas `custom.mode` e `custom.entryUrl` relativos ao proprio sistema.
 - Programas abertos dentro da Home nao devem duplicar cabecalho interno; a appbar global mostra titulo, versao, subtitulo, ultima atualizacao, ajuda, logs, atualizar e tema.
 - `html` deve ser sanitizado e nao pode executar scripts/eventos vindos do JSON.
 - `iframe` deve usar URL configurada e titulo acessivel.
@@ -144,6 +146,14 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - Quando o formulario estiver em inclusao/alteracao com dados modificados e nao salvos, qualquer fechamento ou troca de programa deve pedir confirmacao em janela Kendo antes de descartar alteracoes.
 - Quando o backend retornar semaforo de registro, o formulario deve respeitar `block`, avisar em `warn`, renovar heartbeat e liberar o lock ao salvar, cancelar ou fechar.
 - Botoes configurados do formulario podem abrir pagina do backend em janela/nova aba e enviar valores atuais do formulario por `query` ou `post`, usando apenas campos declarados no JSON.
+
+## Editor administrativo
+
+- Quando uma tela web deixar de ser apenas CRUD/configuracao simples e virar modelador, preferir layout de editor com `Splitter`, arvore lateral, painel central de edicao e painel lateral de contexto.
+- Em editores administrativos, o painel lateral pode alternar entre preview, propriedades, relacionamentos, historico, comparativo e diagnostico.
+- Reordenacao visual de itens estruturais deve usar arrastar e soltar ou controles equivalentes, com feedback visual de alvo e ordem.
+- Validacao incremental deve marcar o item quebrado na propria lista/tabela e refletir contagem de pendencias na navegacao lateral.
+- Quando houver risco de edicao concorrente, o backend deve oferecer lock com heartbeat e o frontend deve mostrar sobreposicao de somente leitura no painel afetado.
 
 ## Campos do formulario
 

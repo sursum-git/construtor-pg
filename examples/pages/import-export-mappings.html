@@ -1,0 +1,450 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mapeamentos de importacao e exportacao</title>
+  <link id="kendo-theme-link" rel="stylesheet" href="../../kendo/styles/default-urban.css">
+  <link rel="stylesheet" href="../../src/styles/crud-engine.css">
+  <link rel="stylesheet" href="../../src/styles/examples-guide.css">
+  <style>
+    .import-export-layout {
+      display: grid;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .import-export-card {
+      padding: 16px;
+      border: 1px solid var(--crud-border);
+      border-radius: 6px;
+      background: var(--crud-surface);
+      box-shadow: 0 1px 2px var(--crud-shadow);
+    }
+
+    .import-export-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .import-export-tree,
+    .import-export-details {
+      min-height: 420px;
+    }
+
+    .import-export-tree {
+      padding: 12px;
+      border: 1px solid var(--crud-border);
+      border-radius: 6px;
+      background: var(--crud-readonly-bg);
+    }
+
+    .import-export-details {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .import-export-detail-block {
+      padding: 12px;
+      border: 1px solid var(--crud-border);
+      border-radius: 6px;
+      background: var(--crud-readonly-bg);
+    }
+
+    .import-export-detail-block h2,
+    .import-export-detail-block h3 {
+      margin: 0 0 8px;
+      color: var(--crud-title);
+      font-size: 16px;
+    }
+
+    .import-export-detail-list {
+      display: grid;
+      gap: 8px;
+      margin: 0;
+    }
+
+    .import-export-detail-list div {
+      display: grid;
+      gap: 2px;
+    }
+
+    .import-export-detail-list dt {
+      margin: 0;
+      color: var(--crud-muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .import-export-detail-list dd {
+      margin: 0;
+      color: var(--crud-text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    @media (max-width: 980px) {
+      .import-export-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="example-page-shell">
+    <header class="example-page-header">
+      <div>
+        <p class="example-kicker">Integracao</p>
+        <h1>Mapeamentos de importacao e exportacao</h1>
+        <p>Contrato inicial da engine para fluxos entre entidades e arquivos. O TXT agora cobre leiaute posicional, leiaute por separador e estrutura hierarquica para registros pai, filhos e totalizadores.</p>
+      </div>
+      <nav class="example-page-actions" aria-label="Navegacao do exemplo">
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../exemplos.html">Indice</a>
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../program-builder.html">Construtor</a>
+      </nav>
+    </header>
+
+    <section class="import-export-layout">
+      <div class="import-export-card">
+        <p class="example-tab-note">Endpoints administrativos atuais:</p>
+        <pre><code>GET  /api/admin/import-export-mappings
+GET  /api/admin/import-export-mappings/{code}
+POST /api/admin/import-export-mappings
+POST /api/admin/import-export-mappings/preview
+POST /api/admin/import-export-mappings/execute</code></pre>
+      </div>
+
+      <div class="import-export-card">
+        <p class="example-tab-note">Exemplo de estrutura hierarquica para leiaute TXT. A arvore abaixo representa um caso no estilo SPED, com registro mestre, filhos e totalizador.</p>
+        <div class="import-export-grid">
+          <div class="import-export-tree">
+            <div id="layout-tree"></div>
+          </div>
+          <div class="import-export-details">
+            <div class="import-export-detail-block">
+              <h2>No selecionado</h2>
+              <dl id="node-summary" class="import-export-detail-list"></dl>
+            </div>
+            <div class="import-export-detail-block">
+              <h3>JSON do no</h3>
+              <pre id="node-json"><code>{}</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="import-export-card">
+        <p class="example-tab-note">Exemplo 1: API -&gt; tabela local</p>
+        <pre><code>{
+  "code": "api-produto-para-tabela",
+  "name": "API produto para tabela",
+  "direction": "import",
+  "targetType": "entity",
+  "targetCode": "produto_builder",
+  "format": "entity_copy",
+  "mapping": {
+    "source": {
+      "type": "entity",
+      "entityCode": "api_crud_mock_produto",
+      "alias": "api_produto",
+      "mode": "list",
+      "limit": 50
+    },
+    "destination": {
+      "type": "entity",
+      "entityCode": "produto_builder",
+      "operation": "upsert",
+      "matchBy": [
+        { "targetField": "descricao", "sourcePath": "descricao" }
+      ]
+    },
+    "fieldMappings": [
+      { "sourcePath": "nome", "targetPath": "descricao" },
+      { "sourcePath": "ativo", "targetPath": "ativo" },
+      { "constant": "Importado por mapeamento", "targetPath": "observacao" }
+    ]
+  }
+}</code></pre>
+
+        <p class="example-tab-note">Exemplo 2: entidade -&gt; CSV</p>
+        <pre><code>{
+  "code": "cliente-csv",
+  "name": "Clientes em CSV",
+  "direction": "export",
+  "targetType": "file",
+  "targetCode": "clientes.csv",
+  "format": "csv",
+  "mapping": {
+    "source": {
+      "type": "entity",
+      "entityCode": "cliente",
+      "alias": "cliente",
+      "mode": "list",
+      "limit": 100
+    },
+    "destination": {
+      "type": "file",
+      "fileFormat": "csv",
+      "fileNamePattern": "clientes_export",
+      "delimiter": ";",
+      "quote": "\"",
+      "includeHeader": true,
+      "columns": [
+        { "header": "ID", "sourcePath": "id" },
+        { "header": "Nome", "sourcePath": "nome" },
+        { "header": "Status", "sourcePath": "status" }
+      ]
+    }
+  }
+}</code></pre>
+
+        <p class="example-tab-note">Exemplo 3: TXT posicional</p>
+        <pre><code>{
+  "format": "txt_layout",
+  "mapping": {
+    "source": {
+      "type": "entity",
+      "entityCode": "cliente",
+      "alias": "cliente",
+      "mode": "list"
+    },
+    "destination": {
+      "type": "file",
+      "fileFormat": "txt_layout",
+      "fileNamePattern": "clientes_fixed",
+      "recordLayouts": [
+        {
+          "sourceAlias": "cliente",
+          "lineMode": "fixed",
+          "fields": [
+            { "constant": "01", "length": 2 },
+            { "sourcePath": "nome", "length": 20 },
+            { "sourcePath": "status", "length": 10 },
+            { "sourcePath": "id", "length": 5, "align": "right", "padChar": "0" }
+          ]
+        }
+      ]
+    }
+  }
+}</code></pre>
+
+        <p class="example-tab-note">Exemplo 4: TXT por separador</p>
+        <pre><code>{
+  "format": "txt_layout",
+  "mapping": {
+    "source": {
+      "type": "entity",
+      "entityCode": "cliente",
+      "alias": "cliente",
+      "mode": "list"
+    },
+    "destination": {
+      "type": "file",
+      "fileFormat": "txt_layout",
+      "fileNamePattern": "clientes_delimited",
+      "recordLayouts": [
+        {
+          "sourceAlias": "cliente",
+          "lineMode": "delimited",
+          "separator": "|",
+          "fields": [
+            { "constant": "02" },
+            { "sourcePath": "id" },
+            { "sourcePath": "nome" },
+            { "sourcePath": "cidade" },
+            { "sourcePath": "status", "transforms": [{ "type": "upper" }] }
+          ]
+        }
+      ]
+    }
+  }
+}</code></pre>
+
+        <p class="example-tab-note">Exemplo 5: TXT hierarquico com TreeView, filho e totalizador</p>
+        <pre><code>{
+  "format": "txt_layout",
+  "mapping": {
+    "sources": [
+      {
+        "type": "entity",
+        "entityCode": "nota_fiscal",
+        "alias": "nf",
+        "mode": "list"
+      },
+      {
+        "type": "entity",
+        "entityCode": "nota_fiscal_item",
+        "alias": "item",
+        "mode": "list"
+      }
+    ],
+    "destination": {
+      "type": "file",
+      "fileFormat": "txt_layout",
+      "layoutMode": "tree",
+      "fileNamePattern": "sped_bloco_c",
+      "recordLayouts": [
+        {
+          "nodeType": "record",
+          "recordType": "C100",
+          "label": "Nota fiscal",
+          "sourceAlias": "nf",
+          "lineMode": "delimited",
+          "separator": "|",
+          "fields": [
+            { "constant": "C100" },
+            { "sourcePath": "id" },
+            { "sourcePath": "numero" },
+            { "sourcePath": "cliente_nome" }
+          ],
+          "children": [
+            {
+              "nodeType": "record",
+              "recordType": "C170",
+              "label": "Itens da nota",
+              "sourceAlias": "item",
+              "lineMode": "delimited",
+              "separator": "|",
+              "linkBy": [
+                { "parentPath": "id", "childField": "nota_id" }
+              ],
+              "fields": [
+                { "constant": "C170" },
+                { "sourcePath": "nota_id" },
+                { "sourcePath": "produto_nome" },
+                { "sourcePath": "quantidade" },
+                { "sourcePath": "valor_total" }
+              ]
+            },
+            {
+              "nodeType": "totalizer",
+              "recordType": "C190",
+              "label": "Totalizador da nota",
+              "sourceAlias": "item",
+              "lineMode": "delimited",
+              "separator": "|",
+              "linkBy": [
+                { "parentPath": "id", "childField": "nota_id" }
+              ],
+              "aggregates": [
+                { "name": "quantidade_itens", "type": "count" },
+                { "name": "valor_total", "type": "sum", "sourcePath": "valor_total" }
+              ],
+              "fields": [
+                { "constant": "C190" },
+                { "sourcePath": "_parent.id" },
+                { "sourcePath": "_summary.quantidade_itens" },
+                { "sourcePath": "_summary.valor_total", "transforms": [{ "type": "number_format", "decimals": 2, "decimalSeparator": ",", "thousandSeparator": \"\" }] }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}</code></pre>
+
+        <p class="example-tab-note">Transformacoes fechadas suportadas na etapa atual:</p>
+        <pre><code>trim
+upper
+lower
+constant
+concat
+date_format
+number_format
+pad_left
+pad_right</code></pre>
+      </div>
+    </section>
+  </main>
+
+  <script src="../../vendor/jquery/jquery-4.0.0.min.js"></script>
+  <script src="../../kendo/js/kendo.all.min.js"></script>
+  <script>
+    (function() {
+      "use strict";
+
+      const treeData = [
+        {
+          text: "Bloco C",
+          nodeType: "group",
+          label: "Agrupador do bloco",
+          notes: "Nao gera linha diretamente. Organiza a estrutura e permite filhos de alto nivel.",
+          expanded: true,
+          items: [
+            {
+              text: "C100 - Nota fiscal",
+              nodeType: "record",
+              sourceAlias: "nf",
+              lineMode: "delimited",
+              separator: "|",
+              fields: ["const C100", "id", "numero", "cliente_nome"],
+              notes: "Registro mestre. Cada nota vira uma linha e abre o contexto para os filhos.",
+              expanded: true,
+              items: [
+                {
+                  text: "C170 - Itens da nota",
+                  nodeType: "record",
+                  sourceAlias: "item",
+                  lineMode: "delimited",
+                  separator: "|",
+                  linkBy: [{ parentPath: "id", childField: "nota_id" }],
+                  fields: ["const C170", "nota_id", "produto_nome", "quantidade", "valor_total"],
+                  notes: "Filho do C100. Usa linkBy para filtrar os itens da nota corrente."
+                },
+                {
+                  text: "C190 - Totalizador da nota",
+                  nodeType: "totalizer",
+                  sourceAlias: "item",
+                  lineMode: "delimited",
+                  separator: "|",
+                  linkBy: [{ parentPath: "id", childField: "nota_id" }],
+                  aggregates: [
+                    { name: "quantidade_itens", type: "count" },
+                    { name: "valor_total", type: "sum", sourcePath: "valor_total" }
+                  ],
+                  fields: ["const C190", "_parent.id", "_summary.quantidade_itens", "_summary.valor_total"],
+                  notes: "Totalizador derivado dos itens filtrados pelo pai. Pode usar _summary.* e _parent.* nas colunas."
+                }
+              ]
+            }
+          ]
+        }
+      ];
+
+      function updateNodeDetails(item) {
+        const rows = [
+          { label: "Tipo do no", value: item.nodeType || "-" },
+          { label: "Fonte", value: item.sourceAlias || "-" },
+          { label: "Modo da linha", value: item.lineMode || "-" },
+          { label: "Separador", value: item.separator || "-" },
+          { label: "Campos", value: Array.isArray(item.fields) ? item.fields.join(", ") : "-" },
+          { label: "Vinculo com pai", value: Array.isArray(item.linkBy) && item.linkBy.length ? JSON.stringify(item.linkBy, null, 2) : "-" },
+          { label: "Agregacoes", value: Array.isArray(item.aggregates) && item.aggregates.length ? JSON.stringify(item.aggregates, null, 2) : "-" },
+          { label: "Observacao", value: item.notes || "-" }
+        ];
+        $("#node-summary").html(rows.map(function(row) {
+          return "<div><dt>" + kendo.htmlEncode(row.label) + "</dt><dd>" + kendo.htmlEncode(String(row.value)) + "</dd></div>";
+        }).join(""));
+        $("#node-json code").text(JSON.stringify(item.toJSON ? item.toJSON() : item, null, 2));
+      }
+
+      $("#layout-tree").kendoTreeView({
+        dataSource: treeData,
+        select: function(event) {
+          const node = this.dataItem(event.node);
+          updateNodeDetails(node);
+        }
+      });
+
+      const tree = $("#layout-tree").data("kendoTreeView");
+      const firstNode = tree.dataSource.view()[0];
+      updateNodeDetails(firstNode);
+    })();
+  </script>
+</body>
+</html>

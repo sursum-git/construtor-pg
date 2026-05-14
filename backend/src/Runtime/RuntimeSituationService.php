@@ -75,15 +75,24 @@ class RuntimeSituationService
             throw new RuntimeValidationException('SITUATION_TRANSITION_NOT_ALLOWED', 'Transicao de situacao nao permitida.', [
                 'status' => 'blocked',
                 'title' => 'Situacao nao permitida',
+                'titleKey' => 'validation.title.situation_not_allowed',
                 'messages' => [[
                     'field' => $field,
                     'type' => 'error',
                     'message' => sprintf('Nao e permitido mudar a situacao de %s para %s nesta acao.', $from ?? '(vazio)', $to),
+                    'messageKey' => 'validation.message.situation_transition_not_allowed',
+                    'messageParams' => [
+                        'field' => $field,
+                        'fieldCode' => $field,
+                        'from' => $from ?? '(vazio)',
+                        'to' => $to,
+                    ],
                 ]],
             ], effects: [[
                 'action' => 'showMessage',
                 'type' => 'error',
                 'message' => 'Transicao de situacao nao permitida.',
+                'messageKey' => 'validation.message.situation_transition_blocked',
             ]]);
         }
         if ($transition) {
@@ -177,10 +186,16 @@ class RuntimeSituationService
         throw new RuntimeValidationException('SITUATION_NOT_FOUND', 'Situacao invalida para a entidade.', [
             'status' => 'blocked',
             'title' => 'Situacao invalida',
+            'titleKey' => 'validation.title.invalid_situation',
             'messages' => [[
                 'field' => $situation['field'],
                 'type' => 'error',
                 'message' => 'A situacao informada nao esta cadastrada para esta entidade.',
+                'messageKey' => 'validation.message.situation_not_registered',
+                'messageParams' => [
+                    'field' => $situation['field'],
+                    'fieldCode' => $situation['field'],
+                ],
             ]],
         ]);
     }
@@ -224,6 +239,12 @@ class RuntimeSituationService
                     'message' => is_array($item) && !empty($item['message'])
                         ? (string) $item['message']
                         : ($definition['fields'][$field]['label'] ?: $field) . ' e obrigatorio para esta mudanca de situacao.',
+                    'messageKey' => is_array($item) && !empty($item['message']) ? null : 'validation.message.field_required_for_situation',
+                    'messageParams' => is_array($item) && !empty($item['message']) ? [] : [
+                        'field' => $field,
+                        'fieldCode' => $field,
+                        'fieldLabel' => $definition['fields'][$field]['label'] ?: $field,
+                    ],
                 ];
             }
         }
@@ -232,6 +253,7 @@ class RuntimeSituationService
             throw new RuntimeValidationException('SITUATION_RULE_FAILED', 'Existem regras pendentes para mudar a situacao.', [
                 'status' => 'blocked',
                 'title' => 'Mudanca de situacao bloqueada',
+                'titleKey' => 'validation.title.situation_blocked',
                 'messages' => $messages,
             ], effects: $this->requiredEffects($messages));
         }

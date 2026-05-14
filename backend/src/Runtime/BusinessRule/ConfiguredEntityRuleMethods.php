@@ -6,6 +6,23 @@ use App\Runtime\RuntimeBusinessRuleContext;
 
 final class ConfiguredEntityRuleMethods
 {
+    private const TITLE_KEY = 'validation.title.inconsistencies';
+    private const MIN_LENGTH_MESSAGE_KEY = 'validation.message.field_min_length';
+
+    private function resolveFieldLabel(RuntimeBusinessRuleContext $context, string $field): string
+    {
+        $definition = $context->getDefinition();
+        $fields = is_array($definition['fields'] ?? null) ? $definition['fields'] : [];
+        if (is_array($fields[$field] ?? null)) {
+            $label = trim((string) ($fields[$field]['label'] ?? ''));
+            if ($label !== '') {
+                return $label;
+            }
+        }
+
+        return $field;
+    }
+
     public function validateMinLength(RuntimeBusinessRuleContext $context, array $rule = []): array
     {
         $params = is_array($rule['params'] ?? null) ? $rule['params'] : [];
@@ -34,13 +51,23 @@ final class ConfiguredEntityRuleMethods
             ];
         }
 
+        $fieldLabel = $this->resolveFieldLabel($context, $field);
+
         return [
             'valid' => false,
+            'titleKey' => self::TITLE_KEY,
             'message' => 'O campo precisa atender ao tamanho minimo configurado.',
             'messages' => [[
                 'field' => $field,
                 'type' => 'error',
-                'message' => (string) ($params['message'] ?? ('O campo ' . $field . ' precisa ter ao menos ' . $minimum . ' caracteres.')),
+                'message' => (string) ($params['message'] ?? ('O campo ' . $fieldLabel . ' precisa ter ao menos ' . $minimum . ' caracteres.')),
+                'messageKey' => empty($params['message']) ? self::MIN_LENGTH_MESSAGE_KEY : null,
+                'messageParams' => empty($params['message']) ? [
+                    'field' => $field,
+                    'fieldCode' => $field,
+                    'fieldLabel' => $fieldLabel,
+                    'min' => $minimum,
+                ] : [],
             ]],
             'metadata' => [
                 'field' => $field,

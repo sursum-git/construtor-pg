@@ -124,6 +124,23 @@
         }
       },
       "additionalProperties": false
+    },
+    "literals": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "locale": {
+          "type": "string",
+          "default": "pt-BR"
+        },
+        "endpoint": {
+          "$ref": "#/$defs/runtimeEndpoint"
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false,

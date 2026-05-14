@@ -18,24 +18,73 @@
       return;
     }
 
-    const engine = new global.CrudEngine({
-      root: "#crud-production-root",
-      screenId,
-      configUrl,
-      hideThemeSwitch: readBooleanParam(params, "hideThemeSwitch"),
-      hideHeader: readBooleanParam(params, "hideProgramHeader"),
-      productionErrors: true,
-      httpClient: new global.CrudHttpClient({
-        allowLocalFallback: false
-      })
+    const hideThemeSwitch = readBooleanParam(params, "hideThemeSwitch");
+    const hideHeader = readBooleanParam(params, "hideProgramHeader");
+    const httpClient = new global.CrudHttpClient({
+      allowLocalFallback: false
     });
+    const configLoader = new global.CrudConfigLoader();
 
-    engine.init().then(function(instance) {
+    configLoader.load({
+      configUrl: configUrl
+    }).then(function(config) {
+      const securityPolicy = global.CrudUtils.normalizeSecurityPolicy(config || {}, {});
+      const request = global.CrudUtils.buildScreenDefinitionRequest(screenId, securityPolicy, "");
+      return httpClient.request(request).then(function(definition) {
+        return bootstrapByPageType(definition, {
+          root: "#crud-production-root",
+          screenId: screenId,
+          configUrl: configUrl,
+          config: config,
+          hideThemeSwitch: hideThemeSwitch,
+          hideHeader: hideHeader,
+          httpClient: httpClient
+        });
+      });
+    }).then(function(instance) {
       global.productionCrudEngine = instance;
     }).catch(function(error) {
       logBootstrapError(error);
+      renderBootstrapFailure(root, error);
     });
   });
+
+  function bootstrapByPageType(definition, options) {
+    const pageType = String(definition && definition.pageType || "crud").trim() || "crud";
+    if (pageType === "crud") {
+      return new global.CrudEngine({
+        root: options.root,
+        screenId: options.screenId,
+        config: options.config,
+        hideThemeSwitch: options.hideThemeSwitch,
+        hideHeader: options.hideHeader,
+        productionErrors: true,
+        httpClient: options.httpClient
+      }).init();
+    }
+    if (pageType === "process") {
+      return new global.ProcessEngine({
+        root: options.root,
+        screenId: options.screenId,
+        config: options.config,
+        hideHeader: options.hideHeader,
+        httpClient: options.httpClient
+      }).init();
+    }
+    if (pageType === "custom") {
+      return new global.CustomPageEngine({
+        root: options.root,
+        definition: definition,
+        config: options.config,
+        hideThemeSwitch: options.hideThemeSwitch,
+        hideHeader: options.hideHeader,
+        httpClient: options.httpClient
+      }).init();
+    }
+    return Promise.reject(global.CrudUtils.makeError("UNSUPPORTED_PAGE_TYPE", "Tipo de pagina nao suportado na entrada de producao.", {
+      pageType: pageType
+    }));
+  }
 
   function readParams() {
     try {
@@ -67,7 +116,12 @@
 
   function logBootstrapError() {
     if (global.console && typeof global.console.error === "function") {
-      global.console.error("Falha ao inicializar CRUD de producao.");
+      global.console.error("Falha ao inicializar pagina de producao.");
     }
+  }
+
+  function renderBootstrapFailure(root, error) {
+    const unwrapped = global.CrudUtils.unwrapError(error, "Falha ao inicializar pagina de producao.");
+    renderBootstrapError(root, unwrapped && unwrapped.message ? unwrapped.message : "Falha ao inicializar pagina de producao.");
   }
 })(window);
