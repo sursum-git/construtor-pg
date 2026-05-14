@@ -115,6 +115,40 @@ final class AdminCrudDefinitionFactory
                 defaultSort: [['field' => 'code', 'dir' => 'asc'], ['field' => 'locale', 'dir' => 'asc']],
             ),
             self::screen(
+                'admin.notificacoes',
+                'admin-notificacoes',
+                'runtime_notification',
+                'Notificacoes',
+                'Cadastro de notificacoes por usuario e grupo, com publicacao e rastreio de leitura.',
+                self::notificationFields(),
+                ['code', 'title', 'category', 'severity', 'status'],
+                ['id', 'code', 'title', 'category', 'severity', 'status', 'published_at', 'expires_at', 'updated_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'tenant_id', 'code', 'title', 'category', 'severity', 'status', 'action_required']],
+                    ['id' => 'destinatarios', 'title' => 'Destinatarios', 'fields' => ['target_user_ids', 'target_groups', 'link_program_id', 'link_screen_id']],
+                    ['id' => 'mensagem', 'title' => 'Mensagem', 'fields' => ['message', 'metadata']],
+                    ['id' => 'controle', 'title' => 'Controle', 'fields' => ['expires_at', 'published_at', 'created_by', 'created_at', 'updated_at']],
+                ],
+                editable: true,
+                defaultSort: [['field' => 'updated_at', 'dir' => 'desc']],
+            ),
+            self::screen(
+                'admin.notificacao-destinatarios',
+                'admin-notificacao-destinatarios',
+                'runtime_notification_recipient',
+                'Destinatarios de Notificacoes',
+                'Acompanhamento de entrega e leitura por usuario destinatario.',
+                self::notificationRecipientFields(),
+                ['notification_id', 'user_id', 'user_name', 'source_type', 'status'],
+                ['id', 'notification_id', 'user_id', 'user_name', 'source_type', 'status', 'delivered_at', 'read_at', 'updated_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'tenant_id', 'notification_id', 'user_id', 'user_name', 'source_type', 'source_key', 'status']],
+                    ['id' => 'entrega', 'title' => 'Entrega', 'fields' => ['delivered_at', 'read_at', 'created_at', 'updated_at']],
+                ],
+                editable: false,
+                defaultSort: [['field' => 'updated_at', 'dir' => 'desc']],
+            ),
+            self::screen(
                 'admin.listas-opcoes',
                 'admin-listas-opcoes',
                 'system_option_list',
@@ -525,6 +559,71 @@ final class AdminCrudDefinitionFactory
             'text' => self::field('text', 'Texto', true, false, ['editor' => 'textarea']),
             'description' => self::field('text', 'Descricao', true, true, ['editor' => 'textarea']),
             'enabled' => self::field('boolean', 'Ativo', true, false),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+        ];
+    }
+
+    private static function notificationFields(): array
+    {
+        $severityOptions = [
+            ['value' => 'info', 'text' => 'Informacao'],
+            ['value' => 'warning', 'text' => 'Aviso'],
+            ['value' => 'error', 'text' => 'Erro'],
+            ['value' => 'success', 'text' => 'Sucesso'],
+        ];
+        $statusOptions = [
+            ['value' => 'draft', 'text' => 'Rascunho'],
+            ['value' => 'published', 'text' => 'Publicada'],
+            ['value' => 'archived', 'text' => 'Arquivada'],
+        ];
+
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'tenant_id' => self::field('string', 'Assinante', false, false),
+            'code' => self::field('string', 'Codigo', true, true),
+            'title' => self::field('string', 'Titulo', true, false),
+            'message' => self::field('text', 'Mensagem', true, false, ['editor' => 'textarea']),
+            'category' => self::field('string', 'Categoria', true, false),
+            'severity' => self::field('enum', 'Severidade', true, false, ['options' => $severityOptions]),
+            'status' => self::field('enum', 'Status', true, false, ['options' => $statusOptions]),
+            'action_required' => self::field('boolean', 'Exige acao', true, false),
+            'target_user_ids' => self::field('json', 'Usuarios destinatarios', true, true, ['editor' => 'textarea']),
+            'target_groups' => self::field('json', 'Grupos destinatarios', true, true, ['editor' => 'textarea']),
+            'link_program_id' => self::field('string', 'Programa vinculado', true, true),
+            'link_screen_id' => self::field('string', 'Screen ID vinculado', true, true),
+            'metadata' => self::field('json', 'Metadata', true, true, ['editor' => 'textarea']),
+            'expires_at' => self::field('datetime', 'Expira em', true, true),
+            'published_at' => self::field('datetime', 'Publicada em', true, true),
+            'created_by' => self::field('string', 'Criada por', false, true),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+        ];
+    }
+
+    private static function notificationRecipientFields(): array
+    {
+        $statusOptions = [
+            ['value' => 'pending', 'text' => 'Pendente'],
+            ['value' => 'delivered', 'text' => 'Entregue'],
+            ['value' => 'read', 'text' => 'Lida'],
+        ];
+        $sourceOptions = [
+            ['value' => 'user', 'text' => 'Usuario'],
+            ['value' => 'group', 'text' => 'Grupo'],
+        ];
+
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'tenant_id' => self::field('string', 'Assinante', false, false),
+            'notification_id' => self::field('integer', 'Notificacao', false, false),
+            'user_id' => self::field('string', 'Usuario', false, false),
+            'user_name' => self::field('string', 'Nome do usuario', false, false),
+            'source_type' => self::field('enum', 'Origem', false, false, ['options' => $sourceOptions]),
+            'source_key' => self::field('string', 'Chave da origem', false, false),
+            'status' => self::field('enum', 'Status', false, false, ['options' => $statusOptions]),
+            'delivered_at' => self::field('datetime', 'Entregue em', false, true),
+            'read_at' => self::field('datetime', 'Lida em', false, true),
             'created_at' => self::field('datetime', 'Criado em', false, false),
             'updated_at' => self::field('datetime', 'Atualizado em', false, false),
         ];

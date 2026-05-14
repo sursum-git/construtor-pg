@@ -537,6 +537,12 @@
       if (url === "/api/home/alerts" && method === "GET") {
         return this.getHomeAlerts(data);
       }
+      if (url === "/api/home/notifications" && (method === "GET" || method === "POST")) {
+        return this.getHomeNotifications(data);
+      }
+      if (url === "/api/home/notifications/ack" && method === "POST") {
+        return this.ackHomeNotifications(data);
+      }
       if (url === "/api/home/requests" && method === "GET") {
         return this.getHomeRequests(data);
       }
@@ -673,6 +679,17 @@
           endpoints: {
             history: { endpointId: "home.aiChat.history", method: "POST" },
             send: { endpointId: "home.aiChat.send", method: "POST" }
+          }
+        },
+        notifications: {
+          enabled: true,
+          title: "Central de notificacoes",
+          buttonTitle: "Abrir central de notificacoes",
+          icon: "bell",
+          pollIntervalSeconds: 20,
+          endpoints: {
+            list: { endpointId: "home.notifications.list", method: "POST" },
+            ack: { endpointId: "home.notifications.ack", method: "POST" }
           }
         },
         alerts: {
@@ -1421,6 +1438,83 @@
           ],
           defaultSort: [{ field: "code", dir: "asc" }, { field: "locale", dir: "asc" }]
         },
+        "admin.notificacoes": {
+          programId: "admin-notificacoes",
+          entity: "runtime_notification",
+          title: "Notificacoes",
+          subtitle: "Cadastro de notificacoes por usuario e grupo, com publicacao e rastreio de leitura.",
+          editable: true,
+          fields: Object.assign({
+            id: f("integer", "ID", false, false, { width: 80 }),
+            tenant_id: f("string", "Assinante", false, false),
+            code: f("string", "Codigo", true, true),
+            title: f("string", "Titulo", true, false),
+            message: f("text", "Mensagem", true, false, { editor: "textarea" }),
+            category: f("string", "Categoria", true, false),
+            severity: f("enum", "Severidade", true, false, { options: [
+              { value: "info", text: "Informacao" },
+              { value: "warning", text: "Aviso" },
+              { value: "error", text: "Erro" },
+              { value: "success", text: "Sucesso" }
+            ] }),
+            status: f("enum", "Status", true, false, { options: [
+              { value: "draft", text: "Rascunho" },
+              { value: "published", text: "Publicada" },
+              { value: "archived", text: "Arquivada" }
+            ] }),
+            action_required: f("boolean", "Exige acao", true, false),
+            target_user_ids: f("json", "Usuarios destinatarios", true, true, { editor: "textarea" }),
+            target_groups: f("json", "Grupos destinatarios", true, true, { editor: "textarea" }),
+            link_program_id: f("string", "Programa vinculado", true, true),
+            link_screen_id: f("string", "Screen ID vinculado", true, true),
+            metadata: f("json", "Metadata", true, true, { editor: "textarea" }),
+            expires_at: f("datetime", "Expira em", true, true),
+            published_at: f("datetime", "Publicada em", true, true),
+            created_by: f("string", "Criada por", false, true)
+          }, commonDates),
+          filters: ["code", "title", "category", "severity", "status"],
+          columns: ["id", "code", "title", "category", "severity", "status", "published_at", "expires_at", "updated_at"],
+          tabs: [
+            { id: "geral", title: "Geral", fields: ["id", "tenant_id", "code", "title", "category", "severity", "status", "action_required"] },
+            { id: "destinatarios", title: "Destinatarios", fields: ["target_user_ids", "target_groups", "link_program_id", "link_screen_id"] },
+            { id: "mensagem", title: "Mensagem", fields: ["message", "metadata"] },
+            { id: "controle", title: "Controle", fields: ["expires_at", "published_at", "created_by", "created_at", "updated_at"] }
+          ],
+          defaultSort: [{ field: "updated_at", dir: "desc" }]
+        },
+        "admin.notificacao-destinatarios": {
+          programId: "admin-notificacao-destinatarios",
+          entity: "runtime_notification_recipient",
+          title: "Destinatarios de Notificacoes",
+          subtitle: "Acompanhamento de entrega e leitura por usuario destinatario.",
+          editable: false,
+          fields: Object.assign({
+            id: f("integer", "ID", false, false, { width: 80 }),
+            tenant_id: f("string", "Assinante", false, false),
+            notification_id: f("integer", "Notificacao", false, false),
+            user_id: f("string", "Usuario", false, false),
+            user_name: f("string", "Nome do usuario", false, false),
+            source_type: f("enum", "Origem", false, false, { options: [
+              { value: "user", text: "Usuario" },
+              { value: "group", text: "Grupo" }
+            ] }),
+            source_key: f("string", "Chave da origem", false, false),
+            status: f("enum", "Status", false, false, { options: [
+              { value: "pending", text: "Pendente" },
+              { value: "delivered", text: "Entregue" },
+              { value: "read", text: "Lida" }
+            ] }),
+            delivered_at: f("datetime", "Entregue em", false, true),
+            read_at: f("datetime", "Lida em", false, true)
+          }, commonDates),
+          filters: ["notification_id", "user_id", "user_name", "source_type", "status"],
+          columns: ["id", "notification_id", "user_id", "user_name", "source_type", "status", "delivered_at", "read_at", "updated_at"],
+          tabs: [
+            { id: "geral", title: "Geral", fields: ["id", "tenant_id", "notification_id", "user_id", "user_name", "source_type", "source_key", "status"] },
+            { id: "entrega", title: "Entrega", fields: ["delivered_at", "read_at", "created_at", "updated_at"] }
+          ],
+          defaultSort: [{ field: "updated_at", dir: "desc" }]
+        },
         "admin.listas-opcoes": {
           programId: "admin-listas-opcoes",
           entity: "system_option_list",
@@ -1659,6 +1753,13 @@
         state[screenId] = this.getDefaultAdminRuntimeRows(screenId);
         this.saveJson(this.adminStorageKey, state);
       }
+      if (screenId === "admin.notificacoes") {
+        this.syncDemoNotificationRecipients(state[screenId]);
+      }
+      if (screenId === "admin.notificacao-destinatarios" && !state[screenId].length) {
+        this.syncDemoNotificationRecipients(state["admin.notificacoes"] || this.getAdminRuntimeRows("admin.notificacoes"));
+        return this.getAdminRuntimeRows(screenId);
+      }
       return state[screenId];
     }
 
@@ -1708,6 +1809,9 @@
       const row = Object.assign({ id: nextId, created_at: now, updated_at: now }, values);
       rows.push(row);
       this.saveAdminRuntimeRows(screenId, rows);
+      if (screenId === "admin.notificacoes") {
+        this.syncDemoNotificationRecipients(rows);
+      }
       return this.decorateAdminRuntimeRow(row, screenId);
     }
 
@@ -1720,14 +1824,21 @@
       }
       rows[index] = Object.assign({}, rows[index], values, { updated_at: this.nowText() });
       this.saveAdminRuntimeRows(screenId, rows);
+      if (screenId === "admin.notificacoes") {
+        this.syncDemoNotificationRecipients(rows);
+      }
       return this.decorateAdminRuntimeRow(rows[index], screenId);
     }
 
     deleteAdminRuntimeRow(screenId, id) {
       const rows = this.getAdminRuntimeRows(screenId).slice();
-      this.saveAdminRuntimeRows(screenId, rows.filter(function(item) {
+      const nextRows = rows.filter(function(item) {
         return String(item.id) !== String(id);
-      }));
+      });
+      this.saveAdminRuntimeRows(screenId, nextRows);
+      if (screenId === "admin.notificacoes") {
+        this.syncDemoNotificationRecipients(nextRows);
+      }
       return { ok: true };
     }
 
@@ -1742,6 +1853,107 @@
 
     nowText() {
       return new Date().toISOString().slice(0, 19).replace("T", " ");
+    }
+
+    syncDemoNotificationRecipients(notificationRows) {
+      const rows = Array.isArray(notificationRows) ? notificationRows.slice() : [];
+      const existing = this.loadJson(this.adminStorageKey) || {};
+      const existingRecipients = Array.isArray(existing["admin.notificacao-destinatarios"]) ? existing["admin.notificacao-destinatarios"] : [];
+      const existingMap = {};
+      existingRecipients.forEach(function(item) {
+        existingMap[String(item.notification_id) + "::" + String(item.user_id)] = item;
+      });
+      const recipientRows = [];
+      let nextId = 1;
+      const activeUsers = this.getDemoActiveUsers();
+      rows.forEach((notification) => {
+        if (!notification || String(notification.status || "").toLowerCase() !== "published") {
+          return;
+        }
+        const targetUsers = this.parseDemoJsonList(notification.target_user_ids);
+        const targetGroups = this.parseDemoJsonList(notification.target_groups);
+        activeUsers.forEach((user) => {
+          const normalizedGroups = (user.groups || []).map(function(item) {
+            return String(item || "").toLowerCase();
+          });
+          const directMatch = targetUsers.indexOf(String(user.id)) >= 0;
+          const matchedGroup = targetGroups.find(function(group) {
+            return normalizedGroups.indexOf(String(group || "").toLowerCase()) >= 0;
+          });
+          if (!directMatch && !matchedGroup) {
+            return;
+          }
+          const existingRecipient = existingMap[String(notification.id) + "::" + String(user.id)] || {};
+          const recipientId = Number(existingRecipient.id) || nextId++;
+          nextId = Math.max(nextId, recipientId + 1);
+          recipientRows.push({
+            id: recipientId,
+            tenant_id: this.tenantId,
+            notification_id: notification.id,
+            user_id: user.id,
+            user_name: user.name,
+            source_type: directMatch ? "user" : "group",
+            source_key: directMatch ? user.id : matchedGroup,
+            status: existingRecipient.status || "pending",
+            delivered_at: existingRecipient.delivered_at || null,
+            read_at: existingRecipient.read_at || null,
+            created_at: existingRecipient.created_at || notification.created_at || this.nowText(),
+            updated_at: existingRecipient.updated_at || notification.updated_at || notification.created_at || this.nowText()
+          });
+        });
+      });
+      this.saveAdminRuntimeRows("admin.notificacao-destinatarios", recipientRows);
+      return recipientRows;
+    }
+
+    getDemoActiveUsers() {
+      const rows = this.getAdminRuntimeRows("admin.usuarios");
+      return rows.filter(function(row) {
+        return String(row.status || "active") === "active";
+      }).map((row) => {
+        return {
+          id: String(row.username || row.user_id || ""),
+          name: String(row.display_name || row.user_name || row.username || ""),
+          groups: this.parseDemoPermissionList(row.groups)
+        };
+      });
+    }
+
+    parseDemoPermissionList(value) {
+      if (Array.isArray(value)) {
+        return value.map(function(item) { return String(item || ""); }).filter(Boolean);
+      }
+      if (!value) {
+        return [];
+      }
+      try {
+        const decoded = JSON.parse(String(value));
+        if (Array.isArray(decoded)) {
+          return decoded.map(function(item) { return String(item || ""); }).filter(Boolean);
+        }
+        if (decoded && Array.isArray(decoded.items)) {
+          return decoded.items.map(function(item) { return String(item || ""); }).filter(Boolean);
+        }
+      } catch (_) {
+      }
+      return [];
+    }
+
+    parseDemoJsonList(value) {
+      if (Array.isArray(value)) {
+        return value.map(function(item) { return String(item || "").trim(); }).filter(Boolean);
+      }
+      if (value == null || value === "") {
+        return [];
+      }
+      try {
+        const decoded = JSON.parse(String(value));
+        return this.parseDemoJsonList(decoded);
+      } catch (_) {
+        return String(value).split(/[,;\n]+/).map(function(item) {
+          return String(item || "").trim();
+        }).filter(Boolean);
+      }
     }
 
     getDefaultAdminRuntimeRows(screenId) {
@@ -1762,6 +1974,51 @@
           { id: 3, code: "validation.title.inconsistencies", locale: "pt-BR", context: "validation", text: "Inconsistencias encontradas", description: "Titulo padrao de validacao.", enabled: true, created_at: now, updated_at: now },
           { id: 4, code: "validation.message.field_required", locale: "pt-BR", context: "validation", text: "{fieldLabel} e obrigatorio.", description: "Mensagem de campo obrigatorio.", enabled: true, created_at: now, updated_at: now }
         ],
+        "admin.notificacoes": [
+          {
+            id: 1,
+            tenant_id: this.tenantId,
+            code: "notif_bem_vindo",
+            title: "Nova central de notificacoes",
+            message: "A Home agora permite acompanhar envio por usuario e grupo, com leitura individual.",
+            category: "Sistema",
+            severity: "info",
+            status: "published",
+            action_required: false,
+            target_user_ids: json([this.userId]),
+            target_groups: json(["admin"]),
+            link_program_id: "admin-literais",
+            link_screen_id: "admin.literais",
+            metadata: json({ source: "demo" }),
+            expires_at: null,
+            published_at: now,
+            created_by: "admin",
+            created_at: now,
+            updated_at: now
+          },
+          {
+            id: 2,
+            tenant_id: this.tenantId,
+            code: "notif_revisar_clientes",
+            title: "Revisar clientes pendentes",
+            message: "Existem cadastros aguardando revisao operacional.",
+            category: "Operacional",
+            severity: "warning",
+            status: "published",
+            action_required: true,
+            target_user_ids: json([]),
+            target_groups: json(["vendas"]),
+            link_program_id: "clientes-crud",
+            link_screen_id: "cadastros.clientes",
+            metadata: json({ source: "demo", priority: "alta" }),
+            expires_at: null,
+            published_at: now,
+            created_by: "admin",
+            created_at: now,
+            updated_at: now
+          }
+        ],
+        "admin.notificacao-destinatarios": [],
         "admin.listas-opcoes": [
           { id: 1, code: "sim_nao", name: "Sim/Nao", description: "Lista demonstrativa.", enabled: true, created_at: now, updated_at: now }
         ],
@@ -1782,6 +2039,20 @@
             status: "active",
             groups: json({ items: ["admin"], default: ["admin.read", "admin.write"] }),
             permissions: json({ all: true }),
+            auth_source: "local",
+            last_login_at: now,
+            created_at: now,
+            updated_at: now
+          },
+          {
+            id: 2,
+            tenant_id: this.tenantId,
+            username: this.userId,
+            display_name: this.userId === "demo" ? "Usuario Demo" : this.userId,
+            email: (this.userId === "demo" ? "demo" : this.userId) + "@example.com",
+            status: "active",
+            groups: json(["vendas"]),
+            permissions: json(["home.read", "clientes.read", "jobs.read"]),
             auth_source: "local",
             last_login_at: now,
             created_at: now,
@@ -2197,6 +2468,10 @@
           return this.getHomeAiChatHistory(data || {});
         case "home.aiChat.send":
           return this.sendHomeAiChatMessage(data || {});
+        case "home.notifications.list":
+          return this.getHomeNotifications(data || {});
+        case "home.notifications.ack":
+          return this.ackHomeNotifications(data || {});
         case "home.alerts.list":
           return this.getHomeAlerts(data || {});
         case "home.requests.list":
@@ -2727,6 +3002,86 @@
           };
         })
       };
+    }
+
+    getHomeNotifications(data) {
+      const includeRead = data && data.includeRead === true;
+      const notifications = this.getAdminRuntimeRows("admin.notificacoes");
+      const recipients = this.getAdminRuntimeRows("admin.notificacao-destinatarios").map((row) => {
+        return Object.assign({}, row);
+      });
+      const currentUserId = String(this.userId || "demo");
+      const merged = [];
+      recipients.forEach((recipient) => {
+        if (String(recipient.user_id || "") !== currentUserId) {
+          return;
+        }
+        if (!includeRead && String(recipient.status || "") === "read") {
+          return;
+        }
+        const notification = notifications.find(function(item) {
+          return String(item.id) === String(recipient.notification_id);
+        });
+        if (!notification || String(notification.status || "").toLowerCase() !== "published") {
+          return;
+        }
+        if (String(recipient.status || "") === "pending") {
+          recipient.status = "delivered";
+          recipient.delivered_at = recipient.delivered_at || new Date().toISOString();
+          recipient.updated_at = new Date().toISOString();
+        }
+        merged.push({
+          id: notification.id,
+          recipientId: recipient.id,
+          title: notification.title,
+          description: notification.message,
+          type: notification.category || "Notificacao",
+          status: String(recipient.status || "") === "read" ? "Lida" : (String(recipient.status || "") === "delivered" ? "Entregue" : "Pendente"),
+          severity: notification.severity || "info",
+          actionRequired: notification.action_required === true,
+          createdAt: notification.created_at ? notification.created_at.replace(" ", "T") : null,
+          updatedAt: (recipient.read_at || recipient.delivered_at || notification.updated_at || notification.created_at || "").replace(" ", "T"),
+          programId: notification.link_program_id || "",
+          screenId: notification.link_screen_id || "",
+          linkText: notification.link_program_id ? "Abrir" : "Detalhar"
+        });
+      });
+      this.saveAdminRuntimeRows("admin.notificacao-destinatarios", recipients);
+      merged.sort((left, right) => {
+        const leftDate = new Date(left.updatedAt || left.createdAt || 0).getTime() || 0;
+        const rightDate = new Date(right.updatedAt || right.createdAt || 0).getTime() || 0;
+        return rightDate - leftDate;
+      });
+      return {
+        items: merged
+      };
+    }
+
+    ackHomeNotifications(data) {
+      const ids = global.CrudUtils.ensureArray(data && (data.ids || (data.id ? [data.id] : []))).map(String);
+      if (!ids.length) {
+        return { ok: true, count: 0 };
+      }
+      const currentUserId = String(this.userId || "demo");
+      const rows = this.getAdminRuntimeRows("admin.notificacao-destinatarios").slice();
+      let count = 0;
+      rows.forEach(function(row) {
+        if (String(row.user_id || "") !== currentUserId) {
+          return;
+        }
+        if (ids.indexOf(String(row.notification_id || "")) === -1) {
+          return;
+        }
+        if (String(row.status || "") !== "read") {
+          row.status = "read";
+          row.read_at = new Date().toISOString();
+          row.delivered_at = row.delivered_at || row.read_at;
+          row.updated_at = row.read_at;
+          count += 1;
+        }
+      });
+      this.saveAdminRuntimeRows("admin.notificacao-destinatarios", rows);
+      return { ok: true, count: count };
     }
 
     printClient(id, format, data) {

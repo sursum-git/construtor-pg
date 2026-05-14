@@ -9,7 +9,7 @@
       engine: "home",
       category: "Home",
       title: "Pagina inicial por JSON",
-      summary: "Monta menu lateral, appbar global, jobs, suporte com contexto do programa corrente e abertura por iframe, CrudEngine, ProcessEngine, programa custom ou HTML sanitizado.",
+      summary: "Monta menu lateral, appbar global, central de notificacoes, jobs, suporte com contexto do programa corrente e abertura por iframe, CrudEngine, ProcessEngine, programa custom ou HTML sanitizado.",
       code: {
         pageType: "home",
         app: {
@@ -84,6 +84,14 @@
               endpoints: {
                 history: "/api/home/ai-chat/history",
                 send: "/api/home/ai-chat/send"
+              }
+            },
+            notifications: {
+              enabled: true,
+              title: "Central de notificacoes",
+              endpoints: {
+                list: { endpointId: "home.notifications.list", method: "POST" },
+                ack: { endpointId: "home.notifications.ack", method: "POST" }
               }
             },
             alerts: {
@@ -1479,6 +1487,13 @@
                   createRequest: { endpointId: "home.support.createRequest", method: "POST" }
                 }
               },
+              notifications: {
+                enabled: true,
+                endpoints: {
+                  list: { endpointId: "home.notifications.list", method: "POST" },
+                  ack: { endpointId: "home.notifications.ack", method: "POST" }
+                }
+              },
               alerts: {
                 enabled: true,
                 endpoints: {
@@ -1710,6 +1725,8 @@
     option("Home", "layout.appbar.aiChat.endpoints.history", "URL | { url, method } | { endpointId, method }", "vazio", "Endpoint opcional para carregar historico inicial do chat de IA. Em producao, usar endpointId ou actionId."),
     option("Home", "layout.appbar.aiChat.endpoints.send", "URL | { url, method } | { endpointId, method }", "obrigatorio quando enabled=true", "Endpoint chamado ao enviar mensagem para a IA. Em producao, usar endpointId ou actionId."),
     option("Home", "layout.appbar.aiChat.bot.id/name", "texto", "ia", "Autor usado nas mensagens de resposta da IA."),
+    option("Home", "layout.appbar.notifications.enabled", "true | false", "false", "Exibe a central de notificacoes no appbar global."),
+    option("Home", "layout.appbar.notifications.endpoints.list", "URL | { url, method } | { endpointId, method }", "vazio", "Endpoint proprio da central de notificacoes. Quando omitido, o motor agrega alerts, requests e jobs habilitados."),
     option("Home", "layout.appbar.alerts.enabled", "true | false", "false", "Exibe o botao de sino para alertas de informacoes recebidas."),
     option("Home", "layout.appbar.alerts.endpoints.list", "URL | { url, method } | { endpointId, method }", "obrigatorio quando enabled=true", "Endpoint que retorna os alertas exibidos em janela. Em producao, usar endpointId ou actionId."),
     option("Home", "layout.appbar.requests.enabled", "true | false", "false", "Exibe o botao de solicitacoes recebidas ou atualizadas."),

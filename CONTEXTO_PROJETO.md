@@ -17,14 +17,14 @@ Decisoes fechadas:
 - jQuery local em `vendor/jquery/jquery-4.0.0.min.js`.
 - Tema atual principal: `kendo/styles/default-urban.css`.
 - Existe backend inicial em `backend/` com Symfony, API Platform, PostgreSQL, runtime por metadados, auditoria, fila, sessao, autenticacao, permissoes reais por tela/acao, selecao de assinante, manter logado e escolha de area para administrador.
-- Existem telas administrativas runtime para parametros, sessoes, transacoes, logs de transacoes e jobs.
-- Existem telas administrativas runtime para parametros, literais/traducoes, sessoes, transacoes, logs de transacoes e jobs.
+- Existem telas administrativas runtime para parametros, literais/traducoes, notificacoes, destinatarios de notificacoes, sessoes, transacoes, logs de transacoes e jobs.
 - As demos ainda podem usar dados mockados em memoria por `DemoMockHttpClient`.
 - A pasta `kendo/` nao deve ser alterada.
 
 Paginas principais:
 
 - `home.html`: demo de pagina inicial por JSON, com appbar, seletor de sistema/modulo, Kendo TreeView lateral e abertura de programas.
+- a Home agora tambem pode exibir central de notificacoes no appbar, com endpoint proprio ou agregacao de `alerts`, `requests` e `jobs`. Quando houver endpoint dedicado, o backend ja suporta notificacoes por usuario/grupo e marcacao de leitura por destinatario.
 - `login.html`: demo visual de login com appbar, logo, lembrar acesso, selecao simulada de assinante, escolha de area para administrador e recuperacao de senha.
 - `index.html`: demo principal de clientes.
 - `exemplos.html`: indice central de exemplos.
@@ -41,6 +41,8 @@ Paginas principais:
 - `production/login.html`: entrada de producao para login, manter logado, selecao de assinante, escolha de area para administrador e recuperacao de senha.
 - `production/program-builder.html`: entrada da interface visual do construtor ligada ao backend real.
 - `production/app.html?screenId=admin.literais`: tela administrativa para manter literais e traducoes por locale, carregadas pelo frontend via bundle runtime com fallback para o dicionario pt-BR embutido.
+- `production/app.html?screenId=admin.notificacoes`: tela administrativa para cadastrar notificacoes runtime por usuario ou grupo.
+- `production/app.html?screenId=admin.notificacao-destinatarios`: tela administrativa para acompanhar entrega e leitura por destinatario.
 
 Arquivos de configuracao e dados:
 

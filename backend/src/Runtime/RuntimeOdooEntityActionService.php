@@ -36,6 +36,7 @@ class RuntimeOdooEntityActionService
     private function read(array $definition, array $payload): array
     {
         $startedAt = microtime(true);
+        $session = $this->odoo->openSession($definition['odoo']);
         $skip = max(0, (int) ($payload['skip'] ?? 0));
         $take = max(1, min(500, (int) ($payload['take'] ?? $payload['pageSize'] ?? ($definition['odoo']['defaultLimit'] ?? 80))));
         $domain = $this->mergeDomains(
@@ -44,7 +45,7 @@ class RuntimeOdooEntityActionService
         );
         $order = $this->translateSortToOrder($payload['sort'] ?? [], $definition['fieldsByCode'], (string) ($definition['odoo']['defaultOrder'] ?? ''));
         $fields = array_values(array_unique(array_map(static fn (array $field): string => (string) $field['jsonPath'], $definition['fields'])));
-        $records = $this->odoo->searchRead($definition['odoo'], [
+        $records = $this->odoo->searchReadWithSession($session, [
             'domain' => $domain,
             'fields' => $fields,
             'offset' => $skip,
@@ -52,7 +53,7 @@ class RuntimeOdooEntityActionService
             'order' => $order,
             'context' => $definition['odoo']['defaultContext'] ?? [],
         ]);
-        $total = $this->odoo->searchCount($definition['odoo'], $domain, $definition['odoo']['defaultContext'] ?? []);
+        $total = $this->odoo->searchCountWithSession($session, $domain, $definition['odoo']['defaultContext'] ?? []);
         $rows = array_map(fn (mixed $item): array => $this->mapItem($definition, is_array($item) ? $item : []), is_array($records) ? $records : []);
 
         $this->transactions->log($definition['entityCode'] . '.odoo.read', 'Consulta Odoo executada.', metadata: [
@@ -73,9 +74,10 @@ class RuntimeOdooEntityActionService
     private function get(array $definition, array $payload): array
     {
         $startedAt = microtime(true);
+        $session = $this->odoo->openSession($definition['odoo']);
         $id = $this->extractRecordId($definition, $payload);
         $fields = array_values(array_unique(array_map(static fn (array $field): string => (string) $field['jsonPath'], $definition['fields'])));
-        $records = $this->odoo->read($definition['odoo'], [(int) $id], $fields, $definition['odoo']['defaultContext'] ?? []);
+        $records = $this->odoo->readWithSession($session, [(int) $id], $fields, $definition['odoo']['defaultContext'] ?? []);
         $record = is_array($records) && isset($records[0]) && is_array($records[0]) ? $records[0] : null;
         if (!$record) {
             throw new RuntimeHttpException('ODOO_RECORD_NOT_FOUND', 'Registro Odoo nao encontrado.', 404, [

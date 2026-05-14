@@ -126,6 +126,8 @@ class RuntimeEndpointDispatcher
             'home.support.requestStatus' => $this->home->handle('supportRequestStatus', $payload),
             'home.aiChat.history' => $this->home->handle('aiHistory', $payload),
             'home.aiChat.send' => $this->home->handle('aiSend', $payload),
+            'home.notifications.list' => $this->home->handle('notifications', $payload),
+            'home.notifications.ack' => $this->home->handle('notificationsAck', $payload),
             'home.alerts.list' => $this->home->handle('alerts', $payload),
             'home.requests.list' => $this->home->handle('requests', $payload),
             'home.subscriber.change' => $this->home->handle('subscriberChange', $payload),

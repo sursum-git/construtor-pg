@@ -152,9 +152,11 @@
       this.validateChatConfig(appbar.chat || definition.chat, errors);
       this.validateSupportConfig(appbar.support || definition.support, errors);
       this.validateAiChatConfig(appbar.aiChat || appbar.iaChat || definition.aiChat || definition.iaChat, errors);
+      this.validateAppbarListConfig(appbar.notifications || definition.notifications, "layout.appbar.notifications", errors);
       this.validateAppbarListConfig(appbar.alerts || definition.alerts, "layout.appbar.alerts", errors);
       this.validateAppbarListConfig(appbar.requests || definition.requests, "layout.appbar.requests", errors);
       this.validateAppbarListConfig(appbar.jobs || definition.jobs, "layout.appbar.jobs", errors);
+      this.validateNotificationsAggregation(appbar, definition, errors);
       this.validateSubscriberSwitchConfig(appbar.subscriberSwitch || definition.subscriberSwitch, errors);
       global.CrudUtils.ensureArray(appbar.userMenu && appbar.userMenu.items).forEach((item, index) => {
         const label = "layout.appbar.userMenu.items[" + index + "]";
@@ -380,7 +382,25 @@
       });
 
       const endpoints = config.endpoints || {};
-      this.validateListEndpoint(endpoints.list || config.listUrl || config.url, label + ".endpoints.list", errors, config.enabled === true);
+      const required = label !== "layout.appbar.notifications" ? config.enabled === true : false;
+      this.validateListEndpoint(endpoints.list || config.listUrl || config.url, label + ".endpoints.list", errors, required);
+      if (label === "layout.appbar.notifications") {
+        this.validateListEndpoint(endpoints.ack || config.ackUrl, label + ".endpoints.ack", errors, false);
+      }
+    }
+
+    validateNotificationsAggregation(appbar, definition, errors) {
+      const notifications = appbar.notifications || definition.notifications;
+      if (!notifications || notifications.enabled !== true) {
+        return;
+      }
+      const hasOwnEndpoint = Boolean((notifications.endpoints && notifications.endpoints.list) || notifications.listUrl || notifications.url);
+      const hasSource = [appbar.alerts || definition.alerts, appbar.requests || definition.requests, appbar.jobs || definition.jobs].some(function(config) {
+        return Boolean(config && config.enabled === true && ((config.endpoints && config.endpoints.list) || config.listUrl || config.url));
+      });
+      if (!hasOwnEndpoint && !hasSource) {
+        errors.push("layout.appbar.notifications precisa informar um endpoint proprio ou habilitar alerts, requests ou jobs com endpoint de lista.");
+      }
     }
 
     validateListEndpoint(endpoint, label, errors, required) {
@@ -597,6 +617,7 @@
       inspect(appbar.chat || definition.chat, "layout.appbar.chat");
       inspect(appbar.support || definition.support, "layout.appbar.support");
       inspect(appbar.aiChat || appbar.iaChat || definition.aiChat || definition.iaChat, "layout.appbar.aiChat");
+      inspect(appbar.notifications || definition.notifications, "layout.appbar.notifications");
       inspect(appbar.alerts || definition.alerts, "layout.appbar.alerts");
       inspect(appbar.requests || definition.requests, "layout.appbar.requests");
       inspect(appbar.jobs || definition.jobs, "layout.appbar.jobs");

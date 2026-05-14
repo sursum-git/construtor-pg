@@ -286,18 +286,20 @@
           type: "Home Engine",
           route: "../../home.html",
           screenId: "home.producao",
-          summary: "Shell principal da aplicacao. Exibe appbar, menu lateral, favoritos, suporte, chat, jobs e abre programas do sistema.",
+          summary: "Shell principal da aplicacao. Exibe appbar, menu lateral, favoritos, notificacoes, suporte, chat, jobs e abre programas do sistema.",
           functional: {
             objective: "Centralizar a navegacao do usuario e o contexto global de execucao dos programas.",
             scope: [
               "Escolha de sistema/modulo.",
               "Menu lateral em TreeView.",
-              "Abertura de programas `crud`, `process`, `custom`, `iframe` e `html`."
+              "Abertura de programas `crud`, `process`, `custom`, `iframe` e `html`.",
+              "Central de notificacoes com leitura por destinatario quando houver endpoint dedicado."
             ],
             outputs: [
               "Programa corrente aberto na area central.",
               "Contexto de assinante e usuario visivel na appbar.",
-              "Alertas, solicitacoes e jobs acessiveis pelo cabecalho."
+              "Alertas, solicitacoes e jobs acessiveis pelo cabecalho.",
+              "Notificacoes pendentes e lidas acompanhadas pela appbar."
             ]
           },
           operational: {
@@ -308,17 +310,20 @@
             steps: [
               "Selecionar modulo quando houver mais de um.",
               "Abrir programa pelo menu lateral.",
+              "Abrir a central de notificacoes quando houver badge no appbar.",
+              "Marcar notificacoes como lidas ou abrir o programa relacionado.",
               "Usar favoritos e filtros para localizar programas.",
               "Usar o menu do usuario para sair ou abrir preferencias."
             ],
             cautions: [
               "Em producao, programas devem abrir por `screenId` e `endpointId`.",
-              "Programas abertos dentro da Home nao devem duplicar cabecalho interno."
+              "Programas abertos dentro da Home nao devem duplicar cabecalho interno.",
+              "Sem endpoint dedicado, a central pode cair para a agregacao visual de `alerts`, `requests` e `jobs`."
             ]
           },
           references: {
             permissions: ["home.read"],
-            relatedPrograms: ["Clientes", "Processamento", "Meus Jobs", "Programa custom"],
+            relatedPrograms: ["Clientes", "Processamento", "Meus Jobs", "Administracao de notificacoes", "Programa custom"],
             notes: ["Tela local: ../../home.html", "Entrada de producao: ../../production/home.html?screenId=home.producao"]
           }
         },
@@ -563,6 +568,89 @@
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Administracao de parametros"],
             notes: ["Exemplo local: ../../examples/pages/admin-literais.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.literais"]
+          }
+        },
+        "admin-notificacoes": {
+          title: "Administracao de notificacoes",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../production/app.html?screenId=admin.notificacoes",
+          screenId: "admin.notificacoes",
+          summary: "Mantem notificacoes runtime com publico por usuario e grupo, status de publicacao e vinculo opcional com programa ou tela.",
+          functional: {
+            objective: "Permitir cadastro e publicacao de notificacoes operacionais ou funcionais sem depender de dado mockado na Home.",
+            scope: [
+              "Cadastro do cabecalho da notificacao.",
+              "Definicao de destinatarios por usuario e grupo.",
+              "Controle de status de rascunho e publicado.",
+              "Vinculo opcional com programa ou `screenId`."
+            ],
+            outputs: [
+              "Notificacao persistida no backend.",
+              "Destinatarios materializados em `runtime_notification_recipient` quando a notificacao for publicada.",
+              "Item disponivel para a central de notificacoes da Home."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa.",
+              "Usuarios e grupos ja cadastrados no sistema."
+            ],
+            steps: [
+              "Criar a notificacao com titulo, mensagem, categoria e severidade.",
+              "Informar usuarios e/ou grupos alvo.",
+              "Opcionalmente vincular um programa ou `screenId` de destino.",
+              "Publicar a notificacao e validar o reflexo na Home."
+            ],
+            cautions: [
+              "Notificacao publicada sem destinatario valido deve ser bloqueada pelo backend.",
+              "Alterar publico ou status reprocessa a lista de destinatarios."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Destinatarios de notificacoes", "Home", "Administracao de usuarios", "Permissoes"],
+            notes: ["Entrada de producao: ../../production/app.html?screenId=admin.notificacoes"]
+          }
+        },
+        "admin-notificacao-destinatarios": {
+          title: "Destinatarios de notificacoes",
+          module: "Administracao",
+          type: "CRUD somente consulta",
+          route: "../../production/app.html?screenId=admin.notificacao-destinatarios",
+          screenId: "admin.notificacao-destinatarios",
+          summary: "Acompanha entrega e leitura por destinatario das notificacoes runtime publicadas.",
+          functional: {
+            objective: "Dar visibilidade de quem recebeu, abriu ou leu cada notificacao.",
+            scope: [
+              "Consulta por notificacao, usuario, origem e status.",
+              "Rastreamento de `pending`, `delivered` e `read`.",
+              "Analise de datas de entrega e leitura."
+            ],
+            outputs: [
+              "Lista de destinatarios gerados para cada notificacao publicada.",
+              "Historico de leitura por destinatario."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Notificacoes publicadas no backend.",
+              "Permissao administrativa de consulta."
+            ],
+            steps: [
+              "Filtrar pela notificacao ou pelo usuario.",
+              "Conferir o status atual do destinatario.",
+              "Usar a data de leitura para confirmar que a notificacao foi consumida."
+            ],
+            cautions: [
+              "A tela e de consulta; manutencao do publico fica em `admin.notificacoes`.",
+              "O status pode mudar automaticamente quando a Home listar ou marcar a notificacao como lida."
+            ]
+          },
+          references: {
+            permissions: ["admin.read"],
+            relatedPrograms: ["Administracao de notificacoes", "Home"],
+            notes: ["Entrada de producao: ../../production/app.html?screenId=admin.notificacao-destinatarios"]
           }
         },
         "admin-usuarios": {
@@ -843,16 +931,17 @@
       };
 
       const architecture = {
-        overview: "O sistema usa frontend em HTML simples com Kendo UI for jQuery e jQuery local. O backend Symfony entrega metadados, endpoints runtime, telas administrativas, persistencia, autenticacao, permissoes, locks, logs, fila, catalogo de literais, integracoes e publicacao do builder.",
+        overview: "O sistema usa frontend em HTML simples com Kendo UI for jQuery e jQuery local. O backend Symfony entrega metadados, endpoints runtime, telas administrativas, persistencia, autenticacao, permissoes, locks, logs, fila, catalogo de literais, notificacoes por destinatario, integracoes e publicacao do builder.",
         rendering: [
           "O backend decide e devolve definicoes por `screenId` ou arquivos de exemplo na camada local.",
           "O frontend renderiza a tela com motores fechados por tipo de pagina.",
           "O runtime seguro de producao resolve `endpointId` e `documentId`, evitando URL livre.",
-          "Mensagens e titulos podem vir por `titleKey/titleParams` e `messageKey/messageParams`, resolvidos pelo catalogo de literais runtime com fallback pt-BR embutido."
+          "Mensagens e titulos podem vir por `titleKey/titleParams` e `messageKey/messageParams`, resolvidos pelo catalogo de literais runtime com fallback pt-BR embutido.",
+          "A Home pode consumir notificacoes reais por `home.notifications.list` e confirmar leitura por `home.notifications.ack`."
         ],
         engines: [
           { name: "CrudEngine", role: "Renderiza grid, filtro, formulario, acoes de linha, runtime de lock, mensagens e preferencias do usuario." },
-          { name: "HomeEngine", role: "Monta o shell global com appbar, menu lateral, favoritos, jobs, suporte e abertura de programas." },
+          { name: "HomeEngine", role: "Monta o shell global com appbar, menu lateral, favoritos, notificacoes, jobs, suporte e abertura de programas." },
           { name: "ProcessEngine", role: "Executa processos por parametros, acompanha status e mostra grid, mensagem, documento ou job." },
           { name: "CustomPageEngine", role: "Abre programas manuais/custom registrados no catalogo runtime." },
           { name: "Program Builder", role: "Editor visual para modulos, entidades, programas, APIs, Odoo, IA, import/export, literais e publicacao." }
@@ -868,7 +957,8 @@
           "Assistente interno de IA com rascunho validado.",
           "Catalogo inicial de importacao/exportacao com CSV e TXT plano ou hierarquico.",
           "Catalogo administrativo de literais e traducoes por locale.",
-          "Mensagens de validacao e regra por chave, com parametros substituiveis no frontend."
+          "Mensagens de validacao e regra por chave, com parametros substituiveis no frontend.",
+          "Notificacoes runtime por usuario e grupo, com entrega e leitura por destinatario."
         ],
         constraints: [
           "Nao aceita JavaScript vindo do JSON.",
@@ -885,6 +975,8 @@
           { id: "admin-parametros", text: "Parametros" },
           { id: "admin-parametro-valores", text: "Valores de parametros" },
           { id: "admin-literais", text: "Literais e traducoes" },
+          { id: "admin-notificacoes", text: "Administracao de notificacoes" },
+          { id: "admin-notificacao-destinatarios", text: "Destinatarios de notificacoes" },
           { id: "admin-usuarios", text: "Usuarios" },
           { id: "admin-usuario-assinantes", text: "Usuarios por assinante" },
           { id: "admin-permissoes", text: "Permissoes" },

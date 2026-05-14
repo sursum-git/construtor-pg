@@ -133,6 +133,16 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - entidade `system_literal_translation`;
   - rota runtime `GET /api/runtime/literals/{locale}`;
   - o frontend carrega esse bundle pela configuracao `config.literals` e faz merge sobre o dicionario pt-BR embutido.
+- existe agora tambem um modulo real de notificacoes runtime:
+  - telas `admin.notificacoes` e `admin.notificacao-destinatarios`;
+  - tabelas `runtime_notification` e `runtime_notification_recipient`;
+  - envio por `target_user_ids` e `target_groups`;
+  - rastreio de `pending`, `delivered` e `read` por destinatario;
+  - endpoints da Home:
+    - `home.notifications.list`
+    - `home.notifications.ack`
+  - a Home mostra as notificacoes no appbar e permite `Marcar como lida`.
+  - a demo mock agora tambem preserva o estado de leitura por destinatario ao recarregar os dados administrativos, em vez de recriar tudo como pendente.
 - validacao real mais recente desta frente:
   - migration `Version20260512100000` aplicada;
   - `POST /api/admin/program-builder/api-sources/import-openapi` validado contra OpenAPI local servido em `http://127.0.0.1:8765/tmp/openapi-api-source-test.json`;
@@ -316,6 +326,7 @@ Implementado ate agora, em nivel demo/frontend:
 - Atendimento opcional no appbar da pagina inicial, com selecao de setor, chat quando houver atendente online no setor, solicitacao com setor travado quando nao houver disponibilidade e contexto do programa corrente nas chamadas.
 - Chat de IA opcional no appbar da pagina inicial, usando Kendo Chat sem selecao de usuario e endpoints configurados no JSON.
 - Alertas e solicitacoes opcionais no appbar da pagina inicial, com botoes compactos e janelas Kendo alimentadas por endpoints configurados no JSON.
+- A Home agora tambem pode expor uma central de notificacoes no appbar, com badge proprio e lista agregada de `alerts`, `requests` e `jobs` quando nao houver endpoint dedicado.
 - Pagina de exemplos com PanelBar e aba de configuracao por exemplo.
 - Theme builder com preview.
 - Guia PDF para orientar outra IA a padronizar projeto Kendo/PHP/Symfony.

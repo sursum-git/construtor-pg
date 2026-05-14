@@ -20,6 +20,7 @@ class RuntimeEntityActionService
         private readonly RuntimeConfiguredRuleExecutor $configuredRules,
         private readonly RuntimeSituationService $situations,
         private readonly BuilderAiSettingsService $builderAiSettings,
+        private readonly RuntimeNotificationService $notifications,
     ) {
     }
 
@@ -87,6 +88,10 @@ class RuntimeEntityActionService
     private function create(array $definition, array $payload, string $actionId): array
     {
         $values = $this->extractValues($definition, $payload, true);
+        if ($definition['entityCode'] === 'runtime_notification') {
+            $values = $this->notifications->prepareValues($values, true);
+            $this->notifications->validateValues($values);
+        }
         $values = $this->situations->applyCreateDefaults($definition, $values);
         $context = $this->newRuleContext($definition, 'create', $actionId, $payload, $values);
         $this->rules->beforeValidate($context);
@@ -141,6 +146,9 @@ class RuntimeEntityActionService
             $after['_runtime']['entityVersionRevision'] = $entityVersion->getRevision();
         }
         $context->setAfter($after);
+        if ($definition['entityCode'] === 'runtime_notification') {
+            $this->notifications->syncRecipients((int) $id);
+        }
         $this->situations->logTransition($definition, $situationTransition, [], $after);
         $this->transactions->log($definition['entityCode'] . '.create', 'Registro incluido pelo runtime generico.', after: $after, metadata: [
             'entityCode' => $definition['entityCode'],
@@ -162,6 +170,10 @@ class RuntimeEntityActionService
         $this->locks->validateWriteLock($definition['entityCode'], $id, 'update', $payload);
         $this->concurrency->assertExpectedVersion($definition['entityCode'], 'update', $before['_runtime']['version'] ?? null, $payload);
         $values = $this->extractValues($definition, $payload, false);
+        if ($definition['entityCode'] === 'runtime_notification') {
+            $values = $this->notifications->prepareValues($values, false);
+            $this->notifications->validateValues(array_replace($before, $values));
+        }
         $context = $this->newRuleContext($definition, 'update', $actionId, $payload, $values, $before);
         $this->rules->beforeValidate($context);
         $values = $context->getValues();
@@ -212,6 +224,9 @@ class RuntimeEntityActionService
             $after['_runtime']['entityVersionRevision'] = $entityVersion->getRevision();
         }
         $context->setAfter($after);
+        if ($definition['entityCode'] === 'runtime_notification') {
+            $this->notifications->syncRecipients((int) $id);
+        }
         $this->situations->logTransition($definition, $situationTransition, $before, $after);
         $this->transactions->log($definition['entityCode'] . '.update', 'Registro alterado pelo runtime generico.', before: $before, after: $after, metadata: [
             'entityCode' => $definition['entityCode'],
@@ -242,6 +257,9 @@ class RuntimeEntityActionService
         $this->connection->delete($definition['tableName'], [
             $definition['primaryColumn'] => $id,
         ]);
+        if ($definition['entityCode'] === 'runtime_notification') {
+            $this->notifications->deleteRecipients((int) $id);
+        }
         $this->transactions->log($definition['entityCode'] . '.delete', 'Registro excluido pelo runtime generico.', before: $before, metadata: [
             'entityCode' => $definition['entityCode'],
             'confirmationToken' => $payload['_runtime']['validationConfirmationToken'] ?? null,

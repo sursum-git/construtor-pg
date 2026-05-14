@@ -91,6 +91,8 @@ class SeedRuntimeMetadataCommand extends Command
         'home.support.requestStatus' => 'home.support.requestStatus',
         'home.aiChat.history' => 'home.aiChat.history',
         'home.aiChat.send' => 'home.aiChat.send',
+        'home.notifications.list' => 'home.notifications.list',
+        'home.notifications.ack' => 'home.notifications.ack',
         'home.alerts.list' => 'home.alerts.list',
         'home.requests.list' => 'home.requests.list',
         'home.subscriber.change' => 'home.subscriber.change',

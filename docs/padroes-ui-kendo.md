@@ -58,6 +58,8 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - Quando `layout.appbar.support.enabled=true`, a appbar global deve exibir botao compacto de atendimento; a janela deve ter ComboBox de setor, abrir chat quando houver atendente online no setor selecionado e exibir formulario de solicitacao com setor travado quando nao houver disponibilidade.
 - Ao clicar no suporte, a janela e as APIs devem receber o programa corrente no contexto para permitir atendimento de erro por codigo de programa.
 - Quando `layout.appbar.aiChat.enabled=true`, a appbar global deve exibir outro botao compacto para chat de IA, sem ComboBox de destinatario.
+- Quando `layout.appbar.notifications.enabled=true`, a appbar global deve exibir botao compacto para a central de notificacoes. Se nao houver endpoint proprio, a central pode agregar `alerts`, `requests` e `jobs` habilitados.
+- Quando houver endpoint proprio, a central deve aceitar `list` e opcionalmente `ack`, para permitir marcacao de leitura por destinatario sem sair da janela.
 - Quando `layout.appbar.alerts.enabled=true`, a appbar global deve exibir botao compacto de sino e abrir alertas em janela.
 - Quando `layout.appbar.requests.enabled=true`, a appbar global deve exibir botao compacto de solicitacoes e abrir solicitacoes em janela.
 - Quando `layout.appbar.jobs.enabled=true`, a appbar global deve exibir botao compacto de jobs concluidos, com badge de quantidade e janela/lista apontando para "Meus Jobs" quando houver `programId`.

@@ -2,15 +2,10 @@
 
 namespace App\ImportExport;
 
-use App\Entity\BuilderEntity;
 use App\Entity\ImportExportMapping;
-use App\Repository\BuilderEntityRepository;
 use App\Repository\ImportExportMappingRepository;
 use App\Runtime\PermissionResolver;
-use App\Runtime\RuntimeApiEntityActionService;
-use App\Runtime\RuntimeEntityActionService;
 use App\Runtime\RuntimeHttpException;
-use App\Runtime\RuntimeOdooEntityActionService;
 use App\Runtime\RuntimeTransactionService;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -18,11 +13,12 @@ class ImportExportMappingService
 {
     public function __construct(
         private readonly ImportExportMappingRepository $mappings,
-        private readonly BuilderEntityRepository $entities,
         private readonly EntityManagerInterface $entityManager,
-        private readonly RuntimeEntityActionService $runtimeEntities,
-        private readonly RuntimeApiEntityActionService $runtimeApis,
-        private readonly RuntimeOdooEntityActionService $runtimeOdoo,
+        private readonly ImportExportEncodingHelper $encodingHelper,
+        private readonly ImportExportValueMapper $valueMapper,
+        private readonly ImportExportTxtLayoutRenderer $txtLayoutRenderer,
+        private readonly ImportExportSourceLoader $sourceLoader,
+        private readonly ImportExportDestinationWriter $destinationWriter,
         private readonly RuntimeTransactionService $transactions,
         private readonly PermissionResolver $permissions,
     ) {
@@ -96,7 +92,7 @@ class ImportExportMappingService
     {
         $startedAt = microtime(true);
         $normalized = $config['mapping'];
-        $sources = $this->loadSources($normalized, $parameters, $preview);
+        $sources = $this->sourceLoader->loadSources($normalized, $parameters, $preview);
         $destination = $normalized['destination'];
         $diagnostics = [];
         $counts = [
@@ -120,7 +116,7 @@ class ImportExportMappingService
                 'mimeType' => $fileResult['mimeType'],
                 'content' => $fileResult['content'],
                 'contentBase64' => base64_encode($fileResult['content']),
-                'previewText' => mb_substr($fileResult['content'], 0, 4000),
+                'previewText' => mb_substr((string) ($fileResult['previewText'] ?? $fileResult['content']), 0, 4000),
             ];
         }
 
@@ -162,8 +158,8 @@ class ImportExportMappingService
         $records = [];
         foreach ($source['records'] as $index => $record) {
             try {
-                $mapped = $this->mapRecord($record, $mapping['fieldMappings']);
-                $action = $this->resolveDestinationAction($destination, $mapped);
+                $mapped = $this->valueMapper->mapRecord($record, $mapping['fieldMappings']);
+                $action = $this->destinationWriter->resolveDestinationAction($destination, $mapped);
                 if ($preview || !$persist) {
                     $records[] = [
                         'action' => $action['operation'],
@@ -171,7 +167,7 @@ class ImportExportMappingService
                     ];
                     continue;
                 }
-                $saved = $this->executeDestinationOperation($destination['entityCode'], $action['operation'], $action['record']);
+                $saved = $this->destinationWriter->executeDestinationOperation($destination['entityCode'], $action['operation'], $action['record']);
                 $records[] = [
                     'action' => $action['operation'],
                     'record' => $saved,
@@ -218,18 +214,19 @@ class ImportExportMappingService
         $delimiter = (string) ($destination['delimiter'] ?? ';');
         $quote = (string) ($destination['quote'] ?? '"');
         $includeHeader = ($destination['includeHeader'] ?? true) !== false;
+        $encoding = $this->encodingHelper->normalizeEncodingLabel((string) ($destination['encodingLabel'] ?? 'UTF-8'));
         $lines = [];
         if ($includeHeader) {
             $lines[] = implode($delimiter, array_map(function (array $column) use ($quote): string {
-                return $this->escapeDelimited((string) ($column['header'] ?? $column['targetName'] ?? $column['sourcePath'] ?? ''), $quote);
+                return $this->valueMapper->escapeDelimited((string) ($column['header'] ?? $column['targetName'] ?? $column['sourcePath'] ?? ''), $quote);
             }, $columns));
         }
         foreach ($sources[0]['records'] as $record) {
             $row = [];
             foreach ($columns as $column) {
-                $value = $this->extractValue($record, (string) ($column['sourcePath'] ?? ''));
-                $value = $this->applyTransforms($value, $column['transforms'] ?? []);
-                $row[] = $this->escapeDelimited($this->stringifyValue($value), $quote);
+                $value = $this->valueMapper->extractValue($record, (string) ($column['sourcePath'] ?? ''));
+                $value = $this->valueMapper->applyTransforms($value, $column['transforms'] ?? []);
+                $row[] = $this->valueMapper->escapeDelimited($this->valueMapper->stringifyValue($value), $quote);
             }
             $lines[] = implode($delimiter, $row);
             if ($preview && count($lines) >= 11) {
@@ -237,633 +234,18 @@ class ImportExportMappingService
             }
         }
 
+        $contentUtf8 = implode("\r\n", $lines) . "\r\n";
         return [
-            'fileName' => $this->resolveFileName($destination['fileNamePattern'] ?? 'export.csv', 'csv'),
-            'mimeType' => 'text/csv; charset=UTF-8',
-            'content' => implode("\r\n", $lines) . "\r\n",
+            'fileName' => $this->valueMapper->resolveFileName($destination['fileNamePattern'] ?? 'export.csv', 'csv'),
+            'mimeType' => 'text/csv; charset=' . $encoding,
+            'content' => $this->encodingHelper->encodeOutput($contentUtf8, $encoding),
+            'previewText' => $contentUtf8,
         ];
     }
 
     private function buildTxtLayout(array $mapping, array $sources, bool $preview): array
     {
-        $destination = $mapping['destination'];
-        $recordLayouts = is_array($destination['recordLayouts'] ?? null) ? $destination['recordLayouts'] : [];
-        if (!$recordLayouts) {
-            throw new RuntimeHttpException('IMPORT_EXPORT_TXT_LAYOUT_REQUIRED', 'Informe os leiautes do TXT.', 422);
-        }
-        $sourceMap = [];
-        foreach ($sources as $source) {
-            $sourceMap[$source['alias']] = $source;
-        }
-        $lines = [];
-        $limit = $preview ? max(1, (int) ($mapping['options']['previewLimit'] ?? 20)) : PHP_INT_MAX;
-        $this->renderTxtLayoutNodes($recordLayouts, $sourceMap, null, $lines, $limit);
-
-        $lineBreak = (string) ($destination['lineBreak'] ?? "\r\n");
-        return [
-            'fileName' => $this->resolveFileName($destination['fileNamePattern'] ?? 'export.txt', 'txt'),
-            'mimeType' => 'text/plain; charset=UTF-8',
-            'content' => implode($lineBreak, $lines) . $lineBreak,
-        ];
-    }
-
-    private function renderTxtLayoutNodes(array $layouts, array $sourceMap, ?array $parentRecord, array &$lines, int $limit): void
-    {
-        foreach ($layouts as $layout) {
-            if (count($lines) >= $limit) {
-                return;
-            }
-            if (!is_array($layout)) {
-                continue;
-            }
-            $this->renderTxtLayoutNode($layout, $sourceMap, $parentRecord, $lines, $limit);
-        }
-    }
-
-    private function renderTxtLayoutNode(array $layout, array $sourceMap, ?array $parentRecord, array &$lines, int $limit): void
-    {
-        $nodeType = strtolower(trim((string) ($layout['nodeType'] ?? 'record')));
-        $children = is_array($layout['children'] ?? null) ? $layout['children'] : [];
-
-        if ($nodeType === 'group') {
-            $this->renderTxtLayoutNodes($children, $sourceMap, $parentRecord, $lines, $limit);
-            return;
-        }
-
-        if ($nodeType === 'totalizer') {
-            $records = $this->resolveTxtNodeRecords($layout, $sourceMap, $parentRecord);
-            $summaryRecord = $this->buildTxtSummaryRecord($layout, $records, $parentRecord);
-            if (!empty($layout['fields'])) {
-                $lines[] = $this->renderTxtLine($summaryRecord, $layout);
-            }
-            if (count($lines) >= $limit) {
-                return;
-            }
-            if ($children) {
-                $this->renderTxtLayoutNodes($children, $sourceMap, $summaryRecord, $lines, $limit);
-            }
-            return;
-        }
-
-        $records = $this->resolveTxtNodeRecords($layout, $sourceMap, $parentRecord);
-        foreach ($records as $record) {
-            if (count($lines) >= $limit) {
-                return;
-            }
-            $decorated = $this->decorateTxtRecord($record, $parentRecord);
-            if (!empty($layout['fields'])) {
-                $lines[] = $this->renderTxtLine($decorated, $layout);
-            }
-            if (count($lines) >= $limit) {
-                return;
-            }
-            if ($children) {
-                $this->renderTxtLayoutNodes($children, $sourceMap, $decorated, $lines, $limit);
-            }
-        }
-    }
-
-    private function resolveTxtNodeRecords(array $layout, array $sourceMap, ?array $parentRecord): array
-    {
-        $alias = trim((string) ($layout['sourceAlias'] ?? $layout['sourceEntityCode'] ?? ''));
-        if ($alias === '') {
-            throw new RuntimeHttpException('IMPORT_EXPORT_TXT_SOURCE_NOT_FOUND', 'No de leiaute TXT precisa informar sourceAlias.', 422, [
-                'recordType' => $layout['recordType'] ?? null,
-                'nodeType' => $layout['nodeType'] ?? 'record',
-            ]);
-        }
-        $source = $sourceMap[$alias] ?? null;
-        if (!$source) {
-            throw new RuntimeHttpException('IMPORT_EXPORT_TXT_SOURCE_NOT_FOUND', 'Leiaute TXT referencia uma fonte inexistente.', 422, [
-                'sourceAlias' => $alias,
-            ]);
-        }
-
-        $records = is_array($source['records'] ?? null) ? $source['records'] : [];
-        $linkBy = is_array($layout['linkBy'] ?? null) ? $layout['linkBy'] : [];
-        if (!$linkBy) {
-            return $records;
-        }
-
-        return array_values(array_filter($records, fn (array $record): bool => $this->matchTxtLinkBy($record, $parentRecord, $linkBy)));
-    }
-
-    private function matchTxtLinkBy(array $record, ?array $parentRecord, array $linkBy): bool
-    {
-        if (!$parentRecord) {
-            return false;
-        }
-
-        foreach ($linkBy as $rule) {
-            if (!is_array($rule)) {
-                continue;
-            }
-            $parentPath = trim((string) ($rule['parentPath'] ?? ''));
-            $childField = trim((string) ($rule['childField'] ?? $rule['sourcePath'] ?? ''));
-            if ($parentPath === '' || $childField === '') {
-                continue;
-            }
-            $operator = strtolower(trim((string) ($rule['operator'] ?? 'eq')));
-            $parentValue = $this->extractValue($parentRecord, $parentPath);
-            $childValue = $this->extractValue($record, $childField);
-            if (!$this->compareTxtValues($childValue, $parentValue, $operator)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private function compareTxtValues(mixed $left, mixed $right, string $operator): bool
-    {
-        return match ($operator) {
-            'eq' => $left == $right,
-            'neq' => $left != $right,
-            'contains' => str_contains(mb_strtolower($this->stringifyValue($left)), mb_strtolower($this->stringifyValue($right))),
-            'startswith' => str_starts_with(mb_strtolower($this->stringifyValue($left)), mb_strtolower($this->stringifyValue($right))),
-            'gt' => $left > $right,
-            'gte' => $left >= $right,
-            'lt' => $left < $right,
-            'lte' => $left <= $right,
-            default => $left == $right,
-        };
-    }
-
-    private function decorateTxtRecord(array $record, ?array $parentRecord): array
-    {
-        if ($parentRecord === null) {
-            return $record;
-        }
-
-        $record['_parent'] = $parentRecord;
-        return $record;
-    }
-
-    private function buildTxtSummaryRecord(array $layout, array $records, ?array $parentRecord): array
-    {
-        $aggregates = is_array($layout['aggregates'] ?? null) ? $layout['aggregates'] : [];
-        $summary = [
-            'count' => count($records),
-        ];
-
-        foreach ($aggregates as $aggregate) {
-            if (!is_array($aggregate)) {
-                continue;
-            }
-            $name = trim((string) ($aggregate['name'] ?? ''));
-            if ($name === '') {
-                continue;
-            }
-            $type = strtolower(trim((string) ($aggregate['type'] ?? 'count')));
-            $sourcePath = trim((string) ($aggregate['sourcePath'] ?? ''));
-            $summary[$name] = match ($type) {
-                'count' => count($records),
-                'sum' => $this->sumTxtRecords($records, $sourcePath),
-                default => null,
-            };
-        }
-
-        return [
-            '_summary' => $summary,
-            '_parent' => $parentRecord,
-        ];
-    }
-
-    private function sumTxtRecords(array $records, string $sourcePath): float
-    {
-        if ($sourcePath === '') {
-            return 0.0;
-        }
-        $sum = 0.0;
-        foreach ($records as $record) {
-            $value = $this->extractValue($record, $sourcePath);
-            if (is_numeric($value)) {
-                $sum += (float) $value;
-            }
-        }
-        return $sum;
-    }
-
-    private function renderTxtLine(array $record, array $layout): string
-    {
-        $mode = strtolower(trim((string) ($layout['lineMode'] ?? 'fixed')));
-        $fields = is_array($layout['fields'] ?? null) ? $layout['fields'] : [];
-        if ($mode === 'delimited') {
-            $separator = (string) ($layout['separator'] ?? ';');
-            $items = [];
-            foreach ($fields as $field) {
-                if (!is_array($field)) {
-                    continue;
-                }
-                $value = $this->extractValue($record, (string) ($field['sourcePath'] ?? ''));
-                $value = $this->applyTransforms($value, $field['transforms'] ?? []);
-                if (array_key_exists('constant', $field)) {
-                    $value = $field['constant'];
-                }
-                $items[] = $this->stringifyValue($value);
-            }
-            return implode($separator, $items);
-        }
-
-        $cursor = 1;
-        $line = '';
-        foreach ($fields as $field) {
-            if (!is_array($field)) {
-                continue;
-            }
-            $length = max(0, (int) ($field['length'] ?? 0));
-            if ($length <= 0) {
-                throw new RuntimeHttpException('IMPORT_EXPORT_TXT_FIELD_LENGTH_REQUIRED', 'Campo de leiaute posicional precisa informar length.', 422);
-            }
-            $start = max(1, (int) ($field['start'] ?? $cursor));
-            $value = array_key_exists('constant', $field)
-                ? $field['constant']
-                : $this->applyTransforms($this->extractValue($record, (string) ($field['sourcePath'] ?? '')), $field['transforms'] ?? []);
-            $text = $this->normalizeFixedWidthText(
-                $this->stringifyValue($value),
-                $length,
-                strtolower(trim((string) ($field['align'] ?? 'left'))),
-                mb_substr((string) ($field['padChar'] ?? ' '), 0, 1) ?: ' ',
-            );
-            $line = $this->applyFixedWidthSegment($line, $text, $start, $length);
-            $cursor = $start + $length;
-        }
-
-        return $line;
-    }
-
-    private function normalizeFixedWidthText(string $text, int $length, string $align, string $padChar): string
-    {
-        if (mb_strlen($text) > $length) {
-            $text = mb_substr($text, 0, $length);
-        }
-        $missing = $length - mb_strlen($text);
-        if ($missing <= 0) {
-            return $text;
-        }
-
-        $padding = str_repeat($padChar, $missing);
-        if ($align === 'right') {
-            return $padding . $text;
-        }
-
-        return $text . $padding;
-    }
-
-    private function applyFixedWidthSegment(string $line, string $text, int $start, int $length): string
-    {
-        $lineLength = mb_strlen($line);
-        if ($start > $lineLength + 1) {
-            $line .= str_repeat(' ', $start - ($lineLength + 1));
-        }
-
-        $prefix = mb_substr($line, 0, max(0, $start - 1));
-        $suffixStart = $start - 1 + $length;
-        $suffix = $lineLength > $suffixStart ? mb_substr($line, $suffixStart) : '';
-
-        return $prefix . $text . $suffix;
-    }
-
-    private function loadSources(array $mapping, array $parameters, bool $preview): array
-    {
-        $sources = is_array($mapping['sources'] ?? null) && $mapping['sources']
-            ? $mapping['sources']
-            : (isset($mapping['source']) ? [$mapping['source']] : []);
-        if (!$sources) {
-            throw new RuntimeHttpException('IMPORT_EXPORT_SOURCE_REQUIRED', 'Informe pelo menos uma fonte no mapeamento.', 422);
-        }
-        $loaded = [];
-        foreach ($sources as $source) {
-            if (!is_array($source)) {
-                continue;
-            }
-            $loaded[] = $this->loadSource($source, $parameters, $preview);
-        }
-        return $loaded;
-    }
-
-    private function loadSource(array $source, array $parameters, bool $preview): array
-    {
-        if (($source['type'] ?? 'entity') !== 'entity') {
-            throw new RuntimeHttpException('IMPORT_EXPORT_SOURCE_TYPE_NOT_SUPPORTED', 'Fonte suportada nesta etapa: entity.', 422);
-        }
-        $entityCode = trim((string) ($source['entityCode'] ?? ''));
-        $alias = trim((string) ($source['alias'] ?? $entityCode));
-        if ($entityCode === '') {
-            throw new RuntimeHttpException('IMPORT_EXPORT_SOURCE_ENTITY_REQUIRED', 'Fonte precisa informar entityCode.', 422);
-        }
-        $entity = $this->findEntity($entityCode);
-        $mode = strtolower(trim((string) ($source['mode'] ?? 'list')));
-        $limit = max(1, min(500, (int) ($source['limit'] ?? ($preview ? 20 : 200))));
-        if ($mode === 'single') {
-            $recordId = $source['recordId'] ?? $parameters[$alias . '_id'] ?? $parameters['recordId'] ?? null;
-            if ($recordId === null || $recordId === '') {
-                $read = $this->readEntityRecords($entity, [
-                    'take' => 1,
-                    'skip' => 0,
-                ]);
-                $record = $read[0] ?? null;
-                $records = $record ? [$record] : [];
-            } else {
-                $records = [$this->getEntityRecord($entity, $recordId)];
-            }
-        } else {
-            $records = $this->readEntityRecords($entity, [
-                'take' => $limit,
-                'skip' => 0,
-                'filter' => $source['filter'] ?? null,
-                'sort' => $source['sort'] ?? [],
-            ]);
-        }
-
-        return [
-            'alias' => $alias,
-            'entityCode' => $entityCode,
-            'entityType' => $entity->getEntityType(),
-            'records' => $records,
-        ];
-    }
-
-    private function readEntityRecords(BuilderEntity $entity, array $payload): array
-    {
-        $response = match ($this->entityRuntimeType($entity)) {
-            'persistence' => $this->runtimeEntities->handle('admin.import-export', 'read', [
-                'entityCode' => $entity->getCode(),
-                'operation' => 'read',
-            ], ['entityCode' => $entity->getCode()] + $payload),
-            'api' => $this->runtimeApis->handle('admin.import-export', 'read', [
-                'entityCode' => $entity->getCode(),
-                'operation' => 'read',
-            ], ['entityCode' => $entity->getCode()] + $payload),
-            'odoo' => $this->runtimeOdoo->handle('admin.import-export', 'read', [
-                'entityCode' => $entity->getCode(),
-                'operation' => 'read',
-            ], ['entityCode' => $entity->getCode()] + $payload),
-            default => throw new RuntimeHttpException('IMPORT_EXPORT_ENTITY_TYPE_NOT_SUPPORTED', 'Tipo de entidade nao suportado nesta etapa.', 422, [
-                'entityCode' => $entity->getCode(),
-                'entityType' => $entity->getEntityType(),
-            ]),
-        };
-
-        return is_array($response['data'] ?? null) ? $response['data'] : [];
-    }
-
-    private function getEntityRecord(BuilderEntity $entity, mixed $recordId): array
-    {
-        return match ($this->entityRuntimeType($entity)) {
-            'persistence' => $this->runtimeEntities->handle('admin.import-export', 'get', [
-                'entityCode' => $entity->getCode(),
-                'operation' => 'get',
-            ], ['entityCode' => $entity->getCode(), 'id' => $recordId]),
-            'api' => $this->runtimeApis->handle('admin.import-export', 'get', [
-                'entityCode' => $entity->getCode(),
-                'operation' => 'get',
-            ], ['entityCode' => $entity->getCode(), 'id' => $recordId]),
-            'odoo' => $this->runtimeOdoo->handle('admin.import-export', 'get', [
-                'entityCode' => $entity->getCode(),
-                'operation' => 'get',
-            ], ['entityCode' => $entity->getCode(), 'id' => $recordId]),
-            default => throw new RuntimeHttpException('IMPORT_EXPORT_ENTITY_TYPE_NOT_SUPPORTED', 'Tipo de entidade nao suportado nesta etapa.', 422),
-        };
-    }
-
-    private function executeDestinationOperation(string $entityCode, string $operation, array $record): array
-    {
-        $entity = $this->findEntity($entityCode);
-        return match ($this->entityRuntimeType($entity)) {
-            'persistence' => $this->runtimeEntities->handle('admin.import-export', $operation, [
-                'entityCode' => $entityCode,
-                'operation' => $operation,
-            ], ['entityCode' => $entityCode, 'record' => $record] + $record),
-            'api' => $this->runtimeApis->handle('admin.import-export', $operation, [
-                'entityCode' => $entityCode,
-                'operation' => $operation,
-            ], ['entityCode' => $entityCode, 'record' => $record] + $record),
-            'odoo' => throw new RuntimeHttpException('IMPORT_EXPORT_ODOO_WRITE_NOT_SUPPORTED', 'Destino Odoo ainda nao suporta gravacao por mapeamento.', 422, [
-                'entityCode' => $entityCode,
-            ]),
-            default => throw new RuntimeHttpException('IMPORT_EXPORT_ENTITY_TYPE_NOT_SUPPORTED', 'Tipo de entidade de destino nao suportado nesta etapa.', 422),
-        };
-    }
-
-    private function resolveDestinationAction(array $destination, array $mappedRecord): array
-    {
-        $operation = strtolower(trim((string) ($destination['operation'] ?? 'create')));
-        if ($operation === 'upsert') {
-            $matchBy = is_array($destination['matchBy'] ?? null) ? $destination['matchBy'] : [];
-            if (!$matchBy) {
-                throw new RuntimeHttpException('IMPORT_EXPORT_MATCH_BY_REQUIRED', 'Operacao upsert exige matchBy.', 422);
-            }
-            $existing = $this->findDestinationRecordByMatch($destination['entityCode'], $mappedRecord, $matchBy);
-            if ($existing) {
-                $record = $mappedRecord;
-                $primaryKey = $this->findEntityPrimaryKey($destination['entityCode']);
-                $record[$primaryKey] = $existing[$primaryKey] ?? $existing['id'] ?? null;
-                return ['operation' => 'update', 'record' => $record];
-            }
-            return ['operation' => 'create', 'record' => $mappedRecord];
-        }
-
-        return ['operation' => $operation, 'record' => $mappedRecord];
-    }
-
-    private function findDestinationRecordByMatch(string $entityCode, array $mappedRecord, array $matchBy): ?array
-    {
-        $filters = [];
-        foreach ($matchBy as $item) {
-            if (!is_array($item)) {
-                continue;
-            }
-            $targetField = trim((string) ($item['targetField'] ?? ''));
-            $sourcePath = trim((string) ($item['sourcePath'] ?? $targetField));
-            if ($targetField === '') {
-                continue;
-            }
-            $value = $this->extractValue($mappedRecord, $sourcePath);
-            $filters[] = [
-                'field' => $targetField,
-                'operator' => 'eq',
-                'value' => $value,
-            ];
-        }
-        if (!$filters) {
-            return null;
-        }
-        $entity = $this->findEntity($entityCode);
-        $records = $this->readEntityRecords($entity, [
-            'take' => 1,
-            'skip' => 0,
-            'filter' => [
-                'logic' => 'and',
-                'filters' => $filters,
-            ],
-        ]);
-        return $records[0] ?? null;
-    }
-
-    private function mapRecord(array $record, array $fieldMappings): array
-    {
-        $mapped = [];
-        foreach ($fieldMappings as $item) {
-            if (!is_array($item)) {
-                continue;
-            }
-            $targetPath = trim((string) ($item['targetPath'] ?? ''));
-            if ($targetPath === '') {
-                continue;
-            }
-            $value = array_key_exists('constant', $item)
-                ? $item['constant']
-                : $this->extractValue($record, (string) ($item['sourcePath'] ?? ''));
-            $value = $this->applyTransforms($value, $item['transforms'] ?? []);
-            $this->assignValue($mapped, $targetPath, $value);
-        }
-        return $mapped;
-    }
-
-    private function applyTransforms(mixed $value, mixed $transforms): mixed
-    {
-        if (!is_array($transforms)) {
-            return $value;
-        }
-        foreach ($transforms as $transform) {
-            if (is_string($transform)) {
-                $transform = ['type' => $transform];
-            }
-            if (!is_array($transform)) {
-                continue;
-            }
-            $type = strtolower(trim((string) ($transform['type'] ?? '')));
-            $value = match ($type) {
-                'trim' => is_string($value) ? trim($value) : $value,
-                'upper' => is_string($value) ? mb_strtoupper($value) : $value,
-                'lower' => is_string($value) ? mb_strtolower($value) : $value,
-                'constant' => $transform['value'] ?? null,
-                'concat' => $this->transformConcat($transform, $value),
-                'date_format' => $this->transformDateFormat($value, (string) ($transform['format'] ?? 'Y-m-d')),
-                'number_format' => $this->transformNumberFormat($value, $transform),
-                'pad_left' => str_pad($this->stringifyValue($value), (int) ($transform['length'] ?? 0), (string) ($transform['padChar'] ?? '0'), STR_PAD_LEFT),
-                'pad_right' => str_pad($this->stringifyValue($value), (int) ($transform['length'] ?? 0), (string) ($transform['padChar'] ?? ' '), STR_PAD_RIGHT),
-                default => $value,
-            };
-        }
-        return $value;
-    }
-
-    private function transformConcat(array $transform, mixed $fallback): string
-    {
-        $parts = is_array($transform['parts'] ?? null) ? $transform['parts'] : [];
-        if (!$parts) {
-            return $this->stringifyValue($fallback);
-        }
-        $buffer = '';
-        foreach ($parts as $part) {
-            if (is_string($part)) {
-                $buffer .= $part;
-                continue;
-            }
-            if (!is_array($part)) {
-                continue;
-            }
-            if (array_key_exists('constant', $part)) {
-                $buffer .= $this->stringifyValue($part['constant']);
-                continue;
-            }
-            $buffer .= $this->stringifyValue($part['value'] ?? '');
-        }
-        return $buffer;
-    }
-
-    private function transformDateFormat(mixed $value, string $format): mixed
-    {
-        if ($value === null || $value === '') {
-            return $value;
-        }
-        try {
-            return (new \DateTimeImmutable((string) $value))->format($format);
-        } catch (\Throwable) {
-            return $value;
-        }
-    }
-
-    private function transformNumberFormat(mixed $value, array $transform): mixed
-    {
-        if (!is_numeric($value)) {
-            return $value;
-        }
-        return number_format(
-            (float) $value,
-            max(0, (int) ($transform['decimals'] ?? 2)),
-            (string) ($transform['decimalSeparator'] ?? ','),
-            (string) ($transform['thousandSeparator'] ?? '.')
-        );
-    }
-
-    private function extractValue(array $record, string $path): mixed
-    {
-        $normalized = trim($path);
-        if ($normalized === '' || $normalized === '$') {
-            return $record;
-        }
-        $current = $record;
-        foreach (explode('.', $normalized) as $segment) {
-            if (!is_array($current) || !array_key_exists($segment, $current)) {
-                return null;
-            }
-            $current = $current[$segment];
-        }
-        return $current;
-    }
-
-    private function assignValue(array &$target, string $path, mixed $value): void
-    {
-        $segments = explode('.', trim($path));
-        $cursor = &$target;
-        foreach ($segments as $index => $segment) {
-            if ($segment === '') {
-                continue;
-            }
-            if ($index === count($segments) - 1) {
-                $cursor[$segment] = $value;
-                return;
-            }
-            if (!isset($cursor[$segment]) || !is_array($cursor[$segment])) {
-                $cursor[$segment] = [];
-            }
-            $cursor = &$cursor[$segment];
-        }
-    }
-
-    private function escapeDelimited(string $value, string $quote): string
-    {
-        $escaped = str_replace($quote, $quote . $quote, $value);
-        return $quote . $escaped . $quote;
-    }
-
-    private function stringifyValue(mixed $value): string
-    {
-        if ($value === null) {
-            return '';
-        }
-        if (is_bool($value)) {
-            return $value ? 'true' : 'false';
-        }
-        if (is_scalar($value)) {
-            return (string) $value;
-        }
-        return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '';
-    }
-
-    private function resolveFileName(mixed $pattern, string $extension): string
-    {
-        $name = trim((string) $pattern);
-        if ($name === '') {
-            $name = 'export.' . $extension;
-        }
-        if (!str_contains($name, '.')) {
-            $name .= '.' . $extension;
-        }
-        return $name;
+        return $this->txtLayoutRenderer->build($mapping, $sources, $preview);
     }
 
     private function resolveRequestConfig(array $payload): array
@@ -1014,6 +396,7 @@ class ImportExportMappingService
             'type' => 'file',
             'fileFormat' => $format,
             'fileNamePattern' => trim((string) ($destination['fileNamePattern'] ?? '')),
+            'encodingLabel' => $this->encodingHelper->normalizeEncodingLabel($destination['encodingLabel'] ?? 'UTF-8'),
             'delimiter' => (string) ($destination['delimiter'] ?? ';'),
             'quote' => (string) ($destination['quote'] ?? '"'),
             'includeHeader' => ($destination['includeHeader'] ?? true) !== false,
@@ -1043,7 +426,9 @@ class ImportExportMappingService
             'recordType' => trim((string) ($layout['recordType'] ?? '')),
             'label' => trim((string) ($layout['label'] ?? '')),
             'sourceAlias' => trim((string) ($layout['sourceAlias'] ?? $layout['sourceEntityCode'] ?? '')),
-            'lineMode' => strtolower(trim((string) ($layout['lineMode'] ?? 'fixed'))),
+            'lineMode' => $this->normalizeLineMode($layout['lineMode'] ?? 'fixed'),
+            'widthMode' => $this->normalizeWidthMode($layout['widthMode'] ?? 'characters'),
+            'encodingLabel' => $this->encodingHelper->normalizeEncodingLabel($layout['encodingLabel'] ?? 'UTF-8'),
             'separator' => (string) ($layout['separator'] ?? ';'),
             'fields' => array_values(array_filter(array_map(
                 fn ($field) => $this->normalizeTxtLayoutField($field),
@@ -1070,6 +455,30 @@ class ImportExportMappingService
         }
 
         return $normalized;
+    }
+
+    private function normalizeLineMode(mixed $value): string
+    {
+        $lineMode = strtolower(trim((string) $value));
+        if (!in_array($lineMode, ['fixed', 'delimited'], true)) {
+            throw new RuntimeHttpException('IMPORT_EXPORT_TXT_LINE_MODE_INVALID', 'lineMode do TXT deve ser fixed ou delimited.', 422, [
+                'lineMode' => $value,
+            ]);
+        }
+
+        return $lineMode;
+    }
+
+    private function normalizeWidthMode(mixed $value): string
+    {
+        $widthMode = strtolower(trim((string) $value));
+        if (!in_array($widthMode, ['characters', 'bytes'], true)) {
+            throw new RuntimeHttpException('IMPORT_EXPORT_TXT_WIDTH_MODE_INVALID', 'widthMode do TXT deve ser characters ou bytes.', 422, [
+                'widthMode' => $value,
+            ]);
+        }
+
+        return $widthMode;
     }
 
     private function normalizeTxtLayoutField(mixed $field): ?array
@@ -1179,40 +588,6 @@ class ImportExportMappingService
             'format' => $mapping->getFormat(),
             'status' => $mapping->getStatus(),
         ];
-    }
-
-    private function findEntity(string $entityCode): BuilderEntity
-    {
-        $entity = $this->entities->findOneBy(['code' => trim($entityCode)]);
-        if (!$entity instanceof BuilderEntity) {
-            throw new RuntimeHttpException('IMPORT_EXPORT_ENTITY_NOT_FOUND', 'Entidade nao encontrada para o mapeamento.', 422, [
-                'entityCode' => $entityCode,
-            ]);
-        }
-        return $entity;
-    }
-
-    private function entityRuntimeType(BuilderEntity $entity): string
-    {
-        if ($entity->getEntityType() !== 'api') {
-            return 'persistence';
-        }
-        $apiSource = is_array($entity->getMetadata()['apiSource'] ?? null) ? $entity->getMetadata()['apiSource'] : [];
-        if (($apiSource['providerType'] ?? '') === 'odoo') {
-            return 'odoo';
-        }
-        return 'api';
-    }
-
-    private function findEntityPrimaryKey(string $entityCode): string
-    {
-        $entity = $this->findEntity($entityCode);
-        foreach ($entity->getFields() as $field) {
-            if ($field->isPrimaryKey()) {
-                return $field->getCode();
-            }
-        }
-        return 'id';
     }
 
     private function assertAdminRead(): void

@@ -18,6 +18,10 @@
       this.runtimeMessageTimer = null;
       this.runtimeEventSource = null;
       this.runtimeEventFallbackTimer = null;
+      this.notificationsIndicatorTimer = null;
+      this.notificationsIndicatorButton = null;
+      this.notificationsIndicatorBadge = null;
+      this.notificationsCount = 0;
       this.jobsIndicatorTimer = null;
       this.jobsIndicatorButton = null;
       this.jobsIndicatorBadge = null;
@@ -150,6 +154,9 @@
           aiChat: {
             enabled: false
           },
+          notifications: {
+            enabled: false
+          },
           alerts: {
             enabled: false
           },
@@ -187,6 +194,9 @@
           enabled: false
         },
         aiChat: {
+          enabled: false
+        },
+        notifications: {
           enabled: false
         },
         alerts: {
@@ -231,6 +241,10 @@
       this.applyEndpointGroupSecurity(appbar.aiChat || appbar.iaChat || definition.aiChat || definition.iaChat, {
         history: "home.aiChat.history",
         send: "home.aiChat.send"
+      }, screenId);
+      this.applyEndpointGroupSecurity(appbar.notifications || definition.notifications, {
+        list: "home.notifications.list",
+        ack: "home.notifications.ack"
       }, screenId);
       this.applyEndpointGroupSecurity(appbar.alerts || definition.alerts, {
         list: "home.alerts.list"
@@ -304,7 +318,13 @@
       this.destroyAiChatWindow();
       this.destroyAppbarPanelWindows();
       this.destroySubscriberSwitchWindow();
+      this.stopNotificationsIndicatorPolling();
+      this.notificationsIndicatorButton = null;
+      this.notificationsIndicatorBadge = null;
       this.destroyCurrentProgram();
+      this.stopJobsIndicatorPolling();
+      this.jobsIndicatorButton = null;
+      this.jobsIndicatorBadge = null;
       kendo.destroy(this.root);
       this.root.empty();
 
@@ -342,6 +362,7 @@
       this.renderChatButton(actions);
       this.renderSupportButton(actions);
       this.renderAiChatButton(actions);
+      this.renderAppbarListButton(actions, "notifications");
       this.renderAppbarListButton(actions, "alerts");
       this.renderAppbarListButton(actions, "requests");
       this.renderAppbarListButton(actions, "jobs");
@@ -1770,18 +1791,29 @@
         .appendTo(wrapper);
       button.kendoButton({ icon: config.icon || defaults.icon });
       button.on("click", () => this.handleAppbarListButtonClick(kind, button));
-      if (kind === "jobs") {
-        this.jobsIndicatorButton = button;
-        this.jobsIndicatorBadge = $("<span class=\"home-appbar-count-badge\" hidden></span>").text("0").appendTo(wrapper);
-        this.startJobsIndicatorPolling();
+      if (kind === "notifications" || kind === "jobs") {
+        const badge = $("<span class=\"home-appbar-count-badge\" hidden></span>").text("0").appendTo(wrapper);
+        if (kind === "notifications") {
+          this.notificationsIndicatorButton = button;
+          this.notificationsIndicatorBadge = badge;
+          this.startNotificationsIndicatorPolling();
+        } else {
+          this.jobsIndicatorButton = button;
+          this.jobsIndicatorBadge = badge;
+          this.startJobsIndicatorPolling();
+        }
       }
     }
 
     shouldShowAppbarListButton(kind) {
       const config = this.getAppbarListConfig(kind);
-      return config.enabled === true &&
-        this.hasPermission(config.permission) &&
-        (Boolean(this.getAppbarListEndpoint(config)) || Boolean(kind === "jobs" && config.programId));
+      if (config.enabled !== true || !this.hasPermission(config.permission)) {
+        return false;
+      }
+      if (kind === "notifications") {
+        return Boolean(this.getAppbarListEndpoint(config)) || this.hasAppbarNotificationSources();
+      }
+      return Boolean(this.getAppbarListEndpoint(config)) || Boolean(kind === "jobs" && config.programId);
     }
 
     handleAppbarListButtonClick(kind, button) {
@@ -1801,6 +1833,13 @@
           title: "Jobs",
           emptyText: "Nenhum job concluido.",
           icon: "clock"
+        };
+      }
+      if (kind === "notifications") {
+        return {
+          title: "Notificacoes",
+          emptyText: "Nenhuma notificacao encontrada.",
+          icon: "bell"
         };
       }
       if (kind === "requests") {
@@ -1824,8 +1863,12 @@
     }
 
     getAppbarListEndpoint(config) {
-      const source = config && config.endpoints ? config.endpoints.list : null;
-      const endpoint = source || config && (config.listUrl || config.url);
+      return this.getAppbarListActionEndpoint(config, "list", config && (config.listUrl || config.url));
+    }
+
+    getAppbarListActionEndpoint(config, key, fallback) {
+      const source = config && config.endpoints ? config.endpoints[key] : null;
+      const endpoint = source || fallback;
       if (!endpoint) {
         return null;
       }
@@ -1848,7 +1891,7 @@
       const config = this.getAppbarListConfig(kind);
       const defaults = this.getAppbarListDefaults(kind);
       const endpoint = this.getAppbarListEndpoint(config);
-      if (!endpoint) {
+      if (!endpoint && !(kind === "notifications" && this.hasAppbarNotificationSources())) {
         return;
       }
 
@@ -1887,14 +1930,17 @@
     }
 
     loadAppbarListItems(kind, endpoint, content) {
-      this.requestAppbarListEndpoint(endpoint, {
+      const request = kind === "notifications" && !endpoint
+        ? this.loadAggregatedNotificationItems()
+        : this.requestAppbarListEndpoint(endpoint, {
         user: this.buildChatUserPayload(),
         context: this.buildChatContextPayload()
-      }).then((response) => {
+      });
+      request.then((response) => {
         const defaults = this.getAppbarListDefaults(kind);
         const items = this.normalizeAppbarListItems(response, kind);
         content.empty();
-        this.renderAppbarListItems(content, items, defaults.emptyText);
+        this.renderAppbarListItems(content, items, defaults.emptyText, kind);
       }).catch(() => {
         content.empty();
         $("<div class=\"home-appbar-list-empty\"></div>")
@@ -1916,6 +1962,7 @@
         return response.map((item) => this.normalizeAppbarListItem(item));
       }
       const keys = {
+        notifications: "notifications",
         alerts: "alerts",
         requests: "requests",
         jobs: "jobs"
@@ -1950,12 +1997,20 @@
       }
       return {
         id: source.id || "",
+        recipientId: source.recipientId || "",
         title: source.title || source.label || "Item",
         description: source.description || source.summary || source.body || "",
         meta: meta.join(" - "),
+        sourceKind: source.sourceKind || source.kind || "",
+        sourceLabel: source.sourceLabel || "",
+        sortTimestamp: date ? new Date(date).getTime() || 0 : 0,
         linkUrl: source.linkUrl || source.url || "",
         programId: source.programId || source.openProgramId || "",
-        linkText: source.linkText || "Abrir"
+        screenId: source.screenId || "",
+        linkText: source.linkText || "Abrir",
+        status: source.status || "",
+        severity: source.severity || "",
+        actionRequired: source.actionRequired === true
       };
     }
 
@@ -1967,7 +2022,7 @@
       return kendo.toString(date, "dd/MM/yyyy HH:mm");
     }
 
-    renderAppbarListItems(container, items, emptyText) {
+    renderAppbarListItems(container, items, emptyText, listKind) {
       if (!items.length) {
         $("<div class=\"home-appbar-list-empty\"></div>").text(emptyText).appendTo(container);
         return;
@@ -1975,6 +2030,9 @@
       const list = $("<div class=\"home-appbar-list\"></div>").appendTo(container);
       items.forEach((item) => {
         const element = $("<article class=\"home-appbar-list-item\"></article>").appendTo(list);
+        if (item.sourceLabel) {
+          $("<div class=\"home-appbar-list-meta\"></div>").text(item.sourceLabel).appendTo(element);
+        }
         $("<h2 class=\"home-appbar-list-title\"></h2>").text(item.title).appendTo(element);
         if (item.meta) {
           $("<div class=\"home-appbar-list-meta\"></div>").text(item.meta).appendTo(element);
@@ -1982,24 +2040,187 @@
         if (item.description) {
           $("<p class=\"home-appbar-list-description\"></p>").text(item.description).appendTo(element);
         }
+        const actions = $("<div class=\"home-appbar-list-actions\"></div>").appendTo(element);
         if (item.linkUrl && global.CrudUtils.isAllowedDocumentUrl(item.linkUrl)) {
           $("<a class=\"home-appbar-list-link\" target=\"_blank\" rel=\"noopener noreferrer\"></a>")
             .attr("href", item.linkUrl)
             .text(item.linkText)
-            .appendTo(element);
+            .appendTo(actions);
+        }
+        const notificationAckEndpoint = listKind === "notifications"
+          ? this.getAppbarListActionEndpoint(this.getAppbarListConfig("notifications"), "ack", this.getAppbarListConfig("notifications").ackUrl)
+          : null;
+        if (notificationAckEndpoint && item.id) {
+          const ackButton = $("<button type=\"button\" class=\"home-appbar-list-link\"></button>")
+            .text("Marcar como lida")
+            .appendTo(actions);
+          ackButton.kendoButton({ icon: "check" });
+          ackButton.on("click", () => {
+            this.acknowledgeNotificationItem(notificationAckEndpoint, item.id).then((acknowledged) => {
+              if (!acknowledged) {
+                return;
+              }
+              element.fadeOut(120, () => {
+                element.remove();
+                if (!list.children().length) {
+                  $("<div class=\"home-appbar-list-empty\"></div>").text(emptyText).appendTo(container.empty());
+                }
+              });
+            });
+          });
         }
         if (item.programId && this.findProgram(item.programId)) {
           const button = $("<button type=\"button\" class=\"home-appbar-list-link\"></button>")
             .text(item.linkText || "Abrir")
-            .appendTo(element);
+            .appendTo(actions);
           button.kendoButton({ icon: "folder-open" });
           button.on("click", () => {
-            this.destroyAppbarPanelWindows();
-            this.setJobsIndicatorCount(0);
-            this.openProgram(item.programId);
+            const open = () => {
+              this.destroyAppbarPanelWindows();
+              if (listKind === "jobs" || item.sourceKind === "jobs") {
+                this.setJobsIndicatorCount(0);
+              }
+              this.openProgram(item.programId);
+            };
+            if (listKind === "notifications" && notificationAckEndpoint && item.id) {
+              this.acknowledgeNotificationItem(notificationAckEndpoint, item.id).then(open);
+              return;
+            }
+            open();
           });
         }
       });
+    }
+
+    acknowledgeNotificationItem(endpoint, notificationId) {
+      if (!endpoint || !notificationId) {
+        return Promise.resolve(false);
+      }
+      return this.requestAppbarListEndpoint(endpoint, {
+        ids: [notificationId],
+        user: this.buildChatUserPayload(),
+        context: this.buildChatContextPayload()
+      }).then(() => {
+        this.refreshNotificationsIndicator();
+        return true;
+      }).catch((error) => {
+        const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel marcar a notificacao como lida.");
+        global.CrudUtils.showMessage(normalized.message, "error");
+        return false;
+      });
+    }
+
+    hasAppbarNotificationSources() {
+      return this.getNotificationSourceConfigs().length > 0;
+    }
+
+    getNotificationSourceConfigs() {
+      const entries = [
+        { kind: "alerts", label: "Alerta", config: this.getAppbarListConfig("alerts") },
+        { kind: "requests", label: "Solicitacao", config: this.getAppbarListConfig("requests") },
+        { kind: "jobs", label: "Job", config: this.getAppbarListConfig("jobs") }
+      ];
+      return entries.filter((entry) => {
+        const config = entry.config || {};
+        return config.enabled === true &&
+          this.hasPermission(config.permission) &&
+          Boolean(this.getAppbarListEndpoint(config));
+      });
+    }
+
+    loadAggregatedNotificationItems() {
+      const payload = {
+        user: this.buildChatUserPayload(),
+        context: this.buildChatContextPayload(),
+        onlyMine: true
+      };
+      const requests = this.getNotificationSourceConfigs().map((entry) => {
+        return this.requestAppbarListEndpoint(this.getAppbarListEndpoint(entry.config), payload)
+          .then((response) => this.normalizeAppbarListItems(response, entry.kind).map((item) => {
+            return Object.assign({}, item, {
+              sourceKind: entry.kind,
+              sourceLabel: entry.label
+            });
+          }))
+          .catch(() => []);
+      });
+      return Promise.all(requests).then((groups) => {
+        const items = [];
+        groups.forEach((group) => {
+          items.push.apply(items, group);
+        });
+        items.sort((left, right) => {
+          const leftMeta = this.extractAppbarListItemTimestamp(left);
+          const rightMeta = this.extractAppbarListItemTimestamp(right);
+          return rightMeta - leftMeta;
+        });
+        return { items };
+      });
+    }
+
+    extractAppbarListItemTimestamp(item) {
+      if (item && item.sortTimestamp != null) {
+        return Number(item.sortTimestamp) || 0;
+      }
+      const candidate = item && (item.updatedAt || item.receivedAt || item.createdAt || item.date || "");
+      const parsed = candidate ? new Date(candidate) : null;
+      return parsed && !Number.isNaN(parsed.getTime()) ? parsed.getTime() : 0;
+    }
+
+    startNotificationsIndicatorPolling() {
+      const config = this.getAppbarListConfig("notifications");
+      if (this.notificationsIndicatorTimer || config.indicatorPolling === false) {
+        return;
+      }
+      if (!this.getAppbarListEndpoint(config) && !this.hasAppbarNotificationSources()) {
+        return;
+      }
+      const seconds = Math.max(10, Number(config.pollIntervalSeconds || 30));
+      this.refreshNotificationsIndicator();
+      this.notificationsIndicatorTimer = window.setInterval(() => {
+        this.refreshNotificationsIndicator();
+      }, seconds * 1000);
+    }
+
+    stopNotificationsIndicatorPolling() {
+      if (this.notificationsIndicatorTimer) {
+        window.clearInterval(this.notificationsIndicatorTimer);
+        this.notificationsIndicatorTimer = null;
+      }
+    }
+
+    refreshNotificationsIndicator() {
+      const config = this.getAppbarListConfig("notifications");
+      if (!this.notificationsIndicatorBadge) {
+        return Promise.resolve(0);
+      }
+      const endpoint = this.getAppbarListEndpoint(config);
+      const request = endpoint
+        ? this.requestAppbarListEndpoint(endpoint, {
+          user: this.buildChatUserPayload(),
+          context: this.buildChatContextPayload(),
+          onlyMine: true
+        })
+        : this.loadAggregatedNotificationItems();
+      return request.then((response) => {
+        const items = this.normalizeAppbarListItems(response, "notifications");
+        this.setNotificationsIndicatorCount(items.length);
+        return items.length;
+      }).catch(function() {
+        return 0;
+      });
+    }
+
+    setNotificationsIndicatorCount(count) {
+      this.notificationsCount = Math.max(0, Number(count || 0));
+      if (!this.notificationsIndicatorBadge) {
+        return;
+      }
+      if (this.notificationsCount > 0) {
+        this.notificationsIndicatorBadge.removeAttr("hidden").text(String(this.notificationsCount));
+      } else {
+        this.notificationsIndicatorBadge.attr("hidden", true).text("0");
+      }
     }
 
     startJobsIndicatorPolling() {
@@ -2053,6 +2274,7 @@
       }
       this.completedJobsCount += 1;
       this.setJobsIndicatorCount(this.completedJobsCount);
+      this.refreshNotificationsIndicator();
       global.CrudUtils.showMessage("Processamento concluido.", "success");
     }
 

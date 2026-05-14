@@ -416,6 +416,9 @@
               },
               "additionalProperties": true
             },
+            "notifications": {
+              "$ref": "#/$defs/appbarListConfig"
+            },
             "alerts": {
               "$ref": "#/$defs/appbarListConfig"
             },
@@ -607,6 +610,9 @@
           "type": "object",
           "properties": {
             "list": {
+              "$ref": "#/$defs/endpoint"
+            },
+            "ack": {
               "$ref": "#/$defs/endpoint"
             }
           },

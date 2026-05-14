@@ -125,6 +125,10 @@ class RuntimeMetadataSanitizer
             'history' => 'home.aiChat.history',
             'send' => 'home.aiChat.send',
         ]);
+        $definition = $this->sanitizeHomeEndpointGroup($definition, ['layout', 'appbar', 'notifications'], [
+            'list' => 'home.notifications.list',
+            'ack' => 'home.notifications.ack',
+        ]);
         $definition = $this->sanitizeHomeEndpointGroup($definition, ['layout', 'appbar', 'alerts'], [
             'list' => 'home.alerts.list',
         ]);

@@ -4,6 +4,11 @@ namespace App\Runtime;
 
 class HomeRuntimeHandler
 {
+    public function __construct(
+        private readonly RuntimeNotificationService $notifications,
+    ) {
+    }
+
     private const CONTEXT_STRING_FIELDS = [
         'appId',
         'appTitle',
@@ -37,6 +42,8 @@ class HomeRuntimeHandler
             'supportOnlineUsers' => $this->supportOnlineUsers($payload),
             'supportCreateRequest' => $this->supportCreateRequest($payload),
             'supportRequestStatus' => $this->supportRequestStatus($payload),
+            'notifications' => $this->notifications($payload),
+            'notificationsAck' => $this->notificationsAck($payload),
             'alerts' => $this->alerts($payload),
             'requests' => $this->requests($payload),
             'aiHistory' => $this->aiHistory($payload),
@@ -220,6 +227,27 @@ class HomeRuntimeHandler
                 'name' => $subscriber['name'] ?? $subscriber['displayName'] ?? $subscriberId,
                 'label' => $subscriber['label'] ?? 'Assinante',
             ], $subscriber),
+        ];
+    }
+
+    private function notifications(array $payload): array
+    {
+        $includeRead = ($payload['includeRead'] ?? false) === true;
+        $response = $this->notifications->listForCurrentUser($includeRead);
+        $response['context'] = $this->normalizeContext($payload);
+
+        return $response;
+    }
+
+    private function notificationsAck(array $payload): array
+    {
+        $ids = is_array($payload['ids'] ?? null) ? $payload['ids'] : [$payload['id'] ?? null];
+        $count = $this->notifications->acknowledgeForCurrentUser($ids);
+
+        return [
+            'ok' => true,
+            'count' => $count,
+            'context' => $this->normalizeContext($payload),
         ];
     }
 

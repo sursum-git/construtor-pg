@@ -149,6 +149,23 @@
               "send": "/api/home/ai-chat/send"
             }
           },
+          "notifications": {
+            "enabled": true,
+            "title": "Central de notificacoes",
+            "buttonTitle": "Abrir central de notificacoes",
+            "icon": "bell",
+            "pollIntervalSeconds": 20,
+            "endpoints": {
+              "list": {
+                "endpointId": "home.notifications.list",
+                "method": "POST"
+              },
+              "ack": {
+                "endpointId": "home.notifications.ack",
+                "method": "POST"
+              }
+            }
+          },
           "alerts": {
             "enabled": true,
             "title": "Alertas",
@@ -299,6 +316,18 @@
               {
                 "programId": "admin-parametro-valores",
                 "title": "Valores de Parametros"
+              },
+              {
+                "programId": "admin-literais",
+                "title": "Literais e Traducoes"
+              },
+              {
+                "programId": "admin-notificacoes",
+                "title": "Notificacoes"
+              },
+              {
+                "programId": "admin-notificacao-destinatarios",
+                "title": "Destinatarios de Notificacoes"
               },
               {
                 "programId": "admin-listas-opcoes",
@@ -465,6 +494,24 @@
           "icon": "globe",
           "permission": "admin.read",
           "screenId": "admin.literais"
+        },
+        {
+          "id": "admin-notificacoes",
+          "title": "Notificacoes",
+          "subtitle": "Cadastro administrativo de notificacoes",
+          "type": "crud",
+          "icon": "bell",
+          "permission": "admin.read",
+          "screenId": "admin.notificacoes"
+        },
+        {
+          "id": "admin-notificacao-destinatarios",
+          "title": "Destinatarios de Notificacoes",
+          "subtitle": "Entrega e leitura por usuario destinatario",
+          "type": "crud",
+          "icon": "inbox",
+          "permission": "admin.read",
+          "screenId": "admin.notificacao-destinatarios"
         },
         {
           "id": "admin-listas-opcoes",

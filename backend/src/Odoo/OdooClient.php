@@ -8,23 +8,27 @@ class OdooClient
 {
     public function testConnection(array $config): array
     {
-        $normalized = $this->normalizeConfig($config);
+        $session = $this->openSession($config);
+        $normalized = $session->getConfig();
         $version = $this->getVersion($normalized);
-        $uid = $this->authenticate($normalized);
 
         return [
             'ok' => true,
             'transport' => $normalized['transport'],
-            'uid' => $uid,
+            'uid' => $session->getUid(),
             'version' => $version,
         ];
     }
 
     public function fieldsGet(array $config): array
     {
-        $normalized = $this->normalizeConfig($config);
-        $uid = $this->authenticate($normalized);
-        $result = $this->executeKw($normalized, $uid, $normalized['model'], 'fields_get', [], [
+        return $this->fieldsGetWithSession($this->openSession($config));
+    }
+
+    public function fieldsGetWithSession(OdooExecutionContext $session): array
+    {
+        $normalized = $session->getConfig();
+        $result = $this->executeKwWithSession($session, $normalized['model'], 'fields_get', [], [
             'attributes' => ['string', 'help', 'type', 'required', 'readonly', 'relation', 'selection'],
             'context' => $normalized['defaultContext'],
         ]);
@@ -40,8 +44,12 @@ class OdooClient
 
     public function searchRead(array $config, array $parameters): array
     {
-        $normalized = $this->normalizeConfig($config);
-        $uid = $this->authenticate($normalized);
+        return $this->searchReadWithSession($this->openSession($config), $parameters);
+    }
+
+    public function searchReadWithSession(OdooExecutionContext $session, array $parameters): array
+    {
+        $normalized = $session->getConfig();
         $domain = $this->normalizeDomain($parameters['domain'] ?? $normalized['defaultDomain']);
         $fields = $this->normalizeFieldNames($parameters['fields'] ?? []);
         $kwargs = [
@@ -53,14 +61,18 @@ class OdooClient
             'order' => trim((string) ($parameters['order'] ?? $normalized['defaultOrder'] ?? '')),
         ];
 
-        return $this->executeKw($normalized, $uid, $normalized['model'], 'search_read', [$domain], $kwargs);
+        return $this->executeKwWithSession($session, $normalized['model'], 'search_read', [$domain], $kwargs);
     }
 
     public function searchCount(array $config, array $domain, array $context = []): int
     {
-        $normalized = $this->normalizeConfig($config);
-        $uid = $this->authenticate($normalized);
-        $result = $this->executeKw($normalized, $uid, $normalized['model'], 'search_count', [$this->normalizeDomain($domain)], [
+        return $this->searchCountWithSession($this->openSession($config), $domain, $context);
+    }
+
+    public function searchCountWithSession(OdooExecutionContext $session, array $domain, array $context = []): int
+    {
+        $normalized = $session->getConfig();
+        $result = $this->executeKwWithSession($session, $normalized['model'], 'search_count', [$this->normalizeDomain($domain)], [
             'context' => $this->normalizeContext($context ?: $normalized['defaultContext']),
         ]);
 
@@ -69,8 +81,12 @@ class OdooClient
 
     public function read(array $config, array $ids, array $fields, array $context = []): array
     {
-        $normalized = $this->normalizeConfig($config);
-        $uid = $this->authenticate($normalized);
+        return $this->readWithSession($this->openSession($config), $ids, $fields, $context);
+    }
+
+    public function readWithSession(OdooExecutionContext $session, array $ids, array $fields, array $context = []): array
+    {
+        $normalized = $session->getConfig();
         $cleanIds = array_values(array_filter(array_map(function ($value) {
             if (is_int($value)) {
                 return $value;
@@ -85,12 +101,20 @@ class OdooClient
             throw new RuntimeHttpException('ODOO_RECORD_ID_REQUIRED', 'Informe um identificador valido do registro Odoo.', 422);
         }
 
-        $result = $this->executeKw($normalized, $uid, $normalized['model'], 'read', [$cleanIds], [
+        $result = $this->executeKwWithSession($session, $normalized['model'], 'read', [$cleanIds], [
             'fields' => $this->normalizeFieldNames($fields),
             'context' => $this->normalizeContext($context ?: $normalized['defaultContext']),
         ]);
 
         return is_array($result) ? $result : [];
+    }
+
+    public function openSession(array $config): OdooExecutionContext
+    {
+        $normalized = $this->normalizeConfig($config);
+        $uid = $this->authenticate($normalized);
+
+        return new OdooExecutionContext($normalized, $uid);
     }
 
     public function getVersion(array $config): array
@@ -142,6 +166,36 @@ class OdooClient
     public function executeKw(array $config, int $uid, string $model, string $method, array $args = [], array $kwargs = []): mixed
     {
         $normalized = $this->normalizeConfig($config);
+
+        return match ($normalized['transport']) {
+            'xmlrpc' => $this->xmlRpcCall($normalized['baseUrl'] . '/xmlrpc/2/object', 'execute_kw', array_values(array_filter([
+                $normalized['database'],
+                $uid,
+                $normalized['secretValue'],
+                $model,
+                $method,
+                $args,
+                $kwargs ?: null,
+            ], static fn ($value) => $value !== null)), (int) $normalized['timeoutSeconds']),
+            'jsonrpc' => $this->jsonRpcCall($normalized['baseUrl'] . '/jsonrpc', 'object', 'execute_kw', array_values(array_filter([
+                $normalized['database'],
+                $uid,
+                $normalized['secretValue'],
+                $model,
+                $method,
+                $args,
+                $kwargs ?: null,
+            ], static fn ($value) => $value !== null)), (int) $normalized['timeoutSeconds']),
+            default => throw new RuntimeHttpException('ODOO_TRANSPORT_NOT_SUPPORTED', 'Transporte Odoo nao suportado nesta etapa.', 422, [
+                'transport' => $normalized['transport'],
+            ]),
+        };
+    }
+
+    public function executeKwWithSession(OdooExecutionContext $session, string $model, string $method, array $args = [], array $kwargs = []): mixed
+    {
+        $normalized = $session->getConfig();
+        $uid = $session->getUid();
 
         return match ($normalized['transport']) {
             'xmlrpc' => $this->xmlRpcCall($normalized['baseUrl'] . '/xmlrpc/2/object', 'execute_kw', array_values(array_filter([

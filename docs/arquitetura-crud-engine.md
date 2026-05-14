@@ -20,6 +20,46 @@ Na producao inicial, o backend Symfony ja entrega telas por `screenId`, endpoint
 Para uma primeira versao de producao, o motor tambem aceita carregar a tela por `screenId`.
 Nesse modo o frontend nao recebe uma URL livre de JSON: ele pede ao backend uma tela conhecida, e o backend devolve somente a definicao autorizada para o usuario.
 
+## Notificacoes runtime
+
+Existe agora um modulo proprio de notificacoes runtime, separado das listas agregadas antigas de `alerts`, `requests` e `jobs`.
+
+No backend:
+
+- `runtime_notification` guarda o cabecalho da notificacao;
+- `runtime_notification_recipient` guarda a entrega por destinatario;
+- as telas administrativas sao:
+  - `admin.notificacoes`
+  - `admin.notificacao-destinatarios`
+- a Home pode consumir:
+  - `home.notifications.list`
+  - `home.notifications.ack`
+
+Modelo atual:
+
+- envio por usuarios especificos em `target_user_ids`;
+- envio por grupos em `target_groups`;
+- rastreio por destinatario com estados:
+  - `pending`
+  - `delivered`
+  - `read`
+- cada destinatario pode registrar:
+  - `delivered_at`
+  - `read_at`
+
+Na Home:
+
+- o appbar continua aceitando agregacao de `alerts`, `requests` e `jobs` quando nao houver endpoint proprio;
+- quando existir endpoint dedicado de notificacoes, a central passa a listar os registros reais do backend;
+- cada item pode ser marcado como lido por `home.notifications.ack`;
+- quando a notificacao tiver `link_program_id` ou `link_screen_id`, o shell pode abrir o programa relacionado.
+
+Limites desta fase:
+
+- nao existe ainda broadcast generico por todos os usuarios sem materializar destinatarios;
+- nao existe painel analitico em tempo real por websocket;
+- o fluxo principal e administrativo/manual, nao automacao de campanha.
+
 ## Entidade API
 
 O construtor agora aceita `entityType=api` para consultas externas em JSON.
