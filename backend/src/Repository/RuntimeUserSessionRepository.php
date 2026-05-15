@@ -20,4 +20,25 @@ class RuntimeUserSessionRepository extends ServiceEntityRepository
             'sessionId' => $sessionId,
         ]);
     }
+
+    /**
+     * @return RuntimeUserSession[]
+     */
+    public function findActiveByTenant(string $tenantId, ?string $excludeUserId = null): array
+    {
+        $query = $this->createQueryBuilder('s')
+            ->andWhere('s.tenantId = :tenantId')
+            ->andWhere('s.status = :status')
+            ->setParameter('tenantId', $tenantId)
+            ->setParameter('status', 'active')
+            ->orderBy('s.lastSeenAt', 'DESC');
+
+        if ($excludeUserId !== null && $excludeUserId !== '') {
+            $query
+                ->andWhere('s.userId <> :excludeUserId')
+                ->setParameter('excludeUserId', $excludeUserId);
+        }
+
+        return $query->getQuery()->getResult();
+    }
 }

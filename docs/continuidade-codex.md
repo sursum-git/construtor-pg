@@ -143,6 +143,16 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `home.notifications.ack`
   - a Home mostra as notificacoes no appbar e permite `Marcar como lida`.
   - a demo mock agora tambem preserva o estado de leitura por destinatario ao recarregar os dados administrativos, em vez de recriar tudo como pendente.
+- o backend da Home agora tambem cobre chat e atendimento:
+  - `home.chat.contacts`, `home.chat.history` e `home.chat.send`;
+  - `home.chat.events`;
+  - `home.support.onlineUsers`, `home.support.history`, `home.support.send`, `home.support.createRequest` e `home.support.requestStatus`;
+  - `home.support.events`;
+  - historico de chat e suporte em `runtime_user_message`;
+  - solicitacoes de suporte em `runtime_support_request`;
+  - atendentes online resolvidos por sessoes ativas e grupos `support` ou `support.<setor>`.
+  - o polling global de `runtime.messages` agora ignora `chat` e `support_chat`, para nao transformar conversa em toast/runtime message da shell.
+  - envio continua por `POST`; recepcao em tempo quase real agora usa SSE proprio por conversa/atendimento, com fallback natural para carregamento sob demanda quando o stream nao abre.
 - validacao real mais recente desta frente:
   - migration `Version20260512100000` aplicada;
   - `POST /api/admin/program-builder/api-sources/import-openapi` validado contra OpenAPI local servido em `http://127.0.0.1:8765/tmp/openapi-api-source-test.json`;

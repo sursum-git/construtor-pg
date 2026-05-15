@@ -6,6 +6,7 @@ class HomeRuntimeHandler
 {
     public function __construct(
         private readonly RuntimeNotificationService $notifications,
+        private readonly HomeSupportService $support,
     ) {
     }
 
@@ -39,9 +40,13 @@ class HomeRuntimeHandler
             'contacts' => $this->contacts($payload),
             'history' => $this->history($payload),
             'send' => $this->send($payload),
+            'chatEvents' => $this->chatEvents($payload),
             'supportOnlineUsers' => $this->supportOnlineUsers($payload),
+            'supportHistory' => $this->supportHistory($payload),
+            'supportSend' => $this->supportSend($payload),
             'supportCreateRequest' => $this->supportCreateRequest($payload),
             'supportRequestStatus' => $this->supportRequestStatus($payload),
+            'supportEvents' => $this->supportEvents($payload),
             'notifications' => $this->notifications($payload),
             'notificationsAck' => $this->notificationsAck($payload),
             'alerts' => $this->alerts($payload),
@@ -57,87 +62,111 @@ class HomeRuntimeHandler
 
     private function contacts(array $payload): array
     {
-        return [
-            'items' => [
-                ['id' => 'ana', 'name' => 'Ana Suporte', 'email' => 'ana@example.com', 'initials' => 'AS'],
-                ['id' => 'bruno', 'name' => 'Bruno Operacoes', 'email' => 'bruno@example.com', 'initials' => 'BO'],
-            ],
-            'context' => $this->normalizeContext($payload),
-        ];
+        $response = $this->support->listChatContacts();
+        $response['context'] = $this->normalizeContext($payload);
+
+        return $response;
     }
 
     private function history(array $payload): array
     {
-        return [
-            'messages' => [],
-            'context' => $this->normalizeContext($payload),
-        ];
+        $recipient = is_array($payload['recipient'] ?? null) ? $payload['recipient'] : [];
+        $response = $this->support->chatHistory((string) ($recipient['id'] ?? ''));
+        $response['context'] = $this->normalizeContext($payload);
+
+        return $response;
     }
 
     private function send(array $payload): array
     {
+        $message = is_array($payload['message'] ?? null) ? $payload['message'] : [];
+        $recipient = is_array($payload['recipient'] ?? null) ? $payload['recipient'] : [];
         $context = $this->normalizeContext($payload);
-        $programTitle = $this->contextProgramTitle($context);
+        $response = $this->support->sendChatMessage($message, $recipient, $context);
+        $response['context'] = $context;
 
-        return [
-            'messages' => [
-                [
-                    'text' => 'Mensagem recebida pelo backend para ' . $programTitle . '.',
-                    'authorId' => $payload['recipient']['id'] ?? 'sistema',
-                    'authorName' => $payload['recipient']['name'] ?? 'Sistema',
-                    'timestamp' => (new \DateTimeImmutable())->format(DATE_ATOM),
-                ],
-            ],
-            'context' => $context,
-        ];
+        return $response;
+    }
+
+    private function chatEvents(array $payload): array
+    {
+        $recipient = is_array($payload['recipient'] ?? null) ? $payload['recipient'] : [];
+        $afterId = max(0, (int) ($payload['afterId'] ?? 0));
+        $response = $this->support->chatEvents((string) ($recipient['id'] ?? ''), $afterId);
+        $response['context'] = $this->normalizeContext($payload);
+
+        return $response;
     }
 
     private function supportOnlineUsers(array $payload): array
     {
         $context = $this->normalizeContext($payload);
-        $sectorId = (string) ($payload['sector']['id'] ?? '');
-        if ($sectorId === 'financeiro') {
-            return [
-                'items' => [],
-                'context' => $context,
-            ];
-        }
+        $sector = is_array($payload['sector'] ?? null) ? $payload['sector'] : [];
+        $response = $this->support->listSupportOnlineUsers((string) ($sector['id'] ?? ''));
+        $response['context'] = $context;
 
-        return [
-            'items' => [
-                ['id' => 'suporte-1', 'name' => 'Atendente Online', 'sectorId' => $sectorId ?: 'suporte'],
-            ],
-            'context' => $context,
-        ];
+        return $response;
+    }
+
+    private function supportHistory(array $payload): array
+    {
+        $attendant = is_array($payload['attendant'] ?? null) ? $payload['attendant'] : [];
+        $response = $this->support->supportHistory((string) ($attendant['id'] ?? ''));
+        $response['context'] = $this->normalizeContext($payload);
+
+        return $response;
+    }
+
+    private function supportSend(array $payload): array
+    {
+        $message = is_array($payload['message'] ?? null) ? $payload['message'] : [];
+        $attendant = is_array($payload['attendant'] ?? null) ? $payload['attendant'] : [];
+        $context = $this->normalizeContext($payload);
+        $response = $this->support->sendSupportMessage($message, $attendant, $context);
+        $response['context'] = $context;
+
+        return $response;
     }
 
     private function supportCreateRequest(array $payload): array
     {
         $context = $this->normalizeContext($payload);
+        $sector = is_array($payload['sector'] ?? null) ? $payload['sector'] : [];
+        $priority = trim((string) ($payload['priority'] ?? 'normal'));
+        $subject = trim((string) ($payload['subject'] ?? ''));
+        $description = trim((string) ($payload['description'] ?? ''));
+        $response = $this->support->createSupportRequest($sector, $priority, $subject, $description, $context);
+        $response['programId'] = $context['programId'];
+        $response['programCode'] = $context['programCode'];
+        $response['programTitle'] = $this->contextProgramTitle($context);
+        $response['context'] = $context;
 
-        return [
-            'ok' => true,
-            'protocol' => 'ATD-' . (new \DateTimeImmutable())->format('YmdHis'),
-            'sectorId' => $payload['sector']['id'] ?? 'suporte',
-            'status' => 'aberta',
-            'programId' => $context['programId'],
-            'programCode' => $context['programCode'],
-            'programTitle' => $this->contextProgramTitle($context),
-            'context' => $context,
-            'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
-        ];
+        return $response;
     }
 
     private function supportRequestStatus(array $payload): array
     {
-        $context = $this->normalizeContext($payload);
+        $response = $this->support->supportRequestStatus(trim((string) ($payload['protocol'] ?? '')));
+        $response['context'] = $this->normalizeContext($payload);
 
-        return [
-            'status' => 'aberta',
-            'assignedTo' => null,
-            'context' => $context,
-            'updatedAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
-        ];
+        return $response;
+    }
+
+    private function supportEvents(array $payload): array
+    {
+        $attendant = is_array($payload['attendant'] ?? null) ? $payload['attendant'] : [];
+        $sector = is_array($payload['sector'] ?? null) ? $payload['sector'] : [];
+        $afterId = max(0, (int) ($payload['afterId'] ?? 0));
+        $protocol = trim((string) ($payload['protocol'] ?? ''));
+        $response = $this->support->supportEvents(
+            (string) ($attendant['id'] ?? ''),
+            (string) ($sector['id'] ?? ''),
+            $protocol !== '' ? $protocol : null,
+            $afterId
+        );
+        $response['context'] = $this->normalizeContext($payload);
+
+        return $response;
     }
 
     private function alerts(array $payload): array

@@ -28,31 +28,7 @@ class RuntimeEndpointDispatcher
 
     public function dispatch(string $screenId, string $endpointId, array $payload): array
     {
-        $endpoint = $this->endpoints->findEnabled($screenId, $endpointId);
-        if (!$endpoint) {
-            throw new RuntimeHttpException('RUNTIME_ENDPOINT_NOT_FOUND', 'Endpoint runtime nao encontrado.', 404, [
-                'screenId' => $screenId,
-                'endpointId' => $endpointId,
-                'minimumRequired' => [
-                    'runtime_endpoint' => [
-                        'screenId' => $screenId,
-                        'endpointId' => $endpointId,
-                        'enabled' => true,
-                        'handler' => 'entity.crud ou outro handler fechado registrado',
-                        'config' => [
-                            'entityCode' => 'codigo da entidade quando usar entity.crud',
-                            'operation' => 'read|get|create|update|delete',
-                        ],
-                    ],
-                ],
-            ]);
-        }
-        if (!$this->permissions->canExecuteEndpoint($endpoint)) {
-            throw new RuntimeHttpException('RUNTIME_ENDPOINT_FORBIDDEN', 'Voce nao possui permissao para executar esta acao.', 403, [
-                'screenId' => $screenId,
-                'endpointId' => $endpointId,
-            ]);
-        }
+        $endpoint = $this->resolveEndpoint($screenId, $endpointId);
 
         $this->sessions->ensureActive();
         $payload = $this->enrichPayloadFromEndpoint($endpoint, $payload);
@@ -71,6 +47,19 @@ class RuntimeEndpointDispatcher
             throw $error;
         } finally {
             $this->asyncJobs->clearPending();
+            $this->executionContext->clear();
+        }
+    }
+
+    public function dispatchEvent(string $screenId, string $endpointId, array $payload): array
+    {
+        $endpoint = $this->resolveEndpoint($screenId, $endpointId);
+        $this->sessions->ensureActive();
+        $payload = $this->enrichPayloadFromEndpoint($endpoint, $payload);
+
+        try {
+            return $this->dispatchHandler($screenId, $endpoint, $payload);
+        } finally {
             $this->executionContext->clear();
         }
     }
@@ -119,11 +108,13 @@ class RuntimeEndpointDispatcher
             'home.chat.contacts' => $this->home->handle('contacts', $payload),
             'home.chat.history' => $this->home->handle('history', $payload),
             'home.chat.send' => $this->home->handle('send', $payload),
+            'home.chat.events' => $this->home->handle('chatEvents', $payload),
             'home.support.onlineUsers' => $this->home->handle('supportOnlineUsers', $payload),
-            'home.support.history' => $this->home->handle('history', $payload),
-            'home.support.send' => $this->home->handle('send', $payload),
+            'home.support.history' => $this->home->handle('supportHistory', $payload),
+            'home.support.send' => $this->home->handle('supportSend', $payload),
             'home.support.createRequest' => $this->home->handle('supportCreateRequest', $payload),
             'home.support.requestStatus' => $this->home->handle('supportRequestStatus', $payload),
+            'home.support.events' => $this->home->handle('supportEvents', $payload),
             'home.aiChat.history' => $this->home->handle('aiHistory', $payload),
             'home.aiChat.send' => $this->home->handle('aiSend', $payload),
             'home.notifications.list' => $this->home->handle('notifications', $payload),
@@ -176,6 +167,37 @@ class RuntimeEndpointDispatcher
         }
 
         return $payload;
+    }
+
+    private function resolveEndpoint(string $screenId, string $endpointId): RuntimeEndpoint
+    {
+        $endpoint = $this->endpoints->findEnabled($screenId, $endpointId);
+        if (!$endpoint) {
+            throw new RuntimeHttpException('RUNTIME_ENDPOINT_NOT_FOUND', 'Endpoint runtime nao encontrado.', 404, [
+                'screenId' => $screenId,
+                'endpointId' => $endpointId,
+                'minimumRequired' => [
+                    'runtime_endpoint' => [
+                        'screenId' => $screenId,
+                        'endpointId' => $endpointId,
+                        'enabled' => true,
+                        'handler' => 'entity.crud ou outro handler fechado registrado',
+                        'config' => [
+                            'entityCode' => 'codigo da entidade quando usar entity.crud',
+                            'operation' => 'read|get|create|update|delete',
+                        ],
+                    ],
+                ],
+            ]);
+        }
+        if (!$this->permissions->canExecuteEndpoint($endpoint)) {
+            throw new RuntimeHttpException('RUNTIME_ENDPOINT_FORBIDDEN', 'Voce nao possui permissao para executar esta acao.', 403, [
+                'screenId' => $screenId,
+                'endpointId' => $endpointId,
+            ]);
+        }
+
+        return $endpoint;
     }
 
     /**

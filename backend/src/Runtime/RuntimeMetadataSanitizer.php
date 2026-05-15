@@ -113,6 +113,7 @@ class RuntimeMetadataSanitizer
             'contacts' => 'home.chat.contacts',
             'history' => 'home.chat.history',
             'send' => 'home.chat.send',
+            'events' => 'home.chat.events',
         ]);
         $definition = $this->sanitizeHomeEndpointGroup($definition, ['layout', 'appbar', 'support'], [
             'onlineUsers' => 'home.support.onlineUsers',
@@ -120,6 +121,7 @@ class RuntimeMetadataSanitizer
             'send' => 'home.support.send',
             'createRequest' => 'home.support.createRequest',
             'requestStatus' => 'home.support.requestStatus',
+            'events' => 'home.support.events',
         ]);
         $definition = $this->sanitizeHomeEndpointGroup($definition, ['layout', 'appbar', 'aiChat'], [
             'history' => 'home.aiChat.history',
@@ -321,9 +323,10 @@ class RuntimeMetadataSanitizer
                 continue;
             }
             $source = is_array($value) ? $value : ['endpointId' => $endpointId];
+            $defaultMethod = in_array($key, ['contacts', 'onlineUsers', 'requestStatus', 'events'], true) ? 'GET' : 'POST';
             $endpoints[$key] = [
                 'endpointId' => (string) ($source['endpointId'] ?? $source['actionId'] ?? $source['id'] ?? $endpointId),
-                'method' => 'POST',
+                'method' => strtoupper((string) ($source['method'] ?? $defaultMethod)),
             ];
             unset($group[$key . 'Url'], $group[$key]);
         }

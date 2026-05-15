@@ -643,7 +643,8 @@
           endpoints: {
             contacts: { endpointId: "home.chat.contacts", method: "GET" },
             history: { endpointId: "home.chat.history", method: "POST" },
-            send: { endpointId: "home.chat.send", method: "POST" }
+            send: { endpointId: "home.chat.send", method: "POST" },
+            events: { endpointId: "home.chat.events", method: "GET" }
           }
         },
         support: {
@@ -666,7 +667,8 @@
             history: { endpointId: "home.support.history", method: "POST" },
             send: { endpointId: "home.support.send", method: "POST" },
             createRequest: { endpointId: "home.support.createRequest", method: "POST" },
-            requestStatus: { endpointId: "home.support.requestStatus", method: "GET" }
+            requestStatus: { endpointId: "home.support.requestStatus", method: "GET" },
+            events: { endpointId: "home.support.events", method: "GET" }
           }
         },
         aiChat: {

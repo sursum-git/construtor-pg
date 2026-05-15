@@ -34,4 +34,29 @@ class AuthUserRepository extends ServiceEntityRepository
             ->getQuery()
             ->getOneOrNullResult();
     }
+
+    /**
+     * @param string[] $usernames
+     *
+     * @return AuthUser[]
+     */
+    public function findActiveByTenantAndUsernames(string $tenantId, array $usernames): array
+    {
+        $normalized = array_values(array_unique(array_filter(array_map(static function ($value): string {
+            return AuthUser::normalizeUsername((string) $value);
+        }, $usernames))));
+        if ($normalized === []) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('u')
+            ->andWhere('u.tenantId = :tenantId')
+            ->andWhere('u.status = :status')
+            ->andWhere('u.normalizedUsername IN (:usernames)')
+            ->setParameter('tenantId', $tenantId)
+            ->setParameter('status', 'active')
+            ->setParameter('usernames', $normalized)
+            ->getQuery()
+            ->getResult();
+    }
 }

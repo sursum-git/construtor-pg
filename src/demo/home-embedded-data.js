@@ -104,7 +104,11 @@
                 "url": "/api/home/chat/history",
                 "method": "POST"
               },
-              "send": "/api/home/chat/send"
+              "send": "/api/home/chat/send",
+              "events": {
+                "endpointId": "home.chat.events",
+                "method": "GET"
+              }
             }
           },
           "support": {
@@ -127,7 +131,11 @@
               "history": "/api/home/support/history",
               "send": "/api/home/support/send",
               "createRequest": "/api/home/support/requests",
-              "requestStatus": "/api/home/support/requests/status"
+              "requestStatus": "/api/home/support/requests/status",
+              "events": {
+                "endpointId": "home.support.events",
+                "method": "GET"
+              }
             }
           },
           "aiChat": {

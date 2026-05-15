@@ -54,6 +54,88 @@ class RuntimeController extends AbstractController
         }
     }
 
+    #[Route('/api/runtime/screens/{screenId}/endpoints/{endpointId}', name: 'runtime_endpoint_events', methods: ['GET'])]
+    public function endpointEvents(string $screenId, string $endpointId, Request $request): StreamedResponse|JsonResponse
+    {
+        try {
+            $payload = $this->buildRuntimeEventPayload($request);
+            $isStream = in_array(strtolower(trim((string) $request->query->get('stream', ''))), ['1', 'true', 'yes'], true);
+
+            if (!$isStream) {
+                return $this->json($this->dispatcher->dispatch($screenId, $endpointId, $payload));
+            }
+
+            if (!in_array($endpointId, ['home.chat.events', 'home.support.events'], true)) {
+                return $this->json([
+                    'error' => [
+                        'code' => 'RUNTIME_EVENT_ENDPOINT_NOT_ALLOWED',
+                        'message' => 'Endpoint nao suporta SSE.',
+                        'details' => [
+                            'screenId' => $screenId,
+                            'endpointId' => $endpointId,
+                        ],
+                    ],
+                ], 405);
+            }
+
+            $maxSeconds = max(1, min(60, (int) $request->query->get('timeout', 45)));
+            $intervalSeconds = max(1, min(10, (int) $request->query->get('interval', 3)));
+            $eventName = $this->runtimeEndpointEventName($endpointId);
+
+            $response = new StreamedResponse(function () use ($screenId, $endpointId, $maxSeconds, $intervalSeconds, $payload, $eventName): void {
+                @set_time_limit(0);
+                $startedAt = time();
+                $lastKeepAliveAt = 0;
+                $streamPayload = $payload;
+                $lastFingerprint = '';
+
+                echo "retry: 3000\n\n";
+                $this->flushStream();
+                $this->sessions->ensureActive();
+
+                while ((time() - $startedAt) < $maxSeconds) {
+                    if (connection_aborted()) {
+                        break;
+                    }
+
+                    try {
+                        $data = $this->dispatcher->dispatchEvent($screenId, $endpointId, $streamPayload);
+                        $fingerprint = md5((string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+                        if ($fingerprint !== $lastFingerprint) {
+                            $this->writeSse($eventName, $data);
+                            $lastFingerprint = $fingerprint;
+                        } else {
+                            $this->sessions->ensureActive(false);
+                        }
+                        $streamPayload['afterId'] = $this->resolveNextAfterId($data, (int) ($streamPayload['afterId'] ?? 0));
+                    } catch (\Throwable $error) {
+                        $this->writeSse('runtime-error', [
+                            'error' => $this->formatError($error),
+                        ]);
+                        break;
+                    }
+
+                    if ((time() - $lastKeepAliveAt) >= 15) {
+                        echo ": keepalive\n\n";
+                        $lastKeepAliveAt = time();
+                        $this->flushStream();
+                    }
+
+                    sleep($intervalSeconds);
+                }
+            });
+
+            $response->headers->set('Content-Type', 'text/event-stream; charset=UTF-8');
+            $response->headers->set('Cache-Control', 'no-cache, no-transform');
+            $response->headers->set('X-Accel-Buffering', 'no');
+            $response->headers->set('Connection', 'keep-alive');
+
+            return $response;
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
     #[Route('/api/runtime/screens/{screenId}/documents/{documentId}', name: 'runtime_document', methods: ['GET'])]
     public function document(string $screenId, string $documentId, Request $request): Response
     {
@@ -194,6 +276,64 @@ class RuntimeController extends AbstractController
             @ob_flush();
         }
         flush();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildRuntimeEventPayload(Request $request): array
+    {
+        $payload = [
+            'afterId' => max(0, (int) $request->query->get('afterId', 0)),
+            'protocol' => trim((string) $request->query->get('protocol', '')),
+        ];
+        $recipientId = trim((string) $request->query->get('recipientId', ''));
+        if ($recipientId !== '') {
+            $payload['recipient'] = ['id' => $recipientId];
+        }
+        $attendantId = trim((string) $request->query->get('attendantId', ''));
+        if ($attendantId !== '') {
+            $payload['attendant'] = ['id' => $attendantId];
+        }
+        $sectorId = trim((string) $request->query->get('sectorId', ''));
+        if ($sectorId !== '') {
+            $payload['sector'] = ['id' => $sectorId];
+        }
+
+        $context = [];
+        foreach (['appId', 'appTitle', 'programId', 'programCode', 'programTitle', 'programScreenId', 'programType', 'moduleId'] as $field) {
+            $value = trim((string) $request->query->get('context' . ucfirst($field), ''));
+            if ($value !== '') {
+                $context[$field] = $value;
+            }
+        }
+        if ($context !== []) {
+            $payload['context'] = $context;
+        }
+
+        return $payload;
+    }
+
+    private function runtimeEndpointEventName(string $endpointId): string
+    {
+        return match ($endpointId) {
+            'home.chat.events' => 'home-chat-events',
+            'home.support.events' => 'home-support-events',
+            default => 'runtime-endpoint',
+        };
+    }
+
+    private function resolveNextAfterId(array $payload, int $currentAfterId): int
+    {
+        $afterId = $currentAfterId;
+        foreach (($payload['messages'] ?? []) as $message) {
+            $messageId = (int) ($message['messageId'] ?? 0);
+            if ($messageId > $afterId) {
+                $afterId = $messageId;
+            }
+        }
+
+        return $afterId;
     }
 
     /**

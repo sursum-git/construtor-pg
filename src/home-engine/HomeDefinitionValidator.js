@@ -220,6 +220,7 @@
       this.validateChatEndpoint(endpoints.contacts || chat.contactsUrl, label + ".endpoints.contacts", errors, chat.enabled === true && !hasStaticContacts);
       this.validateChatEndpoint(endpoints.history || chat.historyUrl, label + ".endpoints.history", errors, false);
       this.validateChatEndpoint(endpoints.send || chat.sendUrl, label + ".endpoints.send", errors, chat.enabled === true);
+      this.validateChatEndpoint(endpoints.events || chat.eventsUrl, label + ".endpoints.events", errors, false);
     }
 
     validateChatContacts(chat, errors) {
@@ -333,6 +334,7 @@
       this.validateChatEndpoint(endpoints.send || support.sendUrl, label + ".endpoints.send", errors, support.enabled === true);
       this.validateChatEndpoint(endpoints.createRequest || support.createRequestUrl, label + ".endpoints.createRequest", errors, support.enabled === true);
       this.validateChatEndpoint(endpoints.requestStatus || support.requestStatusUrl, label + ".endpoints.requestStatus", errors, false);
+      this.validateChatEndpoint(endpoints.events || support.eventsUrl, label + ".endpoints.events", errors, false);
     }
 
     validateSupportList(items, label, errors, required) {

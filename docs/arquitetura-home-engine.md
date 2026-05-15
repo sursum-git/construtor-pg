@@ -96,9 +96,11 @@ Niveis importantes:
 - `layout.appbar.showCurrentSubscriber`: exibe ou oculta o assinante corrente quando `currentSubscriber` estiver informado.
 - `layout.appbar.subscriberSwitch`: habilita a troca de assinante pelo badge do cabecalho, podendo informar `programId`, `url` e endpoint `endpoints.change`.
 - Em producao, `layout.appbar.subscriberSwitch.endpoints.change` deve usar `endpointId` ou `actionId`; URL livre fica restrita a demo/ambiente controlado.
-- `layout.appbar.chat`: habilita o botao de chat no appbar global. O chat e entre usuarios do sistema, usa ComboBox de destinatarios e informa endpoints `contacts`, `history` e `send`.
-- `layout.appbar.support`: habilita o botao de atendimento no appbar global. O usuario escolhe o setor; se houver atendente online naquele setor, abre chat; se nao houver, abre formulario de solicitacao com o setor travado.
+- `layout.appbar.chat`: habilita o botao de chat no appbar global. O chat e entre usuarios do sistema, usa ComboBox de destinatarios e informa endpoints `contacts`, `history`, `send` e opcionalmente `events`.
+- `layout.appbar.support`: habilita o botao de atendimento no appbar global. O usuario escolhe o setor; se houver atendente online naquele setor, abre chat; se nao houver, abre formulario de solicitacao com o setor travado. O bloco tambem aceita `events` para presenca, mensagens e atualizacao de protocolo.
 - Ao abrir o atendimento, o `HomeEngine` captura o programa corrente e envia no contexto das chamadas de suporte (`programId`, `programCode`, `programTitle`, `programScreenId`, `programType`, `moduleId` e `currentProgram`).
+- No backend atual, o chat entre usuarios e o chat de suporte usam `runtime_user_message` como historico/persistencia leve. Solicitacoes de suporte ficam em `runtime_support_request`.
+- O envio de mensagem continua em `POST`, mas o recebimento em tempo quase real pode usar SSE proprio por conversa/atendimento.
 - `layout.appbar.aiChat`: habilita outro botao no appbar global para chat de IA, sem selecao de destinatario, com endpoints `history` e `send`.
 - `layout.appbar.alerts`: habilita o botao de sino no appbar global e informa endpoint `list` para alertas de informacoes recebidas.
 - `layout.appbar.requests`: habilita o botao de solicitacoes no appbar global e informa endpoint `list` para solicitacoes recebidas ou atualizadas.
@@ -142,6 +144,14 @@ new HomeEngine({
 - Programas `crud` abertos pela Home devem preferir `screenId` em vez de `definitionUrl`.
 - Programas `process` abertos pela Home tambem devem preferir `screenId` em vez de `definitionUrl`.
 - Endpoints de chat, atendimento, IA, alertas e solicitacoes podem usar `endpointId` ou `actionId`, resolvidos pelo gateway runtime.
+- `home.chat.contacts` lista usuarios ativos a partir das sessoes runtime.
+- `home.chat.history` e `home.chat.send` persistem conversa simples entre usuarios.
+- `home.chat.events` expõe SSE proprio por conversa, enviando apenas mensagens novas a partir de `afterId`.
+- `home.support.onlineUsers` lista atendentes online por setor usando sessoes ativas e grupos `support` ou `support.<setor>`.
+- `home.support.history` e `home.support.send` persistem o atendimento em `runtime_user_message` com canal proprio.
+- `home.support.createRequest` grava protocolo em `runtime_support_request`.
+- `home.support.requestStatus` consulta o ultimo protocolo do usuario ou um protocolo especifico.
+- `home.support.events` expõe SSE proprio para presenca online, novas mensagens do atendimento e evolucao do protocolo da solicitacao.
 - Endpoints da troca de assinante seguem a mesma regra dos demais endpoints da appbar em producao.
 - Endpoint de jobs do appbar e endpoints de processamento devem usar `endpointId` ou `actionId` em producao.
 - Nao aceitar JavaScript vindo do JSON.

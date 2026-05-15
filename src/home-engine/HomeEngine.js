@@ -40,6 +40,11 @@
       this.currentChatRecipient = null;
       this.chatHistoryLoaded = false;
       this.chatHistoryRecipientId = "";
+      this.chatLastMessageId = 0;
+      this.chatEventSource = null;
+      this.chatEventReconnectTimer = null;
+      this.chatEventRecipientId = "";
+      this.chatEventSignature = "";
       this.supportWindowElement = null;
       this.supportWindow = null;
       this.supportStatusElement = null;
@@ -66,6 +71,12 @@
       this.currentSupportSectorId = "";
       this.currentSupportContext = null;
       this.supportHistoryLoadedUserId = "";
+      this.supportLastMessageId = 0;
+      this.supportCurrentProtocol = "";
+      this.supportEventSource = null;
+      this.supportEventReconnectTimer = null;
+      this.supportEventAttendantId = "";
+      this.supportEventSignature = "";
       this.aiChatWindowElement = null;
       this.aiChatWindow = null;
       this.aiChatHost = null;
@@ -229,14 +240,16 @@
       this.applyEndpointGroupSecurity(appbar.chat || definition.chat, {
         contacts: "home.chat.contacts",
         history: "home.chat.history",
-        send: "home.chat.send"
+        send: "home.chat.send",
+        events: "home.chat.events"
       }, screenId);
       this.applyEndpointGroupSecurity(appbar.support || definition.support, {
         onlineUsers: "home.support.onlineUsers",
         history: "home.support.history",
         send: "home.support.send",
         createRequest: "home.support.createRequest",
-        requestStatus: "home.support.requestStatus"
+        requestStatus: "home.support.requestStatus",
+        events: "home.support.events"
       }, screenId);
       this.applyEndpointGroupSecurity(appbar.aiChat || appbar.iaChat || definition.aiChat || definition.iaChat, {
         history: "home.aiChat.history",
@@ -419,13 +432,13 @@
       if (typeof endpoint === "string") {
         return {
           url: endpoint,
-          method: name === "contacts" ? "GET" : "POST"
+          method: name === "contacts" || name === "events" ? "GET" : "POST"
         };
       }
       if (typeof endpoint === "object" && endpoint.url) {
         return {
           url: endpoint.url,
-          method: String(endpoint.method || (name === "contacts" ? "GET" : "POST")).toUpperCase()
+          method: String(endpoint.method || (name === "contacts" || name === "events" ? "GET" : "POST")).toUpperCase()
         };
       }
       return null;
@@ -476,6 +489,7 @@
         resizable: true,
         visible: false,
         close: () => {
+          this.stopChatEvents();
           if (this.chatButton) {
             this.chatButton.trigger("focus");
           }
@@ -675,9 +689,11 @@
       if (!nextId || this.currentChatRecipient && this.currentChatRecipient.id === nextId) {
         return;
       }
+      this.stopChatEvents();
       this.currentChatRecipient = recipient;
       this.chatHistoryLoaded = false;
       this.chatHistoryRecipientId = "";
+      this.chatLastMessageId = 0;
       this.clearChatMessages();
       this.loadChatHistory(chat);
     }
@@ -701,7 +717,10 @@
         recipient,
         context: this.buildChatContextPayload()
       }).then((response) => {
-        this.postChatMessages(this.normalizeChatResponseMessages(response, chat.bot || {}));
+        const messages = this.normalizeChatResponseMessages(response, chat.bot || {});
+        this.postChatMessages(messages);
+        this.chatLastMessageId = this.resolveLastChatMessageId(messages, this.chatLastMessageId);
+        this.startChatEvents(chat);
       }).catch(() => {
         this.chatHistoryLoaded = false;
         this.chatHistoryRecipientId = "";
@@ -741,11 +760,7 @@
     }
 
     requestChatEndpoint(endpoint, data) {
-      return this.httpClient.request({
-        url: endpoint.url,
-        method: endpoint.method || "POST",
-        data
-      });
+      return this.requestHomeEndpoint(endpoint, data);
     }
 
     buildChatUserPayload() {
@@ -852,7 +867,77 @@
       });
     }
 
+    startChatEvents(chat) {
+      const endpoint = this.getChatEndpoint(chat, "events");
+      const recipient = this.buildChatRecipientPayload();
+      if (!endpoint || !endpoint.url || endpoint.method !== "GET" || !recipient.id || typeof global.EventSource !== "function" || global.location && global.location.protocol === "file:") {
+        return;
+      }
+      const url = this.buildEndpointEventUrl(endpoint.url, {
+        recipientId: recipient.id,
+        afterId: this.chatLastMessageId
+      }, this.buildChatContextPayload());
+      if (!url) {
+        return;
+      }
+      if (this.chatEventSource && this.chatEventSignature === url) {
+        return;
+      }
+      this.stopChatEvents();
+
+      let source = null;
+      try {
+        source = new global.EventSource(url);
+      } catch (_) {
+        return;
+      }
+
+      this.chatEventSource = source;
+      this.chatEventRecipientId = recipient.id;
+      this.chatEventSignature = url;
+      source.addEventListener("home-chat-events", (event) => {
+        const payload = this.parseRuntimeEventPayload(event);
+        const messages = this.normalizeChatResponseMessages(payload, chat.bot || {});
+        this.postChatMessages(messages);
+        this.chatLastMessageId = this.resolveLastChatMessageId(messages, this.chatLastMessageId);
+      });
+      source.addEventListener("runtime-error", (event) => {
+        const payload = this.parseRuntimeEventPayload(event);
+        this.handleRuntimeEventError(payload.error || {});
+      });
+      source.onerror = () => {
+        if (this.chatEventReconnectTimer) {
+          return;
+        }
+        this.chatEventReconnectTimer = window.setTimeout(() => {
+          this.chatEventReconnectTimer = null;
+          const chatVisible = this.chatWindowElement && this.chatWindowElement.closest("body").length && this.chatWindowElement.is(":visible");
+          if (!chatVisible || !this.currentChatRecipient || this.currentChatRecipient.id !== recipient.id) {
+            this.stopChatEvents();
+            return;
+          }
+          this.startChatEvents(chat);
+        }, 3000);
+      };
+    }
+
+    stopChatEvents() {
+      if (this.chatEventReconnectTimer) {
+        window.clearTimeout(this.chatEventReconnectTimer);
+        this.chatEventReconnectTimer = null;
+      }
+      if (this.chatEventSource) {
+        this.chatEventSource.onopen = null;
+        this.chatEventSource.onerror = null;
+        this.chatEventSource.close();
+        this.chatEventSource = null;
+      }
+      this.chatEventRecipientId = "";
+      this.chatEventSignature = "";
+    }
+
     destroyChatWindow() {
+      this.stopChatEvents();
       if (this.chatWindow) {
         this.chatWindow.destroy();
       }
@@ -870,6 +955,7 @@
       this.currentChatRecipient = null;
       this.chatHistoryLoaded = false;
       this.chatHistoryRecipientId = "";
+      this.chatLastMessageId = 0;
     }
 
     renderSupportButton(container) {
@@ -911,13 +997,13 @@
       if (typeof endpoint === "string") {
         return {
           url: endpoint,
-          method: name === "onlineUsers" || name === "requestStatus" ? "GET" : "POST"
+          method: name === "onlineUsers" || name === "requestStatus" || name === "events" ? "GET" : "POST"
         };
       }
       if (typeof endpoint === "object" && endpoint.url) {
         return {
           url: endpoint.url,
-          method: String(endpoint.method || (name === "onlineUsers" || name === "requestStatus" ? "GET" : "POST")).toUpperCase()
+          method: String(endpoint.method || (name === "onlineUsers" || name === "requestStatus" || name === "events" ? "GET" : "POST")).toUpperCase()
         };
       }
       return null;
@@ -957,6 +1043,7 @@
         resizable: true,
         visible: false,
         close: () => {
+          this.stopSupportEvents();
           if (this.supportButton) {
             this.supportButton.trigger("focus");
           }
@@ -1157,6 +1244,7 @@
       if (!endpoint) {
         return;
       }
+      this.stopSupportEvents();
       this.setSupportStatus("Consultando atendentes online...", "info");
       this.supportOnlineSection.attr("hidden", true);
       this.supportRequestSection.attr("hidden", true);
@@ -1165,6 +1253,8 @@
         context: this.buildSupportContextPayload()
       }).then((response) => {
         this.bindSupportAvailability(support, response);
+        this.loadSupportRequestStatus(support);
+        this.startSupportEvents(support);
       }).catch(() => {
         this.setSupportStatus("Nao foi possivel consultar atendentes. Registre uma solicitacao.", "warning");
         this.bindSupportAvailability(support, { onlineUsers: [], sectors: support.sectors || [] });
@@ -1303,12 +1393,16 @@
       if (!sector.id) {
         return;
       }
+      this.stopSupportEvents();
       this.currentSupportSectorId = sector.id;
       this.currentSupportUser = null;
       this.supportHistoryLoadedUserId = "";
+      this.supportLastMessageId = 0;
       this.clearSupportChatMessages();
       this.syncSupportRequestSector(false);
       this.showSupportSectorState(support);
+      this.loadSupportRequestStatus(support);
+      this.startSupportEvents(support);
     }
 
     getSelectedSupportSector() {
@@ -1369,8 +1463,10 @@
       if (!nextId || this.currentSupportUser && this.currentSupportUser.id === nextId) {
         return;
       }
+      this.stopSupportEvents();
       this.currentSupportUser = user;
       this.supportHistoryLoadedUserId = "";
+      this.supportLastMessageId = 0;
       this.clearSupportChatMessages();
       this.loadSupportChatHistory(support);
     }
@@ -1387,10 +1483,13 @@
         attendant,
         context: this.buildSupportContextPayload()
       }).then((response) => {
-        this.postSupportChatMessages(this.normalizeChatResponseMessages(response, {
+        const messages = this.normalizeChatResponseMessages(response, {
           id: attendant.id,
           name: attendant.name || "Atendente"
-        }));
+        });
+        this.postSupportChatMessages(messages);
+        this.supportLastMessageId = this.resolveLastChatMessageId(messages, this.supportLastMessageId);
+        this.startSupportEvents(support);
       }).catch(() => {
         this.supportHistoryLoadedUserId = "";
         global.CrudUtils.showMessage("Nao foi possivel carregar o historico do atendimento.", "error");
@@ -1455,10 +1554,12 @@
         context: this.buildSupportContextPayload()
       }).then((response) => {
         const protocol = response && (response.protocol || response.id || response.requestId);
+        this.supportCurrentProtocol = String(protocol || "");
         this.setSupportStatus(protocol ? "Solicitacao criada: " + protocol + "." : "Solicitacao criada.", "success");
         global.CrudUtils.showMessage("Solicitacao enviada para o setor.", "success");
         this.supportSubjectInput.val("");
         this.supportDescriptionInput.val("");
+        this.startSupportEvents(support);
       }).catch(() => {
         global.CrudUtils.showMessage("Nao foi possivel criar a solicitacao.", "error");
       });
@@ -1488,11 +1589,103 @@
     }
 
     requestSupportEndpoint(endpoint, data) {
-      return this.httpClient.request({
-        url: endpoint.url,
-        method: endpoint.method || "POST",
-        data
+      return this.requestHomeEndpoint(endpoint, data);
+    }
+
+    loadSupportRequestStatus(support) {
+      const endpoint = this.getSupportEndpoint(support, "requestStatus");
+      if (!endpoint || !endpoint.url) {
+        return;
+      }
+      this.requestSupportEndpoint(endpoint, {
+        protocol: this.supportCurrentProtocol || "",
+        context: this.buildSupportContextPayload()
+      }).then((response) => {
+        this.applySupportRequestStatusResponse(response);
+      }).catch(() => {
+        return false;
       });
+    }
+
+    startSupportEvents(support) {
+      const endpoint = this.getSupportEndpoint(support, "events");
+      const attendant = this.buildSupportAttendantPayload();
+      const sector = this.buildSupportSectorPayload();
+      if (!endpoint || !endpoint.url || endpoint.method !== "GET" || typeof global.EventSource !== "function" || global.location && global.location.protocol === "file:") {
+        return;
+      }
+      const url = this.buildEndpointEventUrl(endpoint.url, {
+        attendantId: attendant.id || "",
+        sectorId: sector.id || "",
+        protocol: this.supportCurrentProtocol || "",
+        afterId: this.supportLastMessageId
+      }, this.buildSupportContextPayload());
+      if (!url) {
+        return;
+      }
+      if (this.supportEventSource && this.supportEventSignature === url) {
+        return;
+      }
+      this.stopSupportEvents();
+
+      let source = null;
+      try {
+        source = new global.EventSource(url);
+      } catch (_) {
+        return;
+      }
+
+      this.supportEventSource = source;
+      this.supportEventAttendantId = String(attendant.id || "");
+      this.supportEventSignature = url;
+      source.addEventListener("home-support-events", (event) => {
+        const payload = this.parseRuntimeEventPayload(event);
+        if (payload.onlineUsers || payload.sectors) {
+          this.bindSupportAvailability(support, payload);
+        }
+        if (payload.requestStatus) {
+          this.applySupportRequestStatusResponse(payload.requestStatus);
+        }
+        const messages = this.normalizeChatResponseMessages(payload, {
+          id: attendant.id || "atendimento",
+          name: attendant.name || "Atendimento"
+        });
+        this.postSupportChatMessages(messages);
+        this.supportLastMessageId = this.resolveLastChatMessageId(messages, this.supportLastMessageId);
+      });
+      source.addEventListener("runtime-error", (event) => {
+        const payload = this.parseRuntimeEventPayload(event);
+        this.handleRuntimeEventError(payload.error || {});
+      });
+      source.onerror = () => {
+        if (this.supportEventReconnectTimer) {
+          return;
+        }
+        this.supportEventReconnectTimer = window.setTimeout(() => {
+          this.supportEventReconnectTimer = null;
+          const supportVisible = this.supportWindowElement && this.supportWindowElement.closest("body").length && this.supportWindowElement.is(":visible");
+          if (!supportVisible) {
+            this.stopSupportEvents();
+            return;
+          }
+          this.startSupportEvents(support);
+        }, 3000);
+      };
+    }
+
+    stopSupportEvents() {
+      if (this.supportEventReconnectTimer) {
+        window.clearTimeout(this.supportEventReconnectTimer);
+        this.supportEventReconnectTimer = null;
+      }
+      if (this.supportEventSource) {
+        this.supportEventSource.onopen = null;
+        this.supportEventSource.onerror = null;
+        this.supportEventSource.close();
+        this.supportEventSource = null;
+      }
+      this.supportEventAttendantId = "";
+      this.supportEventSignature = "";
     }
 
     postSupportChatMessages(messages) {
@@ -1522,7 +1715,28 @@
         .text(message || "");
     }
 
+    applySupportRequestStatusResponse(response) {
+      const source = response || {};
+      const protocol = String(source.protocol || "").trim();
+      if (protocol) {
+        this.supportCurrentProtocol = protocol;
+      }
+      const status = String(source.status || "").trim();
+      if (!status || status === "none") {
+        return;
+      }
+      const assignedTo = source.assignedTo && source.assignedTo.name ? " - " + source.assignedTo.name : "";
+      const labels = {
+        open: "Solicitacao aberta",
+        assigned: "Solicitacao em atendimento",
+        read: "Solicitacao lida",
+        closed: "Solicitacao encerrada"
+      };
+      this.setSupportStatus((labels[status] || "Solicitacao atualizada") + (protocol ? ": " + protocol : "") + assignedTo + ".", status === "closed" ? "info" : "success");
+    }
+
     destroySupportWindow() {
+      this.stopSupportEvents();
       if (this.supportWindow) {
         this.supportWindow.destroy();
       }
@@ -1554,6 +1768,8 @@
       this.currentSupportSectorId = "";
       this.currentSupportContext = null;
       this.supportHistoryLoadedUserId = "";
+      this.supportLastMessageId = 0;
+      this.supportCurrentProtocol = "";
     }
 
     renderAiChatButton(container) {
@@ -4313,6 +4529,76 @@
       } catch (_) {
         return {};
       }
+    }
+
+    buildEndpointEventUrl(url, params, context) {
+      if (!url) {
+        return "";
+      }
+      const extra = Object.assign({ stream: 1 }, params || {});
+      const source = context && typeof context === "object" ? context : {};
+      ["appId", "appTitle", "programId", "programCode", "programTitle", "programScreenId", "programType", "moduleId"].forEach(function(field) {
+        if (source[field]) {
+          extra["context" + field.charAt(0).toUpperCase() + field.slice(1)] = source[field];
+        }
+      });
+      if (this.httpClient && typeof this.httpClient.buildRuntimeEventUrl === "function") {
+        return this.httpClient.buildRuntimeEventUrl(url, extra);
+      }
+      return url;
+    }
+
+    requestHomeEndpoint(endpoint, data) {
+      const method = String(endpoint && endpoint.method || "POST").toUpperCase();
+      const request = {
+        url: endpoint.url,
+        method,
+        data
+      };
+      if (method === "GET" && data && typeof data === "object") {
+        request.url = this.buildHomeGetUrl(endpoint.url, data);
+        request.data = undefined;
+      }
+      return this.httpClient.request(request);
+    }
+
+    buildHomeGetUrl(url, data) {
+      const base = global.location && global.location.href || "http://localhost/";
+      const target = new URL(url, base);
+      this.appendHomeQueryData(target.searchParams, data || {}, "");
+      return target.href;
+    }
+
+    appendHomeQueryData(searchParams, value, prefix) {
+      const currentPrefix = String(prefix || "");
+      if (value == null) {
+        return;
+      }
+      if (Array.isArray(value)) {
+        value.forEach((item, index) => this.appendHomeQueryData(searchParams, item, currentPrefix ? currentPrefix + "." + index : String(index)));
+        return;
+      }
+      if (typeof value === "object") {
+        Object.keys(value).forEach((key) => {
+          this.appendHomeQueryData(searchParams, value[key], currentPrefix ? currentPrefix + "." + key : key);
+        });
+        return;
+      }
+      if (!currentPrefix) {
+        return;
+      }
+      searchParams.set(currentPrefix, String(value));
+    }
+
+    resolveLastChatMessageId(messages, current) {
+      let lastId = Number(current || 0);
+      global.CrudUtils.ensureArray(messages).forEach(function(message) {
+        const id = Number(message && message.id ? String(message.id).replace(/^msg-/, "") : 0);
+        if (id > lastId) {
+          lastId = id;
+        }
+      });
+      return lastId;
     }
 
     handleRuntimeEventError(error) {

@@ -293,23 +293,28 @@
               "Escolha de sistema/modulo.",
               "Menu lateral em TreeView.",
               "Abertura de programas `crud`, `process`, `custom`, `iframe` e `html`.",
-              "Central de notificacoes com leitura por destinatario quando houver endpoint dedicado."
+              "Central de notificacoes com leitura por destinatario quando houver endpoint dedicado.",
+              "Chat entre usuarios e atendimento com backend real, historico persistido e canal SSE proprio."
             ],
             outputs: [
               "Programa corrente aberto na area central.",
               "Contexto de assinante e usuario visivel na appbar.",
               "Alertas, solicitacoes e jobs acessiveis pelo cabecalho.",
-              "Notificacoes pendentes e lidas acompanhadas pela appbar."
+              "Notificacoes pendentes e lidas acompanhadas pela appbar.",
+              "Mensagens novas de chat e suporte recebidas sem refresh completo da janela."
             ]
           },
           operational: {
             preconditions: [
               "Usuario autenticado.",
-              "Definicao da Home carregada por JSON ou `screenId`."
+              "Definicao da Home carregada por JSON ou `screenId`.",
+              "Endpoints runtime publicados para chat, suporte e notificacoes quando o backend real estiver habilitado."
             ],
             steps: [
               "Selecionar modulo quando houver mais de um.",
               "Abrir programa pelo menu lateral.",
+              "Abrir o chat ou atendimento pelo appbar quando o recurso estiver habilitado.",
+              "No atendimento, escolher o setor e conversar com um atendente online ou abrir uma solicitacao quando nao houver disponibilidade.",
               "Abrir a central de notificacoes quando houver badge no appbar.",
               "Marcar notificacoes como lidas ou abrir o programa relacionado.",
               "Usar favoritos e filtros para localizar programas.",
@@ -318,13 +323,14 @@
             cautions: [
               "Em producao, programas devem abrir por `screenId` e `endpointId`.",
               "Programas abertos dentro da Home nao devem duplicar cabecalho interno.",
-              "Sem endpoint dedicado, a central pode cair para a agregacao visual de `alerts`, `requests` e `jobs`."
+              "Sem endpoint dedicado, a central pode cair para a agregacao visual de `alerts`, `requests` e `jobs`.",
+              "O envio do chat/suporte continua por `POST`; o recebimento em tempo quase real depende do SSE proprio da Home e cai naturalmente para carregamento sob demanda quando o stream nao abrir."
             ]
           },
           references: {
             permissions: ["home.read"],
-            relatedPrograms: ["Clientes", "Processamento", "Meus Jobs", "Administracao de notificacoes", "Programa custom"],
-            notes: ["Tela local: ../../home.html", "Entrada de producao: ../../production/home.html?screenId=home.producao"]
+            relatedPrograms: ["Clientes", "Processamento", "Meus Jobs", "Administracao de notificacoes", "Programa custom", "Sessoes"],
+            notes: ["Tela local: ../../home.html", "Entrada de producao: ../../production/home.html?screenId=home.producao", "Endpoints novos da Home: home.chat.events e home.support.events"]
           }
         },
         "clientes": {
@@ -937,7 +943,8 @@
           "O frontend renderiza a tela com motores fechados por tipo de pagina.",
           "O runtime seguro de producao resolve `endpointId` e `documentId`, evitando URL livre.",
           "Mensagens e titulos podem vir por `titleKey/titleParams` e `messageKey/messageParams`, resolvidos pelo catalogo de literais runtime com fallback pt-BR embutido.",
-          "A Home pode consumir notificacoes reais por `home.notifications.list` e confirmar leitura por `home.notifications.ack`."
+          "A Home pode consumir notificacoes reais por `home.notifications.list` e confirmar leitura por `home.notifications.ack`.",
+          "Chat e suporte da Home usam `POST` para envio e SSE proprio para novas mensagens, presenca online e evolucao de protocolo."
         ],
         engines: [
           { name: "CrudEngine", role: "Renderiza grid, filtro, formulario, acoes de linha, runtime de lock, mensagens e preferencias do usuario." },
@@ -958,7 +965,8 @@
           "Catalogo inicial de importacao/exportacao com CSV e TXT plano ou hierarquico.",
           "Catalogo administrativo de literais e traducoes por locale.",
           "Mensagens de validacao e regra por chave, com parametros substituiveis no frontend.",
-          "Notificacoes runtime por usuario e grupo, com entrega e leitura por destinatario."
+          "Notificacoes runtime por usuario e grupo, com entrega e leitura por destinatario.",
+          "Chat entre usuarios e atendimento com historico em `runtime_user_message`, solicitacao em `runtime_support_request` e eventos SSE por conversa."
         ],
         constraints: [
           "Nao aceita JavaScript vindo do JSON.",

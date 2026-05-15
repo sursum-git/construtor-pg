@@ -25,6 +25,7 @@ Paginas principais:
 
 - `home.html`: demo de pagina inicial por JSON, com appbar, seletor de sistema/modulo, Kendo TreeView lateral e abertura de programas.
 - a Home agora tambem pode exibir central de notificacoes no appbar, com endpoint proprio ou agregacao de `alerts`, `requests` e `jobs`. Quando houver endpoint dedicado, o backend ja suporta notificacoes por usuario/grupo e marcacao de leitura por destinatario.
+- a Home tambem ja possui backend real para chat entre usuarios e atendimento: contatos por sessoes ativas, historico de conversa em `runtime_user_message`, atendentes online por grupos `support`/`support.<setor>`, solicitacoes persistidas em `runtime_support_request` e canal SSE proprio para novas mensagens, presenca e atualizacao de protocolo.
 - `login.html`: demo visual de login com appbar, logo, lembrar acesso, selecao simulada de assinante, escolha de area para administrador e recuperacao de senha.
 - `index.html`: demo principal de clientes.
 - `exemplos.html`: indice central de exemplos.

@@ -204,6 +204,7 @@
                 "contactsUrl": { "type": "string" },
                 "historyUrl": { "type": "string" },
                 "sendUrl": { "type": "string" },
+                "eventsUrl": { "type": "string" },
                 "contacts": {
                   "type": "array",
                   "items": {
@@ -289,6 +290,21 @@
                           "additionalProperties": true
                         }
                       ]
+                    },
+                    "events": {
+                      "oneOf": [
+                        { "type": "string" },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "endpointId": { "type": "string" },
+                            "actionId": { "type": "string" },
+                            "url": { "type": "string" },
+                            "method": { "enum": ["GET", "POST"] }
+                          },
+                          "additionalProperties": true
+                        }
+                      ]
                     }
                   },
                   "additionalProperties": true
@@ -319,6 +335,7 @@
                 "sendUrl": { "type": "string" },
                 "createRequestUrl": { "type": "string" },
                 "requestStatusUrl": { "type": "string" },
+                "eventsUrl": { "type": "string" },
                 "fallbackRequest": {
                   "type": "object",
                   "properties": {
@@ -368,7 +385,8 @@
                     "history": { "$ref": "#/$defs/endpoint" },
                     "send": { "$ref": "#/$defs/endpoint" },
                     "createRequest": { "$ref": "#/$defs/endpoint" },
-                    "requestStatus": { "$ref": "#/$defs/endpoint" }
+                    "requestStatus": { "$ref": "#/$defs/endpoint" },
+                    "events": { "$ref": "#/$defs/endpoint" }
                   },
                   "additionalProperties": true
                 }

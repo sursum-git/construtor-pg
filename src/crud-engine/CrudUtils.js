@@ -721,7 +721,7 @@
           screenId,
           endpointId
         }),
-        method: runtime.method || "POST",
+        method: String(source.method || runtime.method || "POST").toUpperCase(),
         runtime: {
           screenId,
           endpointId,
