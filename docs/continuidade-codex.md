@@ -114,6 +114,10 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - `system_option`
   - `system_parameter`
   - `system_parameter_value`
+  - `auth_provider_config`
+  - `auth_subscriber`
+  - `auth_user_subscriber`
+  - `system_literal_translation`
   - `import_export_mapping`
   - `import_export_mapping_version`
   - `import_export_schedule`
@@ -130,14 +134,20 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - `production/app.html?screenId=admin.programa-grants-operacao`;
   - `production/app.html?screenId=admin.programa-aprovacoes-operacao`;
   - `production/app.html?screenId=admin.programa-retencao-operacao`;
+  - `production/app.html?screenId=admin.programa-overlays-operacao`;
+  - `production/app.html?screenId=admin.programa-overlay-versoes-operacao`;
   - paginas locais:
     - `examples/pages/admin-program-grants.html`
     - `examples/pages/admin-program-approvals.html`
     - `examples/pages/admin-program-retention.html`
+    - `examples/pages/admin-program-overlays.html`
+    - `examples/pages/admin-program-overlay-versions.html`
   - usadas por notificacoes/contexto e validadas no smoke de governanca.
 - o smoke de governanca agora valida tambem:
   - revogacao e nova liberacao de grant antes do publish governado;
-  - o modo focado de retencao na tela administrativa dedicada.
+  - o modo focado de retencao na tela administrativa dedicada;
+  - o modo focado de overlays com abertura do preview de rebase;
+  - o modo focado de versoes de overlay com carga, comparacao e publish.
 - a Home agora consegue abrir notificacoes com contexto seguro:
   - `screenId` ou `programId`;
   - `navigation.query` serializado na URL interna;
@@ -231,7 +241,8 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - `rebased` para manter o merge sugerido;
   - `overlay` para preservar o valor customizado;
   - `base` para usar o valor da nova base;
-- tela dedicada `admin.programa-governanca` para operar o mesmo fluxo fora do editor, inclusive retencao e rebase assistido;
+- tela dedicada `admin.programa-governanca` para operar o mesmo fluxo fora do editor, inclusive retencao com preview/execucao e rebase assistido;
+- entrada focada `admin.programa-overlays-operacao` para listar overlays do programa, revisar congelamento e abrir o preview do rebase com o ID correto;
   - gate guiado no proprio editor para apontar pendencias de grant, lock, bundle e aprovacao antes do publish.
 - regras praticas desta fase:
   - assinante nao cria nem converte programa para `standard`;

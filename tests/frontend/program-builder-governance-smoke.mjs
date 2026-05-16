@@ -78,7 +78,8 @@ async function closeGovernanceWindow(page) {
 async function main() {
   await ensureOutputDir();
   const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
+  const context = await browser.newContext({ viewport: { width: 1440, height: 960 }, acceptDownloads: true });
+  const page = await context.newPage();
   const pageErrors = [];
 
   try {
@@ -196,6 +197,22 @@ async function main() {
     await setVisibleWindowField(page, "Rebase de overlay", "input", "701", 1);
     await clickButtonByText(page, "Preview");
     await page.waitForFunction(() => document.body.innerText.includes("Resumo do rebase"), null, { timeout: 10000 });
+    await page.evaluate(() => {
+      const select = Array.from(document.querySelectorAll(".k-window-content select")).find((item) => item.options.length > 1 && item.offsetParent !== null);
+      if (select) {
+        select.value = "overlay";
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+    });
+    await clickButtonByText(page, "Executar rebase");
+    await page.waitForFunction(() => {
+      const text = document.body.innerText;
+      return text.includes("Conflitos bloqueantes") || text.includes("Rebase concluido.");
+    }, null, { timeout: 10000 });
+    if (await page.evaluate(() => document.body.innerText.includes("Conflitos bloqueantes"))) {
+      await clickButtonByText(page, "Continuar");
+    }
+    await page.waitForFunction(() => document.body.innerText.includes("Rebase concluido."), null, { timeout: 10000 });
     await page.screenshot({ path: path.join(outputDir, "program-builder-governance-rebase.png"), fullPage: true });
 
     const result = await page.evaluate(() => {
@@ -224,6 +241,7 @@ async function main() {
 
     console.log(JSON.stringify(result, null, 2));
   } finally {
+    await context.close();
     await browser.close();
   }
 }

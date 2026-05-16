@@ -152,6 +152,21 @@
   background: #eef6ff;
 }
 
+.program-governance-admin-row.is-warning {
+  border-color: #f2cc8f;
+  background: #fff8eb;
+}
+
+.program-governance-admin-row.is-error {
+  border-color: #f3b2b2;
+  background: #fff3f3;
+}
+
+.program-governance-admin-row.is-valid {
+  border-color: #b7e0c0;
+  background: #f3fbf5;
+}
+
 .program-builder-diff-table {
   width: 100%;
   border-collapse: collapse;

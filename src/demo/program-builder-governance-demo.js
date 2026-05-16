@@ -13,11 +13,52 @@
       programResponse: clone(source.standardProgramResponse || {}),
       overlayVersion: clone(source.overlayVersion || {}),
       overlayPreview: clone(source.overlayPreview || {}),
+      overlayVersions: clone(source.overlayVersions || [
+        {
+          id: 701,
+          overlayId: 700,
+          versionNumber: 2,
+          status: "draft",
+          changeSummary: "Revisao do formulario e do titulo.",
+          publishedAt: null,
+          updatedAt: "2026-05-16T10:25:00-03:00",
+          baseProgramVersionId: 500,
+          baseProgramVersion: "1.0.0",
+          rebaseStatus: "warning",
+          rebaseReason: "A base e o overlay alteraram as mesmas secoes do contrato.",
+          rebaseSummaryCounts: { autoMerge: 0, overlayOnly: 0, warningConflicts: 1, blockingConflicts: 0 }
+        },
+        {
+          id: 699,
+          overlayId: 700,
+          versionNumber: 1,
+          status: "published",
+          changeSummary: "Primeira versao publicada do overlay.",
+          publishedAt: "2026-05-15T16:00:00-03:00",
+          updatedAt: "2026-05-15T16:00:00-03:00",
+          baseProgramVersionId: 499,
+          baseProgramVersion: "0.9.0",
+          rebaseStatus: "ok",
+          rebaseReason: "Sem conflitos relevantes.",
+          rebaseSummaryCounts: { autoMerge: 1, overlayOnly: 0, warningConflicts: 0, blockingConflicts: 0 }
+        }
+      ]),
       currentLock: clone(source.currentLock || null),
       requestCounter: 0,
       grantCounter: 0,
       approvalCounter: 0,
-      tests: []
+      tests: [],
+      retentionPreview: {
+        mode: "preview",
+        totalRecords: 5,
+        items: [
+          { label: "Solicitacoes resolvidas", table: "program_change_request", days: 180, cutoff: "2025-11-17 00:00:00", records: 2 },
+          { label: "Grants encerrados", table: "program_change_grant", days: 180, cutoff: "2025-11-17 00:00:00", records: 1 },
+          { label: "Aprovacoes encerradas", table: "program_publication_approval", days: 365, cutoff: "2025-05-16 00:00:00", records: 1 },
+          { label: "Execucoes de teste", table: "program_test_execution", days: 365, cutoff: "2025-05-16 00:00:00", records: 1 },
+          { label: "Notificacoes administrativas", table: "runtime_notification", days: 30, cutoff: "2026-04-16 00:00:00", records: 0 }
+        ]
+      }
     };
   }
 
@@ -147,11 +188,45 @@
       if (!suggestedActions.length) {
         suggestedActions.push({ severity: "info", text: "Sem pendencias imediatas. Use o historico e a linha do tempo para auditoria do fluxo." });
       }
+      const overlays = [{
+        id: 700,
+        programCode: "cd1001",
+        subscriberId: "tenant-a",
+        customizationKind: "customer_overlay",
+        status: "draft",
+        baseProgramVersionId: 500,
+        upgradeFrozen: false,
+        frozenReason: null,
+        updatedAt: "2026-05-16T10:25:00-03:00",
+        latestVersionId: 701,
+        latestVersionNumber: 2,
+        latestVersionStatus: "draft",
+        rebaseStatus: String(this.state.overlayPreview.status || "warning"),
+        rebaseReason: String(this.state.overlayPreview.reason || ""),
+        rebaseSummaryCounts: clone(this.state.overlayPreview.summaryCounts || { autoMerge: 0, overlayOnly: 0, warningConflicts: 1, blockingConflicts: 0 })
+      }];
+      const retentionPreview = Object.assign({}, clone(this.state.retentionPreview || {}), {
+        policy: clone((current.governance && current.governance.retentionPolicy) || {
+          changeRequestsDays: 180,
+          grantsDays: 180,
+          approvalsDays: 365,
+          testExecutionsDays: 365,
+          administrativeNotificationsDays: 30
+        })
+      });
+      const operationalSignals = [
+        { severity: "warning", label: "Solicitacoes pendentes", count: request[0] && request[0].status === "pending" ? 1 : 0, description: "Itens aguardando decisao." },
+        { severity: "warning", label: "Grants congelados/revogados", count: grants.filter(function(item) { return ["frozen", "revoked"].includes(item.status); }).length, description: "Fluxos pausados ou encerrados." },
+        { severity: "warning", label: "Overlays em revisao", count: overlays.filter(function(item) { return ["warning", "blocked"].includes(item.rebaseStatus); }).length, description: "Customizacoes do assinante com rebase pendente." },
+        { severity: "success", label: "Integridade invalida", count: 0, description: "Nenhum registro estrutural invalido no mock." },
+        { severity: retentionPreview.totalRecords > 0 ? "info" : "success", label: "Retencao elegivel", count: retentionPreview.totalRecords || 0, description: "Registros antigos prontos para limpeza." }
+      ];
       return Promise.resolve({
         requests: request,
         grants: grants,
         approvals: approvals,
         tests: tests,
+        overlays: overlays,
         currentVersion: {
           id: current.id,
           version: current.version,
@@ -168,13 +243,24 @@
           testExecutionsDays: 365,
           administrativeNotificationsDays: 30
         }),
+        retentionPreview: retentionPreview,
+        integrityCoverage: {
+          supportedTables: ["builder_program", "builder_program_version", "builder_entity", "screen_definition", "runtime_endpoint", "builder_program_overlay", "builder_program_overlay_version", "program_change_request", "program_change_grant", "program_publication_approval", "program_test_execution", "import_export_mapping", "import_export_mapping_version", "import_export_schedule", "system_parameter", "system_parameter_value"],
+          supportedCount: 16,
+          invalidRecords: 0
+        },
         summary: {
           pendingRequests: request[0] && request[0].status === "pending" ? 1 : 0,
           activeGrants: grants[0] && grants[0].status === "active" ? 1 : 0,
           approvedPublications: approvals[0] && approvals[0].status === "approved" ? 1 : 0,
-          passedTests: tests.filter(function(item) { return item.status === "passed"; }).length
+          passedTests: tests.filter(function(item) { return item.status === "passed"; }).length,
+          warningOverlays: overlays.filter(function(item) { return item.rebaseStatus === "warning"; }).length,
+          blockedOverlays: overlays.filter(function(item) { return item.rebaseStatus === "blocked"; }).length,
+          retentionEligibleRecords: retentionPreview.totalRecords || 0,
+          invalidIntegrityRecords: 0
         },
-        suggestedActions: suggestedActions
+        suggestedActions: suggestedActions,
+        operationalSignals: operationalSignals
       });
     }
     if (url === "/api/admin/program-builder/governance/retention" && method === "POST") {
@@ -192,6 +278,19 @@
         policy: clone(current.governance.retentionPolicy),
         retentionPolicy: clone(current.governance.retentionPolicy)
       });
+    }
+    if (url === "/api/admin/program-builder/governance/retention/preview" && method === "GET") {
+      return Promise.resolve(clone(this.state.retentionPreview));
+    }
+    if (url === "/api/admin/program-builder/governance/retention/cleanup" && method === "POST") {
+      this.state.retentionPreview = Object.assign({}, clone(this.state.retentionPreview), {
+        mode: "apply",
+        totalRecords: 0,
+        items: global.CrudUtils.ensureArray(this.state.retentionPreview.items).map(function(item) {
+          return Object.assign({}, item, { records: 0 });
+        })
+      });
+      return Promise.resolve(clone(this.state.retentionPreview));
     }
     if (url === "/api/admin/program-builder/governance/requests" && method === "POST") {
       this.state.requestCounter += 1;
@@ -271,12 +370,51 @@
     if (url === "/api/admin/program-builder/overlays/700/rebase-preview" && method === "GET") {
       return Promise.resolve(clone(this.state.overlayPreview));
     }
+    if (url === "/api/admin/program-builder/overlays/700/versions" && method === "GET") {
+      return Promise.resolve({ items: clone(this.state.overlayVersions) });
+    }
+    if (url.indexOf("/api/admin/program-builder/overlay-versions/compare") === 0 && method === "GET") {
+      return Promise.resolve({
+        leftVersion: {
+          id: Number(data.leftVersionId || 701),
+          versionNumber: 2,
+          status: "draft",
+          changeSummary: "Revisao do formulario e do titulo."
+        },
+        rightVersion: {
+          id: Number(data.rightVersionId || 699),
+          versionNumber: 1,
+          status: "published",
+          changeSummary: "Primeira versao publicada do overlay."
+        },
+        changedSections: 2,
+        changedPaths: 3,
+        sections: [
+          { key: "program", pathCount: 1, paths: ["program.title"] },
+          { key: "crud", pathCount: 2, paths: ["crud.form.tabs.0.title", "crud.grid.columns.1.title"] }
+        ]
+      });
+    }
     if (url === "/api/admin/program-builder/overlay-versions/701/rebase" && method === "POST") {
       return Promise.resolve({
         status: "warning",
         overlayId: 700,
         newOverlayVersionId: 702,
         preview: clone(this.state.overlayPreview)
+      });
+    }
+    if (url === "/api/admin/program-builder/overlay-versions/701/publish" && method === "POST") {
+      this.state.overlayVersions = this.state.overlayVersions.map(function(item) {
+        return Object.assign({}, item, {
+          status: item.id === 701 ? "published" : (item.status === "published" ? "archived" : item.status),
+          publishedAt: item.id === 701 ? "2026-05-16T11:00:00-03:00" : item.publishedAt
+        });
+      });
+      return Promise.resolve({
+        overlayId: 700,
+        overlayVersionId: 701,
+        status: "published",
+        publishedAt: "2026-05-16T11:00:00-03:00"
       });
     }
     if (url === "/api/admin/program-builder/preview" && method === "POST") {

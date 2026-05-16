@@ -271,6 +271,22 @@
       page: pagePath + "admin-program-retention.html"
     },
     {
+      id: "admin-program-overlays",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Overlays de programas",
+      summary: "Entrada focada da governanca para listar overlays, ver congelamento e abrir o preview de rebase do assinante.",
+      page: pagePath + "admin-program-overlays.html"
+    },
+    {
+      id: "admin-program-overlay-versions",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Versoes de overlay",
+      summary: "Entrada focada da governanca para carregar historico, comparar versoes e publicar uma versao do overlay.",
+      page: pagePath + "admin-program-overlay-versions.html"
+    },
+    {
       id: "programa-ajuda-logs",
       category: "Programa",
       title: "Cabecalho com ajuda e logs",

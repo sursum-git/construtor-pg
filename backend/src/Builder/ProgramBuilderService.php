@@ -1864,10 +1864,44 @@ class ProgramBuilderService
         return $this->governance->updateRetentionPolicy($payload);
     }
 
+    public function previewGovernanceRetentionCleanup(): array
+    {
+        $this->assertAdminRead();
+        return $this->governance->previewRetentionCleanup();
+    }
+
+    public function executeGovernanceRetentionCleanup(): array
+    {
+        $this->assertAdminWrite();
+        $this->assertMaintenanceEnvironmentAllowed('limpeza de historico da governanca');
+        return $this->governance->executeRetentionCleanup();
+    }
+
     public function previewOverlayRebase(int $overlayId): array
     {
         $this->assertAdminWrite();
         return $this->overlays->previewRebase($overlayId);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function listOverlayVersions(int $overlayId): array
+    {
+        $this->assertAdminRead();
+        return $this->governance->listOverlayVersions($overlayId);
+    }
+
+    public function compareOverlayVersions(array $payload): array
+    {
+        $this->assertAdminRead();
+        $leftVersionId = $this->normalizePositiveInt($payload['leftVersionId'] ?? null);
+        $rightVersionId = $this->normalizePositiveInt($payload['rightVersionId'] ?? null);
+        if (!$leftVersionId || !$rightVersionId) {
+            throw new RuntimeHttpException('PROGRAM_OVERLAY_VERSION_COMPARE_REQUIRED', 'Informe as duas versoes de overlay que serao comparadas.', 422);
+        }
+
+        return $this->governance->compareOverlayVersions($leftVersionId, $rightVersionId);
     }
 
     public function rebaseOverlayVersion(int $overlayVersionId, array $payload = []): array
@@ -1884,6 +1918,15 @@ class ProgramBuilderService
         }
         $resolutions = is_array($payload['resolutions'] ?? null) ? $payload['resolutions'] : [];
         $result = $this->overlays->rebase($overlayVersionId, $resolutions);
+        $this->entityManager->flush();
+        return $result;
+    }
+
+    public function publishOverlayVersion(int $overlayVersionId): array
+    {
+        $this->assertAdminWrite();
+        $this->assertMaintenanceEnvironmentAllowed('publicacao de overlay');
+        $result = $this->governance->publishOverlayVersion($overlayVersionId);
         $this->entityManager->flush();
         return $result;
     }

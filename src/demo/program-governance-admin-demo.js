@@ -8,6 +8,7 @@
     }
     new global.ProgramGovernanceAdmin({
       root: "#program-governance-admin-root",
+      mode: root && root.dataset ? root.dataset.mode : "",
       httpClient: new global.GovernanceDemoHttpClient()
     }).init();
   });

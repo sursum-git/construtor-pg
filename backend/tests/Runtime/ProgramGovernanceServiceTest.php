@@ -9,16 +9,21 @@ use App\Entity\ProgramChangeRequest;
 use App\Entity\ProgramPublicationApproval;
 use App\Entity\ProgramTestExecution;
 use App\Repository\BuilderEditorLockRepository;
+use App\Repository\BuilderProgramOverlayRepository;
+use App\Repository\BuilderProgramOverlayVersionRepository;
 use App\Repository\BuilderProgramVersionRepository;
 use App\Repository\ProgramChangeGrantRepository;
 use App\Repository\ProgramChangeRequestRepository;
 use App\Repository\ProgramPublicationApprovalRepository;
 use App\Repository\ProgramTestExecutionRepository;
+use App\Repository\SystemRecordIntegrityRepository;
 use App\Runtime\GovernanceRetentionPolicyService;
 use App\Runtime\PermissionResolver;
 use App\Runtime\ProgramGovernanceService;
 use App\Runtime\RuntimeHttpException;
 use App\Runtime\RuntimeNotificationService;
+use App\Runtime\StructuralIntegrityService;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use PHPUnit\Framework\TestCase;
 
@@ -32,17 +37,8 @@ class ProgramGovernanceServiceTest extends TestCase
             ->with('cd0001', 'cliente', 'user-1')
             ->willReturn(null);
 
-        $service = new ProgramGovernanceService(
-            $grants,
-            $this->createStub(ProgramChangeRequestRepository::class),
-            $this->createStub(ProgramPublicationApprovalRepository::class),
-            $this->createStub(ProgramTestExecutionRepository::class),
-            $this->createStub(BuilderEditorLockRepository::class),
-            $this->createStub(BuilderProgramVersionRepository::class),
-            $this->permissionResolver(),
-            $this->createStub(EntityManagerInterface::class),
-            $this->createStub(RuntimeNotificationService::class),
-            $this->createStub(GovernanceRetentionPolicyService::class),
+        $service = $this->createService(
+            grants: $grants,
         );
 
         $version = (new BuilderProgramVersion())
@@ -77,17 +73,10 @@ class ProgramGovernanceServiceTest extends TestCase
             ->with('cd0001', 55)
             ->willReturn(null);
 
-        $service = new ProgramGovernanceService(
-            $grants,
-            $this->createStub(ProgramChangeRequestRepository::class),
-            $approvals,
-            $this->createStub(ProgramTestExecutionRepository::class),
-            $locks,
-            $this->createStub(BuilderProgramVersionRepository::class),
-            $this->permissionResolver(),
-            $this->createStub(EntityManagerInterface::class),
-            $this->createStub(RuntimeNotificationService::class),
-            $this->createStub(GovernanceRetentionPolicyService::class),
+        $service = $this->createService(
+            grants: $grants,
+            approvals: $approvals,
+            locks: $locks,
         );
 
         $version = $this->standardVersion();
@@ -141,17 +130,11 @@ class ProgramGovernanceServiceTest extends TestCase
             ->with('cd0001', 55, 'bundle-a')
             ->willReturn([$test]);
 
-        $service = new ProgramGovernanceService(
-            $grants,
-            $this->createStub(ProgramChangeRequestRepository::class),
-            $approvals,
-            $tests,
-            $locks,
-            $this->createStub(BuilderProgramVersionRepository::class),
-            $this->permissionResolver(),
-            $this->createStub(EntityManagerInterface::class),
-            $this->createStub(RuntimeNotificationService::class),
-            $this->createStub(GovernanceRetentionPolicyService::class),
+        $service = $this->createService(
+            grants: $grants,
+            approvals: $approvals,
+            tests: $tests,
+            locks: $locks,
         );
 
         $version = $this->standardVersion();
@@ -207,17 +190,10 @@ class ProgramGovernanceServiceTest extends TestCase
         $entityManager->expects(self::exactly(2))
             ->method('persist');
 
-        $service = new ProgramGovernanceService(
-            $grants,
-            $this->createStub(ProgramChangeRequestRepository::class),
-            $this->createStub(ProgramPublicationApprovalRepository::class),
-            $this->createStub(ProgramTestExecutionRepository::class),
-            $locks,
-            $this->createStub(BuilderProgramVersionRepository::class),
-            $this->permissionResolver(),
-            $entityManager,
-            $this->createStub(RuntimeNotificationService::class),
-            $this->createStub(GovernanceRetentionPolicyService::class),
+        $service = $this->createService(
+            grants: $grants,
+            locks: $locks,
+            entityManager: $entityManager,
         );
 
         $changed = $service->changeGrantStatus(17, 'frozen');
@@ -285,6 +261,34 @@ class ProgramGovernanceServiceTest extends TestCase
         $resolver->method('getTenantId')->willReturn('tenant-a');
         $resolver->method('getSessionId')->willReturn('sess-1');
         return $resolver;
+    }
+
+    private function createService(
+        ?ProgramChangeGrantRepository $grants = null,
+        ?ProgramChangeRequestRepository $requests = null,
+        ?ProgramPublicationApprovalRepository $approvals = null,
+        ?ProgramTestExecutionRepository $tests = null,
+        ?BuilderEditorLockRepository $locks = null,
+        ?BuilderProgramVersionRepository $versions = null,
+        ?EntityManagerInterface $entityManager = null,
+    ): ProgramGovernanceService {
+        return new ProgramGovernanceService(
+            $grants ?? $this->createStub(ProgramChangeGrantRepository::class),
+            $requests ?? $this->createStub(ProgramChangeRequestRepository::class),
+            $approvals ?? $this->createStub(ProgramPublicationApprovalRepository::class),
+            $tests ?? $this->createStub(ProgramTestExecutionRepository::class),
+            $locks ?? $this->createStub(BuilderEditorLockRepository::class),
+            $versions ?? $this->createStub(BuilderProgramVersionRepository::class),
+            $this->createStub(BuilderProgramOverlayRepository::class),
+            $this->createStub(BuilderProgramOverlayVersionRepository::class),
+            $this->createStub(SystemRecordIntegrityRepository::class),
+            $this->permissionResolver(),
+            $entityManager ?? $this->createStub(EntityManagerInterface::class),
+            $this->createStub(RuntimeNotificationService::class),
+            $this->createStub(GovernanceRetentionPolicyService::class),
+            $this->createStub(StructuralIntegrityService::class),
+            $this->createStub(Connection::class),
+        );
     }
 
     private function setEntityId(object $entity, int $id): void

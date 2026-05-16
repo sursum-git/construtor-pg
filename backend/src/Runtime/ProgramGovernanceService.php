@@ -3,17 +3,22 @@
 namespace App\Runtime;
 
 use App\Entity\BuilderEditorLock;
+use App\Entity\BuilderProgramOverlayVersion;
 use App\Entity\BuilderProgramVersion;
 use App\Entity\ProgramPublicationApproval;
 use App\Entity\ProgramTestExecution;
 use App\Entity\ProgramChangeGrant;
 use App\Entity\ProgramChangeRequest;
 use App\Repository\BuilderEditorLockRepository;
+use App\Repository\BuilderProgramOverlayRepository;
+use App\Repository\BuilderProgramOverlayVersionRepository;
 use App\Repository\BuilderProgramVersionRepository;
 use App\Repository\ProgramChangeGrantRepository;
 use App\Repository\ProgramChangeRequestRepository;
 use App\Repository\ProgramPublicationApprovalRepository;
 use App\Repository\ProgramTestExecutionRepository;
+use App\Repository\SystemRecordIntegrityRepository;
+use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 
 class ProgramGovernanceService
@@ -25,10 +30,15 @@ class ProgramGovernanceService
         private readonly ProgramTestExecutionRepository $tests,
         private readonly BuilderEditorLockRepository $editorLocks,
         private readonly BuilderProgramVersionRepository $versions,
+        private readonly BuilderProgramOverlayRepository $overlays,
+        private readonly BuilderProgramOverlayVersionRepository $overlayVersions,
+        private readonly SystemRecordIntegrityRepository $integrities,
         private readonly PermissionResolver $permissions,
         private readonly EntityManagerInterface $entityManager,
         private readonly RuntimeNotificationService $notifications,
         private readonly GovernanceRetentionPolicyService $retentionPolicy,
+        private readonly StructuralIntegrityService $structuralIntegrity,
+        private readonly Connection $connection,
     ) {
     }
 
@@ -486,11 +496,16 @@ class ProgramGovernanceService
             'status' => 'active',
         ], ['updatedAt' => 'DESC'], 25));
 
+        $overlays = $this->listOverlays($programCode);
+        $retentionPreview = $this->previewRetentionCleanup();
+        $invalidIntegrityCount = $this->integrities->count(['lastCheckStatus' => 'invalid']);
+
         return [
             'requests' => $requests,
             'grants' => $grants,
             'approvals' => $approvals,
             'tests' => $tests,
+            'overlays' => $overlays,
             'currentVersion' => $currentVersion ? [
                 'id' => $currentVersion->getId(),
                 'version' => $currentVersion->getVersion(),
@@ -499,15 +514,26 @@ class ProgramGovernanceService
                 'publishedAt' => $currentVersion->getPublishedAt()?->format(DATE_ATOM),
             ] : null,
             'activeLocks' => array_values(array_filter($activeLocks, static fn (array $item): bool => in_array(($item['scopeCode'] ?? ''), [$programCode, (string) ($currentVersion?->getBuilderEntityCode() ?? '')], true))),
-            'timeline' => $this->buildTimeline($programCode, $requests, $grants, $tests, $approvals, $currentVersion, $activeLocks),
+            'timeline' => $this->buildTimeline($programCode, $requests, $grants, $tests, $approvals, $currentVersion, $activeLocks, $overlays),
             'retentionPolicy' => $this->retentionPolicy->getPolicy(),
+            'retentionPreview' => $retentionPreview,
+            'integrityCoverage' => [
+                'supportedTables' => $this->structuralIntegrity->supportedTableNames(),
+                'supportedCount' => count($this->structuralIntegrity->supportedTableNames()),
+                'invalidRecords' => $invalidIntegrityCount,
+            ],
             'summary' => [
                 'pendingRequests' => count(array_filter($requests, static fn (array $item): bool => ($item['status'] ?? '') === 'pending')),
                 'activeGrants' => count(array_filter($grants, static fn (array $item): bool => ($item['status'] ?? '') === 'active')),
                 'approvedPublications' => count(array_filter($approvals, static fn (array $item): bool => ($item['status'] ?? '') === 'approved')),
                 'passedTests' => count(array_filter($tests, static fn (array $item): bool => ($item['status'] ?? '') === 'passed')),
+                'warningOverlays' => count(array_filter($overlays, static fn (array $item): bool => ($item['rebaseStatus'] ?? '') === 'warning')),
+                'blockedOverlays' => count(array_filter($overlays, static fn (array $item): bool => ($item['rebaseStatus'] ?? '') === 'blocked')),
+                'retentionEligibleRecords' => (int) ($retentionPreview['totalRecords'] ?? 0),
+                'invalidIntegrityRecords' => $invalidIntegrityCount,
             ],
-            'suggestedActions' => $this->buildSuggestedActions($requests, $grants, $tests, $approvals, $currentVersion),
+            'suggestedActions' => $this->buildSuggestedActions($requests, $grants, $tests, $approvals, $currentVersion, $overlays, $retentionPreview, $invalidIntegrityCount),
+            'operationalSignals' => $this->buildOperationalSignals($requests, $grants, $approvals, $overlays, $retentionPreview, $invalidIntegrityCount),
         ];
     }
 
@@ -519,6 +545,115 @@ class ProgramGovernanceService
     public function updateRetentionPolicy(array $values): array
     {
         return $this->retentionPolicy->updatePolicy($values);
+    }
+
+    public function previewRetentionCleanup(): array
+    {
+        return $this->buildRetentionCleanupSummary(false);
+    }
+
+    public function executeRetentionCleanup(): array
+    {
+        return $this->buildRetentionCleanupSummary(true);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function listOverlays(string $programCode): array
+    {
+        $items = [];
+        foreach ($this->overlays->findBy(['programCode' => $programCode], ['updatedAt' => 'DESC', 'id' => 'DESC']) as $overlay) {
+            $latestVersion = $this->overlayVersions->findLatestByOverlayId((int) $overlay->getId());
+            $preview = null;
+            if ($latestVersion instanceof BuilderProgramOverlayVersion) {
+                try {
+                    $preview = $this->buildOverlayPreviewPayload($latestVersion);
+                } catch (\Throwable) {
+                    $preview = [
+                        'status' => 'blocked',
+                        'reason' => 'Nao foi possivel montar o preview do rebase atual.',
+                        'summaryCounts' => [
+                            'autoMerge' => 0,
+                            'overlayOnly' => 0,
+                            'warningConflicts' => 0,
+                            'blockingConflicts' => 1,
+                        ],
+                    ];
+                }
+            }
+
+            $items[] = [
+                'id' => $overlay->getId(),
+                'programCode' => $overlay->getProgramCode(),
+                'subscriberId' => $overlay->getSubscriberId(),
+                'customizationKind' => $overlay->getCustomizationKind(),
+                'status' => $overlay->getStatus(),
+                'baseProgramVersionId' => $overlay->getBaseProgramVersionId(),
+                'baseProgramVersion' => $overlay->getBaseProgramVersionId() ? $this->versions->find($overlay->getBaseProgramVersionId())?->getVersion() : null,
+                'upgradeFrozen' => $overlay->isUpgradeFrozen(),
+                'frozenReason' => $overlay->getFrozenReason(),
+                'updatedAt' => $overlay->getUpdatedAt()->format(DATE_ATOM),
+                'latestVersionId' => $latestVersion?->getId(),
+                'latestVersionNumber' => $latestVersion?->getVersionNumber(),
+                'latestVersionStatus' => $latestVersion?->getStatus(),
+                'rebaseStatus' => (string) ($preview['status'] ?? 'pending'),
+                'rebaseReason' => (string) ($preview['reason'] ?? 'Preview ainda nao gerado.'),
+                'rebaseSummaryCounts' => is_array($preview['summaryCounts'] ?? null) ? $preview['summaryCounts'] : [],
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function listOverlayVersions(int $overlayId): array
+    {
+        $overlay = $this->overlays->find($overlayId);
+        if (!$overlay) {
+            throw new RuntimeHttpException('PROGRAM_OVERLAY_NOT_FOUND', 'Overlay de programa nao encontrado.', 404, ['overlayId' => $overlayId]);
+        }
+
+        $this->structuralIntegrity->assertOverlay($overlay);
+        $baseVersion = $overlay->getBaseProgramVersionId() ? $this->versions->find($overlay->getBaseProgramVersionId()) : null;
+        $items = [];
+        foreach ($this->overlayVersions->findByOverlayIdOrdered($overlayId) as $version) {
+            $this->structuralIntegrity->assertOverlayVersion($version);
+            $preview = null;
+            try {
+                $preview = $this->buildOverlayPreviewPayload($version);
+            } catch (\Throwable) {
+                $preview = null;
+            }
+            $items[] = [
+                'id' => $version->getId(),
+                'overlayId' => $overlayId,
+                'versionNumber' => $version->getVersionNumber(),
+                'status' => $version->getStatus(),
+                'changeSummary' => $version->getChangeSummary(),
+                'publishedAt' => $version->getPublishedAt()?->format(DATE_ATOM),
+                'updatedAt' => $version->getUpdatedAt()->format(DATE_ATOM),
+                'baseProgramVersionId' => $overlay->getBaseProgramVersionId(),
+                'baseProgramVersion' => $baseVersion?->getVersion(),
+                'rebaseStatus' => (string) ($preview['status'] ?? 'pending'),
+                'rebaseReason' => (string) ($preview['reason'] ?? ''),
+                'rebaseSummaryCounts' => is_array($preview['summaryCounts'] ?? null) ? $preview['summaryCounts'] : [],
+            ];
+        }
+
+        return $items;
+    }
+
+    public function compareOverlayVersions(int $leftVersionId, int $rightVersionId): array
+    {
+        return $this->buildOverlayService()->compareVersions($leftVersionId, $rightVersionId);
+    }
+
+    public function publishOverlayVersion(int $overlayVersionId): array
+    {
+        return $this->buildOverlayService()->publishVersion($overlayVersionId);
     }
 
     private function requireActiveGrant(string $programCode, ?string $builderEntityCode): ProgramChangeGrant
@@ -572,60 +707,95 @@ class ProgramGovernanceService
         array $approvals,
         ?BuilderProgramVersion $currentVersion,
         array $activeLocks,
+        array $overlays = [],
     ): array {
         $events = [];
         foreach ($requests as $item) {
             $events[] = [
                 'type' => 'request',
+                'programCode' => $programCode,
                 'label' => 'Solicitacao',
                 'status' => (string) ($item['status'] ?? 'pending'),
                 'description' => (string) ($item['requestCode'] ?? $programCode),
                 'timestamp' => (string) ($item['updatedAt'] ?? ''),
+                'userId' => (string) ($item['requestedBy'] ?? ''),
+                'details' => $item,
             ];
         }
         foreach ($grants as $item) {
             $events[] = [
                 'type' => 'grant',
+                'programCode' => $programCode,
                 'label' => 'Grant',
                 'status' => (string) ($item['status'] ?? 'active'),
                 'description' => 'Grant #' . (string) ($item['id'] ?? '-') . ' para ' . (string) ($item['grantedToUserId'] ?? '-'),
                 'timestamp' => (string) ($item['updatedAt'] ?? ''),
+                'userId' => (string) ($item['grantedToUserId'] ?? ''),
+                'details' => $item,
             ];
         }
         foreach ($activeLocks as $item) {
             $events[] = [
                 'type' => 'lock',
+                'programCode' => $programCode,
                 'label' => 'Lock',
                 'status' => (string) ($item['status'] ?? 'active'),
                 'description' => (string) ($item['scopeType'] ?? 'scope') . ': ' . (string) ($item['scopeCode'] ?? '-'),
                 'timestamp' => (string) ($item['updatedAt'] ?? ''),
+                'userId' => (string) ($item['userId'] ?? ''),
+                'details' => $item,
             ];
         }
         foreach ($tests as $item) {
             $events[] = [
                 'type' => 'test',
+                'programCode' => $programCode,
                 'label' => 'Teste',
                 'status' => (string) ($item['status'] ?? 'passed'),
                 'description' => (string) ($item['bundleId'] ?? '-') . ' / ' . (string) ($item['testPlanId'] ?? '-'),
                 'timestamp' => (string) ($item['executedAt'] ?? ''),
+                'userId' => (string) ($item['executedBy'] ?? ''),
+                'details' => $item,
             ];
         }
         foreach ($approvals as $item) {
             $events[] = [
                 'type' => 'approval',
+                'programCode' => $programCode,
                 'label' => 'Aprovacao',
                 'status' => (string) ($item['status'] ?? 'approved'),
                 'description' => 'Aprovacao #' . (string) ($item['id'] ?? '-') . ' / bundle ' . (string) ($item['testExecutionBundleId'] ?? '-'),
                 'timestamp' => (string) ($item['approvedAt'] ?? $item['updatedAt'] ?? ''),
+                'userId' => (string) ($item['approvedBy'] ?? ''),
+                'details' => $item,
+            ];
+        }
+        foreach ($overlays as $item) {
+            $events[] = [
+                'type' => 'overlay',
+                'programCode' => $programCode,
+                'label' => 'Overlay',
+                'status' => (string) ($item['rebaseStatus'] ?? $item['status'] ?? 'draft'),
+                'description' => 'Overlay #' . (string) ($item['id'] ?? '-') . ' / assinante ' . (string) ($item['subscriberId'] ?? '-'),
+                'timestamp' => (string) ($item['updatedAt'] ?? ''),
+                'userId' => '',
+                'details' => $item,
             ];
         }
         if ($currentVersion instanceof BuilderProgramVersion) {
             $events[] = [
                 'type' => 'publish',
+                'programCode' => $programCode,
                 'label' => 'Versao',
                 'status' => (string) $currentVersion->getStatus(),
                 'description' => 'Versao ' . (string) $currentVersion->getVersion(),
                 'timestamp' => (string) ($currentVersion->getPublishedAt()?->format(DATE_ATOM) ?: $currentVersion->getUpdatedAt()->format(DATE_ATOM)),
+                'userId' => '',
+                'details' => [
+                    'id' => $currentVersion->getId(),
+                    'version' => $currentVersion->getVersion(),
+                    'status' => $currentVersion->getStatus(),
+                ],
             ];
         }
 
@@ -649,6 +819,9 @@ class ProgramGovernanceService
         array $tests,
         array $approvals,
         ?BuilderProgramVersion $currentVersion,
+        array $overlays,
+        array $retentionPreview,
+        int $invalidIntegrityCount,
     ): array {
         $actions = [];
         $pendingRequest = array_values(array_filter($requests, static fn (array $item): bool => ($item['status'] ?? '') === 'pending'))[0] ?? null;
@@ -656,6 +829,9 @@ class ProgramGovernanceService
         $frozenGrant = array_values(array_filter($grants, static fn (array $item): bool => ($item['status'] ?? '') === 'frozen'))[0] ?? null;
         $approved = array_values(array_filter($approvals, static fn (array $item): bool => ($item['status'] ?? '') === 'approved'))[0] ?? null;
         $passedTest = array_values(array_filter($tests, static fn (array $item): bool => ($item['status'] ?? '') === 'passed'))[0] ?? null;
+        $blockedOverlay = array_values(array_filter($overlays, static fn (array $item): bool => ($item['rebaseStatus'] ?? '') === 'blocked'))[0] ?? null;
+        $warningOverlay = array_values(array_filter($overlays, static fn (array $item): bool => ($item['rebaseStatus'] ?? '') === 'warning'))[0] ?? null;
+        $retentionTotal = (int) ($retentionPreview['totalRecords'] ?? 0);
 
         if ($pendingRequest) {
             $actions[] = ['severity' => 'warning', 'text' => 'Existe solicitacao pendente. O proximo passo esperado e liberar ou rejeitar o grant.'];
@@ -672,11 +848,208 @@ class ProgramGovernanceService
         if ($approved && $currentVersion instanceof BuilderProgramVersion && $currentVersion->getStatus() !== 'published') {
             $actions[] = ['severity' => 'success', 'text' => 'Gate completo para publish. A versao ja pode seguir para publicacao governada.'];
         }
+        if ($blockedOverlay) {
+            $actions[] = ['severity' => 'error', 'text' => 'Existe overlay com conflito bloqueante. Revisar o rebase antes da proxima publicacao da base.'];
+        } elseif ($warningOverlay) {
+            $actions[] = ['severity' => 'warning', 'text' => 'Existe overlay com conflito leve de rebase. Vale revisar o plano de resolucao antes da proxima rodada.'];
+        }
+        if ($invalidIntegrityCount > 0) {
+            $actions[] = ['severity' => 'error', 'text' => 'Foram encontrados registros estruturais com integridade invalida. Corrija isso antes de operacoes sensiveis.'];
+        }
+        if ($retentionTotal > 0) {
+            $actions[] = ['severity' => 'info', 'text' => 'A politica atual ja permite limpar historico antigo da governanca. Gere o preview da retencao antes da limpeza.'];
+        }
         if (!$actions) {
             $actions[] = ['severity' => 'info', 'text' => 'Sem pendencias imediatas. Use o historico e a linha do tempo para auditoria do fluxo.'];
         }
 
         return $actions;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $requests
+     * @param list<array<string, mixed>> $grants
+     * @param list<array<string, mixed>> $approvals
+     * @param list<array<string, mixed>> $overlays
+     * @return list<array<string, mixed>>
+     */
+    private function buildOperationalSignals(
+        array $requests,
+        array $grants,
+        array $approvals,
+        array $overlays,
+        array $retentionPreview,
+        int $invalidIntegrityCount,
+    ): array {
+        $signals = [];
+        $signals[] = [
+            'severity' => 'warning',
+            'label' => 'Solicitacoes pendentes',
+            'count' => count(array_filter($requests, static fn (array $item): bool => ($item['status'] ?? '') === 'pending')),
+            'description' => 'Itens aguardando decisao de liberacao ou rejeicao.',
+        ];
+        $signals[] = [
+            'severity' => 'warning',
+            'label' => 'Grants congelados/revogados',
+            'count' => count(array_filter($grants, static fn (array $item): bool => in_array(($item['status'] ?? ''), ['frozen', 'revoked'], true))),
+            'description' => 'Fluxos pausados ou encerrados que ainda exigem triagem.',
+        ];
+        $signals[] = [
+            'severity' => 'info',
+            'label' => 'Aprovacoes ativas',
+            'count' => count(array_filter($approvals, static fn (array $item): bool => ($item['status'] ?? '') === 'approved')),
+            'description' => 'Bundles prontos para publicacao governada.',
+        ];
+        $signals[] = [
+            'severity' => 'warning',
+            'label' => 'Overlays em revisao',
+            'count' => count(array_filter($overlays, static fn (array $item): bool => in_array(($item['rebaseStatus'] ?? ''), ['warning', 'blocked'], true))),
+            'description' => 'Customizacoes do assinante com rebase pendente ou bloqueado.',
+        ];
+        $signals[] = [
+            'severity' => $invalidIntegrityCount > 0 ? 'error' : 'success',
+            'label' => 'Integridade invalida',
+            'count' => $invalidIntegrityCount,
+            'description' => 'Registros estruturais com assinatura inconsistente no ultimo monitoramento.',
+        ];
+        $signals[] = [
+            'severity' => ((int) ($retentionPreview['totalRecords'] ?? 0)) > 0 ? 'info' : 'success',
+            'label' => 'Retencao elegivel',
+            'count' => (int) ($retentionPreview['totalRecords'] ?? 0),
+            'description' => 'Registros antigos que ja podem ser removidos pela politica atual.',
+        ];
+
+        return $signals;
+    }
+
+    private function buildOverlayPreviewPayload(BuilderProgramOverlayVersion $version): array
+    {
+        return $this->buildOverlayService()->previewRebaseVersion((int) $version->getId());
+    }
+
+    private function buildOverlayService(): ProgramOverlayService
+    {
+        return new ProgramOverlayService(
+            $this->overlays,
+            $this->overlayVersions,
+            $this->versions,
+            $this->entityManager,
+            $this->structuralIntegrity,
+        );
+    }
+
+    private function buildRetentionCleanupSummary(bool $apply): array
+    {
+        $policy = $this->retentionPolicy->getPolicy();
+        $items = [];
+        foreach ($this->retentionTargets() as $target) {
+            $cutoff = $this->retentionPolicy->cutoff($target['cutoffKey'])->format('Y-m-d H:i:s');
+            $params = array_merge($target['params'], ['cutoff' => $cutoff]);
+            $types = $target['types'];
+            $count = (int) $this->connection->fetchOne(
+                sprintf('SELECT COUNT(*) FROM %s WHERE %s AND %s < :cutoff', $target['table'], $target['where'], $target['dateField']),
+                $params,
+                $types
+            );
+
+            if ($apply && $count > 0) {
+                if ($target['table'] === 'runtime_notification') {
+                    $ids = $this->connection->fetchFirstColumn(
+                        sprintf('SELECT id FROM %s WHERE %s AND %s < :cutoff', $target['table'], $target['where'], $target['dateField']),
+                        $params,
+                        $types
+                    );
+                    if ($ids) {
+                        $normalizedIds = array_map('intval', $ids);
+                        $this->connection->executeStatement(
+                            'DELETE FROM runtime_notification_recipient WHERE notification_id IN (:ids)',
+                            ['ids' => $normalizedIds],
+                            ['ids' => Connection::PARAM_INT_ARRAY]
+                        );
+                        $this->connection->executeStatement(
+                            'DELETE FROM runtime_notification WHERE id IN (:ids)',
+                            ['ids' => $normalizedIds],
+                            ['ids' => Connection::PARAM_INT_ARRAY]
+                        );
+                    }
+                } else {
+                    $this->connection->executeStatement(
+                        sprintf('DELETE FROM %s WHERE %s AND %s < :cutoff', $target['table'], $target['where'], $target['dateField']),
+                        $params,
+                        $types
+                    );
+                }
+            }
+
+            $items[] = [
+                'label' => $target['label'],
+                'table' => $target['table'],
+                'days' => (int) ($policy[$target['cutoffKey']] ?? 0),
+                'cutoff' => $cutoff,
+                'records' => $count,
+            ];
+        }
+
+        return [
+            'mode' => $apply ? 'apply' : 'preview',
+            'policy' => $this->retentionPolicy->describePolicy(),
+            'items' => $items,
+            'totalRecords' => array_sum(array_map(static fn (array $item): int => (int) ($item['records'] ?? 0), $items)),
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function retentionTargets(): array
+    {
+        return [
+            [
+                'label' => 'Solicitacoes resolvidas',
+                'table' => 'program_change_request',
+                'dateField' => 'updated_at',
+                'where' => 'status IN (:statuses)',
+                'params' => ['statuses' => ['rejected', 'revoked', 'consumed', 'expired']],
+                'types' => ['statuses' => Connection::PARAM_STR_ARRAY],
+                'cutoffKey' => 'changeRequestsDays',
+            ],
+            [
+                'label' => 'Grants encerrados',
+                'table' => 'program_change_grant',
+                'dateField' => 'updated_at',
+                'where' => 'status IN (:statuses)',
+                'params' => ['statuses' => ['consumed', 'revoked', 'expired']],
+                'types' => ['statuses' => Connection::PARAM_STR_ARRAY],
+                'cutoffKey' => 'grantsDays',
+            ],
+            [
+                'label' => 'Aprovacoes encerradas',
+                'table' => 'program_publication_approval',
+                'dateField' => 'updated_at',
+                'where' => 'status IN (:statuses)',
+                'params' => ['statuses' => ['approved', 'rejected', 'revoked', 'frozen']],
+                'types' => ['statuses' => Connection::PARAM_STR_ARRAY],
+                'cutoffKey' => 'approvalsDays',
+            ],
+            [
+                'label' => 'Execucoes de teste',
+                'table' => 'program_test_execution',
+                'dateField' => 'executed_at',
+                'where' => '1 = 1',
+                'params' => [],
+                'types' => [],
+                'cutoffKey' => 'testExecutionsDays',
+            ],
+            [
+                'label' => 'Notificacoes administrativas',
+                'table' => 'runtime_notification',
+                'dateField' => 'created_at',
+                'where' => 'category IN (:categories)',
+                'params' => ['categories' => ['governanca', 'integridade']],
+                'types' => ['categories' => Connection::PARAM_STR_ARRAY],
+                'cutoffKey' => 'administrativeNotificationsDays',
+            ],
+        ];
     }
 
     private function findStandardProgramVersionByEntity(string $builderEntityCode): ?BuilderProgramVersion

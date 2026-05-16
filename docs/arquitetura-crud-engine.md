@@ -1095,6 +1095,8 @@ As areas administrativas usam o mesmo CRUD Engine, carregadas por `screenId` e `
 - `admin.programa-aprovacoes`: aprovacao final para publish governado;
 - `admin.programa-aprovacoes-operacao`: entrada focada para aprovacoes com contexto direto por notificacao;
 - `admin.programa-retencao-operacao`: entrada focada para ajuste rapido da retencao;
+- `admin.programa-overlays-operacao`: entrada focada para listar overlays, revisar congelamento e abrir preview de rebase;
+- `admin.programa-overlay-versoes-operacao`: entrada focada para historico, comparacao e publicacao das versoes do overlay;
 - `admin.programa-overlays`: overlays e variantes por assinante;
 - `admin.programa-overlay-versoes`: historico versionado dessas customizacoes.
 

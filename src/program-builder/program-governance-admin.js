@@ -11,7 +11,14 @@
       currentProgramCode: "",
       currentVersionId: 0,
       dashboard: null,
-      overlayPreview: null
+      timelineItems: [],
+      selectedTimelineItem: null,
+      overlayPreview: null,
+      overlayRebaseSelections: {},
+      overlayVersions: [],
+      overlayVersionComparison: null,
+      selectedOverlayId: 0,
+      lastRetentionReport: null
     };
     this.query = this.readQuery();
     this.mode = String(this.options.mode || this.queryValue("mode") || "full").trim().toLowerCase();
@@ -36,19 +43,49 @@
     return String(this.query.get(name) || "").trim();
   };
 
+  ProgramGovernanceAdmin.prototype.modeMeta = function() {
+    const map = {
+      grants: {
+        title: "Grants de programas",
+        subtitle: "Operacao dedicada de grants com foco em liberacao, congelamento, reativacao e revogacao.",
+        tabs: [0, 2]
+      },
+      approvals: {
+        title: "Aprovacoes de publicacao",
+        subtitle: "Operacao dedicada de aprovacoes finais com foco em bundle e liberacao de publish.",
+        tabs: [0, 4]
+      },
+      retention: {
+        title: "Retencao da governanca",
+        subtitle: "Operacao dedicada de retencao de historico e politica de limpeza da governanca.",
+        tabs: [0, 5]
+      },
+      overlays: {
+        title: "Overlays de programas",
+        subtitle: "Operacao dedicada de overlays, assinantes, versoes e rebase.",
+        tabs: [0, 6, 7, 8]
+      },
+      "overlay-versions": {
+        title: "Versoes de overlay",
+        subtitle: "Operacao dedicada ao historico, comparacao e publish de versoes do overlay.",
+        tabs: [0, 7]
+      }
+    };
+    return map[this.mode] || {
+      title: "Governanca de programas",
+      subtitle: "Operacao dedicada de solicitacoes, grants, testes, aprovacoes, retencao e rebase.",
+      tabs: null
+    };
+  };
+
   ProgramGovernanceAdmin.prototype.renderShell = function() {
     this.root.empty();
+    const meta = this.modeMeta();
     const shell = $("<section class=\"program-governance-admin-shell\"></section>").appendTo(this.root);
     const header = $("<header class=\"program-governance-admin-header\"></header>").appendTo(shell);
     const title = $("<div class=\"program-governance-admin-title\"></div>").appendTo(header);
-    $("<h1></h1>").text(this.mode === "grants" ? "Grants de programas" : (this.mode === "approvals" ? "Aprovacoes de publicacao" : (this.mode === "retention" ? "Retencao da governanca" : "Governanca de programas"))).appendTo(title);
-    $("<p></p>").text(this.mode === "grants"
-      ? "Operacao dedicada de grants com foco em liberacao, congelamento, reativacao e revogacao."
-      : (this.mode === "approvals"
-        ? "Operacao dedicada de aprovacoes finais com foco em bundle e liberacao de publish."
-        : (this.mode === "retention"
-          ? "Operacao dedicada de retencao de historico e politica de limpeza da governanca."
-          : "Operacao dedicada de solicitacoes, grants, testes, aprovacoes, retencao e rebase."))).appendTo(title);
+    $("<h1></h1>").text(meta.title).appendTo(title);
+    $("<p></p>").text(meta.subtitle).appendTo(title);
     const toolbar = $("<div class=\"program-governance-admin-toolbar\"></div>").appendTo(header);
     this.reloadButton = this.createButton(toolbar, "Atualizar", "reload", this.refreshCurrent.bind(this));
     this.focusBanner = $("<div class=\"program-governance-admin-banner\"></div>").appendTo(shell).hide();
@@ -62,15 +99,18 @@
 
     const tabs = $("<div class=\"program-governance-admin-tabs\"></div>").appendTo(shell);
     const list = $("<ul></ul>").appendTo(tabs);
-    ["Resumo", "Requests", "Grants", "Testes", "Aprovacoes", "Retencao", "Rebase"].forEach(function(titleText, index) {
-      $("<li></li>").toggleClass("k-active", index === 0).text(titleText).appendTo(list);
+    ["Resumo", "Requests", "Grants", "Testes", "Aprovacoes", "Retencao", "Overlays", "Versoes de overlay", "Rebase"].forEach(function(label, index) {
+      $("<li></li>").toggleClass("k-active", index === 0).text(label).appendTo(list);
     });
+
     this.summaryTab = $("<div></div>").appendTo(tabs);
     this.requestsTab = $("<div></div>").appendTo(tabs);
     this.grantsTab = $("<div></div>").appendTo(tabs);
     this.testsTab = $("<div></div>").appendTo(tabs);
     this.approvalsTab = $("<div></div>").appendTo(tabs);
     this.retentionTab = $("<div></div>").appendTo(tabs);
+    this.overlaysTab = $("<div></div>").appendTo(tabs);
+    this.overlayVersionsTab = $("<div></div>").appendTo(tabs);
     this.rebaseTab = $("<div></div>").appendTo(tabs);
     tabs.kendoTabStrip({ animation: false });
     this.tabs = tabs.data("kendoTabStrip");
@@ -81,15 +121,17 @@
     this.renderTestsTab();
     this.renderApprovalsTab();
     this.renderRetentionTab();
+    this.renderOverlaysTab();
+    this.renderOverlayVersionsTab();
     this.renderRebaseTab();
     this.applyMode();
   };
 
   ProgramGovernanceAdmin.prototype.applyMode = function() {
-    if (this.mode !== "grants" && this.mode !== "approvals" && this.mode !== "retention") {
+    const keepIndexes = this.modeMeta().tabs;
+    if (!keepIndexes) {
       return;
     }
-    const keepIndexes = this.mode === "grants" ? [0, 2] : (this.mode === "approvals" ? [0, 4] : [0, 5]);
     const tabItems = this.tabs.tabGroup.children("li");
     const tabContents = this.tabs.contentElements;
     tabItems.each(function(index, item) {
@@ -102,15 +144,37 @@
         $(item).hide();
       }
     });
-    this.tabs.select(keepIndexes[1]);
+    if (keepIndexes.length > 1) {
+      this.tabs.select(keepIndexes[1]);
+    }
   };
 
   ProgramGovernanceAdmin.prototype.renderSummaryTab = function() {
     const panel = $("<section class=\"program-governance-admin-panel\"></section>").appendTo(this.summaryTab);
     $("<h2></h2>").text("Resumo operacional").appendTo(panel);
     this.summaryGrid = $("<div class=\"program-builder-governance-grid\"></div>").appendTo(panel);
+    this.operationalSignals = $("<div class=\"program-governance-admin-list\"></div>").appendTo(panel);
     this.summaryActions = $("<div class=\"program-governance-admin-list\"></div>").appendTo(panel);
-    this.timelineHost = $("<div class=\"program-governance-admin-timeline\"></div>").appendTo(panel);
+
+    const timelinePanel = $("<div class=\"program-governance-admin-timeline\"></div>").appendTo(panel);
+    $("<h3></h3>").text("Linha do tempo").appendTo(timelinePanel);
+    const filterGrid = $("<div class=\"program-governance-admin-grid\"></div>").appendTo(timelinePanel);
+    this.timelineTypeInput = this.appendDropDown(filterGrid, "Tipo");
+    this.timelineUserInput = this.appendTextField(filterGrid, "Usuario");
+    this.timelineDaysInput = this.appendNumberField(filterGrid, "Periodo (dias)");
+    this.timelineDaysInput.value(365);
+    const timelineFilterActions = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(timelinePanel);
+    this.createButton(timelineFilterActions, "Aplicar filtro", "filter", this.renderTimeline.bind(this));
+    this.createButton(timelineFilterActions, "Limpar filtro", "reset", function() {
+      this.timelineTypeInput.value("");
+      this.timelineUserInput.value("");
+      this.timelineDaysInput.value(365);
+      this.renderTimeline();
+    }.bind(this));
+    this.timelineHost = $("<div class=\"program-governance-admin-timeline\"></div>").appendTo(timelinePanel);
+    this.timelineDetailHost = $("<pre class=\"program-builder-inline-json\"></pre>").appendTo(timelinePanel);
+
+    this.integrityCoverageHost = $("<div class=\"program-governance-admin-list\"></div>").appendTo(panel);
     this.summaryJson = $("<pre class=\"program-builder-inline-json\"></pre>").appendTo(panel);
   };
 
@@ -172,7 +236,37 @@
       testExecutionsDays: this.appendNumberField(grid, "Testes"),
       administrativeNotificationsDays: this.appendNumberField(grid, "Notificacoes")
     };
-    this.createButton(panel, "Salvar retencao", "save", this.handleSaveRetention.bind(this));
+    const actions = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(panel);
+    this.createButton(actions, "Salvar retencao", "save", this.handleSaveRetention.bind(this));
+    this.createButton(actions, "Preview da limpeza", "eye", this.handlePreviewRetention.bind(this));
+    this.createButton(actions, "Executar limpeza", "trash", this.handleExecuteRetention.bind(this));
+    this.createButton(actions, "Exportar JSON", "download", this.handleExportRetention.bind(this, "json"));
+    this.createButton(actions, "Exportar CSV", "file-csv", this.handleExportRetention.bind(this, "csv"));
+    this.retentionCleanupHost = $("<div class=\"program-governance-admin-list\"></div>").appendTo(panel);
+  };
+
+  ProgramGovernanceAdmin.prototype.renderOverlaysTab = function() {
+    const panel = $("<section class=\"program-governance-admin-panel\"></section>").appendTo(this.overlaysTab);
+    $("<h2></h2>").text("Overlays e variantes").appendTo(panel);
+    $("<p class=\"program-builder-inline-muted\"></p>")
+      .text("Use esta aba para localizar overlays do programa, conferir congelamento e abrir o preview do rebase com os IDs corretos.")
+      .appendTo(panel);
+    this.overlaysList = $("<div class=\"program-governance-admin-list\"></div>").appendTo(panel);
+  };
+
+  ProgramGovernanceAdmin.prototype.renderOverlayVersionsTab = function() {
+    const panel = $("<section class=\"program-governance-admin-panel\"></section>").appendTo(this.overlayVersionsTab);
+    $("<h2></h2>").text("Versoes de overlay").appendTo(panel);
+    const grid = $("<div class=\"program-governance-admin-grid\"></div>").appendTo(panel);
+    this.overlayVersionsOverlayIdInput = this.appendTextField(grid, "Overlay ID");
+    this.overlayVersionsLeftInput = this.appendDropDown(grid, "Versao esquerda");
+    this.overlayVersionsRightInput = this.appendDropDown(grid, "Versao direita");
+    const actions = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(panel);
+    this.createButton(actions, "Carregar versoes", "reload", this.handleLoadOverlayVersions.bind(this));
+    this.createButton(actions, "Comparar versoes", "columns", this.handleCompareOverlayVersions.bind(this));
+    this.createButton(actions, "Publicar versao esquerda", "upload", this.handlePublishOverlayVersion.bind(this));
+    this.overlayVersionsList = $("<div class=\"program-governance-admin-list\"></div>").appendTo(panel);
+    this.overlayVersionsCompareHost = $("<div class=\"program-governance-admin-list\"></div>").appendTo(panel);
   };
 
   ProgramGovernanceAdmin.prototype.renderRebaseTab = function() {
@@ -203,6 +297,7 @@
     return $("<input>").appendTo(field).kendoDropDownList({
       dataTextField: "text",
       dataValueField: "value",
+      optionLabel: "Selecione",
       dataSource: []
     }).data("kendoDropDownList");
   };
@@ -258,7 +353,16 @@
       if (versionId > 0) {
         this.versionInput.value(String(versionId));
       }
-      return this.loadDashboard();
+      return this.loadDashboard().then(function() {
+        const overlayId = Number(this.queryValue("overlayId") || 0);
+        if (overlayId > 0) {
+          this.overlayVersionsOverlayIdInput.value(String(overlayId));
+          if (this.mode === "overlay-versions") {
+            return this.handleLoadOverlayVersions();
+          }
+        }
+        return null;
+      }.bind(this));
     }.bind(this));
   };
 
@@ -312,6 +416,9 @@
       }
     }).then(function(response) {
       this.state.dashboard = response || {};
+      this.state.timelineItems = global.CrudUtils.ensureArray(this.state.dashboard.timeline);
+      this.state.selectedTimelineItem = this.state.timelineItems[0] || null;
+      this.state.lastRetentionReport = this.state.dashboard.retentionPreview || null;
       this.renderDashboard();
       this.applyTabSelection();
     }.bind(this)).catch(this.handleError.bind(this, "Nao foi possivel carregar a governanca."));
@@ -325,15 +432,22 @@
       { label: "Requests pendentes", value: dashboard.summary && dashboard.summary.pendingRequests || 0 },
       { label: "Grants ativos", value: dashboard.summary && dashboard.summary.activeGrants || 0 },
       { label: "Aprovacoes", value: dashboard.summary && dashboard.summary.approvedPublications || 0 },
-      { label: "Testes aprovados", value: dashboard.summary && dashboard.summary.passedTests || 0 }
+      { label: "Testes aprovados", value: dashboard.summary && dashboard.summary.passedTests || 0 },
+      { label: "Overlays em alerta", value: (dashboard.summary && ((dashboard.summary.warningOverlays || 0) + (dashboard.summary.blockedOverlays || 0))) || 0 },
+      { label: "Retencao elegivel", value: dashboard.summary && dashboard.summary.retentionEligibleRecords || 0 },
+      { label: "Integridade invalida", value: dashboard.summary && dashboard.summary.invalidIntegrityRecords || 0 }
     ].forEach(function(item) {
       const card = $("<article class=\"program-builder-governance-card\"></article>").appendTo(this.summaryGrid);
       $("<strong></strong>").text(item.label).appendTo(card);
       $("<span class=\"is-valid\"></span>").text(String(item.value)).appendTo(card);
     }.bind(this));
+
+    this.renderOperationalSignals(dashboard.operationalSignals);
     this.renderSuggestedActions(dashboard.suggestedActions);
-    this.renderTimeline(dashboard.timeline);
+    this.renderTimeline();
+    this.renderIntegrityCoverage(dashboard.integrityCoverage);
     this.summaryJson.text(JSON.stringify(dashboard, null, 2));
+
     this.renderCollection(this.requestsList, dashboard.requests, this.queryValue("focusRequestCode"), function(item) {
       return (item.requestCode || "-") + " | " + (item.status || "-") + " | " + (item.reason || "");
     });
@@ -346,14 +460,22 @@
     this.renderCollection(this.approvalsList, dashboard.approvals, this.queryValue("focusApprovalId"), function(item) {
       return "Aprovacao #" + String(item.id || "-") + " | " + (item.status || "-") + " | " + (item.testExecutionBundleId || "-");
     });
+
     const retention = dashboard.retentionPolicy || {};
     Object.keys(this.retentionInputs).forEach(function(key) {
       this.retentionInputs[key].value(Number(retention[key] || 0));
     }.bind(this));
+    this.renderRetentionPreview(dashboard.retentionPreview);
+    this.renderOverlays(dashboard.overlays);
+    this.renderOverlayVersions(this.state.overlayVersions);
+
     const latestRequest = dashboard.requests && dashboard.requests[0];
     const latestGrant = dashboard.grants && dashboard.grants[0];
     if (latestRequest && latestRequest.id) {
       this.requestIdInput.value(String(latestRequest.id));
+    }
+    if (latestGrant && latestGrant.id) {
+      this.overlayVersionsOverlayIdInput.value(String(this.state.selectedOverlayId || this.queryValue("overlayId") || ""));
     }
   };
 
@@ -396,23 +518,99 @@
     }.bind(this));
   };
 
-  ProgramGovernanceAdmin.prototype.renderTimeline = function(items) {
-    this.timelineHost.empty();
+  ProgramGovernanceAdmin.prototype.renderOperationalSignals = function(items) {
+    this.operationalSignals.empty();
     const rows = global.CrudUtils.ensureArray(items);
     if (!rows.length) {
       return;
     }
-    $("<h3></h3>").text("Linha do tempo").appendTo(this.timelineHost);
+    $("<h3></h3>").text("Sinais operacionais").appendTo(this.operationalSignals);
     rows.forEach(function(item) {
-      const row = $("<article class=\"program-governance-admin-timeline-item\"></article>").appendTo(this.timelineHost);
+      const row = $("<div class=\"program-governance-admin-row\"></div>")
+        .addClass("is-" + String(item.severity || "info"))
+        .appendTo(this.operationalSignals);
+      $("<strong></strong>").text(String(item.label || "Indicador") + ": ").appendTo(row);
+      $("<span></span>").text(String(item.count || 0) + " - " + String(item.description || "")).appendTo(row);
+    }.bind(this));
+  };
+
+  ProgramGovernanceAdmin.prototype.filteredTimeline = function() {
+    const type = String(this.timelineTypeInput && this.timelineTypeInput.value() || "").trim();
+    const userFilter = String(this.timelineUserInput && this.timelineUserInput.value() || "").trim().toLowerCase();
+    const days = Number(this.timelineDaysInput && this.timelineDaysInput.value() || 0);
+    const cutoff = days > 0 ? Date.now() - (days * 24 * 60 * 60 * 1000) : 0;
+    return global.CrudUtils.ensureArray(this.state.timelineItems).filter(function(item) {
+      if (type && String(item.type || "") !== type) {
+        return false;
+      }
+      if (userFilter && String(item.userId || "").toLowerCase().indexOf(userFilter) < 0) {
+        return false;
+      }
+      if (cutoff > 0 && item.timestamp) {
+        const timestamp = Date.parse(String(item.timestamp));
+        if (!Number.isNaN(timestamp) && timestamp < cutoff) {
+          return false;
+        }
+      }
+      return true;
+    });
+  };
+
+  ProgramGovernanceAdmin.prototype.renderTimeline = function() {
+    this.timelineHost.empty();
+    const rows = this.filteredTimeline();
+    const eventTypes = Array.from(new Set(global.CrudUtils.ensureArray(this.state.timelineItems).map(function(item) {
+      return String(item.type || "");
+    }).filter(Boolean)));
+    this.timelineTypeInput.setDataSource([{ value: "", text: "Todos" }].concat(eventTypes.map(function(type) {
+      return { value: type, text: type };
+    })));
+
+    if (!rows.length) {
+      $("<p class=\"program-builder-empty\"></p>").text("Nenhum evento atende ao filtro atual.").appendTo(this.timelineHost);
+      this.timelineDetailHost.text("");
+      return;
+    }
+    rows.forEach(function(item, index) {
+      const row = $("<article class=\"program-governance-admin-timeline-item\"></article>")
+        .toggleClass("is-focused", this.state.selectedTimelineItem === item || (!this.state.selectedTimelineItem && index === 0))
+        .appendTo(this.timelineHost);
       const header = $("<div class=\"program-governance-admin-timeline-header\"></div>").appendTo(row);
       $("<strong></strong>").text(String(item.label || item.type || "Evento")).appendTo(header);
       $("<span class=\"k-badge k-rounded-md\"></span>").text(String(item.status || "-")).appendTo(header);
       $("<p></p>").text(String(item.description || "")).appendTo(row);
-      if (item.timestamp) {
-        $("<small></small>").text(String(item.timestamp)).appendTo(row);
-      }
-    });
+      $("<small></small>").text([
+        item.timestamp || "-",
+        item.userId ? "usuario: " + item.userId : null,
+        item.type ? "tipo: " + item.type : null
+      ].filter(Boolean).join(" | ")).appendTo(row);
+      row.on("click", function() {
+        this.state.selectedTimelineItem = item;
+        this.renderTimeline();
+      }.bind(this));
+    }.bind(this));
+
+    this.renderTimelineDetail(this.state.selectedTimelineItem || rows[0]);
+  };
+
+  ProgramGovernanceAdmin.prototype.renderTimelineDetail = function(item) {
+    this.timelineDetailHost.text(item ? JSON.stringify(item.details || item, null, 2) : "");
+  };
+
+  ProgramGovernanceAdmin.prototype.renderIntegrityCoverage = function(payload) {
+    this.integrityCoverageHost.empty();
+    const info = payload || null;
+    if (!info) {
+      return;
+    }
+    $("<h3></h3>").text("Cobertura da integridade").appendTo(this.integrityCoverageHost);
+    $("<div class=\"program-governance-admin-row\"></div>")
+      .addClass((Number(info.invalidRecords || 0) > 0) ? "is-error" : "is-valid")
+      .text("Tabelas cobertas: " + String(info.supportedCount || 0) + " | Registros invalidos: " + String(info.invalidRecords || 0))
+      .appendTo(this.integrityCoverageHost);
+    if (global.CrudUtils.ensureArray(info.supportedTables).length) {
+      $("<small></small>").text(global.CrudUtils.ensureArray(info.supportedTables).join(", ")).appendTo(this.integrityCoverageHost);
+    }
   };
 
   ProgramGovernanceAdmin.prototype.renderCollection = function(host, items, focusValue, formatter) {
@@ -423,12 +621,108 @@
       return;
     }
     rows.forEach(function(item) {
-      const text = formatter(item);
-      const row = $("<div class=\"program-governance-admin-row\"></div>")
+      $("<div class=\"program-governance-admin-row\"></div>")
         .toggleClass("is-focused", focusValue && (String(item.id || "") === String(focusValue) || String(item.requestCode || "") === String(focusValue) || String(item.bundleId || "") === String(focusValue)))
+        .append($("<span></span>").text(formatter(item)))
         .appendTo(host);
-      $("<span></span>").text(text).appendTo(row);
     });
+  };
+
+  ProgramGovernanceAdmin.prototype.renderRetentionPreview = function(payload) {
+    this.retentionCleanupHost.empty();
+    const info = payload || null;
+    this.state.lastRetentionReport = info;
+    if (!info) {
+      $("<p class=\"program-builder-empty\"></p>").text("Nenhum preview de limpeza carregado.").appendTo(this.retentionCleanupHost);
+      return;
+    }
+    $("<h3></h3>").text(info.mode === "apply" ? "Ultima limpeza aplicada" : "Preview da limpeza").appendTo(this.retentionCleanupHost);
+    $("<div class=\"program-governance-admin-row\"></div>")
+      .addClass((Number(info.totalRecords || 0) > 0) ? "is-warning" : "is-valid")
+      .text("Total elegivel: " + String(info.totalRecords || 0))
+      .appendTo(this.retentionCleanupHost);
+    global.CrudUtils.ensureArray(info.items).forEach(function(item) {
+      $("<div class=\"program-governance-admin-row\"></div>")
+        .toggleClass("is-focused", Number(item.records || 0) > 0)
+        .text(String(item.label || "-") + " | " + String(item.records || 0) + " | corte " + String(item.cutoff || "-"))
+        .appendTo(this.retentionCleanupHost);
+    }.bind(this));
+  };
+
+  ProgramGovernanceAdmin.prototype.renderOverlays = function(items) {
+    this.overlaysList.empty();
+    const rows = global.CrudUtils.ensureArray(items);
+    if (!rows.length) {
+      $("<p class=\"program-builder-empty\"></p>").text("Nenhum overlay encontrado para o programa atual.").appendTo(this.overlaysList);
+      return;
+    }
+    rows.forEach(function(item) {
+      const row = $("<div class=\"program-governance-admin-row\"></div>")
+        .addClass((item.rebaseStatus || "") === "blocked" ? "is-error" : ((item.rebaseStatus || "") === "warning" ? "is-warning" : "is-valid"))
+        .appendTo(this.overlaysList);
+      $("<span></span>").text([
+        "Overlay #" + String(item.id || "-"),
+        String(item.subscriberId || "-"),
+        String(item.customizationKind || "-"),
+        "v" + String(item.latestVersionNumber || "-"),
+        String(item.rebaseStatus || "-")
+      ].join(" | ")).appendTo(row);
+      const actions = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(row);
+      this.createButton(actions, "Usar no rebase", null, function() {
+        this.overlayIdInput.value(String(item.id || ""));
+        this.overlayVersionIdInput.value(String(item.latestVersionId || ""));
+        this.tabs.select(8);
+        this.handlePreviewRebase();
+      }.bind(this));
+      this.createButton(actions, "Abrir versoes", null, function() {
+        this.overlayVersionsOverlayIdInput.value(String(item.id || ""));
+        this.tabs.select(7);
+        this.handleLoadOverlayVersions();
+      }.bind(this));
+    }.bind(this));
+  };
+
+  ProgramGovernanceAdmin.prototype.renderOverlayVersions = function(items) {
+    this.overlayVersionsList.empty();
+    const rows = global.CrudUtils.ensureArray(items);
+    if (!rows.length) {
+      $("<p class=\"program-builder-empty\"></p>").text("Nenhuma versao de overlay carregada.").appendTo(this.overlayVersionsList);
+      return;
+    }
+    rows.forEach(function(item) {
+      const row = $("<div class=\"program-governance-admin-row\"></div>")
+        .addClass(item.status === "published" ? "is-valid" : (item.rebaseStatus === "blocked" ? "is-error" : "is-warning"))
+        .appendTo(this.overlayVersionsList);
+      $("<span></span>").text([
+        "Versao #" + String(item.versionNumber || "-"),
+        "id " + String(item.id || "-"),
+        String(item.status || "-"),
+        item.baseProgramVersion ? "base " + item.baseProgramVersion : "base -"
+      ].join(" | ")).appendTo(row);
+      if (item.changeSummary) {
+        $("<small></small>").text(String(item.changeSummary)).appendTo(row);
+      }
+    }.bind(this));
+  };
+
+  ProgramGovernanceAdmin.prototype.renderOverlayVersionComparison = function(payload) {
+    this.overlayVersionsCompareHost.empty();
+    const info = payload || null;
+    if (!info) {
+      $("<p class=\"program-builder-empty\"></p>").text("Nenhuma comparacao carregada.").appendTo(this.overlayVersionsCompareHost);
+      return;
+    }
+    $("<h3></h3>").text("Comparacao de versoes").appendTo(this.overlayVersionsCompareHost);
+    $("<div class=\"program-governance-admin-row\"></div>")
+      .addClass("is-info")
+      .text("Secoes alteradas: " + String(info.changedSections || 0) + " | Caminhos alterados: " + String(info.changedPaths || 0))
+      .appendTo(this.overlayVersionsCompareHost);
+    global.CrudUtils.ensureArray(info.sections).forEach(function(section) {
+      const row = $("<div class=\"program-governance-admin-row\"></div>").addClass("is-warning").appendTo(this.overlayVersionsCompareHost);
+      $("<strong></strong>").text(String(section.key || "-") + ": ").appendTo(row);
+      $("<span></span>").text(String(section.pathCount || 0) + " caminhos alterados").appendTo(row);
+    }.bind(this));
+    $("<pre class=\"program-builder-inline-json\"></pre>").text(JSON.stringify(info, null, 2)).appendTo(this.overlayVersionsCompareHost);
   };
 
   ProgramGovernanceAdmin.prototype.applyTabSelection = function() {
@@ -440,7 +734,9 @@
       tests: 3,
       approvals: 4,
       retention: 5,
-      rebase: 6
+      overlays: 6,
+      "overlay-versions": 7,
+      rebase: 8
     };
     if (tab && Object.prototype.hasOwnProperty.call(tabs, tab)) {
       this.tabs.select(tabs[tab]);
@@ -529,6 +825,143 @@
     }).then(this.afterMutation.bind(this, "Retencao atualizada."));
   };
 
+  ProgramGovernanceAdmin.prototype.handlePreviewRetention = function() {
+    return this.http.request({
+      url: "/api/admin/program-builder/governance/retention/preview",
+      method: "GET"
+    }).then(function(response) {
+      this.renderRetentionPreview(response);
+      global.CrudUtils.showMessage("Preview da limpeza carregado.", "info");
+    }.bind(this)).catch(this.handleError.bind(this, "Nao foi possivel gerar o preview da limpeza."));
+  };
+
+  ProgramGovernanceAdmin.prototype.handleExecuteRetention = function() {
+    return global.CrudUtils.confirm({
+      title: "Executar limpeza",
+      message: "A limpeza remove historico antigo conforme a politica atual. Deseja continuar?",
+      confirmText: "Executar",
+      cancelText: "Cancelar"
+    }).then(function(confirmed) {
+      if (!confirmed) {
+        return null;
+      }
+      return this.http.request({
+        url: "/api/admin/program-builder/governance/retention/cleanup",
+        method: "POST"
+      }).then(function(response) {
+        this.renderRetentionPreview(response);
+        global.CrudUtils.showMessage("Limpeza executada.", "success");
+        return this.refreshCurrent();
+      }.bind(this));
+    }.bind(this)).catch(this.handleError.bind(this, "Nao foi possivel executar a limpeza da governanca."));
+  };
+
+  ProgramGovernanceAdmin.prototype.handleExportRetention = function(format) {
+    const report = this.state.lastRetentionReport;
+    if (!report) {
+      global.CrudUtils.showMessage("Gere um preview ou execute a limpeza antes de exportar o relatorio.", "warning");
+      return;
+    }
+    const now = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    if (format === "csv") {
+      const lines = ["label,table,days,cutoff,records"];
+      global.CrudUtils.ensureArray(report.items).forEach(function(item) {
+        lines.push([
+          item.label,
+          item.table,
+          item.days,
+          item.cutoff,
+          item.records
+        ].map(function(value) {
+          return "\"" + String(value == null ? "" : value).replace(/"/g, "\"\"") + "\"";
+        }).join(","));
+      });
+      this.downloadFile("governanca-retencao-" + now + ".csv", "text/csv;charset=utf-8", lines.join("\n"));
+      return;
+    }
+    this.downloadFile("governanca-retencao-" + now + ".json", "application/json;charset=utf-8", JSON.stringify(report, null, 2));
+  };
+
+  ProgramGovernanceAdmin.prototype.handleLoadOverlayVersions = function() {
+    const overlayId = Number(this.overlayVersionsOverlayIdInput.value() || 0);
+    if (!overlayId) {
+      global.CrudUtils.showMessage("Informe o overlay para carregar as versoes.", "warning");
+      return Promise.resolve();
+    }
+    this.state.selectedOverlayId = overlayId;
+    return this.http.request({
+      url: "/api/admin/program-builder/overlays/" + encodeURIComponent(overlayId) + "/versions",
+      method: "GET"
+    }).then(function(response) {
+      const items = global.CrudUtils.ensureArray(response && response.items);
+      this.state.overlayVersions = items;
+      const dataSource = items.map(function(item) {
+        return {
+          value: String(item.id || ""),
+          text: "v" + String(item.versionNumber || "-") + " [" + String(item.status || "draft") + "]"
+        };
+      });
+      this.overlayVersionsLeftInput.setDataSource(dataSource);
+      this.overlayVersionsRightInput.setDataSource(dataSource);
+      if (items[0]) {
+        this.overlayVersionsLeftInput.value(String(items[0].id || ""));
+      }
+      if (items[1]) {
+        this.overlayVersionsRightInput.value(String(items[1].id || ""));
+      } else if (items[0]) {
+        this.overlayVersionsRightInput.value(String(items[0].id || ""));
+      }
+      this.renderOverlayVersions(items);
+      global.CrudUtils.showMessage("Versoes do overlay carregadas.", "info");
+    }.bind(this)).catch(this.handleError.bind(this, "Nao foi possivel carregar as versoes do overlay."));
+  };
+
+  ProgramGovernanceAdmin.prototype.handleCompareOverlayVersions = function() {
+    const leftVersionId = Number(this.overlayVersionsLeftInput.value() || 0);
+    const rightVersionId = Number(this.overlayVersionsRightInput.value() || 0);
+    if (!leftVersionId || !rightVersionId) {
+      global.CrudUtils.showMessage("Selecione as duas versoes para comparar.", "warning");
+      return Promise.resolve();
+    }
+    return this.http.request({
+      url: "/api/admin/program-builder/overlay-versions/compare",
+      method: "GET",
+      data: {
+        leftVersionId: leftVersionId,
+        rightVersionId: rightVersionId
+      }
+    }).then(function(response) {
+      this.state.overlayVersionComparison = response || null;
+      this.renderOverlayVersionComparison(this.state.overlayVersionComparison);
+      global.CrudUtils.showMessage("Comparacao carregada.", "info");
+    }.bind(this)).catch(this.handleError.bind(this, "Nao foi possivel comparar as versoes do overlay."));
+  };
+
+  ProgramGovernanceAdmin.prototype.handlePublishOverlayVersion = function() {
+    const overlayVersionId = Number(this.overlayVersionsLeftInput.value() || 0);
+    if (!overlayVersionId) {
+      global.CrudUtils.showMessage("Selecione a versao que sera publicada.", "warning");
+      return Promise.resolve();
+    }
+    return global.CrudUtils.confirm({
+      title: "Publicar versao do overlay",
+      message: "A versao selecionada sera marcada como publicada para o overlay atual. Deseja continuar?",
+      confirmText: "Publicar",
+      cancelText: "Cancelar"
+    }).then(function(confirmed) {
+      if (!confirmed) {
+        return null;
+      }
+      return this.http.request({
+        url: "/api/admin/program-builder/overlay-versions/" + encodeURIComponent(overlayVersionId) + "/publish",
+        method: "POST"
+      }).then(function() {
+        global.CrudUtils.showMessage("Versao do overlay publicada.", "success");
+        return this.handleLoadOverlayVersions().then(this.refreshCurrent.bind(this));
+      }.bind(this));
+    }.bind(this)).catch(this.handleError.bind(this, "Nao foi possivel publicar a versao do overlay."));
+  };
+
   ProgramGovernanceAdmin.prototype.handlePreviewRebase = function() {
     const overlayId = Number(this.overlayIdInput.value() || 0);
     if (!overlayId) {
@@ -540,6 +973,7 @@
       method: "GET"
     }).then(function(response) {
       this.state.overlayPreview = response;
+      this.state.overlayRebaseSelections = {};
       this.renderRebasePreview();
     }.bind(this)).catch(this.handleError.bind(this, "Nao foi possivel gerar o preview do rebase."));
   };
@@ -550,14 +984,41 @@
       global.CrudUtils.showMessage("Informe a versao do overlay.", "warning");
       return Promise.resolve();
     }
-    return this.http.request({
-      url: "/api/admin/program-builder/overlay-versions/" + encodeURIComponent(overlayVersionId) + "/rebase",
-      method: "POST"
-    }).then(function(response) {
-      this.state.overlayPreview = response && response.preview ? response.preview : response;
-      this.renderRebasePreview();
-      global.CrudUtils.showMessage("Rebase executado.", "success");
-    }.bind(this)).catch(this.handleError.bind(this, "Nao foi possivel executar o rebase."));
+    const preview = this.state.overlayPreview || null;
+    const hasBlocking = global.CrudUtils.ensureArray(preview && preview.sections).some(function(section) {
+      return String(section.classification || "") === "conflict_blocking";
+    });
+    const runner = function() {
+      return this.http.request({
+        url: "/api/admin/program-builder/overlay-versions/" + encodeURIComponent(overlayVersionId) + "/rebase",
+        method: "POST",
+        data: {
+          resolutions: this.state.overlayRebaseSelections || {}
+        }
+      }).then(function(response) {
+        this.state.overlayPreview = response && response.preview ? response.preview : response;
+        this.state.overlayRebaseSelections = {};
+        this.renderRebasePreview();
+        global.CrudUtils.showMessage("Rebase executado.", "success");
+        return this.handleLoadOverlayVersions().then(this.refreshCurrent.bind(this));
+      }.bind(this));
+    }.bind(this);
+
+    if (!hasBlocking) {
+      return runner().catch(this.handleError.bind(this, "Nao foi possivel executar o rebase."));
+    }
+
+    return global.CrudUtils.confirm({
+      title: "Conflitos bloqueantes",
+      message: "Existem conflitos bloqueantes no rebase. Deseja continuar mesmo assim?",
+      confirmText: "Continuar",
+      cancelText: "Cancelar"
+    }).then(function(confirmed) {
+      if (!confirmed) {
+        return null;
+      }
+      return runner();
+    }).bind(this).catch(this.handleError.bind(this, "Nao foi possivel executar o rebase."));
   };
 
   ProgramGovernanceAdmin.prototype.renderRebasePreview = function() {
@@ -569,13 +1030,77 @@
       return;
     }
     $("<p></p>").text("Status: " + String(response.status || "-") + " | Base atual: " + String(response.currentBaseVersion || "-") + " | Base alvo: " + String(response.targetBaseVersion || "-")).appendTo(this.rebaseSummary);
+    const counters = { rebased: 0, overlay: 0, base: 0 };
     global.CrudUtils.ensureArray(response.sections).forEach(function(section) {
       const row = $("<div class=\"program-governance-admin-row\"></div>")
-        .toggleClass("is-focused", (section.classification || "").indexOf("conflict") === 0)
+        .addClass(String(section.classification || "").indexOf("conflict") === 0 ? "is-warning" : "is-valid")
         .appendTo(this.rebaseSummary);
-      $("<span></span>").text((section.key || "-") + " | " + (section.classification || "-") + " | " + (section.resolution || "-")).appendTo(row);
+      $("<strong></strong>").text(String(section.key || "-") + ": ").appendTo(row);
+      $("<span></span>").text(String(section.classification || "-")).appendTo(row);
+      const entries = global.CrudUtils.ensureArray(section.entries);
+      if (entries.length) {
+        const table = $("<table class=\"program-builder-table\"></table>").appendTo(this.rebaseSummary);
+        $("<thead><tr><th>Caminho</th><th>Classificacao</th><th>Base nova</th><th>Overlay</th><th>Rebase sugerido</th><th>Escolha</th></tr></thead>").appendTo(table);
+        const body = $("<tbody></tbody>").appendTo(table);
+        entries.forEach(function(entry) {
+          const entryPath = String(entry.path || "");
+          const options = global.CrudUtils.ensureArray(entry.resolutionOptions).length ? entry.resolutionOptions : ["rebased"];
+          const selected = this.state.overlayRebaseSelections[entryPath] || entry.selectedResolution || options[0];
+          counters[selected] = (counters[selected] || 0) + 1;
+          const tr = $("<tr></tr>").appendTo(body);
+          $("<td></td>").append($("<code></code>").text(entryPath)).appendTo(tr);
+          $("<td></td>").text(String(entry.classification || "-")).appendTo(tr);
+          $("<td></td>").append($("<code></code>").text(this.stringifyInlineJson(entry.baseValue))).appendTo(tr);
+          $("<td></td>").append($("<code></code>").text(this.stringifyInlineJson(entry.overlayValue))).appendTo(tr);
+          $("<td></td>").append($("<code></code>").text(this.stringifyInlineJson(entry.rebasedValue))).appendTo(tr);
+          const select = $("<select></select>");
+          options.forEach(function(option) {
+            $("<option></option>")
+              .attr("value", option)
+              .prop("selected", option === selected)
+              .text(option === "rebased" ? "Rebase sugerido" : (option === "overlay" ? "Manter overlay" : "Usar base"))
+              .appendTo(select);
+          });
+          select.on("change", function() {
+            this.state.overlayRebaseSelections[entryPath] = String($(this).val() || "rebased");
+            this.renderRebasePreview();
+          }.bind(this));
+          $("<td></td>").append(select).appendTo(tr);
+        }.bind(this));
+      }
     }.bind(this));
+    $("<div class=\"program-governance-admin-row is-info\"></div>")
+      .text("Plano atual: rebase sugerido " + counters.rebased + " | manter overlay " + counters.overlay + " | usar base " + counters.base)
+      .appendTo(this.rebaseSummary);
     this.rebaseJson.text(JSON.stringify(response, null, 2));
+  };
+
+  ProgramGovernanceAdmin.prototype.stringifyInlineJson = function(value) {
+    if (value == null) {
+      return "null";
+    }
+    if (typeof value === "string") {
+      return value;
+    }
+    try {
+      return JSON.stringify(value);
+    } catch (_) {
+      return String(value);
+    }
+  };
+
+  ProgramGovernanceAdmin.prototype.downloadFile = function(fileName, mimeType, content) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = global.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    global.setTimeout(function() {
+      global.URL.revokeObjectURL(url);
+    }, 0);
   };
 
   ProgramGovernanceAdmin.prototype.afterMutation = function(message) {

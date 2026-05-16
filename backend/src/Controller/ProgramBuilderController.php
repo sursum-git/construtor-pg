@@ -452,12 +452,59 @@ class ProgramBuilderController extends AbstractController
         }
     }
 
+    #[Route('/governance/retention/preview', methods: ['GET'])]
+    public function previewGovernanceRetentionCleanup(): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->builder->previewGovernanceRetentionCleanup());
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/governance/retention/cleanup', methods: ['POST'])]
+    public function executeGovernanceRetentionCleanup(): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->builder->executeGovernanceRetentionCleanup());
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
     #[Route('/overlays/{id}/rebase-preview', methods: ['GET'])]
     public function previewOverlayRebase(int $id): JsonResponse
     {
         try {
             $this->sessions->ensureActive();
             return $this->json($this->builder->previewOverlayRebase($id));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/overlays/{id}/versions', methods: ['GET'])]
+    public function listOverlayVersions(int $id): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json(['items' => $this->builder->listOverlayVersions($id)]);
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/overlay-versions/compare', methods: ['GET'])]
+    public function compareOverlayVersions(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->builder->compareOverlayVersions([
+                'leftVersionId' => $request->query->getInt('leftVersionId', 0),
+                'rightVersionId' => $request->query->getInt('rightVersionId', 0),
+            ]));
         } catch (\Throwable $error) {
             return $this->error($error);
         }
@@ -470,6 +517,17 @@ class ProgramBuilderController extends AbstractController
             $this->sessions->ensureActive();
             $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
             return $this->json($this->builder->rebaseOverlayVersion($id, is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/overlay-versions/{id}/publish', methods: ['POST'])]
+    public function publishOverlayVersion(int $id): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->builder->publishOverlayVersion($id));
         } catch (\Throwable $error) {
             return $this->error($error);
         }

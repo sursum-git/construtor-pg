@@ -94,6 +94,68 @@ class ProgramOverlayService
         ];
     }
 
+    public function publishVersion(int $overlayVersionId): array
+    {
+        $version = $this->overlayVersions->find($overlayVersionId);
+        if (!$version) {
+            throw new RuntimeHttpException('PROGRAM_OVERLAY_VERSION_NOT_FOUND', 'Versao de overlay nao encontrada.', 404, ['overlayVersionId' => $overlayVersionId]);
+        }
+
+        $overlay = $version->getOverlay();
+        $this->integrity->assertOverlay($overlay);
+        $this->integrity->assertOverlayVersion($version);
+
+        foreach ($this->overlayVersions->findByOverlayIdOrdered((int) $overlay->getId()) as $candidate) {
+            if (!$candidate->getId() || $candidate->getId() === $version->getId()) {
+                continue;
+            }
+            if ($candidate->getStatus() === 'published') {
+                $candidate->setStatus('archived');
+                $this->entityManager->persist($candidate);
+            }
+        }
+
+        $version
+            ->setStatus('published')
+            ->setPublishedAt(new \DateTimeImmutable());
+        $overlay
+            ->setStatus('published')
+            ->setUpgradeFrozen(false)
+            ->setFrozenReason(null);
+
+        $this->entityManager->persist($overlay);
+        $this->entityManager->persist($version);
+        $this->entityManager->flush();
+        $this->integrity->signOverlay($overlay, ['source' => 'overlayPublish']);
+        $this->integrity->signOverlayVersion($version, ['source' => 'overlayPublish']);
+
+        return [
+            'overlayId' => $overlay->getId(),
+            'overlayVersionId' => $version->getId(),
+            'status' => 'published',
+            'publishedAt' => $version->getPublishedAt()?->format(DATE_ATOM),
+        ];
+    }
+
+    public function compareVersions(int $leftVersionId, int $rightVersionId): array
+    {
+        $left = $this->overlayVersions->find($leftVersionId);
+        $right = $this->overlayVersions->find($rightVersionId);
+        if (!$left || !$right) {
+            throw new RuntimeHttpException('PROGRAM_OVERLAY_VERSION_COMPARE_NOT_FOUND', 'Uma das versoes de overlay informadas nao foi encontrada.', 404, [
+                'leftVersionId' => $leftVersionId,
+                'rightVersionId' => $rightVersionId,
+            ]);
+        }
+
+        $this->integrity->assertOverlay($left->getOverlay());
+        $this->integrity->assertOverlayVersion($left);
+        $this->integrity->assertOverlay($right->getOverlay());
+        $this->integrity->assertOverlayVersion($right);
+
+        return $this->buildVersionComparison($left, $right);
+    }
+
     private function buildRebasePreview(BuilderProgramOverlayVersion $currentVersion, array $resolutions = []): array
     {
         $overlay = $currentVersion->getOverlay();
@@ -226,6 +288,55 @@ class ProgramOverlayService
             'requestedResolutions' => $resolutions,
             'sections' => $sections,
             'rebasedDefinition' => $rebasedDefinition,
+        ];
+    }
+
+    private function buildVersionComparison(BuilderProgramOverlayVersion $left, BuilderProgramOverlayVersion $right): array
+    {
+        $leftDefinition = is_array($left->getResolvedDefinition()) ? $left->getResolvedDefinition() : [];
+        $rightDefinition = is_array($right->getResolvedDefinition()) ? $right->getResolvedDefinition() : [];
+        $changedKeys = $this->topLevelChangedKeys($leftDefinition, $rightDefinition);
+        $sections = [];
+        foreach ($changedKeys as $key) {
+            $leftPaths = $this->changedPaths($leftDefinition[$key] ?? null, $rightDefinition[$key] ?? null, $key);
+            $entries = $this->buildSectionEntries(
+                $key,
+                $leftDefinition[$key] ?? null,
+                $rightDefinition[$key] ?? null,
+                $rightDefinition[$key] ?? null,
+                $rightDefinition[$key] ?? null,
+                $leftPaths,
+                $leftPaths,
+                [],
+                'auto_merge'
+            );
+            $sections[] = [
+                'key' => $key,
+                'classification' => 'changed',
+                'pathCount' => count($leftPaths),
+                'paths' => $leftPaths,
+                'entries' => $entries,
+            ];
+        }
+
+        return [
+            'leftVersion' => [
+                'id' => $left->getId(),
+                'versionNumber' => $left->getVersionNumber(),
+                'status' => $left->getStatus(),
+                'changeSummary' => $left->getChangeSummary(),
+                'publishedAt' => $left->getPublishedAt()?->format(DATE_ATOM),
+            ],
+            'rightVersion' => [
+                'id' => $right->getId(),
+                'versionNumber' => $right->getVersionNumber(),
+                'status' => $right->getStatus(),
+                'changeSummary' => $right->getChangeSummary(),
+                'publishedAt' => $right->getPublishedAt()?->format(DATE_ATOM),
+            ],
+            'changedSections' => count($sections),
+            'changedPaths' => array_sum(array_map(static fn (array $item): int => (int) ($item['pathCount'] ?? 0), $sections)),
+            'sections' => $sections,
         ];
     }
 

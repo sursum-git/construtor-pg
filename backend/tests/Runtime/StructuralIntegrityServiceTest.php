@@ -7,6 +7,9 @@ use App\Entity\BuilderModule;
 use App\Entity\Program;
 use App\Entity\SystemRecordIntegrity;
 use App\Repository\BuilderApiSourceRepository;
+use App\Repository\AuthProviderConfigRepository;
+use App\Repository\AuthSubscriberRepository;
+use App\Repository\AuthUserSubscriberRepository;
 use App\Repository\BuilderEntityRepository;
 use App\Repository\BuilderEntitySituationRepository;
 use App\Repository\BuilderEntitySituationTransitionRepository;
@@ -27,6 +30,7 @@ use App\Repository\RuntimeEndpointRepository;
 use App\Repository\RuntimeLockPolicyRepository;
 use App\Repository\ScreenDefinitionRepository;
 use App\Repository\SystemRecordIntegrityRepository;
+use App\Repository\SystemLiteralTranslationRepository;
 use App\Repository\SystemOptionListRepository;
 use App\Repository\SystemOptionRepository;
 use App\Repository\SystemParameterRepository;
@@ -191,6 +195,10 @@ class StructuralIntegrityServiceTest extends TestCase
         self::assertTrue($service->supportsTableName('program_change_grant'));
         self::assertTrue($service->supportsTableName('program_publication_approval'));
         self::assertTrue($service->supportsTableName('program_test_execution'));
+        self::assertTrue($service->supportsTableName('auth_provider_config'));
+        self::assertTrue($service->supportsTableName('auth_subscriber'));
+        self::assertTrue($service->supportsTableName('auth_user_subscriber'));
+        self::assertTrue($service->supportsTableName('system_literal_translation'));
     }
 
     private function service(EntityManagerInterface $entityManager, SystemRecordIntegrityRepository $integrities): StructuralIntegrityService
@@ -198,6 +206,9 @@ class StructuralIntegrityServiceTest extends TestCase
         return new StructuralIntegrityService(
             $entityManager,
             $integrities,
+            $this->createStub(AuthProviderConfigRepository::class),
+            $this->createStub(AuthSubscriberRepository::class),
+            $this->createStub(AuthUserSubscriberRepository::class),
             $this->createStub(ProgramRepository::class),
             $this->createStub(BuilderApiSourceRepository::class),
             $this->createStub(BuilderModuleRepository::class),
@@ -222,6 +233,7 @@ class StructuralIntegrityServiceTest extends TestCase
             $this->createStub(SystemOptionRepository::class),
             $this->createStub(SystemParameterRepository::class),
             $this->createStub(SystemParameterValueRepository::class),
+            $this->createStub(SystemLiteralTranslationRepository::class),
             $this->createStub(RuntimeNotificationService::class),
             $this->createStub(PermissionResolver::class),
         );

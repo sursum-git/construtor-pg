@@ -2,6 +2,9 @@
 
 namespace App\Runtime;
 
+use App\Entity\AuthProviderConfig;
+use App\Entity\AuthSubscriber;
+use App\Entity\AuthUserSubscriber;
 use App\Entity\BuilderEntity;
 use App\Entity\BuilderEntitySituation;
 use App\Entity\BuilderEntitySituationTransition;
@@ -27,7 +30,11 @@ use App\Entity\SystemOption;
 use App\Entity\SystemOptionList;
 use App\Entity\SystemParameter;
 use App\Entity\SystemParameterValue;
+use App\Entity\SystemLiteralTranslation;
 use App\Repository\BuilderApiSourceRepository;
+use App\Repository\AuthProviderConfigRepository;
+use App\Repository\AuthSubscriberRepository;
+use App\Repository\AuthUserSubscriberRepository;
 use App\Repository\BuilderEntityRepository;
 use App\Repository\BuilderEntitySituationRepository;
 use App\Repository\BuilderEntitySituationTransitionRepository;
@@ -48,6 +55,7 @@ use App\Repository\RuntimeEndpointRepository;
 use App\Repository\RuntimeLockPolicyRepository;
 use App\Repository\ScreenDefinitionRepository;
 use App\Repository\SystemRecordIntegrityRepository;
+use App\Repository\SystemLiteralTranslationRepository;
 use App\Repository\SystemOptionListRepository;
 use App\Repository\SystemOptionRepository;
 use App\Repository\SystemParameterRepository;
@@ -61,6 +69,9 @@ class StructuralIntegrityService
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly SystemRecordIntegrityRepository $integrities,
+        private readonly AuthProviderConfigRepository $authProviders,
+        private readonly AuthSubscriberRepository $authSubscribers,
+        private readonly AuthUserSubscriberRepository $authUserSubscribers,
         private readonly ProgramRepository $programs,
         private readonly BuilderApiSourceRepository $apiSources,
         private readonly BuilderModuleRepository $modules,
@@ -85,6 +96,7 @@ class StructuralIntegrityService
         private readonly SystemOptionRepository $systemOptions,
         private readonly SystemParameterRepository $systemParameters,
         private readonly SystemParameterValueRepository $systemParameterValues,
+        private readonly SystemLiteralTranslationRepository $systemLiteralTranslations,
         private readonly RuntimeNotificationService $notifications,
         private readonly PermissionResolver $permissions,
     ) {
@@ -210,6 +222,26 @@ class StructuralIntegrityService
         $this->assertEntityIntegrity('system_option', $option->getId(), $this->systemOptionPayload($option));
     }
 
+    public function assertAuthProvider(AuthProviderConfig $provider): void
+    {
+        $this->assertEntityIntegrity('auth_provider_config', $provider->getId(), $this->authProviderPayload($provider));
+    }
+
+    public function assertAuthSubscriber(AuthSubscriber $subscriber): void
+    {
+        $this->assertEntityIntegrity('auth_subscriber', $subscriber->getId(), $this->authSubscriberPayload($subscriber));
+    }
+
+    public function assertAuthUserSubscriber(AuthUserSubscriber $link): void
+    {
+        $this->assertEntityIntegrity('auth_user_subscriber', $link->getId(), $this->authUserSubscriberPayload($link));
+    }
+
+    public function assertSystemLiteralTranslation(SystemLiteralTranslation $literal): void
+    {
+        $this->assertEntityIntegrity('system_literal_translation', $literal->getId(), $this->systemLiteralTranslationPayload($literal));
+    }
+
     public function signProgram(Program $program, ?array $metadata = null): void
     {
         $this->signEntity('builder_program', $program->getId(), $this->programPayload($program), $metadata);
@@ -330,6 +362,26 @@ class StructuralIntegrityService
         $this->signEntity('system_option', $option->getId(), $this->systemOptionPayload($option), $metadata);
     }
 
+    public function signAuthProvider(AuthProviderConfig $provider, ?array $metadata = null): void
+    {
+        $this->signEntity('auth_provider_config', $provider->getId(), $this->authProviderPayload($provider), $metadata);
+    }
+
+    public function signAuthSubscriber(AuthSubscriber $subscriber, ?array $metadata = null): void
+    {
+        $this->signEntity('auth_subscriber', $subscriber->getId(), $this->authSubscriberPayload($subscriber), $metadata);
+    }
+
+    public function signAuthUserSubscriber(AuthUserSubscriber $link, ?array $metadata = null): void
+    {
+        $this->signEntity('auth_user_subscriber', $link->getId(), $this->authUserSubscriberPayload($link), $metadata);
+    }
+
+    public function signSystemLiteralTranslation(SystemLiteralTranslation $literal, ?array $metadata = null): void
+    {
+        $this->signEntity('system_literal_translation', $literal->getId(), $this->systemLiteralTranslationPayload($literal), $metadata);
+    }
+
     public function signTarget(string $tableName, int $recordId, ?array $metadata = null): void
     {
         if (!$this->supportsTableName($tableName)) {
@@ -348,7 +400,15 @@ class StructuralIntegrityService
 
     public function supportsTableName(string $tableName): bool
     {
-        return in_array($tableName, [
+        return in_array($tableName, $this->supportedTableNames(), true);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function supportedTableNames(): array
+    {
+        return [
             'builder_program',
             'builder_program_version',
             'builder_api_source',
@@ -373,7 +433,11 @@ class StructuralIntegrityService
             'system_option',
             'system_parameter',
             'system_parameter_value',
-        ], true);
+            'system_literal_translation',
+            'auth_provider_config',
+            'auth_subscriber',
+            'auth_user_subscriber',
+        ];
     }
 
     public function flushPendingChanges(): void
@@ -386,6 +450,21 @@ class StructuralIntegrityService
         foreach ($this->programs->findAll() as $program) {
             if ($program->getId()) {
                 $this->signProgram($program, ['source' => 'backfill']);
+            }
+        }
+        foreach ($this->authProviders->findAll() as $provider) {
+            if ($provider->getId()) {
+                $this->signAuthProvider($provider, ['source' => 'backfill']);
+            }
+        }
+        foreach ($this->authSubscribers->findAll() as $subscriber) {
+            if ($subscriber->getId()) {
+                $this->signAuthSubscriber($subscriber, ['source' => 'backfill']);
+            }
+        }
+        foreach ($this->authUserSubscribers->findAll() as $link) {
+            if ($link->getId()) {
+                $this->signAuthUserSubscriber($link, ['source' => 'backfill']);
             }
         }
         foreach ($this->versions->findAll() as $version) {
@@ -503,6 +582,11 @@ class StructuralIntegrityService
                 $this->signSystemParameterValue($parameterValue, ['source' => 'backfill']);
             }
         }
+        foreach ($this->systemLiteralTranslations->findAll() as $literal) {
+            if ($literal->getId()) {
+                $this->signSystemLiteralTranslation($literal, ['source' => 'backfill']);
+            }
+        }
     }
 
     /**
@@ -514,6 +598,21 @@ class StructuralIntegrityService
         foreach ($this->programs->findAll() as $program) {
             if ($program->getId()) {
                 $results[] = $this->verifyTarget('builder_program', (int) $program->getId());
+            }
+        }
+        foreach ($this->authProviders->findAll() as $provider) {
+            if ($provider->getId()) {
+                $results[] = $this->verifyTarget('auth_provider_config', (int) $provider->getId());
+            }
+        }
+        foreach ($this->authSubscribers->findAll() as $subscriber) {
+            if ($subscriber->getId()) {
+                $results[] = $this->verifyTarget('auth_subscriber', (int) $subscriber->getId());
+            }
+        }
+        foreach ($this->authUserSubscribers->findAll() as $link) {
+            if ($link->getId()) {
+                $results[] = $this->verifyTarget('auth_user_subscriber', (int) $link->getId());
             }
         }
         foreach ($this->versions->findAll() as $version) {
@@ -629,6 +728,11 @@ class StructuralIntegrityService
         foreach ($this->systemParameterValues->findAll() as $parameterValue) {
             if ($parameterValue->getId()) {
                 $results[] = $this->verifyTarget('system_parameter_value', (int) $parameterValue->getId());
+            }
+        }
+        foreach ($this->systemLiteralTranslations->findAll() as $literal) {
+            if ($literal->getId()) {
+                $results[] = $this->verifyTarget('system_literal_translation', (int) $literal->getId());
             }
         }
 
@@ -797,6 +901,9 @@ class StructuralIntegrityService
     private function payloadForTarget(string $tableName, int $recordId): array
     {
         return match ($tableName) {
+            'auth_provider_config' => $this->authProviderPayload($this->requireEntity($this->authProviders->find($recordId), $tableName, $recordId)),
+            'auth_subscriber' => $this->authSubscriberPayload($this->requireEntity($this->authSubscribers->find($recordId), $tableName, $recordId)),
+            'auth_user_subscriber' => $this->authUserSubscriberPayload($this->requireEntity($this->authUserSubscribers->find($recordId), $tableName, $recordId)),
             'builder_program' => $this->programPayload($this->requireEntity($this->programs->find($recordId), $tableName, $recordId)),
             'builder_program_version' => $this->programVersionPayload($this->requireEntity($this->versions->find($recordId), $tableName, $recordId)),
             'builder_api_source' => $this->apiSourcePayload($this->requireEntity($this->apiSources->find($recordId), $tableName, $recordId)),
@@ -821,6 +928,7 @@ class StructuralIntegrityService
             'system_option' => $this->systemOptionPayload($this->requireEntity($this->systemOptions->find($recordId), $tableName, $recordId)),
             'system_parameter' => $this->systemParameterPayload($this->requireEntity($this->systemParameters->find($recordId), $tableName, $recordId)),
             'system_parameter_value' => $this->systemParameterValuePayload($this->requireEntity($this->systemParameterValues->find($recordId), $tableName, $recordId)),
+            'system_literal_translation' => $this->systemLiteralTranslationPayload($this->requireEntity($this->systemLiteralTranslations->find($recordId), $tableName, $recordId)),
             default => throw new RuntimeHttpException('STRUCTURAL_INTEGRITY_TARGET_UNSUPPORTED', 'Tabela de integridade nao suportada.', 422, [
                 'tableName' => $tableName,
                 'recordId' => $recordId,
@@ -897,6 +1005,43 @@ class StructuralIntegrityService
             'baseProgramVersionId' => $program->getBaseProgramVersionId(),
             'upgradeFrozen' => $program->isUpgradeFrozen(),
             'frozenReason' => $program->getFrozenReason(),
+        ];
+    }
+
+    private function authProviderPayload(AuthProviderConfig $provider): array
+    {
+        return [
+            'code' => $provider->getCode(),
+            'type' => $provider->getType(),
+            'name' => $provider->getName(),
+            'enabled' => $provider->isEnabled(),
+            'priority' => $provider->getPriority(),
+            'config' => $provider->getConfig(),
+        ];
+    }
+
+    private function authSubscriberPayload(AuthSubscriber $subscriber): array
+    {
+        return [
+            'code' => $subscriber->getCode(),
+            'name' => $subscriber->getName(),
+            'document' => $subscriber->getDocument(),
+            'principal' => $subscriber->isPrincipal(),
+            'enabled' => $subscriber->isEnabled(),
+            'metadata' => $subscriber->getMetadata(),
+        ];
+    }
+
+    private function authUserSubscriberPayload(AuthUserSubscriber $link): array
+    {
+        return [
+            'userTenantId' => $link->getUserTenantId(),
+            'username' => $link->getUsername(),
+            'subscriberCode' => $link->getSubscriberCode(),
+            'defaultSubscriber' => $link->isDefaultSubscriber(),
+            'enabled' => $link->isEnabled(),
+            'permissionOverrides' => $link->getPermissionOverrides(),
+            'metadata' => $link->getMetadata(),
         ];
     }
 
@@ -1264,6 +1409,18 @@ class StructuralIntegrityService
             'endsAt' => $parameterValue->getEndsAt()?->format(DATE_ATOM),
             'value' => $parameterValue->getValue(),
             'enabled' => $parameterValue->isEnabled(),
+        ];
+    }
+
+    private function systemLiteralTranslationPayload(SystemLiteralTranslation $literal): array
+    {
+        return [
+            'code' => $literal->getCode(),
+            'locale' => $literal->getLocale(),
+            'text' => $literal->getText(),
+            'context' => $literal->getContext(),
+            'description' => $literal->getDescription(),
+            'enabled' => $literal->isEnabled(),
         ];
     }
 }

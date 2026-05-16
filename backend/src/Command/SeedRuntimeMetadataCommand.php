@@ -250,6 +250,38 @@ class SeedRuntimeMetadataCommand extends Command
                 'frameTitle' => 'Retencao da governanca',
             ],
         ];
+        $programOverlaysAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.programa-overlays-operacao',
+            'program' => [
+                'id' => 'admin-programa-overlays-operacao',
+                'title' => 'Overlays de programas',
+                'subtitle' => 'Operacao focada em overlays, assinantes e rebase',
+                'version' => '1.0.0',
+                'screenId' => 'admin.programa-overlays-operacao',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/program-overlays.html',
+                'frameTitle' => 'Overlays de programas',
+            ],
+        ];
+        $programOverlayVersionsAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.programa-overlay-versoes-operacao',
+            'program' => [
+                'id' => 'admin-programa-overlay-versoes-operacao',
+                'title' => 'Versoes de overlay',
+                'subtitle' => 'Operacao focada em historico, comparacao e publish de overlay',
+                'version' => '1.0.0',
+                'screenId' => 'admin.programa-overlay-versoes-operacao',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/program-overlay-versions.html',
+                'frameTitle' => 'Versoes de overlay',
+            ],
+        ];
 
         $clientesDefinition['screenId'] = 'cadastros.clientes';
         $clientesDefinition['program']['screenId'] = 'cadastros.clientes';
@@ -269,6 +301,8 @@ class SeedRuntimeMetadataCommand extends Command
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-grants-operacao', 'Grants de programas', 'Operacao focada em grants', 'admin.programa-grants-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-aprovacoes-operacao', 'Aprovacoes de publicacao', 'Operacao focada em aprovacoes', 'admin.programa-aprovacoes-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-retencao-operacao', 'Retencao da governanca', 'Operacao focada em retencao da governanca', 'admin.programa-retencao-operacao');
+        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-overlays-operacao', 'Overlays de programas', 'Operacao focada em overlays e rebase', 'admin.programa-overlays-operacao');
+        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-overlay-versoes-operacao', 'Versoes de overlay', 'Operacao focada em versoes de overlay', 'admin.programa-overlay-versoes-operacao');
 
         foreach (($homeDefinition['programs'] ?? []) as $index => $program) {
             if (($program['id'] ?? '') === 'clientes-crud') {
@@ -284,6 +318,8 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertProgram('admin-programa-grants-operacao', 'Grants de programas', 'administracao', 'custom', 'admin.programa-grants-operacao');
         $this->upsertProgram('admin-programa-aprovacoes-operacao', 'Aprovacoes de publicacao', 'administracao', 'custom', 'admin.programa-aprovacoes-operacao');
         $this->upsertProgram('admin-programa-retencao-operacao', 'Retencao da governanca', 'administracao', 'custom', 'admin.programa-retencao-operacao');
+        $this->upsertProgram('admin-programa-overlays-operacao', 'Overlays de programas', 'administracao', 'custom', 'admin.programa-overlays-operacao');
+        $this->upsertProgram('admin-programa-overlay-versoes-operacao', 'Versoes de overlay', 'administracao', 'custom', 'admin.programa-overlay-versoes-operacao');
         $this->upsertProgram('processamento-clientes', 'Processamento de Clientes', 'operacional', 'process', 'processamento.relatorio-clientes');
         $this->upsertProgram('home', 'Home', 'global', 'home', 'home');
         foreach ($adminScreens as $screen) {
@@ -301,6 +337,8 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertScreen('admin.programa-grants-operacao', 'custom', $programGrantsAdminDefinition);
         $this->upsertScreen('admin.programa-aprovacoes-operacao', 'custom', $programApprovalsAdminDefinition);
         $this->upsertScreen('admin.programa-retencao-operacao', 'custom', $programRetentionAdminDefinition);
+        $this->upsertScreen('admin.programa-overlays-operacao', 'custom', $programOverlaysAdminDefinition);
+        $this->upsertScreen('admin.programa-overlay-versoes-operacao', 'custom', $programOverlayVersionsAdminDefinition);
         $this->upsertScreen('processamento.relatorio-clientes', 'process', $processDefinition);
         $this->upsertScreen('assistente.codificacao.produto-pdm', 'process', $customCodePdmDefinition);
         foreach ($adminScreens as $screen) {

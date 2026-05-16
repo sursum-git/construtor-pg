@@ -917,14 +917,17 @@
           screenId: "admin.programa-retencao-operacao",
           summary: "Entrada focada para revisar e ajustar a politica de retencao sem ruido das outras operacoes de governanca.",
           functional: {
-            objective: "Ajustar rapidamente a politica de limpeza do historico de requests, grants, aprovacoes, bundles e notificacoes administrativas.",
+            objective: "Ajustar rapidamente a politica de limpeza do historico de requests, grants, aprovacoes, bundles e notificacoes administrativas, com preview e execucao controlada.",
             scope: [
               "Leitura da politica atual.",
               "Edicao dos dias de retencao por categoria.",
+              "Preview do impacto antes da limpeza.",
+              "Execucao controlada da limpeza pela propria UI.",
               "Operacao direta por contexto administrativo."
             ],
             outputs: [
-              "Politica persistida em `admin.parametros`."
+              "Politica persistida em `admin.parametros`.",
+              "Resumo do que sera ou foi removido pela politica atual."
             ]
           },
           operational: {
@@ -934,17 +937,57 @@
             steps: [
               "Abrir a entrada focada de retencao.",
               "Revisar os prazos de limpeza.",
-              "Salvar a nova politica e confirmar o impacto operacional."
+              "Salvar a nova politica.",
+              "Gerar o preview da limpeza e revisar o impacto.",
+              "Executar a limpeza quando o recorte estiver coerente."
             ],
             cautions: [
               "Reducao agressiva de prazos pode eliminar trilhas uteis de auditoria.",
-              "A limpeza efetiva continua sendo aplicada pelo comando administrativo do backend."
+              "A limpeza efetiva remove historico encerrado; revisar o preview antes de aplicar."
             ]
           },
           references: {
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Governanca de programas", "Integridade estrutural"],
             notes: ["Entrada focada: ../../production/app.html?screenId=admin.programa-retencao-operacao", "Exemplo local focado: ../../examples/pages/admin-program-retention.html"]
+          }
+        },
+        "admin-programa-overlays-operacao": {
+          title: "Overlays de programas",
+          module: "Administracao",
+          type: "Painel administrativo",
+          route: "../../production/app.html?screenId=admin.programa-overlays-operacao",
+          screenId: "admin.programa-overlays-operacao",
+          summary: "Entrada focada para localizar overlays por assinante, revisar congelamento e abrir o preview do rebase com contexto direto.",
+          functional: {
+            objective: "Operar overlays e variantes do assinante com menos ruido do que o CRUD generico, preservando acesso rapido ao rebase.",
+            scope: [
+              "Lista de overlays do programa atual.",
+              "Situacao de congelamento e status da ultima versao.",
+              "Abertura do preview de rebase a partir do proprio item."
+            ],
+            outputs: [
+              "Selecao mais rapida do overlay certo para rebase ou triagem."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Programa base carregado na governanca."
+            ],
+            steps: [
+              "Abrir a entrada focada de overlays.",
+              "Localizar o assinante e revisar o status do overlay.",
+              "Usar a acao direta para carregar o preview do rebase com `overlayId` e `overlayVersionId` corretos."
+            ],
+            cautions: [
+              "Overlay bloqueado exige revisao manual antes da proxima publicacao da base.",
+              "Variante completa do cliente pode permanecer congelada para upgrade automatico."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Governanca de programas", "Overlays de programas", "Versoes de overlays"],
+            notes: ["Entrada focada: ../../production/app.html?screenId=admin.programa-overlays-operacao", "Exemplo local focado: ../../examples/pages/admin-program-overlays.html"]
           }
         },
         "admin-integridade": {
@@ -960,7 +1003,8 @@
               "Registros assinados em `system_record_integrity`.",
               "Status `pending`, `valid` ou `invalid`.",
               "Ultimo erro e horario da verificacao.",
-              "Cobertura tambem para `builder_module`, `builder_entity_situation`, `builder_entity_situation_transition`, `runtime_lock_policy`, `system_option_list`, `system_option`, `system_parameter` e `system_parameter_value`."
+              "Cobertura tambem para `builder_module`, `builder_entity_situation`, `builder_entity_situation_transition`, `runtime_lock_policy`, `system_option_list`, `system_option`, `system_parameter` e `system_parameter_value`.",
+              "Visibilidade da cobertura total de tabelas estruturais monitoradas."
             ],
             outputs: [
               "Painel administrativo dos registros estruturais protegidos."
@@ -1051,7 +1095,8 @@
             steps: [
               "Abrir o historico do overlay.",
               "Comparar revisoes e definicao resolvida.",
-              "Publicar a versao correta para o assinante."
+              "Publicar a versao correta para o assinante.",
+              "Quando a operacao vier por contexto, usar a entrada focada para carregar o overlay ja selecionado."
             ],
             cautions: [
               "Alterar a versao errada do overlay pode mudar a tela efetiva do assinante.",
@@ -1061,7 +1106,7 @@
           references: {
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Overlays de programas", "Program Builder"],
-            notes: ["Tela de producao: ../../production/app.html?screenId=admin.programa-overlay-versoes"]
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.programa-overlay-versoes", "Entrada focada: ../../production/app.html?screenId=admin.programa-overlay-versoes-operacao", "Exemplo local focado: ../../examples/pages/admin-program-overlay-versions.html"]
           }
         },
         "admin-usuarios": {
@@ -1340,7 +1385,7 @@
               "Usar o botao `Integracao` quando quiser abrir um esqueleto inicial de mapping vinculado a entidade atual.",
               "Usar o botao `Governanca` para solicitar alteracao, liberar/congelar/revogar grant, registrar bundle de testes, ajustar a retencao e aprovar a publicacao.",
               "Quando a operacao exigir uma superficie dedicada, abrir `admin.programa-governanca` para trabalhar com o mesmo fluxo fora do editor.",
-              "Se a notificacao ja apontar para grants, aprovacoes ou retencao, usar as entradas focadas `admin.programa-grants-operacao`, `admin.programa-aprovacoes-operacao` e `admin.programa-retencao-operacao`.",
+              "Se a notificacao ja apontar para grants, aprovacoes, retencao ou overlays, usar as entradas focadas `admin.programa-grants-operacao`, `admin.programa-aprovacoes-operacao`, `admin.programa-retencao-operacao` e `admin.programa-overlays-operacao`.",
               "Usar o checklist de governanca do preview para localizar rapidamente o que ainda bloqueia a publicacao.",
               "Usar o botao `Rebase overlay` para comparar o overlay com a nova base publicada, filtrar conflitos por tipo, navegar pelas secoes e escolher a resolucao por item antes de executar o rebase assistido.",
               "Para programa padrao governado, garantir grant ativo, lock ativo e aprovacao antes da publicacao.",
@@ -1406,7 +1451,7 @@
           "Gate de ambiente de publicacao por identidade e ambiente do banco.",
           "Rebase assistido de overlay com classificacao `ok`, `warning` e `blocked`, detalhe por campo e resolucao assistida por item.",
           "Monitor administrativo `admin.integridade`, endpoint seguro de reassinatura e comandos de verificacao/reassinatura estrutural.",
-          "Tela dedicada `admin.programa-governanca` para requests, grants, bundles, aprovacoes, retencao e rebase por programa, alem das entradas focadas `admin.programa-grants-operacao`, `admin.programa-aprovacoes-operacao` e `admin.programa-retencao-operacao`.",
+          "Tela dedicada `admin.programa-governanca` para requests, grants, bundles, aprovacoes, retencao, overlays e rebase por programa, alem das entradas focadas `admin.programa-grants-operacao`, `admin.programa-aprovacoes-operacao`, `admin.programa-retencao-operacao` e `admin.programa-overlays-operacao`.",
           "O smoke governado do builder agora cobre tambem revogacao e nova liberacao de grant antes do publish.",
           "Retencao de historico de governanca parametrizada por `admin.parametros`."
         ],
@@ -1434,6 +1479,7 @@
           { id: "admin-programa-aprovacoes", text: "Aprovacoes de publicacao" },
           { id: "admin-programa-governanca", text: "Governanca de programas" },
           { id: "admin-programa-retencao-operacao", text: "Retencao da governanca" },
+          { id: "admin-programa-overlays-operacao", text: "Overlays de programas (operacao)" },
           { id: "admin-integridade", text: "Integridade estrutural" },
           { id: "admin-programa-overlays", text: "Overlays de programas" },
           { id: "admin-programa-overlay-versoes", text: "Versoes de overlays" },
