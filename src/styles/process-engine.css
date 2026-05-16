@@ -59,6 +59,13 @@
   gap: 6px;
 }
 
+.process-field-label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .process-field label {
   color: var(--crud-text);
   font-size: 12px;

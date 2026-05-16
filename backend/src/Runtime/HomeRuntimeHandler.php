@@ -185,6 +185,31 @@ class HomeRuntimeHandler
                     'programId' => $context['programId'],
                     'programTitle' => $programTitle,
                     'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+                    'technicalProperties' => [
+                        array_filter([
+                            'section' => 'Contexto',
+                            'labelKey' => 'technical.label.program',
+                            'label' => 'Programa',
+                            'value' => $context['programId'] ?: '-',
+                            'action' => $context['programId'] ? [
+                                'type' => 'openProgram',
+                                'programId' => $context['programId'],
+                                'label' => 'Abrir programa',
+                            ] : null,
+                        ], static fn ($value) => $value !== null),
+                        array_filter([
+                            'section' => 'Contexto',
+                            'labelKey' => 'technical.label.screen_id',
+                            'label' => 'Screen ID',
+                            'value' => $context['programScreenId'] ?: '-',
+                            'action' => $context['programScreenId'] ? [
+                                'type' => 'openScreen',
+                                'screenId' => $context['programScreenId'],
+                                'label' => 'Abrir tela',
+                            ] : null,
+                        ], static fn ($value) => $value !== null),
+                        ['section' => 'Runtime', 'labelKey' => 'technical.label.origin', 'label' => 'Origem', 'value' => 'Symfony/API Platform'],
+                    ],
                 ],
             ],
             'context' => $context,
@@ -207,6 +232,21 @@ class HomeRuntimeHandler
                     'programId' => $context['programId'],
                     'programTitle' => $programTitle,
                     'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+                    'technicalProperties' => [
+                        array_filter([
+                            'section' => 'Contexto',
+                            'labelKey' => 'technical.label.program',
+                            'label' => 'Programa',
+                            'value' => $context['programId'] ?: '-',
+                            'action' => $context['programId'] ? [
+                                'type' => 'openProgram',
+                                'programId' => $context['programId'],
+                                'label' => 'Abrir programa',
+                            ] : null,
+                        ], static fn ($value) => $value !== null),
+                        ['section' => 'Contexto', 'labelKey' => 'technical.label.module', 'label' => 'Modulo', 'value' => $context['moduleId'] ?: '-'],
+                        ['section' => 'Fluxo', 'labelKey' => 'technical.label.type', 'label' => 'Tipo', 'value' => 'Solicitacao pendente', 'critical' => true],
+                    ],
                 ],
             ],
             'context' => $context,
@@ -262,7 +302,13 @@ class HomeRuntimeHandler
     private function notifications(array $payload): array
     {
         $includeRead = ($payload['includeRead'] ?? false) === true;
-        $response = $this->notifications->listForCurrentUser($includeRead);
+        $response = $this->notifications->listForCurrentUser($includeRead, [
+            'severity' => trim((string) ($payload['severity'] ?? '')),
+            'category' => trim((string) ($payload['category'] ?? '')),
+            'actionRequired' => array_key_exists('actionRequired', $payload) ? ($payload['actionRequired'] ?? false) === true : null,
+            'unreadOnly' => ($payload['unreadOnly'] ?? false) === true,
+            'limit' => (int) ($payload['limit'] ?? 30),
+        ]);
         $response['context'] = $this->normalizeContext($payload);
 
         return $response;
@@ -271,7 +317,11 @@ class HomeRuntimeHandler
     private function notificationsAck(array $payload): array
     {
         $ids = is_array($payload['ids'] ?? null) ? $payload['ids'] : [$payload['id'] ?? null];
-        $count = $this->notifications->acknowledgeForCurrentUser($ids);
+        $count = $this->notifications->acknowledgeForCurrentUser($ids, [
+            'severity' => trim((string) ($payload['severity'] ?? '')),
+            'category' => trim((string) ($payload['category'] ?? '')),
+            'actionRequired' => array_key_exists('actionRequired', $payload) ? ($payload['actionRequired'] ?? false) === true : null,
+        ]);
 
         return [
             'ok' => true,

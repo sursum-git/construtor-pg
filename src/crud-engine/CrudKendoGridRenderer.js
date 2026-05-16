@@ -25,6 +25,7 @@
       this.bindFreezeRefreshEvents();
       this.bindMobileModeChange();
       this.renderHeaderFreezeButtons();
+      this.renderHeaderTechnicalInfoButtons();
       return this.grid;
     }
 
@@ -62,6 +63,7 @@
           this.initializeMobileTemplateTabs();
           this.initializeRowActionButtons();
           this.renderMobileTemplateGroups();
+          this.renderMobileTechnicalInfoButtons();
         },
         columns: isMobileTemplate ? this.buildMobileTemplateColumns() : this.buildColumns(),
         noRecords: {
@@ -904,10 +906,30 @@
       const fieldNames = configuredFields.length ? configuredFields : this.getDefaultMobileTemplateFields();
       return "<dl class=\"crud-mobile-field-list\">" + fieldNames.map((fieldName) => {
         return "<div class=\"crud-mobile-field-item\">" +
-          "<dt>" + global.CrudUtils.escapeHtml(this.getFieldLabel(fieldName)) + "</dt>" +
+          "<dt data-field=\"" + global.CrudUtils.escapeHtml(fieldName) + "\">" + global.CrudUtils.escapeHtml(this.getFieldLabel(fieldName)) + "</dt>" +
           "<dd>" + this.formatFieldValue(fieldName, data) + "</dd>" +
         "</div>";
       }).join("") + "</dl>";
+    }
+
+    renderMobileTechnicalInfoButtons() {
+      if (!this.isMobileTemplateMode() || !this.grid || !this.grid.tbody) {
+        return;
+      }
+      this.grid.tbody.find(".crud-mobile-technical-trigger").remove();
+      this.grid.tbody.find(".crud-mobile-field-item dt[data-field]").each((_, element) => {
+        const label = $(element);
+        const fieldName = label.attr("data-field");
+        const column = this.findGridColumn(fieldName) || {};
+        const technicalProperties = global.CrudUtils.resolveTechnicalProperties(column.technicalProperties, this.definition, fieldName);
+        if (!technicalProperties.length) {
+          return;
+        }
+        global.CrudUtils.appendTechnicalInfoTrigger(label, this.getFieldLabel(fieldName), technicalProperties, {
+          cssClass: "crud-mobile-technical-trigger",
+          dataRole: "mobile-technical-info"
+        });
+      });
     }
 
     getMobileTemplateConfig() {
@@ -1321,7 +1343,10 @@
       }
       this.freezeRefreshBound = true;
       const refresh = () => {
-        global.setTimeout(() => this.renderHeaderFreezeButtons(), 0);
+        global.setTimeout(() => {
+          this.renderHeaderFreezeButtons();
+          this.renderHeaderTechnicalInfoButtons();
+        }, 0);
       };
       ["dataBound", "columnLock", "columnUnlock", "columnReorder", "columnShow", "columnHide", "columnResize"].forEach((eventName) => {
         this.grid.bind(eventName, refresh);
@@ -1385,6 +1410,32 @@
       });
     }
 
+    renderHeaderTechnicalInfoButtons() {
+      if (!this.grid) {
+        return;
+      }
+
+      const headers = this.getHeaderCells();
+      headers.find(".crud-grid-header-technical-trigger").remove();
+
+      headers.each((_, header) => {
+        const headerCell = $(header);
+        const fieldName = headerCell.attr("data-field");
+        const column = this.findGridColumn(fieldName) || {};
+        const technicalProperties = global.CrudUtils.resolveTechnicalProperties(column.technicalProperties, this.definition, fieldName);
+        if (!fieldName || !technicalProperties.length) {
+          return;
+        }
+
+        const target = headerCell.find(".k-cell-inner, .k-link").first();
+        const anchor = target.length ? target : headerCell;
+        global.CrudUtils.appendTechnicalInfoTrigger(anchor, this.getFieldLabel(fieldName), technicalProperties, {
+          cssClass: "crud-grid-header-technical-trigger",
+          dataRole: "grid-technical-info"
+        });
+      });
+    }
+
     blockHeaderFreezeButtonEvents(button, fieldName) {
       const element = button && button[0];
       if (!element || element.dataset.crudFreezeNativeBound === "true") {
@@ -1438,7 +1489,10 @@
       if (this.handlers.layoutDirty) {
         this.handlers.layoutDirty();
       }
-      global.setTimeout(() => this.renderHeaderFreezeButtons(), 0);
+      global.setTimeout(() => {
+        this.renderHeaderFreezeButtons();
+        this.renderHeaderTechnicalInfoButtons();
+      }, 0);
     }
 
     setFrozenFields(fields) {

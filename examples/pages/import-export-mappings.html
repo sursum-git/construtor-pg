@@ -100,11 +100,13 @@
       <div>
         <p class="example-kicker">Integracao</p>
         <h1>Mapeamentos de importacao e exportacao</h1>
-        <p>Contrato inicial da engine para fluxos entre entidades e arquivos. O TXT agora cobre leiaute posicional, leiaute por separador e estrutura hierarquica para registros pai, filhos e totalizadores.</p>
+        <p>Contrato inicial da engine para fluxos entre entidades e arquivos. O TXT cobre leiaute posicional, leiaute por separador e estrutura hierarquica para registros pai, filhos e totalizadores. Agora tambem existe uma tela administrativa real com historico persistido, agendamentos e suporte a XML de exportacao e importacao declarativa.</p>
       </div>
       <nav class="example-page-actions" aria-label="Navegacao do exemplo">
         <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../exemplos.html">Indice</a>
         <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../program-builder.html">Construtor</a>
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../examples/pages/import-export-admin-demo.html">Demo visual</a>
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../production/admin/import-export-mappings.html">Tela administrativa</a>
       </nav>
     </header>
 
@@ -113,9 +115,14 @@
         <p class="example-tab-note">Endpoints administrativos atuais:</p>
         <pre><code>GET  /api/admin/import-export-mappings
 GET  /api/admin/import-export-mappings/{code}
+GET  /api/admin/import-export-mappings/executions
+GET  /api/admin/import-export-mappings/schedules
 POST /api/admin/import-export-mappings
 POST /api/admin/import-export-mappings/preview
-POST /api/admin/import-export-mappings/execute</code></pre>
+POST /api/admin/import-export-mappings/execute
+POST /api/admin/import-export-mappings/schedules
+POST /api/admin/import-export-mappings/schedules/run-due</code></pre>
+        <p class="example-tab-note">A tela administrativa real esta publicada em <code>production/admin/import-export-mappings.html</code> e no runtime por <code>screenId=admin.integracoes</code>. Agora existe tambem uma pagina local dedicada para smoke da UI completa em <code>examples/pages/import-export-admin-demo.html</code>, alem do comando <code>php backend/bin/console app:import-export:run-schedules</code> para execucao recorrente.</p>
       </div>
 
       <div class="import-export-card">
@@ -202,7 +209,119 @@ POST /api/admin/import-export-mappings/execute</code></pre>
   }
 }</code></pre>
 
-        <p class="example-tab-note">Exemplo 3: TXT posicional</p>
+        <p class="example-tab-note">Exemplo 3: entidade -&gt; XML basico</p>
+        <pre><code>{
+  "code": "cliente-xml",
+  "name": "Clientes em XML",
+  "direction": "export",
+  "targetType": "file",
+  "targetCode": "clientes.xml",
+  "format": "xml",
+  "mapping": {
+    "source": {
+      "type": "entity",
+      "entityCode": "cliente",
+      "alias": "cliente",
+      "mode": "list",
+      "limit": 100
+    },
+    "destination": {
+      "type": "file",
+      "fileNamePattern": "clientes_export",
+      "rootName": "clientes",
+      "itemName": "cliente",
+      "prettyPrint": true,
+      "columns": [
+        { "targetName": "id", "sourcePath": "id" },
+        { "targetName": "nome", "sourcePath": "nome" },
+        { "targetName": "status", "sourcePath": "status" }
+      ]
+    }
+  }
+}</code></pre>
+
+        <p class="example-tab-note">Exemplo 4: XML hierarquico com namespace, atributos e filhos repetitivos</p>
+        <pre><code>{
+  "format": "xml",
+  "mapping": {
+    "sources": [
+      { "type": "entity", "entityCode": "cliente", "alias": "cliente", "mode": "list" },
+      { "type": "entity", "entityCode": "cidade", "alias": "cidade", "mode": "list" }
+    ],
+    "destination": {
+      "type": "file",
+      "fileFormat": "xml",
+      "fileNamePattern": "clientes_rico",
+      "rootName": "doc:clientes",
+      "prettyPrint": true,
+      "namespaces": [
+        { "prefix": "doc", "uri": "urn:demo:doc" }
+      ],
+      "rootAttributes": [
+        { "name": "versao", "constant": "1.0" }
+      ],
+      "xmlLayouts": [
+        {
+          "name": "doc:cliente",
+          "sourceAlias": "cliente",
+          "attributes": [
+            { "name": "id", "sourcePath": "id" },
+            { "name": "status", "sourcePath": "status" }
+          ],
+          "fields": [
+            { "name": "nome", "sourcePath": "nome" }
+          ],
+          "children": [
+            {
+              "name": "doc:cidade",
+              "sourceAlias": "cidade",
+              "linkBy": [
+                { "parentPath": "id", "childField": "cliente_id" }
+              ],
+              "textSourcePath": "nome"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}</code></pre>
+
+        <p class="example-tab-note">Exemplo 5: XML -&gt; tabela local por XPath declarativo</p>
+        <pre><code>{
+  "format": "entity_copy",
+  "mapping": {
+    "source": {
+      "type": "file",
+      "fileFormat": "xml",
+      "recordPath": "/doc:clientes/doc:cliente",
+      "contentParameter": "xmlContent",
+      "namespaces": [
+        { "prefix": "doc", "uri": "urn:demo:doc" }
+      ],
+      "fields": [
+        { "targetField": "codigo_externo", "xpath": "@id" },
+        { "targetField": "status", "xpath": "@status" },
+        { "targetField": "nome", "xpath": "doc:nome/text()" }
+      ]
+    },
+    "destination": {
+      "type": "entity",
+      "entityCode": "cliente",
+      "operation": "upsert",
+      "matchBy": [
+        { "targetField": "codigo_externo", "sourcePath": "codigo_externo" }
+      ]
+    },
+    "fieldMappings": [
+      { "sourcePath": "codigo_externo", "targetPath": "codigo_externo" },
+      { "sourcePath": "nome", "targetPath": "nome" },
+      { "sourcePath": "status", "targetPath": "status" }
+    ]
+  }
+}</code></pre>
+
+        <p class="example-tab-note">Exemplo 6: TXT posicional</p>
         <pre><code>{
   "format": "txt_layout",
   "mapping": {
@@ -232,7 +351,7 @@ POST /api/admin/import-export-mappings/execute</code></pre>
   }
 }</code></pre>
 
-        <p class="example-tab-note">Exemplo 4: TXT por separador</p>
+        <p class="example-tab-note">Exemplo 7: TXT por separador</p>
         <pre><code>{
   "format": "txt_layout",
   "mapping": {
@@ -264,7 +383,7 @@ POST /api/admin/import-export-mappings/execute</code></pre>
   }
 }</code></pre>
 
-        <p class="example-tab-note">Exemplo 5: TXT hierarquico com TreeView, filho e totalizador</p>
+        <p class="example-tab-note">Exemplo 8: TXT hierarquico com TreeView, filho e totalizador</p>
         <pre><code>{
   "format": "txt_layout",
   "mapping": {

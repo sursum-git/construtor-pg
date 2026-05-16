@@ -43,6 +43,12 @@ class BuilderEditorLock
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $displayName = null;
 
+    #[ORM\Column(nullable: true)]
+    private ?int $grantId = null;
+
+    #[ORM\Column(length: 30)]
+    private string $lockCategory = 'general';
+
     #[ORM\Column]
     private \DateTimeImmutable $acquiredAt;
 
@@ -180,6 +186,30 @@ class BuilderEditorLock
     public function setDisplayName(?string $displayName): self
     {
         $this->displayName = $displayName === null || $displayName === '' ? null : mb_substr(trim($displayName), 0, 255);
+        $this->touch();
+        return $this;
+    }
+
+    public function getGrantId(): ?int
+    {
+        return $this->grantId;
+    }
+
+    public function setGrantId(?int $grantId): self
+    {
+        $this->grantId = $grantId;
+        $this->touch();
+        return $this;
+    }
+
+    public function getLockCategory(): string
+    {
+        return $this->lockCategory;
+    }
+
+    public function setLockCategory(string $lockCategory): self
+    {
+        $this->lockCategory = mb_substr(trim($lockCategory), 0, 30);
         $this->touch();
         return $this;
     }

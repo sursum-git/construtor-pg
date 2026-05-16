@@ -20,6 +20,7 @@
 
     const hideThemeSwitch = readBooleanParam(params, "hideThemeSwitch");
     const hideHeader = readBooleanParam(params, "hideProgramHeader");
+    const initialFilters = readInitialFilters(params);
     const httpClient = new global.CrudHttpClient({
       allowLocalFallback: false
     });
@@ -38,6 +39,7 @@
           config: config,
           hideThemeSwitch: hideThemeSwitch,
           hideHeader: hideHeader,
+          initialFilters: initialFilters,
           httpClient: httpClient
         });
       });
@@ -58,6 +60,7 @@
         config: options.config,
         hideThemeSwitch: options.hideThemeSwitch,
         hideHeader: options.hideHeader,
+        initialFilters: options.initialFilters,
         productionErrors: true,
         httpClient: options.httpClient
       }).init();
@@ -104,6 +107,30 @@
   function readBooleanParam(params, name) {
     const value = getParam(params, name).toLowerCase();
     return value === "1" || value === "true" || value === "yes";
+  }
+
+  function readInitialFilters(params) {
+    const filters = [];
+    if (!params) {
+      return filters;
+    }
+    params.forEach(function(value, key) {
+      if (String(key || "").indexOf("filter__") !== 0) {
+        return;
+      }
+      const field = String(key.slice("filter__".length) || "").trim();
+      const normalizedValue = String(value || "").trim();
+      if (!field || !normalizedValue) {
+        return;
+      }
+      filters.push({
+        field: field,
+        operator: "eq",
+        value: normalizedValue,
+        displayValue: normalizedValue
+      });
+    });
+    return filters;
   }
 
   function renderBootstrapError(root, message) {

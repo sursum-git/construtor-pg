@@ -408,7 +408,15 @@
       const idPrefix = settings.idPrefix || "filter-";
       const baseId = idPrefix + filter.id;
       const wrapper = $("<div class=\"crud-field crud-filter-field\"></div>").appendTo(container);
-      $("<label></label>").attr("for", baseId).text(filter.label).appendTo(wrapper);
+      const labelRow = $("<div class=\"crud-field-label-row\"></div>").appendTo(wrapper);
+      $("<label></label>").attr("for", baseId).text(filter.label).appendTo(labelRow);
+      const technicalProperties = global.CrudUtils.resolveTechnicalProperties(filter.technicalProperties, this.definition, filter.field);
+      if (technicalProperties.length) {
+        global.CrudUtils.appendTechnicalInfoTrigger(labelRow, filter.label, technicalProperties, {
+          cssClass: "crud-field-technical-trigger",
+          dataRole: "filter-technical-info"
+        });
+      }
       const controlRow = $("<div class=\"crud-filter-control-row\"></div>").appendTo(wrapper);
 
       if (filter.type === "dateRange" && !filter.operators && !filter.operatorOptions) {

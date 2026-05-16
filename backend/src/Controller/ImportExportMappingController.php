@@ -77,6 +77,53 @@ class ImportExportMappingController extends AbstractController
         }
     }
 
+    #[Route('/executions', methods: ['GET'])]
+    public function executions(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->mappings->listExecutions([
+                'mappingCode' => $request->query->get('mappingCode'),
+            ]));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/schedules', methods: ['GET'])]
+    public function schedules(): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->mappings->listSchedules());
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/schedules', methods: ['POST'])]
+    public function saveSchedule(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->mappings->saveSchedule(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/schedules/run-due', methods: ['POST'])]
+    public function runDueSchedules(): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->mappings->runDueSchedules());
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
     private function error(\Throwable $error): JsonResponse
     {
         if ($error instanceof RuntimeHttpException) {

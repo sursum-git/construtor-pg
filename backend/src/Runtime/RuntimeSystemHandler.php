@@ -9,6 +9,10 @@ class RuntimeSystemHandler
         private readonly RuntimeMessageService $messages,
         private readonly RuntimeSessionGuard $sessions,
         private readonly RuntimeTransactionService $transactions,
+        private readonly StructuralIntegrityService $integrity,
+        private readonly RuntimeEnvironmentIdentityResolver $environmentIdentity,
+        private readonly PermissionResolver $permissions,
+        private readonly \Doctrine\ORM\EntityManagerInterface $entityManager,
     ) {
     }
 
@@ -21,6 +25,7 @@ class RuntimeSystemHandler
             'messagesPoll' => $this->messages->poll(),
             'messagesAck' => $this->messages->acknowledge($payload),
             'adminForceLogout' => $this->forceLogout($payload),
+            'adminIntegrityResign' => $this->resignIntegrity($payload),
             default => throw new RuntimeHttpException('RUNTIME_SYSTEM_OPERATION_NOT_FOUND', 'Operacao runtime nao encontrada.', 404, [
                 'operation' => $operation,
             ]),
@@ -60,6 +65,50 @@ class RuntimeSystemHandler
             'revokedRememberTokens' => $revokedRememberTokens,
             'releasedLocks' => $releasedLocks,
             'phpSessionKillRequested' => count($revokedSessions) > 0,
+        ];
+    }
+
+    private function resignIntegrity(array $payload): array
+    {
+        $environment = strtolower(trim((string) (($this->environmentIdentity->resolve()['databaseEnvironment'] ?? 'dev'))));
+        if (in_array($environment, ['prod', 'production'], true)) {
+            throw new RuntimeHttpException('PROGRAM_MAINTENANCE_ENVIRONMENT_BLOCKED', 'A reassinatura estrutural nao esta autorizada neste ambiente.', 422, [
+                'databaseEnvironment' => $environment,
+            ]);
+        }
+
+        if (!$this->permissions->hasPermission('admin.write')) {
+            throw new RuntimeHttpException('ADMIN_FORBIDDEN', 'Voce nao possui permissao para reassinar a estrutura.', 403);
+        }
+
+        $record = is_array($payload['record'] ?? null) ? $payload['record'] : [];
+        $values = is_array($payload['values'] ?? null) ? $payload['values'] : [];
+        $tableName = strtolower(trim((string) ($payload['tableName'] ?? $record['table_name'] ?? $values['table_name'] ?? '')));
+        $recordId = (int) ($payload['recordId'] ?? $record['record_id'] ?? $values['record_id'] ?? 0);
+        if ($tableName === '' || $recordId <= 0) {
+            throw new RuntimeHttpException('STRUCTURAL_INTEGRITY_TARGET_REQUIRED', 'Informe a tabela e o registro que serao reassinados.', 422);
+        }
+
+        $reason = trim((string) ($payload['reason'] ?? 'Reassinatura manual via runtime admin.integridade'));
+        $this->integrity->resignTarget($tableName, $recordId, [
+            'source' => 'runtime.admin.integridade',
+            'triggeredBy' => $this->permissions->getUserId(),
+            'tenantId' => $this->permissions->getTenantId(),
+            'sessionId' => $this->permissions->getSessionId(),
+            'reason' => $reason,
+        ]);
+        $this->entityManager->flush();
+        $status = $this->integrity->verifyTarget($tableName, $recordId);
+        $this->transactions->log('integrity.resigned', 'Registro estrutural reassinado pelo runtime administrativo.', metadata: [
+            'tableName' => $tableName,
+            'recordId' => $recordId,
+            'reason' => $reason,
+            'statusAfter' => $status['status'] ?? null,
+        ]);
+        $this->entityManager->flush();
+
+        return [
+            'integrity' => $status,
         ];
     }
 }

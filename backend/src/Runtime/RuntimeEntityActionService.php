@@ -21,6 +21,7 @@ class RuntimeEntityActionService
         private readonly RuntimeSituationService $situations,
         private readonly BuilderAiSettingsService $builderAiSettings,
         private readonly RuntimeNotificationService $notifications,
+        private readonly StructuralIntegrityService $integrity,
     ) {
     }
 
@@ -155,6 +156,7 @@ class RuntimeEntityActionService
             'fields' => array_keys($values),
             'confirmationToken' => $payload['_runtime']['validationConfirmationToken'] ?? null,
         ]);
+        $this->syncStructuralIntegrityAfterWrite($definition, (int) $id, 'runtimeEntityCreate');
         $this->rules->afterPersist($context);
         $this->configuredRules->runPhase('afterPersist', $context);
         $this->rules->afterCommit($context);
@@ -233,6 +235,7 @@ class RuntimeEntityActionService
             'fields' => array_keys($values),
             'confirmationToken' => $payload['_runtime']['validationConfirmationToken'] ?? null,
         ]);
+        $this->syncStructuralIntegrityAfterWrite($definition, (int) $id, 'runtimeEntityUpdate');
         if (!empty($payload['_runtime']['lockToken']) || !empty($payload['lockToken'])) {
             $this->locks->release($payload, 'released');
         }
@@ -264,6 +267,7 @@ class RuntimeEntityActionService
             'entityCode' => $definition['entityCode'],
             'confirmationToken' => $payload['_runtime']['validationConfirmationToken'] ?? null,
         ]);
+        $this->deleteStructuralIntegrityAfterDelete($definition, (int) $id);
         if (!empty($payload['_runtime']['lockToken']) || !empty($payload['lockToken'])) {
             $this->locks->release($payload, 'released');
         }
@@ -489,6 +493,26 @@ class RuntimeEntityActionService
         }
 
         return $text;
+    }
+
+    private function syncStructuralIntegrityAfterWrite(array $definition, int $id, string $source): void
+    {
+        $tableName = (string) ($definition['tableName'] ?? '');
+        if ($id <= 0 || $tableName === '' || !$this->integrity->supportsTableName($tableName)) {
+            return;
+        }
+        $this->integrity->signTarget($tableName, $id, ['source' => $source]);
+        $this->integrity->flushPendingChanges();
+    }
+
+    private function deleteStructuralIntegrityAfterDelete(array $definition, int $id): void
+    {
+        $tableName = (string) ($definition['tableName'] ?? '');
+        if ($id <= 0 || $tableName === '' || !$this->integrity->supportsTableName($tableName)) {
+            return;
+        }
+        $this->integrity->deleteTarget($tableName, $id);
+        $this->integrity->flushPendingChanges();
     }
 
     private function findRow(array $definition, string|int $id): array

@@ -355,6 +355,138 @@ class ProgramBuilderController extends AbstractController
         }
     }
 
+    #[Route('/governance/requests', methods: ['POST'])]
+    public function createGovernanceRequest(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->createGovernanceRequest(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/governance/grants', methods: ['POST'])]
+    public function approveGovernanceRequest(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->approveGovernanceRequest(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/governance/grants/status', methods: ['POST'])]
+    public function changeGovernanceGrantStatus(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->changeGovernanceGrantStatus(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/governance/tests', methods: ['POST'])]
+    public function registerGovernanceTest(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->registerGovernanceTest(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/governance/approvals', methods: ['POST'])]
+    public function approveGovernancePublication(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->approveGovernancePublication(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/governance/dashboard', methods: ['GET'])]
+    public function governanceDashboard(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->builder->governanceDashboard([
+                'programCode' => $request->query->get('programCode'),
+                'builderProgramVersionId' => $request->query->getInt('builderProgramVersionId', 0),
+            ]));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/governance/retention', methods: ['GET'])]
+    public function governanceRetention(): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->builder->governanceRetentionPolicy());
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/governance/retention', methods: ['POST'])]
+    public function updateGovernanceRetention(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->updateGovernanceRetentionPolicy(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/overlays/{id}/rebase-preview', methods: ['GET'])]
+    public function previewOverlayRebase(int $id): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->builder->previewOverlayRebase($id));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/overlay-versions/{id}/rebase', methods: ['POST'])]
+    public function rebaseOverlayVersion(int $id, Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->rebaseOverlayVersion($id, is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/integrity/resign', methods: ['POST'])]
+    public function resignIntegrityRecord(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->resignIntegrityRecord(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
     private function error(\Throwable $error): JsonResponse
     {
         if ($error instanceof RuntimeHttpException) {

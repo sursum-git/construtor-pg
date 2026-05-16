@@ -561,6 +561,9 @@
       if (url === "/api/home/subscribers/change" && method === "POST") {
         return this.changeHomeSubscriber(data);
       }
+      if ((url === "/api/admin/program-builder/integrity/resign" || url === "/api/runtime/screens/admin.integridade/endpoints/runtime.admin.integrity.resign") && method === "POST") {
+        return this.resignAdminIntegrityRecord(data || {});
+      }
       if (url === "/api/crud-layout/cadastros/clientes" && method === "DELETE") {
         this.activeLayoutId = null;
         this.persistLayouts();
@@ -1161,6 +1164,9 @@
         return null;
       }
       const id = data && (data.id || data.recordId);
+      if (endpointId === "runtime.admin.integrity.resign" && screenId === "admin.integridade") {
+        return this.resignAdminIntegrityRecord(data || {});
+      }
       switch (endpointId) {
         case "read":
           return this.listAdminRuntimeRows(screenId, data || {});
@@ -1232,6 +1238,11 @@
       if (screenId === "admin.sessoes") {
         api["runtime.admin.forceLogout"] = { endpointId: "runtime.admin.forceLogout", method: "POST" };
       }
+      if (config.extraApi && typeof config.extraApi === "object") {
+        Object.keys(config.extraApi).forEach(function(key) {
+          api[key] = global.CrudUtils.clone(config.extraApi[key]);
+        });
+      }
 
       const fields = config.fields;
       const readonlyFields = Object.keys(fields).filter(function(field) {
@@ -1257,6 +1268,7 @@
           saveLayout: true
         },
         dataSource: { api },
+        api: global.CrudUtils.clone(api),
         runtime: {
           entityCode: config.entity,
           programId: config.programId,
@@ -1440,6 +1452,22 @@
           ],
           defaultSort: [{ field: "code", dir: "asc" }, { field: "locale", dir: "asc" }]
         },
+        "admin.integracoes": {
+          pageType: "custom",
+          screenId: "admin.integracoes",
+          program: {
+            id: "admin-integracoes",
+            title: "Integracoes",
+            subtitle: "Cadastro, preview e execucao de importacao/exportacao",
+            version: "1.0.0",
+            screenId: "admin.integracoes"
+          },
+          custom: {
+            mode: "iframe",
+            entryUrl: "production/admin/import-export-mappings.html",
+            frameTitle: "Integracoes administrativas"
+          }
+        },
         "admin.notificacoes": {
           programId: "admin-notificacoes",
           entity: "runtime_notification",
@@ -1516,6 +1544,65 @@
             { id: "entrega", title: "Entrega", fields: ["delivered_at", "read_at", "created_at", "updated_at"] }
           ],
           defaultSort: [{ field: "updated_at", dir: "desc" }]
+        },
+        "admin.integridade": {
+          programId: "admin-integridade",
+          entity: "system_record_integrity",
+          title: "Integridade Estrutural",
+          subtitle: "Monitor administrativo das assinaturas estruturais.",
+          editable: false,
+          fields: {
+            id: f("integer", "ID", false, false, { width: 80 }),
+            table_name: f("string", "Tabela", false, false),
+            record_id: f("integer", "Registro", false, false),
+            integrity_schema_version: f("integer", "Schema da integridade", false, false),
+            payload_hash: f("string", "Hash do payload", false, false),
+            signature: f("string", "Assinatura", false, false),
+            signed_by: f("string", "Assinado por", false, true),
+            metadata: f("json", "Metadata", false, false, { editor: "textarea" }),
+            signed_at: f("datetime", "Assinado em", false, false),
+            last_check_status: f("enum", "Ultimo status", false, false, { options: [
+              { value: "pending", text: "Pendente" },
+              { value: "valid", text: "Valida" },
+              { value: "invalid", text: "Invalida" }
+            ] }),
+            last_checked_at: f("datetime", "Ultima verificacao", false, true),
+            last_error_message: f("text", "Ultimo erro", false, true, { editor: "textarea" })
+          },
+          filters: ["table_name", "record_id", "last_check_status", "signed_by"],
+          columns: ["id", "table_name", "record_id", "last_check_status", "signed_by", "signed_at", "last_checked_at"],
+          tabs: [
+            { id: "geral", title: "Geral", fields: ["id", "table_name", "record_id", "integrity_schema_version", "last_check_status"] },
+            { id: "assinatura", title: "Assinatura", fields: ["payload_hash", "signature", "signed_by", "signed_at"] },
+            { id: "verificacao", title: "Verificacao", fields: ["last_checked_at", "last_error_message", "metadata"] }
+          ],
+          defaultSort: [{ field: "last_check_status", dir: "asc" }, { field: "last_checked_at", dir: "desc" }],
+          extraApi: {
+            "runtime.admin.integrity.resign": { endpointId: "runtime.admin.integrity.resign", method: "POST" }
+          },
+          otherActions: {
+            enabled: true,
+            label: "Acoes",
+            icon: "more-vertical",
+            actions: [
+              {
+                id: "resignIntegrity",
+                label: "Reassinar",
+                icon: "reload",
+                endpointId: "runtime.admin.integrity.resign",
+                permission: "read",
+                visibleIn: ["view"],
+                refreshGrid: true,
+                confirm: {
+                  title: "Reassinar registro estrutural",
+                  message: "Deseja reassinar o registro {table_name}#{record_id}?",
+                  confirmText: "Reassinar",
+                  confirmIcon: "reload"
+                },
+                successMessage: "Registro reassinado."
+              }
+            ]
+          }
         },
         "admin.listas-opcoes": {
           programId: "admin-listas-opcoes",
@@ -1844,6 +1931,41 @@
       return { ok: true };
     }
 
+    resignAdminIntegrityRecord(data) {
+      const rows = this.getAdminRuntimeRows("admin.integridade").slice();
+      const id = data && (data.id || data.recordId || data.integrityId);
+      const index = rows.findIndex(function(item) {
+        return String(item.id) === String(id);
+      });
+      if (index === -1) {
+        throw global.CrudUtils.makeError("RECORD_NOT_FOUND", "Registro de integridade nao encontrado.", { id: id });
+      }
+      const reason = String(data && data.reason || "Reassinatura manual via admin.integridade").trim();
+      const now = this.nowText();
+      const current = rows[index];
+      const metadata = this.parseJsonObject(current.metadata);
+      metadata.source = "admin.integridade";
+      metadata.reason = reason;
+      metadata.resignedBy = this.userId;
+      metadata.resignedAt = now;
+      rows[index] = Object.assign({}, current, {
+        payload_hash: "sha256:" + String(current.table_name || "registro") + "-" + String(current.record_id || current.id) + "-" + now.replace(/[^0-9]/g, ""),
+        signature: "hmac:" + String(current.table_name || "registro") + "-" + String(current.record_id || current.id) + "-" + now.replace(/[^0-9]/g, ""),
+        signed_by: this.userId,
+        signed_at: now,
+        last_check_status: "valid",
+        last_checked_at: now,
+        last_error_message: "",
+        metadata: JSON.stringify(metadata, null, 2),
+        updated_at: now
+      });
+      this.saveAdminRuntimeRows("admin.integridade", rows);
+      return {
+        ok: true,
+        integrity: this.decorateAdminRuntimeRow(rows[index], "admin.integridade")
+      };
+    }
+
     decorateAdminRuntimeRow(row, screenId) {
       const result = global.CrudUtils.clone(row || {});
       result._runtime = result._runtime || {
@@ -1855,6 +1977,20 @@
 
     nowText() {
       return new Date().toISOString().slice(0, 19).replace("T", " ");
+    }
+
+    parseJsonObject(value) {
+      if (!value) {
+        return {};
+      }
+      if (typeof value === "object") {
+        return global.CrudUtils.clone(value);
+      }
+      try {
+        return JSON.parse(String(value));
+      } catch (_) {
+        return {};
+      }
     }
 
     syncDemoNotificationRecipients(notificationRows) {
@@ -1975,6 +2111,46 @@
           { id: 2, code: "literal.button.cancel", locale: "pt-BR", context: "crud", text: "Cancelar", description: "Botao padrao de cancelamento.", enabled: true, created_at: now, updated_at: now },
           { id: 3, code: "validation.title.inconsistencies", locale: "pt-BR", context: "validation", text: "Inconsistencias encontradas", description: "Titulo padrao de validacao.", enabled: true, created_at: now, updated_at: now },
           { id: 4, code: "validation.message.field_required", locale: "pt-BR", context: "validation", text: "{fieldLabel} e obrigatorio.", description: "Mensagem de campo obrigatorio.", enabled: true, created_at: now, updated_at: now }
+        ],
+        "admin.integridade": [
+          {
+            id: 1,
+            table_name: "screen_definition",
+            record_id: 101,
+            integrity_schema_version: 1,
+            payload_hash: "sha256:screen-definition-demo-101",
+            signature: "hmac:screen-definition-demo-101",
+            signed_by: "builder@1.0.0",
+            metadata: json({
+              source: "builder.publish",
+              reason: "Assinatura inicial do registro",
+              programCode: "cadastros.clientes",
+              builderProgramVersionId: 4
+            }),
+            signed_at: "2026-05-15 08:15:00",
+            last_check_status: "invalid",
+            last_checked_at: "2026-05-15 10:20:00",
+            last_error_message: "Assinatura divergente apos alteracao externa."
+          },
+          {
+            id: 2,
+            table_name: "runtime_endpoint",
+            record_id: 205,
+            integrity_schema_version: 1,
+            payload_hash: "sha256:runtime-endpoint-demo-205",
+            signature: "hmac:runtime-endpoint-demo-205",
+            signed_by: "builder@1.0.0",
+            metadata: json({
+              source: "builder.publish",
+              reason: "Assinatura inicial do registro",
+              programCode: "admin.integridade",
+              builderProgramVersionId: 7
+            }),
+            signed_at: "2026-05-15 09:40:00",
+            last_check_status: "valid",
+            last_checked_at: "2026-05-15 10:21:00",
+            last_error_message: ""
+          }
         ],
         "admin.notificacoes": [
           {
@@ -3045,7 +3221,14 @@
           updatedAt: (recipient.read_at || recipient.delivered_at || notification.updated_at || notification.created_at || "").replace(" ", "T"),
           programId: notification.link_program_id || "",
           screenId: notification.link_screen_id || "",
-          linkText: notification.link_program_id ? "Abrir" : "Detalhar"
+          linkText: notification.link_program_id ? "Abrir" : "Detalhar",
+          technicalProperties: [
+            { section: "Notificacao", label: "ID", value: String(notification.id || "") },
+            { section: "Notificacao", label: "Severidade", value: String(notification.severity || "info"), critical: String(notification.severity || "").toLowerCase() === "error" },
+            { section: "Destinatario", label: "Status", value: String(recipient.status || "pending"), critical: String(recipient.status || "").toLowerCase() !== "read" && notification.action_required === true },
+            { section: "Navegacao", label: "Screen ID", value: String(notification.link_screen_id || "") || "-" },
+            { section: "Navegacao", label: "Programa", value: String(notification.link_program_id || "") || "-" }
+          ]
         });
       });
       this.saveAdminRuntimeRows("admin.notificacao-destinatarios", recipients);

@@ -1618,10 +1618,16 @@
         .toggleClass("crud-col-span-2", item.colSpan === 2)
         .toggleClass("crud-field-readonly", readonly)
         .appendTo(container);
+      const labelRow = $("<div class=\"crud-field-label-row\"></div>").appendTo(wrapper);
       const labelElement = $("<label></label>")
         .attr("for", fieldDomId)
         .text(item.label || field.label)
-        .appendTo(wrapper);
+        .appendTo(labelRow);
+      const technicalProperties = global.CrudUtils.resolveTechnicalProperties(item.technicalProperties, this.definition, item.field);
+      global.CrudUtils.appendTechnicalInfoTrigger(labelRow, item.label || field.label, technicalProperties, {
+        cssClass: "crud-field-technical-trigger",
+        dataRole: "form-technical-info"
+      });
 
       if (field.type === "hidden" || field.editor === "hidden") {
         const input = $("<input type=\"hidden\">")

@@ -46,6 +46,54 @@
     this.dragState = null;
   }
 
+  global.ProgramBuilder = ProgramBuilder;
+
+  ProgramBuilder.prototype.t = function(key, fallback, params) {
+    if (global.ProgramBuilderLiterals && typeof global.ProgramBuilderLiterals.t === "function") {
+      return global.ProgramBuilderLiterals.t(key, fallback, params);
+    }
+    return fallback || key || "";
+  };
+
+  ProgramBuilder.prototype.normalizeTechnicalProperties = function(properties) {
+    if (!global.CrudUtils || typeof global.CrudUtils.normalizeTechnicalProperties !== "function") {
+      return [];
+    }
+    return global.CrudUtils.normalizeTechnicalProperties(properties);
+  };
+
+  ProgramBuilder.prototype.buildTechnicalProperties = function(section, label, description, items) {
+    const properties = [];
+    if (section) {
+      properties.push({ section: "Contexto", label: "Area", value: section });
+    }
+    if (label) {
+      properties.push({ section: "Contexto", label: "Campo", value: label });
+    }
+    if (description) {
+      properties.push({ section: "Contexto", label: "Descricao", value: description });
+    }
+    (items || []).forEach(function(item) {
+      if (!item || typeof item !== "object") {
+        return;
+      }
+      properties.push(item);
+    });
+    return this.normalizeTechnicalProperties(properties);
+  };
+
+  ProgramBuilder.prototype.appendFieldLabel = function(parent, label, technicalProperties) {
+    const row = $("<div class=\"program-builder-field-label-row\"></div>").appendTo(parent);
+    $("<span></span>").text(label).appendTo(row);
+    const normalized = this.normalizeTechnicalProperties(technicalProperties);
+    if (normalized.length && global.CrudUtils && typeof global.CrudUtils.appendTechnicalInfoTrigger === "function") {
+      global.CrudUtils.appendTechnicalInfoTrigger(row, label, normalized, {
+        dataRole: "program-builder-technical-info"
+      });
+    }
+    return row;
+  };
+
   ProgramBuilder.FIELD_ABBREVIATIONS = {
     abreviado: "abrev",
     acumulado: "acum",
@@ -110,9 +158,14 @@
   };
 
   ProgramBuilder.prototype.init = function() {
-    this.renderShell();
     this.loadEditorContext();
-    return this.loadBootstrap().then(function() {
+    const literalInit = global.ProgramBuilderLiterals && typeof global.ProgramBuilderLiterals.init === "function"
+      ? global.ProgramBuilderLiterals.init(this.http)
+      : Promise.resolve(null);
+    return literalInit.then(function() {
+      this.renderShell();
+      return this.loadBootstrap();
+    }.bind(this)).then(function() {
       this.applyRestoredContext();
     }.bind(this));
   };
@@ -123,24 +176,27 @@
 
     const appbar = $("<header class=\"program-builder-appbar\"></header>").appendTo(shell);
     const title = $("<div class=\"program-builder-title\"></div>").appendTo(appbar);
-    $("<h1></h1>").text("Construtor de Programas").appendTo(title);
-    $("<p></p>").text("Modele a entidade, gere o programa CRUD e controle o historico de versoes no mesmo fluxo.").appendTo(title);
+    $("<h1></h1>").text(this.t("program_builder.title", "Construtor de Programas")).appendTo(title);
+    $("<p></p>").text(this.t("program_builder.subtitle", "Modele a entidade, gere o programa CRUD e controle o historico de versoes no mesmo fluxo.")).appendTo(title);
     this.toolbarElement = $("<div class=\"program-builder-toolbar\"></div>").appendTo(appbar);
-    this.newEntityButton = this.createToolbarButton("Nova entidade", "plus", "primary", this.handleNewEntity.bind(this));
-    this.importTableButton = this.createToolbarButton("Importar tabela", "folder-open", null, this.openDatabaseImportDialog.bind(this));
-    this.apiCatalogButton = this.createToolbarButton("Gerenciar APIs", "globe", null, this.openApiSourceManagerDialog.bind(this));
-    this.importExternalButton = this.createToolbarButton("Importar JSON externo", "file-txt", null, this.openExternalJsonImportDialog.bind(this));
-    this.aiAssistantButton = this.createToolbarButton("Assistente IA", "comment", null, this.openAiAssistantDialog.bind(this));
-    this.aiSettingsButton = this.createToolbarButton("Configurar IA", "gear", null, this.openAiSettingsDialog.bind(this));
-    this.saveEntityButton = this.createToolbarButton("Salvar entidade", "save", null, this.handleSaveEntity.bind(this));
-    this.restoreEntityButton = this.createToolbarButton("Restaurar entidade", "undo", null, this.handleRestoreEntityVersion.bind(this));
-    this.newDraftButton = this.createToolbarButton("Novo rascunho", "file-add", null, this.handleNewDraft.bind(this));
-    this.previewButton = this.createToolbarButton("Gerar preview", "eye", null, this.handlePreview.bind(this));
-    this.saveDraftButton = this.createToolbarButton("Salvar rascunho", "save", null, this.handleSaveDraft.bind(this));
-    this.publishButton = this.createToolbarButton("Publicar", "upload", null, this.handlePublish.bind(this));
-    this.duplicateButton = this.createToolbarButton("Duplicar versao", "copy", null, this.handleDuplicate.bind(this));
+    this.newEntityButton = this.createToolbarButton(this.t("program_builder.button.new_entity", "Nova entidade"), "plus", "primary", this.handleNewEntity.bind(this));
+    this.importTableButton = this.createToolbarButton(this.t("program_builder.button.import_table", "Importar tabela"), "folder-open", null, this.openDatabaseImportDialog.bind(this));
+    this.apiCatalogButton = this.createToolbarButton(this.t("program_builder.button.api_catalog", "Gerenciar APIs"), "globe", null, this.openApiSourceManagerDialog.bind(this));
+    this.integrationAssistantButton = this.createToolbarButton(this.t("program_builder.button.integration_assistant", "Integracao"), "link-horizontal", null, this.openIntegrationAssistantDialog.bind(this));
+    this.importExternalButton = this.createToolbarButton(this.t("program_builder.button.import_external_json", "Importar JSON externo"), "file-txt", null, this.openExternalJsonImportDialog.bind(this));
+    this.aiAssistantButton = this.createToolbarButton(this.t("program_builder.button.ai_assistant", "Assistente IA"), "comment", null, this.openAiAssistantDialog.bind(this));
+    this.aiSettingsButton = this.createToolbarButton(this.t("program_builder.button.ai_settings", "Configurar IA"), "gear", null, this.openAiSettingsDialog.bind(this));
+    this.saveEntityButton = this.createToolbarButton(this.t("program_builder.button.save_entity", "Salvar entidade"), "save", null, this.handleSaveEntity.bind(this));
+    this.restoreEntityButton = this.createToolbarButton(this.t("program_builder.button.restore_entity", "Restaurar entidade"), "undo", null, this.handleRestoreEntityVersion.bind(this));
+    this.newDraftButton = this.createToolbarButton(this.t("program_builder.button.new_draft", "Novo rascunho"), "file-add", null, this.handleNewDraft.bind(this));
+    this.previewButton = this.createToolbarButton(this.t("program_builder.button.preview", "Gerar preview"), "eye", null, this.handlePreview.bind(this));
+    this.saveDraftButton = this.createToolbarButton(this.t("program_builder.button.save_draft", "Salvar rascunho"), "save", null, this.handleSaveDraft.bind(this));
+    this.governanceButton = this.createToolbarButton(this.t("program_builder.button.governance", "Governanca"), "lock", null, this.openGovernanceDialog.bind(this));
+    this.overlayRebaseButton = this.createToolbarButton(this.t("program_builder.button.overlay_rebase", "Rebase overlay"), "arrows-merge", null, this.openOverlayRebaseDialog.bind(this));
+    this.publishButton = this.createToolbarButton(this.t("program_builder.button.publish", "Publicar"), "upload", null, this.handlePublish.bind(this));
+    this.duplicateButton = this.createToolbarButton(this.t("program_builder.button.duplicate_version", "Duplicar versao"), "copy", null, this.handleDuplicate.bind(this));
 
-    this.bannerElement = $("<section class=\"program-builder-banner\"></section>").text("Carregando metadados do construtor...").appendTo(shell);
+    this.bannerElement = $("<section class=\"program-builder-banner\"></section>").text(this.t("program_builder.banner.loading", "Carregando metadados do construtor...")).appendTo(shell);
     this.workspaceSummary = $("<section class=\"program-builder-workspace-summary\"></section>").appendTo(shell);
 
     const content = $("<section class=\"program-builder-content\"></section>").appendTo(shell);
@@ -251,6 +307,127 @@
     this.bindUnloadGuards();
     this.updateWorkspaceSummary();
     this.syncToolbarState();
+  };
+
+  ProgramBuilder.prototype.entityFieldTechnicalProperties = function(key) {
+    const map = {
+      existingEntity: this.buildTechnicalProperties("Entidade", "Entidade existente", "Seleciona uma modelagem ja cadastrada para revisar, versionar ou publicar.", [
+        { section: "Fluxo", label: "Acao", value: "Carrega a entidade atual do catalogo do construtor." }
+      ]),
+      entityCode: this.buildTechnicalProperties("Entidade", "Codigo da entidade", "Identificador tecnico unico da entidade no construtor e no runtime.", [
+        { section: "Modelo", label: "Uso", value: "Chave tecnica de referencia interna.", critical: true }
+      ]),
+      entityName: this.buildTechnicalProperties("Entidade", "Nome da entidade", "Nome funcional exibido no editor e em partes do runtime."),
+      tableName: this.buildTechnicalProperties("Entidade", "Tabela fisica", "Nome da tabela persistente quando a entidade usa armazenamento local.", [
+        { section: "Banco", label: "Aplicavel", value: "Persistence" }
+      ]),
+      entityType: this.buildTechnicalProperties("Entidade", "Tipo da entidade", "Define se a origem e tabela local, consulta, IO ou API externa.", [
+        { section: "Modelo", label: "Valores", value: "persistence | query | io | api", critical: true }
+      ]),
+      situationField: this.buildTechnicalProperties("Entidade", "Campo de situacao", "Campo usado pelo motor de situacoes e transicoes quando habilitado."),
+      entityFlags: this.buildTechnicalProperties("Entidade", "Opcoes da entidade", "Agrupa flags estruturais e de versionamento que afetam a geracao do runtime.", [
+        { section: "Runtime", label: "Impacto", value: "Tabela, renomeacao, exclusao, situacao e versionamento." }
+      ]),
+      fieldsHeader: this.buildTechnicalProperties("Entidade", "Campos da entidade", "Lista principal de campos que alimenta grid, filtro, formulario e contrato runtime.", [
+        { section: "Modelo", label: "Superficies", value: "Grid, filtro, formulario, API e regras." }
+      ])
+    };
+    return map[key] || [];
+  };
+
+  ProgramBuilder.prototype.programFieldTechnicalProperties = function(key) {
+    const map = {
+      existingProgram: this.buildTechnicalProperties("Programa", "Programa existente", "Seleciona um programa ja cadastrado para editar versoes, preview e publicacao."),
+      programCode: this.buildTechnicalProperties("Programa", "Codigo do programa", "Identificador tecnico unico do programa publicado.", [
+        { section: "Runtime", label: "Uso", value: "Referencia principal para versoes e publicacao.", critical: true }
+      ]),
+      programTitle: this.buildTechnicalProperties("Programa", "Titulo do programa", "Titulo funcional exibido na Home e no shell runtime."),
+      programModule: this.buildTechnicalProperties("Programa", "Modulo", "Modulo estrutural onde o programa sera catalogado e agrupado."),
+      screenId: this.buildTechnicalProperties("Programa", "Screen ID", "Chave publica usada pelo runtime para abrir a definicao publicada.", [
+        { section: "Runtime", label: "Uso", value: "production/app.html?screenId=...", critical: true }
+      ]),
+      baseEntity: this.buildTechnicalProperties("Programa", "Entidade base", "Entidade usada para gerar grid, filtro, formulario e endpoints CRUD."),
+      version: this.buildTechnicalProperties("Programa", "Versao", "Versao funcional armazenada no historico de publicacao."),
+      subtitle: this.buildTechnicalProperties("Programa", "Subtitulo", "Texto complementar opcional exibido no shell."),
+      icon: this.buildTechnicalProperties("Programa", "Icone", "Nome do icone Kendo/Lucide usado na Home e em listas."),
+      permissionPrefix: this.buildTechnicalProperties("Programa", "Prefixo de permissao", "Base para derivar permissoes de leitura e escrita do runtime."),
+      pageType: this.buildTechnicalProperties("Programa", "Tipo de pagina", "Define se a publicacao gera CRUD padrao ou entrada custom registrada."),
+      programOrigin: this.buildTechnicalProperties("Programa", "Origem do programa", "Classifica se a versao pertence ao padrao do produto, overlay por assinante ou programa especifico do cliente.", [
+        { section: "Governanca", label: "Valores", value: "standard | customer_overlay | customer_custom", critical: true }
+      ]),
+      ownerScope: this.buildTechnicalProperties("Programa", "Escopo do owner", "Define se o owner do programa e o sistema ou um assinante especifico.", [
+        { section: "Governanca", label: "Valores", value: "system | subscriber", critical: true }
+      ]),
+      customizationPolicy: this.buildTechnicalProperties("Programa", "Politica de customizacao", "Controla se o padrao pode ser bloqueado, aceitar overlay ou override total."),
+      subscriberId: this.buildTechnicalProperties("Programa", "Assinante", "Identificador do assinante dono do overlay ou da variante especifica."),
+      baseProgramCode: this.buildTechnicalProperties("Programa", "Programa base", "Programa padrao do qual o overlay ou custom especifico deriva."),
+      baseProgramVersionId: this.buildTechnicalProperties("Programa", "Versao base", "Versao do programa padrao usada como referencia para upgrade e rebase."),
+      upgradeFrozen: this.buildTechnicalProperties("Programa", "Upgrade congelado", "Indica se a variante do cliente deixou de receber atualizacao automatica da base.", [
+        { section: "Versionamento", label: "Impacto", value: "Congela upgrade automatico", critical: true }
+      ]),
+      frozenReason: this.buildTechnicalProperties("Programa", "Motivo do congelamento", "Justificativa curta para o congelamento do upgrade."),
+      publicationPolicy: this.buildTechnicalProperties("Programa", "Ambientes permitidos", "Lista dos ambientes de banco autorizados para publicar esta versao, separada por virgula.", [
+        { section: "Governanca", label: "Exemplo", value: "prod, homolog" }
+      ]),
+      customMode: this.buildTechnicalProperties("Programa", "Modo custom", "Escolhe se a tela manual abre em iframe interno ou por fragmento HTML controlado."),
+      customEntryUrl: this.buildTechnicalProperties("Programa", "Entry URL", "Caminho relativo da implementacao manual registrada no catalogo.", [
+        { section: "Seguranca", label: "Restricao", value: "Somente caminhos relativos do proprio sistema.", critical: true }
+      ]),
+      customFrameTitle: this.buildTechnicalProperties("Programa", "Titulo do frame", "Titulo acessivel usado pelo renderer custom em iframe."),
+      writeFlags: this.buildTechnicalProperties("Programa", "Permissoes de escrita", "Controla inclusao, alteracao e exclusao no CRUD gerado.", [
+        { section: "Runtime", label: "Observacao", value: "Entidades API readonly e Odoo desligam estas flags automaticamente." }
+      ]),
+      changeSummary: this.buildTechnicalProperties("Programa", "Resumo da versao", "Historico curto do objetivo funcional desta versao.")
+    };
+    return map[key] || [];
+  };
+
+  ProgramBuilder.prototype.apiFieldTechnicalProperties = function(key) {
+    const map = {
+      sourceCode: this.buildTechnicalProperties("API", "Cadastro de API", "Vincula uma fonte reutilizavel com contrato, autenticacao e operacoes publicadas."),
+      listOperation: this.buildTechnicalProperties("API", "Operacao de lista", "Operacao usada para alimentar o grid e a pagina principal de consulta."),
+      detailOperation: this.buildTechnicalProperties("API", "Operacao de detalhe", "Operacao opcional usada para abrir o formulario em visualizacao."),
+      createOperation: this.buildTechnicalProperties("API", "Operacao de inclusao", "Operacao declarativa para create em APIs JSON previsiveis."),
+      updateOperation: this.buildTechnicalProperties("API", "Operacao de alteracao", "Operacao declarativa para update em APIs JSON previsiveis."),
+      deleteOperation: this.buildTechnicalProperties("API", "Operacao de exclusao", "Operacao declarativa para delete em APIs JSON previsiveis."),
+      apiCatalogActions: this.buildTechnicalProperties("API", "Cadastro", "Acoes auxiliares para abrir o cadastro de APIs e importar campos de modelo."),
+      odooTransport: this.buildTechnicalProperties("Odoo", "Transporte", "Canal RPC usado pela integracao Odoo readonly.", [
+        { section: "Odoo", label: "Valores", value: "xmlrpc | jsonrpc", critical: true }
+      ]),
+      odooDatabase: this.buildTechnicalProperties("Odoo", "Banco", "Nome da base Odoo usada na autenticacao RPC."),
+      odooLogin: this.buildTechnicalProperties("Odoo", "Login", "Usuario tecnico usado para autenticar na instancia Odoo."),
+      odooSecretMode: this.buildTechnicalProperties("Odoo", "Segredo", "Define se o segredo cadastrado e senha ou API key."),
+      odooModel: this.buildTechnicalProperties("Odoo", "Modelo Odoo", "Modelo ORM consultado por search_read, search_count e read.", [
+        { section: "Odoo", label: "Exemplo", value: "res.partner", critical: true }
+      ]),
+      odooOrder: this.buildTechnicalProperties("Odoo", "Ordenacao padrao", "Clausula de ordenacao enviada ao Odoo na consulta."),
+      odooLimit: this.buildTechnicalProperties("Odoo", "Limite padrao", "Quantidade padrao de registros por consulta quando aplicavel."),
+      odooContext: this.buildTechnicalProperties("Odoo", "Contexto padrao (JSON objeto)", "Contexto RPC adicional enviado para o modelo Odoo."),
+      odooDomain: this.buildTechnicalProperties("Odoo", "Dominio padrao (JSON array)", "Filtro base do Odoo em formato domain."),
+      apiBaseUrl: this.buildTechnicalProperties("API", "Base URL", "Base comum usada para compor endpoints genericos ou OpenAPI."),
+      apiTimeout: this.buildTechnicalProperties("API", "Timeout (segundos)", "Tempo maximo aceito para chamadas externas dessa fonte."),
+      apiAuthHeaders: this.buildTechnicalProperties("API", "Headers fixos da entidade (JSON objeto)", "Headers adicionais fixos aplicados ao contrato expandido da entidade."),
+      apiListUrl: this.buildTechnicalProperties("API", "URL da lista", "Endpoint usado pela leitura principal do grid."),
+      apiListMethod: this.buildTechnicalProperties("API", "Metodo", "Metodo HTTP permitido para a lista.", [
+        { section: "Contrato", label: "Valores", value: "GET | POST", critical: true }
+      ]),
+      apiListItemsPath: this.buildTechnicalProperties("API", "itemsPath", "Caminho dentro do JSON que aponta para o array principal de itens.", [
+        { section: "Contrato", label: "Obrigatorio", value: "Sim para leitura generica", critical: true }
+      ]),
+      apiListTotalPath: this.buildTechnicalProperties("API", "totalPath", "Caminho opcional para totalizacao do grid."),
+      apiListHeaders: this.buildTechnicalProperties("API", "Headers da lista (JSON objeto)", "Headers especificos da operacao de lista."),
+      apiListQuery: this.buildTechnicalProperties("API", "Query params da lista (JSON objeto)", "Parametros de query declarativos da lista."),
+      apiListBody: this.buildTechnicalProperties("API", "Body template da lista (JSON/valor simples)", "Payload declarativo fechado da operacao de lista."),
+      apiDetailUrl: this.buildTechnicalProperties("API", "URL do detalhe", "Endpoint usado para abrir um registro especifico."),
+      apiDetailMethod: this.buildTechnicalProperties("API", "Metodo", "Metodo HTTP permitido para o detalhe.", [
+        { section: "Contrato", label: "Valores", value: "GET | POST", critical: true }
+      ]),
+      apiDetailItemPath: this.buildTechnicalProperties("API", "itemPath", "Caminho dentro do JSON que aponta para o item do detalhe."),
+      apiDetailHeaders: this.buildTechnicalProperties("API", "Headers do detalhe (JSON objeto)", "Headers especificos da operacao de detalhe."),
+      apiDetailQuery: this.buildTechnicalProperties("API", "Query params do detalhe (JSON objeto)", "Parametros declarativos do detalhe."),
+      apiDetailBody: this.buildTechnicalProperties("API", "Body template do detalhe (JSON/valor simples)", "Payload declarativo fechado do detalhe.")
+    };
+    return map[key] || [];
   };
 
   ProgramBuilder.prototype.renderNavigator = function(parent) {
@@ -449,7 +626,7 @@
     this.renderDatabaseImportPanel(form);
     this.renderExternalJsonImportPanel(form);
 
-    const entitySelectorField = this.appendField(form, "Entidade existente");
+    const entitySelectorField = this.appendField(form, "Entidade existente", this.entityFieldTechnicalProperties("existingEntity"));
     this.entitySelectorInput = $("<input>").appendTo(entitySelectorField).kendoDropDownList({
       dataTextField: "title",
       dataValueField: "code",
@@ -458,12 +635,12 @@
     }).data("kendoDropDownList");
 
     const splitA = $("<div class=\"program-builder-split\"></div>").appendTo(form);
-    this.entityCodeInput = this.createTextField(splitA, "Codigo da entidade");
-    this.entityNameInput = this.createTextField(splitA, "Nome da entidade");
+    this.entityCodeInput = this.createTextField(splitA, "Codigo da entidade", this.entityFieldTechnicalProperties("entityCode"));
+    this.entityNameInput = this.createTextField(splitA, "Nome da entidade", this.entityFieldTechnicalProperties("entityName"));
 
     const splitB = $("<div class=\"program-builder-split\"></div>").appendTo(form);
-    this.entityTableNameInput = this.createTextField(splitB, "Tabela fisica");
-    const entityTypeField = this.appendField(splitB, "Tipo da entidade");
+    this.entityTableNameInput = this.createTextField(splitB, "Tabela fisica", this.entityFieldTechnicalProperties("tableName"));
+    const entityTypeField = this.appendField(splitB, "Tipo da entidade", this.entityFieldTechnicalProperties("entityType"));
     this.entityTypeSelect = $("<input>").appendTo(entityTypeField).kendoDropDownList({
       dataSource: [
         { value: "persistence", text: "Persistence" },
@@ -478,14 +655,14 @@
     }).data("kendoDropDownList");
 
     const splitC = $("<div class=\"program-builder-split\"></div>").appendTo(form);
-    this.entitySituationFieldInput = this.createTextField(splitC, "Campo de situacao");
+    this.entitySituationFieldInput = this.createTextField(splitC, "Campo de situacao", this.entityFieldTechnicalProperties("situationField"));
     this.entityTypeHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(form);
     this.entityTypeHint.text("Fluxo completo atual: tipo persistence com tabela fisica e programa CRUD.");
     this.renderApiSourceEditor(form);
 
     this.renderStructureEditor(form);
 
-    const flagsField = this.appendField(form, "Opcoes da entidade");
+    const flagsField = this.appendField(form, "Opcoes da entidade", this.entityFieldTechnicalProperties("entityFlags"));
     const flags = $("<div class=\"program-builder-flags\"></div>").appendTo(flagsField);
     this.entityCreateTableInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(flags));
     $("<span></span>").text("Criar tabela fisica").appendTo(this.entityCreateTableInput.parent());
@@ -514,7 +691,7 @@
     this.entityVersioningDeduplicateInput.kendoCheckBox();
 
     const fieldsHeader = $("<div class=\"program-builder-fields-header\"></div>").appendTo(form);
-    $("<span></span>").text("Campos da entidade").appendTo(fieldsHeader);
+    this.appendFieldLabel(fieldsHeader, "Campos da entidade", this.entityFieldTechnicalProperties("fieldsHeader"));
     $("<button type=\"button\"></button>").text("Sugerir nomes").appendTo(fieldsHeader).kendoButton({
       icon: "wand",
       click: this.handleSuggestFieldNames.bind(this)
@@ -596,7 +773,7 @@
     const apiForm = $("<div class=\"program-builder-form\"></div>").appendTo(this.apiSourcePanel);
 
     const bindingSplit = $("<div class=\"program-builder-split\"></div>").appendTo(apiForm);
-    const sourceField = this.appendField(bindingSplit, "Cadastro de API");
+    const sourceField = this.appendField(bindingSplit, "Cadastro de API", this.apiFieldTechnicalProperties("sourceCode"));
     this.apiCatalogSourceSelect = $("<input>").appendTo(sourceField).kendoDropDownList({
       dataSource: [],
       dataTextField: "name",
@@ -604,7 +781,7 @@
       optionLabel: "Selecione a API cadastrada",
       change: this.handleApiSourceSelectionChange.bind(this)
     }).data("kendoDropDownList");
-    const listOperationField = this.appendField(bindingSplit, "Operacao de lista");
+    const listOperationField = this.appendField(bindingSplit, "Operacao de lista", this.apiFieldTechnicalProperties("listOperation"));
     this.apiCatalogListOperationSelect = $("<input>").appendTo(listOperationField).kendoDropDownList({
       dataSource: [],
       dataTextField: "name",
@@ -614,7 +791,7 @@
     }).data("kendoDropDownList");
 
     const bindingSplitB = $("<div class=\"program-builder-split\"></div>").appendTo(apiForm);
-    const detailOperationField = this.appendField(bindingSplitB, "Operacao de detalhe");
+    const detailOperationField = this.appendField(bindingSplitB, "Operacao de detalhe", this.apiFieldTechnicalProperties("detailOperation"));
     this.apiCatalogDetailOperationSelect = $("<input>").appendTo(detailOperationField).kendoDropDownList({
       dataSource: [],
       dataTextField: "name",
@@ -622,7 +799,7 @@
       optionLabel: "Sem detalhe",
       change: this.handleApiSourceOperationChange.bind(this)
     }).data("kendoDropDownList");
-    const bindingActionsField = this.appendField(bindingSplitB, "Cadastro");
+    const bindingActionsField = this.appendField(bindingSplitB, "Cadastro", this.apiFieldTechnicalProperties("apiCatalogActions"));
     $("<button type=\"button\"></button>").text("Abrir cadastro de APIs").appendTo(bindingActionsField).kendoButton({
       icon: "globe",
       click: this.openApiSourceManagerDialog.bind(this)
@@ -632,7 +809,7 @@
       click: this.handleLoadOdooModelFields.bind(this)
     });
     const bindingSplitC = $("<div class=\"program-builder-split\"></div>").appendTo(apiForm);
-    const createOperationField = this.appendField(bindingSplitC, "Operacao de inclusao");
+    const createOperationField = this.appendField(bindingSplitC, "Operacao de inclusao", this.apiFieldTechnicalProperties("createOperation"));
     this.apiCatalogCreateOperationSelect = $("<input>").appendTo(createOperationField).kendoDropDownList({
       dataSource: [],
       dataTextField: "name",
@@ -640,7 +817,7 @@
       optionLabel: "Sem inclusao",
       change: this.handleApiSourceOperationChange.bind(this)
     }).data("kendoDropDownList");
-    const updateOperationField = this.appendField(bindingSplitC, "Operacao de alteracao");
+    const updateOperationField = this.appendField(bindingSplitC, "Operacao de alteracao", this.apiFieldTechnicalProperties("updateOperation"));
     this.apiCatalogUpdateOperationSelect = $("<input>").appendTo(updateOperationField).kendoDropDownList({
       dataSource: [],
       dataTextField: "name",
@@ -648,7 +825,7 @@
       optionLabel: "Sem alteracao",
       change: this.handleApiSourceOperationChange.bind(this)
     }).data("kendoDropDownList");
-    const deleteOperationField = this.appendField(bindingSplitC, "Operacao de exclusao");
+    const deleteOperationField = this.appendField(bindingSplitC, "Operacao de exclusao", this.apiFieldTechnicalProperties("deleteOperation"));
     this.apiCatalogDeleteOperationSelect = $("<input>").appendTo(deleteOperationField).kendoDropDownList({
       dataSource: [],
       dataTextField: "name",
@@ -663,45 +840,45 @@
     $("<div class=\"program-builder-versions-header\"><h3>Configuracao Odoo</h3><p>Resumo do transporte e do modelo vinculado ao cadastro selecionado.</p></div>").appendTo(this.apiOdooPanel);
     const odooForm = $("<div class=\"program-builder-form\"></div>").appendTo(this.apiOdooPanel);
     const odooSplitA = $("<div class=\"program-builder-split\"></div>").appendTo(odooForm);
-    const odooTransportField = this.appendField(odooSplitA, "Transporte");
+    const odooTransportField = this.appendField(odooSplitA, "Transporte", this.apiFieldTechnicalProperties("odooTransport"));
     this.apiOdooTransportSelect = $("<input>").appendTo(odooTransportField).kendoDropDownList({
       dataSource: [{ value: "xmlrpc", text: "XML-RPC" }, { value: "jsonrpc", text: "JSON-RPC" }],
       dataTextField: "text",
       dataValueField: "value",
       value: "xmlrpc"
     }).data("kendoDropDownList");
-    this.apiOdooDatabaseInput = this.createTextField(odooSplitA, "Banco");
+    this.apiOdooDatabaseInput = this.createTextField(odooSplitA, "Banco", this.apiFieldTechnicalProperties("odooDatabase"));
     const odooSplitB = $("<div class=\"program-builder-split\"></div>").appendTo(odooForm);
-    this.apiOdooLoginInput = this.createTextField(odooSplitB, "Login");
-    const odooSecretModeField = this.appendField(odooSplitB, "Segredo");
+    this.apiOdooLoginInput = this.createTextField(odooSplitB, "Login", this.apiFieldTechnicalProperties("odooLogin"));
+    const odooSecretModeField = this.appendField(odooSplitB, "Segredo", this.apiFieldTechnicalProperties("odooSecretMode"));
     this.apiOdooSecretModeSelect = $("<input>").appendTo(odooSecretModeField).kendoDropDownList({
       dataSource: [{ value: "password", text: "Senha" }, { value: "api_key", text: "API Key" }],
       dataTextField: "text",
       dataValueField: "value",
       value: "password"
     }).data("kendoDropDownList");
-    this.apiOdooModelInput = this.createTextField(odooForm, "Modelo Odoo");
+    this.apiOdooModelInput = this.createTextField(odooForm, "Modelo Odoo", this.apiFieldTechnicalProperties("odooModel"));
     const odooSplitC = $("<div class=\"program-builder-split\"></div>").appendTo(odooForm);
-    this.apiOdooOrderInput = this.createTextField(odooSplitC, "Ordenacao padrao");
-    this.apiOdooLimitInput = this.createTextField(odooSplitC, "Limite padrao");
-    const odooContextField = this.appendField(odooForm, "Contexto padrao (JSON objeto)");
+    this.apiOdooOrderInput = this.createTextField(odooSplitC, "Ordenacao padrao", this.apiFieldTechnicalProperties("odooOrder"));
+    this.apiOdooLimitInput = this.createTextField(odooSplitC, "Limite padrao", this.apiFieldTechnicalProperties("odooLimit"));
+    const odooContextField = this.appendField(odooForm, "Contexto padrao (JSON objeto)", this.apiFieldTechnicalProperties("odooContext"));
     this.apiOdooContextInput = $("<textarea rows=\"3\" class=\"program-builder-mini-textarea\"></textarea>").appendTo(odooContextField);
-    const odooDomainField = this.appendField(odooForm, "Dominio padrao (JSON array)");
+    const odooDomainField = this.appendField(odooForm, "Dominio padrao (JSON array)", this.apiFieldTechnicalProperties("odooDomain"));
     this.apiOdooDomainInput = $("<textarea rows=\"3\" class=\"program-builder-mini-textarea\"></textarea>").appendTo(odooDomainField);
 
     const splitA = $("<div class=\"program-builder-split\"></div>").appendTo(apiForm);
-    this.apiBaseUrlInput = this.createTextField(splitA, "Base URL");
-    this.apiTimeoutInput = this.createTextField(splitA, "Timeout (segundos)");
+    this.apiBaseUrlInput = this.createTextField(splitA, "Base URL", this.apiFieldTechnicalProperties("apiBaseUrl"));
+    this.apiTimeoutInput = this.createTextField(splitA, "Timeout (segundos)", this.apiFieldTechnicalProperties("apiTimeout"));
 
-    const authHeadersField = this.appendField(apiForm, "Headers fixos da entidade (JSON objeto)");
+    const authHeadersField = this.appendField(apiForm, "Headers fixos da entidade (JSON objeto)", this.apiFieldTechnicalProperties("apiAuthHeaders"));
     this.apiAuthHeadersInput = $("<textarea rows=\"3\" class=\"program-builder-mini-textarea\"></textarea>").appendTo(authHeadersField);
 
     const listSection = $("<div class=\"program-builder-subpanel\"></div>").appendTo(apiForm);
     $("<div class=\"program-builder-versions-header\"><h3>Consulta de lista</h3></div>").appendTo(listSection);
     const listForm = $("<div class=\"program-builder-form\"></div>").appendTo(listSection);
     const listSplitA = $("<div class=\"program-builder-split\"></div>").appendTo(listForm);
-    this.apiListUrlInput = this.createTextField(listSplitA, "URL da lista");
-    const listMethodField = this.appendField(listSplitA, "Metodo");
+    this.apiListUrlInput = this.createTextField(listSplitA, "URL da lista", this.apiFieldTechnicalProperties("apiListUrl"));
+    const listMethodField = this.appendField(listSplitA, "Metodo", this.apiFieldTechnicalProperties("apiListMethod"));
     this.apiListMethodSelect = $("<input>").appendTo(listMethodField).kendoDropDownList({
       dataSource: [{ value: "GET", text: "GET" }, { value: "POST", text: "POST" }],
       dataTextField: "text",
@@ -709,21 +886,21 @@
       value: "GET"
     }).data("kendoDropDownList");
     const listSplitB = $("<div class=\"program-builder-split\"></div>").appendTo(listForm);
-    this.apiListItemsPathInput = this.createTextField(listSplitB, "itemsPath");
-    this.apiListTotalPathInput = this.createTextField(listSplitB, "totalPath");
-    const listHeadersField = this.appendField(listForm, "Headers da lista (JSON objeto)");
+    this.apiListItemsPathInput = this.createTextField(listSplitB, "itemsPath", this.apiFieldTechnicalProperties("apiListItemsPath"));
+    this.apiListTotalPathInput = this.createTextField(listSplitB, "totalPath", this.apiFieldTechnicalProperties("apiListTotalPath"));
+    const listHeadersField = this.appendField(listForm, "Headers da lista (JSON objeto)", this.apiFieldTechnicalProperties("apiListHeaders"));
     this.apiListHeadersInput = $("<textarea rows=\"3\" class=\"program-builder-mini-textarea\"></textarea>").appendTo(listHeadersField);
-    const listQueryField = this.appendField(listForm, "Query params da lista (JSON objeto)");
+    const listQueryField = this.appendField(listForm, "Query params da lista (JSON objeto)", this.apiFieldTechnicalProperties("apiListQuery"));
     this.apiListQueryInput = $("<textarea rows=\"3\" class=\"program-builder-mini-textarea\"></textarea>").appendTo(listQueryField);
-    const listBodyField = this.appendField(listForm, "Body template da lista (JSON/valor simples)");
+    const listBodyField = this.appendField(listForm, "Body template da lista (JSON/valor simples)", this.apiFieldTechnicalProperties("apiListBody"));
     this.apiListBodyInput = $("<textarea rows=\"3\" class=\"program-builder-mini-textarea\"></textarea>").appendTo(listBodyField);
 
     const detailSection = $("<div class=\"program-builder-subpanel\"></div>").appendTo(apiForm);
     $("<div class=\"program-builder-versions-header\"><h3>Consulta de detalhe</h3></div>").appendTo(detailSection);
     const detailForm = $("<div class=\"program-builder-form\"></div>").appendTo(detailSection);
     const detailSplitA = $("<div class=\"program-builder-split\"></div>").appendTo(detailForm);
-    this.apiDetailUrlInput = this.createTextField(detailSplitA, "URL do detalhe");
-    const detailMethodField = this.appendField(detailSplitA, "Metodo");
+    this.apiDetailUrlInput = this.createTextField(detailSplitA, "URL do detalhe", this.apiFieldTechnicalProperties("apiDetailUrl"));
+    const detailMethodField = this.appendField(detailSplitA, "Metodo", this.apiFieldTechnicalProperties("apiDetailMethod"));
     this.apiDetailMethodSelect = $("<input>").appendTo(detailMethodField).kendoDropDownList({
       dataSource: [{ value: "GET", text: "GET" }, { value: "POST", text: "POST" }],
       dataTextField: "text",
@@ -731,13 +908,13 @@
       value: "GET"
     }).data("kendoDropDownList");
     const detailSplitB = $("<div class=\"program-builder-split\"></div>").appendTo(detailForm);
-    this.apiDetailItemPathInput = this.createTextField(detailSplitB, "itemPath");
+    this.apiDetailItemPathInput = this.createTextField(detailSplitB, "itemPath", this.apiFieldTechnicalProperties("apiDetailItemPath"));
     $("<div></div>").appendTo(detailSplitB);
-    const detailHeadersField = this.appendField(detailForm, "Headers do detalhe (JSON objeto)");
+    const detailHeadersField = this.appendField(detailForm, "Headers do detalhe (JSON objeto)", this.apiFieldTechnicalProperties("apiDetailHeaders"));
     this.apiDetailHeadersInput = $("<textarea rows=\"3\" class=\"program-builder-mini-textarea\"></textarea>").appendTo(detailHeadersField);
-    const detailQueryField = this.appendField(detailForm, "Query params do detalhe (JSON objeto)");
+    const detailQueryField = this.appendField(detailForm, "Query params do detalhe (JSON objeto)", this.apiFieldTechnicalProperties("apiDetailQuery"));
     this.apiDetailQueryInput = $("<textarea rows=\"3\" class=\"program-builder-mini-textarea\"></textarea>").appendTo(detailQueryField);
-    const detailBodyField = this.appendField(detailForm, "Body template do detalhe (JSON/valor simples)");
+    const detailBodyField = this.appendField(detailForm, "Body template do detalhe (JSON/valor simples)", this.apiFieldTechnicalProperties("apiDetailBody"));
     this.apiDetailBodyInput = $("<textarea rows=\"3\" class=\"program-builder-mini-textarea\"></textarea>").appendTo(detailBodyField);
   };
 
@@ -1417,6 +1594,156 @@
         .text(String(item.message || ""))
         .appendTo(diagnosticsHost);
     });
+  };
+
+  ProgramBuilder.prototype.openIntegrationAssistantDialog = function() {
+    if (!this.integrationAssistantWindow) {
+      const host = $("<div class=\"program-builder-ai-settings-window\"></div>").appendTo(document.body);
+      const form = $("<div class=\"program-builder-ai-settings-form\"></div>").appendTo(host);
+      const formatField = this.appendField(form, "Formato de destino");
+      this.integrationAssistantFormatSelect = $("<input>").appendTo(formatField).kendoDropDownList({
+        dataSource: [
+          { value: "csv", text: "CSV" },
+          { value: "txt_layout", text: "TXT layout" },
+          { value: "xml", text: "XML" },
+          { value: "entity_copy", text: "Entidade local" },
+          { value: "api_json", text: "API JSON" }
+        ],
+        dataTextField: "text",
+        dataValueField: "value",
+        value: "csv",
+        change: this.renderIntegrationAssistantDraft.bind(this)
+      }).data("kendoDropDownList");
+      const payloadField = this.appendField(form, "Esqueleto gerado");
+      this.integrationAssistantPayload = $("<textarea rows=\"16\" class=\"program-builder-large-textarea\"></textarea>").appendTo(payloadField).kendoTextArea({ inputMode: "text" }).data("kendoTextArea");
+      const actions = $("<div class=\"program-builder-fields-header\"></div>").appendTo(form);
+      $("<span></span>").text("Fluxo sugerido").appendTo(actions);
+      $("<button type=\"button\"></button>").text("Atualizar").appendTo(actions).kendoButton({
+        icon: "arrow-rotate-cw",
+        click: this.renderIntegrationAssistantDraft.bind(this)
+      });
+      $("<button type=\"button\"></button>").text("Copiar JSON").appendTo(actions).kendoButton({
+        icon: "copy",
+        click: function() {
+          global.CrudUtils.copyToClipboard(this.integrationAssistantPayload.value() || "").then(function(ok) {
+            global.CrudUtils.showMessage(ok ? "JSON copiado." : "Nao foi possivel copiar o JSON.", ok ? "success" : "warning");
+          });
+        }.bind(this)
+      });
+      $("<button type=\"button\"></button>").text("Abrir Integracoes").appendTo(actions).kendoButton({
+        icon: "window",
+        click: function() {
+          if (global.CrudUtils && typeof global.CrudUtils.runTechnicalPropertyAction === "function") {
+            global.CrudUtils.runTechnicalPropertyAction({ type: "openScreen", screenId: "admin.integracoes" });
+          }
+        }
+      });
+      host.kendoWindow({
+        title: "Assistente de integracao",
+        modal: true,
+        width: 820,
+        visible: false,
+        actions: ["Close"]
+      });
+      this.integrationAssistantWindow = host.data("kendoWindow");
+    }
+    this.renderIntegrationAssistantDraft();
+    this.integrationAssistantWindow.center().open();
+  };
+
+  ProgramBuilder.prototype.renderIntegrationAssistantDraft = function() {
+    if (!this.integrationAssistantPayload) {
+      return;
+    }
+    const format = this.integrationAssistantFormatSelect ? String(this.integrationAssistantFormatSelect.value() || "csv") : "csv";
+    this.integrationAssistantPayload.value(JSON.stringify(this.buildIntegrationAssistantDraft(format), null, 2));
+  };
+
+  ProgramBuilder.prototype.buildIntegrationAssistantDraft = function(format) {
+    const entity = this.collectEntityPayload();
+    const entityCode = String(entity.code || "").trim() || "entidade";
+    const alias = entityCode;
+    const fields = Array.isArray(entity.fields) ? entity.fields : [];
+    const dataFields = fields.filter(function(field) {
+      return !field.primaryKey;
+    });
+    const firstFields = dataFields.slice(0, 5);
+    const code = entityCode + "_" + format;
+    const base = {
+      code: code,
+      name: "Integracao " + entityCode + " " + format,
+      direction: "export",
+      targetType: "file",
+      targetCode: code,
+      format: format,
+      mapping: {
+        source: {
+          type: "entity",
+          entityCode: entityCode,
+          alias: alias,
+          mode: "list",
+          limit: 200
+        },
+        destination: {
+          type: format === "entity_copy" || format === "api_json" ? "entity" : "file",
+          entityCode: format === "entity_copy" ? entityCode : "",
+          operation: format === "entity_copy" ? "upsert" : "create",
+          fileFormat: format === "api_json" || format === "entity_copy" ? undefined : format,
+          fileNamePattern: code
+        },
+        fieldMappings: firstFields.map(function(field) {
+          return {
+            sourcePath: field.code,
+            targetPath: field.code
+          };
+        }),
+        options: {
+          previewLimit: 20
+        }
+      }
+    };
+    if (format === "csv") {
+      base.mapping.destination.columns = firstFields.map(function(field) {
+        return { header: field.label || field.code, sourcePath: field.code };
+      });
+    } else if (format === "txt_layout") {
+      base.mapping.destination.recordLayouts = [{
+        nodeType: "record",
+        recordType: "REG",
+        label: entity.name || entityCode,
+        sourceAlias: alias,
+        lineMode: "delimited",
+        separator: "|",
+        fields: [{ constant: "REG" }].concat(firstFields.map(function(field) {
+          return { sourcePath: field.code };
+        }))
+      }];
+    } else if (format === "xml") {
+      base.mapping.destination.rootName = entityCode + "s";
+      base.mapping.destination.itemName = entityCode;
+      base.mapping.destination.columns = firstFields.map(function(field) {
+        return { targetName: field.code, sourcePath: field.code };
+      });
+      base.mapping.destination.xmlLayouts = [{
+        name: entityCode,
+        label: entity.name || entityCode,
+        sourceAlias: alias,
+        fields: firstFields.map(function(field) {
+          return { name: field.code, sourcePath: field.code };
+        }),
+        children: []
+      }];
+    } else if (format === "entity_copy") {
+      base.targetType = "entity";
+      base.mapping.destination.type = "entity";
+      base.mapping.destination.entityCode = entityCode;
+      base.mapping.destination.matchBy = [];
+    } else if (format === "api_json") {
+      base.targetType = "entity";
+      base.mapping.destination.type = "entity";
+      base.mapping.destination.entityCode = entityCode;
+    }
+    return base;
   };
 
   ProgramBuilder.prototype.openAiSettingsDialog = function() {
@@ -2567,7 +2894,7 @@
   ProgramBuilder.prototype.renderProgramForm = function() {
     const form = this.programFormElement;
 
-    const programSelectorField = this.appendField(form, "Programa existente");
+    const programSelectorField = this.appendField(form, "Programa existente", this.programFieldTechnicalProperties("existingProgram"));
     this.programSelectorInput = $("<input>").appendTo(programSelectorField).kendoDropDownList({
       dataTextField: "title",
       dataValueField: "code",
@@ -2576,36 +2903,36 @@
     }).data("kendoDropDownList");
 
     const splitA = $("<div class=\"program-builder-split\"></div>").appendTo(form);
-    this.programCodeInput = this.createTextField(splitA, "Codigo do programa");
-    this.programTitleInput = this.createTextField(splitA, "Titulo do programa");
+    this.programCodeInput = this.createTextField(splitA, "Codigo do programa", this.programFieldTechnicalProperties("programCode"));
+    this.programTitleInput = this.createTextField(splitA, "Titulo do programa", this.programFieldTechnicalProperties("programTitle"));
 
     const splitB = $("<div class=\"program-builder-split\"></div>").appendTo(form);
-    const moduleProgramField = this.appendField(splitB, "Modulo");
+    const moduleProgramField = this.appendField(splitB, "Modulo", this.programFieldTechnicalProperties("programModule"));
     this.moduleInput = $("<input>").appendTo(moduleProgramField).kendoDropDownList({
       dataTextField: "name",
       dataValueField: "code",
       optionLabel: "Selecione o modulo",
       change: this.handleProgramModuleChange.bind(this)
     }).data("kendoDropDownList");
-    this.screenIdInput = this.createTextField(splitB, "Screen ID");
+    this.screenIdInput = this.createTextField(splitB, "Screen ID", this.programFieldTechnicalProperties("screenId"));
 
     const splitC = $("<div class=\"program-builder-split\"></div>").appendTo(form);
-    this.builderEntityField = this.appendField(splitC, "Entidade base");
+    this.builderEntityField = this.appendField(splitC, "Entidade base", this.programFieldTechnicalProperties("baseEntity"));
     this.builderEntitySelect = $("<input>").appendTo(this.builderEntityField).kendoDropDownList({
       dataTextField: "name",
       dataValueField: "code",
       optionLabel: "Selecione a entidade",
       change: this.handleProgramEntityChange.bind(this)
     }).data("kendoDropDownList");
-    this.versionInput = this.createTextField(splitC, "Versao");
+    this.versionInput = this.createTextField(splitC, "Versao", this.programFieldTechnicalProperties("version"));
 
     const splitD = $("<div class=\"program-builder-split\"></div>").appendTo(form);
-    this.subtitleInput = this.createTextField(splitD, "Subtitulo");
-    this.iconInput = this.createTextField(splitD, "Icone");
+    this.subtitleInput = this.createTextField(splitD, "Subtitulo", this.programFieldTechnicalProperties("subtitle"));
+    this.iconInput = this.createTextField(splitD, "Icone", this.programFieldTechnicalProperties("icon"));
 
     const splitE = $("<div class=\"program-builder-split\"></div>").appendTo(form);
-    this.permissionPrefixInput = this.createTextField(splitE, "Prefixo de permissao");
-    const pageTypeField = this.appendField(splitE, "Tipo de pagina");
+    this.permissionPrefixInput = this.createTextField(splitE, "Prefixo de permissao", this.programFieldTechnicalProperties("permissionPrefix"));
+    const pageTypeField = this.appendField(splitE, "Tipo de pagina", this.programFieldTechnicalProperties("pageType"));
     this.pageTypeSelect = $("<input>").appendTo(pageTypeField).kendoDropDownList({
       dataSource: [
         { value: "crud", text: "CRUD" },
@@ -2617,11 +2944,68 @@
       change: this.syncProgramTypeState.bind(this)
     }).data("kendoDropDownList");
 
+    const splitGovernanceA = $("<div class=\"program-builder-split\"></div>").appendTo(form);
+    const programOriginField = this.appendField(splitGovernanceA, "Origem", this.programFieldTechnicalProperties("programOrigin"));
+    this.programOriginSelect = $("<input>").appendTo(programOriginField).kendoDropDownList({
+      dataSource: [
+        { value: "standard", text: "Padrao" },
+        { value: "customer_overlay", text: "Overlay do cliente" },
+        { value: "customer_custom", text: "Programa especifico" }
+      ],
+      dataTextField: "text",
+      dataValueField: "value",
+      value: "standard",
+      change: this.schedulePreview.bind(this)
+    }).data("kendoDropDownList");
+    const ownerScopeField = this.appendField(splitGovernanceA, "Owner", this.programFieldTechnicalProperties("ownerScope"));
+    this.ownerScopeSelect = $("<input>").appendTo(ownerScopeField).kendoDropDownList({
+      dataSource: [
+        { value: "system", text: "Sistema" },
+        { value: "subscriber", text: "Assinante" }
+      ],
+      dataTextField: "text",
+      dataValueField: "value",
+      value: "system",
+      change: this.schedulePreview.bind(this)
+    }).data("kendoDropDownList");
+
+    const splitGovernanceB = $("<div class=\"program-builder-split\"></div>").appendTo(form);
+    const customizationPolicyField = this.appendField(splitGovernanceB, "Politica", this.programFieldTechnicalProperties("customizationPolicy"));
+    this.customizationPolicySelect = $("<input>").appendTo(customizationPolicyField).kendoDropDownList({
+      dataSource: [
+        { value: "locked", text: "Bloqueado" },
+        { value: "overlay_only", text: "Somente overlay" },
+        { value: "full_override_allowed", text: "Override total permitido" }
+      ],
+      dataTextField: "text",
+      dataValueField: "value",
+      value: "overlay_only",
+      change: this.schedulePreview.bind(this)
+    }).data("kendoDropDownList");
+    this.subscriberIdInput = this.createTextField(splitGovernanceB, "Assinante", this.programFieldTechnicalProperties("subscriberId"));
+
+    const splitGovernanceC = $("<div class=\"program-builder-split\"></div>").appendTo(form);
+    this.baseProgramCodeInput = this.createTextField(splitGovernanceC, "Programa base", this.programFieldTechnicalProperties("baseProgramCode"));
+    this.baseProgramVersionIdInput = this.createTextField(splitGovernanceC, "Versao base (ID)", this.programFieldTechnicalProperties("baseProgramVersionId"));
+
+    const splitGovernanceD = $("<div class=\"program-builder-split\"></div>").appendTo(form);
+    const freezeField = this.appendField(splitGovernanceD, "Upgrade congelado", this.programFieldTechnicalProperties("upgradeFrozen"));
+    this.upgradeFrozenInput = $("<input type=\"checkbox\">").appendTo($("<label></label>").appendTo(freezeField));
+    $("<span></span>").text("Congelar upgrade automatico").appendTo(this.upgradeFrozenInput.parent());
+    this.upgradeFrozenInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    this.frozenReasonInput = this.createTextField(splitGovernanceD, "Motivo", this.programFieldTechnicalProperties("frozenReason"));
+
+    const publicationField = this.appendField(form, "Ambientes permitidos na publicacao", this.programFieldTechnicalProperties("publicationPolicy"));
+    this.publicationPolicyInput = $("<textarea rows=\"2\"></textarea>").appendTo(publicationField).kendoTextArea({
+      inputMode: "text",
+      placeholder: "prod, homolog"
+    }).data("kendoTextArea");
+
     this.customProgramPanel = $("<section class=\"program-builder-subpanel\"></section>").appendTo(form);
     $("<div class=\"program-builder-versions-header\"><h3>Entrada manual</h3><p>Use para programas especificos que serao implementados manualmente e registrados no catalogo por screenId.</p></div>").appendTo(this.customProgramPanel);
     const customForm = $("<div class=\"program-builder-form\"></div>").appendTo(this.customProgramPanel);
     const customSplit = $("<div class=\"program-builder-split\"></div>").appendTo(customForm);
-    const customModeField = this.appendField(customSplit, "Modo custom");
+    const customModeField = this.appendField(customSplit, "Modo custom", this.programFieldTechnicalProperties("customMode"));
     this.customModeSelect = $("<input>").appendTo(customModeField).kendoDropDownList({
       dataSource: [
         { value: "iframe", text: "Iframe interno" },
@@ -2632,12 +3016,12 @@
       value: "iframe",
       change: this.schedulePreview.bind(this)
     }).data("kendoDropDownList");
-    this.customEntryUrlInput = this.createTextField(customSplit, "Entry URL");
-    this.customFrameTitleInput = this.createTextField(customSplit, "Titulo do frame");
+    this.customEntryUrlInput = this.createTextField(customSplit, "Entry URL", this.programFieldTechnicalProperties("customEntryUrl"));
+    this.customFrameTitleInput = this.createTextField(customSplit, "Titulo do frame", this.programFieldTechnicalProperties("customFrameTitle"));
     this.customProgramHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(customForm);
     this.customProgramHint.text("Use caminhos relativos do proprio sistema, por exemplo `production/custom/minha-tela.html`.");
 
-    this.programWriteFlagsField = this.appendField(form, "Permissoes de escrita");
+    this.programWriteFlagsField = this.appendField(form, "Permissoes de escrita", this.programFieldTechnicalProperties("writeFlags"));
     const flags = $("<div class=\"program-builder-flags\"></div>").appendTo(this.programWriteFlagsField);
     this.allowCreateInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(flags));
     $("<span></span>").text("Permitir inclusao").appendTo(this.allowCreateInput.parent());
@@ -2649,7 +3033,7 @@
     this.allowUpdateInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
     this.allowDeleteInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
 
-    const summaryField = this.appendField(form, "Resumo da versao");
+    const summaryField = this.appendField(form, "Resumo da versao", this.programFieldTechnicalProperties("changeSummary"));
     this.changeSummaryTextArea = $("<textarea rows=\"4\"></textarea>").appendTo(summaryField).kendoTextArea({
       inputMode: "text",
       placeholder: "Descreva o objetivo desta versao."
@@ -2659,14 +3043,14 @@
     this.syncProgramTypeState();
   };
 
-  ProgramBuilder.prototype.appendField = function(parent, label) {
+  ProgramBuilder.prototype.appendField = function(parent, label, technicalProperties) {
     const wrapper = $("<label class=\"program-builder-field\"></label>").appendTo(parent);
-    $("<span></span>").text(label).appendTo(wrapper);
+    this.appendFieldLabel(wrapper, label, technicalProperties);
     return wrapper;
   };
 
-  ProgramBuilder.prototype.createTextField = function(parent, label) {
-    const wrapper = this.appendField(parent, label);
+  ProgramBuilder.prototype.createTextField = function(parent, label, technicalProperties) {
+    const wrapper = this.appendField(parent, label, technicalProperties);
     return $("<input>").appendTo(wrapper).kendoTextBox().data("kendoTextBox");
   };
 
@@ -2680,6 +3064,10 @@
       this.subtitleInput,
       this.iconInput,
       this.permissionPrefixInput
+      ,this.subscriberIdInput
+      ,this.baseProgramCodeInput
+      ,this.baseProgramVersionIdInput
+      ,this.frozenReasonInput
     ].forEach(function(widget) {
       const input = widget && (widget.input || widget.element);
       if (!input || typeof input.on !== "function") {
@@ -2691,7 +3079,14 @@
 
     this.changeSummaryTextArea.element.on("input", this.schedulePreview.bind(this));
     this.changeSummaryTextArea.element.on("change", this.schedulePreview.bind(this));
+    this.publicationPolicyInput.element.on("input", this.schedulePreview.bind(this));
+    this.publicationPolicyInput.element.on("change", this.schedulePreview.bind(this));
     this.moduleInput.bind("change", this.schedulePreview.bind(this));
+    [this.programOriginSelect, this.ownerScopeSelect, this.customizationPolicySelect].forEach(function(widget) {
+      if (widget && typeof widget.bind === "function") {
+        widget.bind("change", self.schedulePreview.bind(self));
+      }
+    });
     [this.customEntryUrlInput, this.customFrameTitleInput].forEach(function(widget) {
       const input = widget && (widget.input || widget.element);
       if (!input || typeof input.on !== "function") {
@@ -2991,13 +3386,16 @@
     this.pendingLockScopeKey = scopeKey;
     const currentLock = this.state.currentLock;
     const proceed = function() {
+      const grantId = this.currentGovernanceGrantId(type, code);
       this.http.request({
         url: "/api/admin/program-builder/locks/acquire",
         method: "POST",
         data: {
           scopeType: type,
           scopeCode: code,
-          displayName: displayName || code
+          displayName: displayName || code,
+          grantId: grantId || null,
+          lockCategory: grantId ? "authoring" : "general"
         }
       }).then(function(response) {
         this.pendingLockScopeKey = "";
@@ -3032,9 +3430,13 @@
           data: { lockToken: this.state.currentLock.lockToken }
         }).then(function(heartbeat) {
           this.state.currentLock = heartbeat.lock || this.state.currentLock;
-        }.bind(this)).catch(function() {
+        }.bind(this)).catch(function(error) {
           global.clearInterval(this.lockHeartbeatTimer);
           this.lockHeartbeatTimer = null;
+          this.state.currentLock = null;
+          this.state.lockReadonly = true;
+          this.renderLockOverlay(scopeType, scopeCode, global.CrudUtils.unwrapError(error, "A autorizacao vinculada ao lock foi encerrada.").message);
+          this.syncToolbarState();
         }.bind(this));
       }.bind(this), Number(response.heartbeatIntervalSeconds || 45) * 1000);
       this.syncToolbarState();
@@ -3124,6 +3526,23 @@
     return false;
   };
 
+  ProgramBuilder.prototype.currentGovernanceGrantId = function(scopeType, scopeCode) {
+    const current = this.state.currentVersion || {};
+    const grant = current.governance && current.governance.grant ? current.governance.grant : null;
+    if (!grant || !grant.id) {
+      return null;
+    }
+    const normalizedScopeType = String(scopeType || "").trim();
+    const normalizedScopeCode = String(scopeCode || "").trim();
+    if (normalizedScopeType === "program" && normalizedScopeCode === String(current.programCode || "")) {
+      return grant.id;
+    }
+    if (normalizedScopeType === "entity" && normalizedScopeCode === String(current.builderEntityCode || "")) {
+      return grant.id;
+    }
+    return null;
+  };
+
   ProgramBuilder.prototype.selectPropertyNode = function(kind, context) {
     this.state.propertySelection = Object.assign({ kind: kind }, context || {});
     this.syncPropertySelectionState();
@@ -3203,50 +3622,70 @@
     }).length;
     const ruleCount = this.rulesTableBody.find(".program-builder-rule-row").length;
     const uniqueCount = this.uniqueKeysTableBody.find(".program-builder-unique-key-row").length;
-    this.appendPropertyText(panel, "Codigo", () => this.entityCodeInput.value(), (value) => this.entityCodeInput.value(value));
-    this.appendPropertyText(panel, "Nome", () => this.entityNameInput.value(), (value) => this.entityNameInput.value(value));
+    this.appendPropertyText(panel, "Codigo", () => this.entityCodeInput.value(), (value) => this.entityCodeInput.value(value), "text", this.entityFieldTechnicalProperties("entityCode"));
+    this.appendPropertyText(panel, "Nome", () => this.entityNameInput.value(), (value) => this.entityNameInput.value(value), "text", this.entityFieldTechnicalProperties("entityName"));
     this.appendPropertySelect(panel, "Tipo", [
       { value: "persistence", text: "Persistence" },
       { value: "query", text: "Query" },
       { value: "io", text: "IO" },
       { value: "api", text: "API" }
-    ], () => this.entityTypeSelect.value(), (value) => { this.entityTypeSelect.value(value); this.syncEntityTypeState(); });
-    this.appendPropertyText(panel, "Tabela", () => this.entityTableNameInput.value(), (value) => this.entityTableNameInput.value(value));
-    this.appendPropertyCheckbox(panel, "Criar tabela", () => this.entityCreateTableInput.is(":checked"), (checked) => this.entityCreateTableInput.prop("checked", checked).trigger("change"));
-    this.appendPropertyCheckbox(panel, "Versionada", () => this.entityVersioningEnabledInput.is(":checked"), (checked) => this.entityVersioningEnabledInput.prop("checked", checked).trigger("change"));
-    this.appendPropertyReadOnly(panel, "Campos", String(fieldCount));
-    this.appendPropertyReadOnly(panel, "Regras", String(ruleCount));
-    this.appendPropertyReadOnly(panel, "Chaves unicas", String(uniqueCount));
+    ], () => this.entityTypeSelect.value(), (value) => { this.entityTypeSelect.value(value); this.syncEntityTypeState(); }, this.entityFieldTechnicalProperties("entityType"));
+    this.appendPropertyText(panel, "Tabela", () => this.entityTableNameInput.value(), (value) => this.entityTableNameInput.value(value), "text", this.entityFieldTechnicalProperties("tableName"));
+    this.appendPropertyCheckbox(panel, "Criar tabela", () => this.entityCreateTableInput.is(":checked"), (checked) => this.entityCreateTableInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Entidade", "Criar tabela", "Controla se o construtor deve gerar ou sincronizar a tabela fisica.", [{ section: "Banco", label: "Aplicavel", value: "Persistence" }]));
+    this.appendPropertyCheckbox(panel, "Versionada", () => this.entityVersioningEnabledInput.is(":checked"), (checked) => this.entityVersioningEnabledInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Entidade", "Versionada", "Liga o fluxo de snapshot historico da entidade e dos campos marcados para historico." ));
+    this.appendPropertyReadOnly(panel, "Campos", String(fieldCount), this.buildTechnicalProperties("Entidade", "Campos", "Quantidade atual de campos modelados na entidade."));
+    this.appendPropertyReadOnly(panel, "Regras", String(ruleCount), this.buildTechnicalProperties("Entidade", "Regras", "Quantidade atual de regras de negocio configuradas."));
+    this.appendPropertyReadOnly(panel, "Chaves unicas", String(uniqueCount), this.buildTechnicalProperties("Entidade", "Chaves unicas", "Quantidade atual de chaves compostas configuradas."));
   };
 
   ProgramBuilder.prototype.renderProgramProperties = function() {
     const panel = $("<div class=\"program-builder-properties-grid\"></div>").appendTo(this.propertiesElement);
-    this.appendPropertyText(panel, "Codigo", () => this.programCodeInput.value(), (value) => this.programCodeInput.value(value));
-    this.appendPropertyText(panel, "Titulo", () => this.programTitleInput.value(), (value) => this.programTitleInput.value(value));
-    this.appendPropertyText(panel, "Screen ID", () => this.screenIdInput.value(), (value) => this.screenIdInput.value(value));
-    this.appendPropertyText(panel, "Versao", () => this.versionInput.value(), (value) => this.versionInput.value(value));
+    this.appendPropertyText(panel, "Codigo", () => this.programCodeInput.value(), (value) => this.programCodeInput.value(value), "text", this.programFieldTechnicalProperties("programCode"));
+    this.appendPropertyText(panel, "Titulo", () => this.programTitleInput.value(), (value) => this.programTitleInput.value(value), "text", this.programFieldTechnicalProperties("programTitle"));
+    this.appendPropertyText(panel, "Screen ID", () => this.screenIdInput.value(), (value) => this.screenIdInput.value(value), "text", this.programFieldTechnicalProperties("screenId"));
+    this.appendPropertyText(panel, "Versao", () => this.versionInput.value(), (value) => this.versionInput.value(value), "text", this.programFieldTechnicalProperties("version"));
+    this.appendPropertySelect(panel, "Origem", [
+      { value: "standard", text: "Padrao" },
+      { value: "customer_overlay", text: "Overlay do cliente" },
+      { value: "customer_custom", text: "Programa especifico" }
+    ], () => this.programOriginSelect.value(), (value) => { this.programOriginSelect.value(value); this.schedulePreview(); }, this.programFieldTechnicalProperties("programOrigin"));
+    this.appendPropertySelect(panel, "Owner", [
+      { value: "system", text: "Sistema" },
+      { value: "subscriber", text: "Assinante" }
+    ], () => this.ownerScopeSelect.value(), (value) => { this.ownerScopeSelect.value(value); this.schedulePreview(); }, this.programFieldTechnicalProperties("ownerScope"));
+    this.appendPropertySelect(panel, "Politica", [
+      { value: "locked", text: "Bloqueado" },
+      { value: "overlay_only", text: "Somente overlay" },
+      { value: "full_override_allowed", text: "Override total permitido" }
+    ], () => this.customizationPolicySelect.value(), (value) => { this.customizationPolicySelect.value(value); this.schedulePreview(); }, this.programFieldTechnicalProperties("customizationPolicy"));
+    this.appendPropertyText(panel, "Assinante", () => this.subscriberIdInput.value(), (value) => this.subscriberIdInput.value(value), "text", this.programFieldTechnicalProperties("subscriberId"));
+    this.appendPropertyText(panel, "Programa base", () => this.baseProgramCodeInput.value(), (value) => this.baseProgramCodeInput.value(value), "text", this.programFieldTechnicalProperties("baseProgramCode"));
+    this.appendPropertyText(panel, "Versao base", () => this.baseProgramVersionIdInput.value(), (value) => this.baseProgramVersionIdInput.value(value), "number", this.programFieldTechnicalProperties("baseProgramVersionId"));
+    this.appendPropertyCheckbox(panel, "Upgrade congelado", () => this.upgradeFrozenInput.is(":checked"), (checked) => this.upgradeFrozenInput.prop("checked", checked).trigger("change"), this.programFieldTechnicalProperties("upgradeFrozen"));
+    this.appendPropertyText(panel, "Motivo congelamento", () => this.frozenReasonInput.value(), (value) => this.frozenReasonInput.value(value), "text", this.programFieldTechnicalProperties("frozenReason"));
+    this.appendPropertyText(panel, "Ambientes", () => this.publicationPolicyInput.value(), (value) => this.publicationPolicyInput.value(value), "text", this.programFieldTechnicalProperties("publicationPolicy"));
     this.appendPropertySelect(panel, "Tipo", [
       { value: "crud", text: "CRUD" },
       { value: "custom", text: "Custom" }
-    ], () => this.pageTypeSelect.value(), (value) => { this.pageTypeSelect.value(value); this.syncProgramTypeState(); });
+    ], () => this.pageTypeSelect.value(), (value) => { this.pageTypeSelect.value(value); this.syncProgramTypeState(); }, this.programFieldTechnicalProperties("pageType"));
     this.appendPropertySelect(panel, "Modulo", this.state.modules.map(function(item) {
       return { value: item.code, text: item.code + " - " + item.name };
-    }), () => this.moduleInput.value(), (value) => this.moduleInput.value(value));
+    }), () => this.moduleInput.value(), (value) => this.moduleInput.value(value), this.programFieldTechnicalProperties("programModule"));
     if (String(this.pageTypeSelect.value() || "crud") === "crud") {
       this.appendPropertySelect(panel, "Entidade base", this.state.entities.map(function(item) {
         return { value: item.code, text: item.code + " - " + item.name };
-      }), () => this.builderEntitySelect.value(), (value) => { this.builderEntitySelect.value(value); this.handleProgramEntityChange(false); });
-      this.appendPropertyCheckbox(panel, "Permite incluir", () => this.allowCreateInput.is(":checked"), (checked) => this.allowCreateInput.prop("checked", checked).trigger("change"));
-      this.appendPropertyCheckbox(panel, "Permite alterar", () => this.allowUpdateInput.is(":checked"), (checked) => this.allowUpdateInput.prop("checked", checked).trigger("change"));
-      this.appendPropertyCheckbox(panel, "Permite excluir", () => this.allowDeleteInput.is(":checked"), (checked) => this.allowDeleteInput.prop("checked", checked).trigger("change"));
+      }), () => this.builderEntitySelect.value(), (value) => { this.builderEntitySelect.value(value); this.handleProgramEntityChange(false); }, this.programFieldTechnicalProperties("baseEntity"));
+      this.appendPropertyCheckbox(panel, "Permite incluir", () => this.allowCreateInput.is(":checked"), (checked) => this.allowCreateInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Programa", "Permite incluir", "Habilita a acao create no CRUD quando o runtime possui endpoint compativel."));
+      this.appendPropertyCheckbox(panel, "Permite alterar", () => this.allowUpdateInput.is(":checked"), (checked) => this.allowUpdateInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Programa", "Permite alterar", "Habilita a acao update no CRUD quando o runtime possui endpoint compativel."));
+      this.appendPropertyCheckbox(panel, "Permite excluir", () => this.allowDeleteInput.is(":checked"), (checked) => this.allowDeleteInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Programa", "Permite excluir", "Habilita a acao delete no CRUD quando o runtime possui endpoint compativel."));
       return;
     }
     this.appendPropertySelect(panel, "Modo custom", [
       { value: "iframe", text: "Iframe interno" },
       { value: "htmlUrl", text: "Fragmento HTML por URL" }
-    ], () => this.customModeSelect.value(), (value) => { this.customModeSelect.value(value); this.schedulePreview(); });
-    this.appendPropertyText(panel, "Entry URL", () => this.customEntryUrlInput.value(), (value) => this.customEntryUrlInput.value(value));
-    this.appendPropertyText(panel, "Titulo do frame", () => this.customFrameTitleInput.value(), (value) => this.customFrameTitleInput.value(value));
+    ], () => this.customModeSelect.value(), (value) => { this.customModeSelect.value(value); this.schedulePreview(); }, this.programFieldTechnicalProperties("customMode"));
+    this.appendPropertyText(panel, "Entry URL", () => this.customEntryUrlInput.value(), (value) => this.customEntryUrlInput.value(value), "text", this.programFieldTechnicalProperties("customEntryUrl"));
+    this.appendPropertyText(panel, "Titulo do frame", () => this.customFrameTitleInput.value(), (value) => this.customFrameTitleInput.value(value), "text", this.programFieldTechnicalProperties("customFrameTitle"));
   };
 
   ProgramBuilder.prototype.renderFieldProperties = function(index) {
@@ -3256,19 +3695,19 @@
       return;
     }
     const panel = $("<div class=\"program-builder-properties-grid\"></div>").appendTo(this.propertiesElement);
-    this.appendPropertyText(panel, "Codigo", () => pair.row.find(".program-builder-field-code").val(), (value) => pair.row.find(".program-builder-field-code").val(value));
-    this.appendPropertyText(panel, "Label", () => pair.row.find(".program-builder-field-label").val(), (value) => pair.row.find(".program-builder-field-label").val(value));
+    this.appendPropertyText(panel, "Codigo", () => pair.row.find(".program-builder-field-code").val(), (value) => pair.row.find(".program-builder-field-code").val(value), "text", this.buildTechnicalProperties("Campo", "Codigo", "Identificador tecnico do campo dentro da entidade.", [{ section: "Modelo", label: "Uso", value: "Referencia em regras, FKs, grid e runtime.", critical: true }]));
+    this.appendPropertyText(panel, "Label", () => pair.row.find(".program-builder-field-label").val(), (value) => pair.row.find(".program-builder-field-label").val(value), "text", this.buildTechnicalProperties("Campo", "Label", "Rotulo funcional exibido no grid, filtro e formulario."));
     this.appendPropertySelect(panel, "Tipo", [
       "string", "text", "integer", "decimal", "boolean", "date", "datetime", "enum", "dropdown", "email", "json", "custom_code"
-    ].map(function(item) { return { value: item, text: item }; }), () => pair.row.find(".program-builder-field-type").val(), (value) => { pair.row.find(".program-builder-field-type").val(value); this.syncFieldRowState(pair.row, pair.details); });
-    this.appendPropertyText(panel, "Coluna", () => pair.row.find(".program-builder-field-column").val(), (value) => pair.row.find(".program-builder-field-column").val(value));
-    this.appendPropertyText(panel, "Tamanho", () => pair.row.find(".program-builder-field-length").val(), (value) => pair.row.find(".program-builder-field-length").val(value), "number");
-    this.appendPropertyCheckbox(panel, "Obrigatorio", () => pair.row.find(".program-builder-field-required").is(":checked"), (checked) => pair.row.find(".program-builder-field-required").prop("checked", checked).trigger("change"));
-    this.appendPropertyCheckbox(panel, "PK", () => pair.row.find(".program-builder-field-pk").is(":checked"), (checked) => { pair.row.find(".program-builder-field-pk").prop("checked", checked).trigger("change"); this.syncFieldRowState(pair.row, pair.details); });
-    this.appendPropertyCheckbox(panel, "Unico", () => pair.details.find(".program-builder-field-unique").is(":checked"), (checked) => pair.details.find(".program-builder-field-unique").prop("checked", checked).trigger("change"));
-    this.appendPropertyCheckbox(panel, "Nao editavel", () => pair.details.find(".program-builder-field-readonly").is(":checked"), (checked) => pair.details.find(".program-builder-field-readonly").prop("checked", checked).trigger("change"));
-    this.appendPropertyText(panel, "FK tabela", () => pair.details.find(".program-builder-field-fk-table").val(), (value) => pair.details.find(".program-builder-field-fk-table").val(value));
-    this.appendPropertyText(panel, "FK coluna", () => pair.details.find(".program-builder-field-fk-column").val(), (value) => pair.details.find(".program-builder-field-fk-column").val(value));
+    ].map(function(item) { return { value: item, text: item }; }), () => pair.row.find(".program-builder-field-type").val(), (value) => { pair.row.find(".program-builder-field-type").val(value); this.syncFieldRowState(pair.row, pair.details); }, this.buildTechnicalProperties("Campo", "Tipo", "Tipo declarativo usado pelo motor para grid, filtro, formulario e serializacao."));
+    this.appendPropertyText(panel, "Coluna", () => pair.row.find(".program-builder-field-column").val(), (value) => pair.row.find(".program-builder-field-column").val(value), "text", this.buildTechnicalProperties("Campo", "Coluna", "Nome da coluna fisica quando a entidade usa persistencia local."));
+    this.appendPropertyText(panel, "Tamanho", () => pair.row.find(".program-builder-field-length").val(), (value) => pair.row.find(".program-builder-field-length").val(value), "number", this.buildTechnicalProperties("Campo", "Tamanho", "Limite de tamanho usado em validacao e geracao de banco quando aplicavel."));
+    this.appendPropertyCheckbox(panel, "Obrigatorio", () => pair.row.find(".program-builder-field-required").is(":checked"), (checked) => pair.row.find(".program-builder-field-required").prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Campo", "Obrigatorio", "Marca o campo como necessario no runtime e em validacoes.", [{ section: "Regra", label: "Impacto", value: "Gera obrigatoriedade no CRUD.", critical: true }]));
+    this.appendPropertyCheckbox(panel, "PK", () => pair.row.find(".program-builder-field-pk").is(":checked"), (checked) => { pair.row.find(".program-builder-field-pk").prop("checked", checked).trigger("change"); this.syncFieldRowState(pair.row, pair.details); }, this.buildTechnicalProperties("Campo", "PK", "Define a chave primaria logica da entidade.", [{ section: "Banco", label: "Impacto", value: "Usado para grid, get, update e delete.", critical: true }]));
+    this.appendPropertyCheckbox(panel, "Unico", () => pair.details.find(".program-builder-field-unique").is(":checked"), (checked) => pair.details.find(".program-builder-field-unique").prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Campo", "Unico", "Impede repeticao de valor por validacao/estrutura quando aplicavel."));
+    this.appendPropertyCheckbox(panel, "Nao editavel", () => pair.details.find(".program-builder-field-readonly").is(":checked"), (checked) => pair.details.find(".program-builder-field-readonly").prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Campo", "Nao editavel", "Desliga escrita do campo no runtime gerado.", [{ section: "Runtime", label: "Impacto", value: "Campo somente leitura.", critical: true }]));
+    this.appendPropertyText(panel, "FK tabela", () => pair.details.find(".program-builder-field-fk-table").val(), (value) => pair.details.find(".program-builder-field-fk-table").val(value), "text", this.buildTechnicalProperties("Campo", "FK tabela", "Tabela ou entidade de referencia da chave estrangeira."));
+    this.appendPropertyText(panel, "FK coluna", () => pair.details.find(".program-builder-field-fk-column").val(), (value) => pair.details.find(".program-builder-field-fk-column").val(value), "text", this.buildTechnicalProperties("Campo", "FK coluna", "Campo de referencia usado pela chave estrangeira."));
   };
 
   ProgramBuilder.prototype.renderRuleProperties = function(index) {
@@ -3278,23 +3717,23 @@
       return;
     }
     const panel = $("<div class=\"program-builder-properties-grid\"></div>").appendTo(this.propertiesElement);
-    this.appendPropertyText(panel, "Rotulo", () => pair.row.find(".program-builder-rule-label").val(), (value) => pair.row.find(".program-builder-rule-label").val(value));
-    this.appendPropertyText(panel, "Ordem", () => pair.row.find(".program-builder-rule-order").val(), (value) => pair.row.find(".program-builder-rule-order").val(value), "number");
+    this.appendPropertyText(panel, "Rotulo", () => pair.row.find(".program-builder-rule-label").val(), (value) => pair.row.find(".program-builder-rule-label").val(value), "text", this.buildTechnicalProperties("Regra", "Rotulo", "Nome curto exibido na lista de regras do construtor."));
+    this.appendPropertyText(panel, "Ordem", () => pair.row.find(".program-builder-rule-order").val(), (value) => pair.row.find(".program-builder-rule-order").val(value), "number", this.buildTechnicalProperties("Regra", "Ordem", "Sequencia de execucao da regra dentro da mesma fase."));
     this.appendPropertySelect(panel, "Fase", [
       { value: "beforeValidate", text: "Antes da validacao" },
       { value: "beforePersist", text: "Antes de gravar" },
       { value: "afterPersist", text: "Apos gravar" },
       { value: "afterCommit", text: "Apos concluir" }
-    ], () => pair.row.find(".program-builder-rule-phase").val(), (value) => pair.row.find(".program-builder-rule-phase").val(value));
+    ], () => pair.row.find(".program-builder-rule-phase").val(), (value) => pair.row.find(".program-builder-rule-phase").val(value), this.buildTechnicalProperties("Regra", "Fase", "Momento do ciclo runtime em que a regra sera executada."));
     this.appendPropertySelect(panel, "Tipo", [
       { value: "requiredWhen", text: "Declarativa" },
       { value: "class_method", text: "Classe/metodo" }
-    ], () => pair.row.find(".program-builder-rule-type").val(), (value) => { pair.row.find(".program-builder-rule-type").val(value); this.syncRuleRowState(pair.row, pair.details); });
-    this.appendPropertyCheckbox(panel, "Ativa", () => pair.row.find(".program-builder-rule-enabled").is(":checked"), (checked) => pair.row.find(".program-builder-rule-enabled").prop("checked", checked).trigger("change"));
-    this.appendPropertyCheckbox(panel, "Continua apos erro", () => pair.row.find(".program-builder-rule-continue").is(":checked"), (checked) => pair.row.find(".program-builder-rule-continue").prop("checked", checked).trigger("change"));
-    this.appendPropertyText(panel, "Classe", () => pair.details.find(".program-builder-rule-class-name").val(), (value) => pair.details.find(".program-builder-rule-class-name").val(value));
-    this.appendPropertyText(panel, "Metodo", () => pair.details.find(".program-builder-rule-method-name").val(), (value) => pair.details.find(".program-builder-rule-method-name").val(value));
-    this.appendPropertyText(panel, "Campo", () => pair.details.find(".program-builder-rule-field").val(), (value) => pair.details.find(".program-builder-rule-field").val(value));
+    ], () => pair.row.find(".program-builder-rule-type").val(), (value) => { pair.row.find(".program-builder-rule-type").val(value); this.syncRuleRowState(pair.row, pair.details); }, this.buildTechnicalProperties("Regra", "Tipo", "Escolhe entre regra declarativa simples ou regra por classe/metodo no backend."));
+    this.appendPropertyCheckbox(panel, "Ativa", () => pair.row.find(".program-builder-rule-enabled").is(":checked"), (checked) => pair.row.find(".program-builder-rule-enabled").prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Regra", "Ativa", "Controla se a regra participa do pipeline runtime."));
+    this.appendPropertyCheckbox(panel, "Continua apos erro", () => pair.row.find(".program-builder-rule-continue").is(":checked"), (checked) => pair.row.find(".program-builder-rule-continue").prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Regra", "Continua apos erro", "Permite seguir para a proxima regra mesmo quando esta falhar."));
+    this.appendPropertyText(panel, "Classe", () => pair.details.find(".program-builder-rule-class-name").val(), (value) => pair.details.find(".program-builder-rule-class-name").val(value), "text", this.buildTechnicalProperties("Regra", "Classe", "Classe backend usada quando o tipo da regra for class_method."));
+    this.appendPropertyText(panel, "Metodo", () => pair.details.find(".program-builder-rule-method-name").val(), (value) => pair.details.find(".program-builder-rule-method-name").val(value), "text", this.buildTechnicalProperties("Regra", "Metodo", "Metodo backend chamado quando o tipo da regra for class_method."));
+    this.appendPropertyText(panel, "Campo", () => pair.details.find(".program-builder-rule-field").val(), (value) => pair.details.find(".program-builder-rule-field").val(value), "text", this.buildTechnicalProperties("Regra", "Campo", "Campo principal avaliado pela regra ou usado como alvo de mensagem."));
   };
 
   ProgramBuilder.prototype.renderUniqueKeyProperties = function(index) {
@@ -3304,18 +3743,18 @@
       return;
     }
     const panel = $("<div class=\"program-builder-properties-grid\"></div>").appendTo(this.propertiesElement);
-    this.appendPropertyText(panel, "Nome", () => row.find(".program-builder-unique-key-name").val(), (value) => row.find(".program-builder-unique-key-name").val(value));
-    this.appendPropertyText(panel, "Campos", () => row.find(".program-builder-unique-key-fields").val(), (value) => row.find(".program-builder-unique-key-fields").val(value));
+    this.appendPropertyText(panel, "Nome", () => row.find(".program-builder-unique-key-name").val(), (value) => row.find(".program-builder-unique-key-name").val(value), "text", this.buildTechnicalProperties("Chave unica", "Nome", "Identificador tecnico da restricao composta."));
+    this.appendPropertyText(panel, "Campos", () => row.find(".program-builder-unique-key-fields").val(), (value) => row.find(".program-builder-unique-key-fields").val(value), "text", this.buildTechnicalProperties("Chave unica", "Campos", "Lista ordenada de campos que participam da chave composta.", [{ section: "Banco", label: "Impacto", value: "Restringe duplicidade no conjunto.", critical: true }]));
   };
 
-  ProgramBuilder.prototype.appendPropertyField = function(parent, label) {
+  ProgramBuilder.prototype.appendPropertyField = function(parent, label, technicalProperties) {
     const field = $("<label class=\"program-builder-field\"></label>").appendTo(parent);
-    $("<span></span>").text(label).appendTo(field);
+    this.appendFieldLabel(field, label, technicalProperties);
     return field;
   };
 
-  ProgramBuilder.prototype.appendPropertyText = function(parent, label, getter, setter, type) {
-    const field = this.appendPropertyField(parent, label);
+  ProgramBuilder.prototype.appendPropertyText = function(parent, label, getter, setter, type, technicalProperties) {
+    const field = this.appendPropertyField(parent, label, technicalProperties);
     const input = $("<input>").attr("type", type || "text").addClass("program-builder-mini-input").val(getter() || "").appendTo(field);
     input.on("input change", function() {
       setter(input.val());
@@ -3323,8 +3762,8 @@
     }.bind(this));
   };
 
-  ProgramBuilder.prototype.appendPropertyCheckbox = function(parent, label, getter, setter) {
-    const field = this.appendPropertyField(parent, label);
+  ProgramBuilder.prototype.appendPropertyCheckbox = function(parent, label, getter, setter, technicalProperties) {
+    const field = this.appendPropertyField(parent, label, technicalProperties);
     const wrap = $("<label class=\"program-builder-property-check\"></label>").appendTo(field);
     const input = $("<input type=\"checkbox\">").prop("checked", getter() === true).appendTo(wrap);
     $("<span></span>").text("Ativar").appendTo(wrap);
@@ -3334,8 +3773,8 @@
     }.bind(this));
   };
 
-  ProgramBuilder.prototype.appendPropertySelect = function(parent, label, items, getter, setter) {
-    const field = this.appendPropertyField(parent, label);
+  ProgramBuilder.prototype.appendPropertySelect = function(parent, label, items, getter, setter, technicalProperties) {
+    const field = this.appendPropertyField(parent, label, technicalProperties);
     const select = $("<select class=\"program-builder-mini-select\"></select>").appendTo(field);
     (items || []).forEach(function(item) {
       $("<option></option>").attr("value", item.value).text(item.text).appendTo(select);
@@ -3347,8 +3786,8 @@
     }.bind(this));
   };
 
-  ProgramBuilder.prototype.appendPropertyReadOnly = function(parent, label, value) {
-    const field = this.appendPropertyField(parent, label);
+  ProgramBuilder.prototype.appendPropertyReadOnly = function(parent, label, value, technicalProperties) {
+    const field = this.appendPropertyField(parent, label, technicalProperties);
     $("<div class=\"program-builder-property-readonly\"></div>").text(value || "").appendTo(field);
   };
 
@@ -3600,30 +4039,22 @@
   };
 
   ProgramBuilder.prototype.loadEditorContext = function() {
-    try {
-      const raw = global.localStorage && global.localStorage.getItem(this.contextStorageKey);
-      this.restoredContext = raw ? JSON.parse(raw) : null;
-    } catch (_) {
-      this.restoredContext = null;
-    }
+    this.restoredContext = global.ProgramBuilderStorage && typeof global.ProgramBuilderStorage.load === "function"
+      ? global.ProgramBuilderStorage.load(this.contextStorageKey)
+      : null;
   };
 
   ProgramBuilder.prototype.persistEditorContext = function() {
-    try {
-      if (!global.localStorage) {
-        return;
-      }
-      const payload = {
-        navigatorFilter: this.navigatorFilter,
-        navigatorTypeFilter: this.navigatorTypeFilter,
-        navigatorStateFilter: this.navigatorStateFilter,
-        navigatorSelection: this.state.navigatorSelection,
-        editorTabIndex: this.editorTabs ? this.editorTabs.select().index() : 0,
-        sideTabIndex: this.sideTabs ? this.sideTabs.select().index() : 0
-      };
-      global.localStorage.setItem(this.contextStorageKey, JSON.stringify(payload));
-    } catch (_) {
-      // ignore
+    const payload = {
+      navigatorFilter: this.navigatorFilter,
+      navigatorTypeFilter: this.navigatorTypeFilter,
+      navigatorStateFilter: this.navigatorStateFilter,
+      navigatorSelection: this.state.navigatorSelection,
+      editorTabIndex: this.editorTabs ? this.editorTabs.select().index() : 0,
+      sideTabIndex: this.sideTabs ? this.sideTabs.select().index() : 0
+    };
+    if (global.ProgramBuilderStorage && typeof global.ProgramBuilderStorage.save === "function") {
+      global.ProgramBuilderStorage.save(this.contextStorageKey, payload);
     }
   };
 
@@ -6096,6 +6527,15 @@
     this.iconInput.value(version.icon || "file");
     this.permissionPrefixInput.value(version.permissionPrefix || "");
     this.pageTypeSelect.value(version.pageType || "crud");
+    this.programOriginSelect.value(version.programOrigin || "standard");
+    this.ownerScopeSelect.value(version.ownerScope || "system");
+    this.customizationPolicySelect.value(version.customizationPolicy || "overlay_only");
+    this.subscriberIdInput.value(version.subscriberId || "");
+    this.baseProgramCodeInput.value(version.baseProgramCode || "");
+    this.baseProgramVersionIdInput.value(version.baseProgramVersionId != null ? String(version.baseProgramVersionId) : "");
+    this.upgradeFrozenInput.prop("checked", version.upgradeFrozen === true);
+    this.frozenReasonInput.value(version.frozenReason || "");
+    this.publicationPolicyInput.value(this.stringifyPublicationPolicy(version.builderConfig && version.builderConfig.publicationPolicy));
     this.builderEntitySelect.value(version.builderEntityCode || "");
     this.customModeSelect.value(version.customMode || "iframe");
     this.customEntryUrlInput.value(version.customEntryUrl || "");
@@ -6130,6 +6570,15 @@
     this.iconInput.value("file");
     this.permissionPrefixInput.value("");
     this.pageTypeSelect.value("crud");
+    this.programOriginSelect.value("standard");
+    this.ownerScopeSelect.value("system");
+    this.customizationPolicySelect.value("overlay_only");
+    this.subscriberIdInput.value("");
+    this.baseProgramCodeInput.value("");
+    this.baseProgramVersionIdInput.value("");
+    this.upgradeFrozenInput.prop("checked", false);
+    this.frozenReasonInput.value("");
+    this.publicationPolicyInput.value("");
     this.builderEntitySelect.value(this.state.currentEntityCode || "");
     this.customModeSelect.value("iframe");
     this.customEntryUrlInput.value("");
@@ -6225,6 +6674,17 @@
       subtitle: this.subtitleInput.value(),
       icon: this.iconInput.value(),
       permissionPrefix: this.permissionPrefixInput.value(),
+      programOrigin: String(this.programOriginSelect.value() || "standard"),
+      ownerScope: String(this.ownerScopeSelect.value() || "system"),
+      customizationPolicy: String(this.customizationPolicySelect.value() || "overlay_only"),
+      subscriberId: this.subscriberIdInput.value(),
+      baseProgramCode: this.baseProgramCodeInput.value(),
+      baseProgramVersionId: this.baseProgramVersionIdInput.value(),
+      upgradeFrozen: this.upgradeFrozenInput.is(":checked"),
+      frozenReason: this.frozenReasonInput.value(),
+      publicationPolicy: {
+        allowedDatabaseEnvironments: this.parseCommaSeparatedValues(this.publicationPolicyInput.value())
+      },
       allowCreate: pageType === "crud" && this.allowCreateInput.is(":checked"),
       allowUpdate: pageType === "crud" && this.allowUpdateInput.is(":checked"),
       allowDelete: pageType === "crud" && this.allowDeleteInput.is(":checked"),
@@ -6365,6 +6825,12 @@
       global.CrudUtils.showMessage("Selecione uma versao salva antes de publicar.", "warning");
       return;
     }
+    const gate = this.governanceGateState(current);
+    if (gate.required && !gate.ready) {
+      global.CrudUtils.showMessage("A versao ainda tem pendencias de governanca. Regularize o gate antes de publicar.", "warning");
+      this.openGovernanceDialog();
+      return;
+    }
 
     global.CrudUtils.confirm("Publicar esta versao vai atualizar o programa e a tela runtime correspondente.", {
       title: "Publicar versao",
@@ -6486,6 +6952,14 @@
     badges.forEach(function(text) {
       $("<span class=\"k-badge k-badge-solid k-badge-solid-base k-rounded-md\"></span>").text(text).appendTo(this.previewMeta);
     }, this);
+
+    const gate = this.governanceGateState(source);
+    if (gate.required) {
+      $("<span class=\"k-badge k-rounded-md\"></span>")
+        .addClass(gate.ready ? "k-badge-solid k-badge-solid-success" : "k-badge-solid k-badge-solid-error")
+        .text(gate.ready ? "Governanca pronta" : "Governanca pendente")
+        .appendTo(this.previewMeta);
+    }
   };
 
   ProgramBuilder.prototype.updateBanner = function() {
@@ -6506,11 +6980,820 @@
     const currentEntityVersion = this.state.currentEntityVersion;
     const hasEntityVersion = !!(currentEntityVersion && currentEntityVersion.id);
     const readonly = this.state.lockReadonly === true;
+    this.governanceButton.enable(hasSavedVersion);
+    this.overlayRebaseButton.enable(hasSavedVersion && !!current && !!current.baseProgramCode && String(current.programOrigin || "standard") !== "standard");
     this.publishButton.enable(hasSavedVersion && !readonly);
     this.duplicateButton.enable(hasSavedVersion && !readonly);
     this.restoreEntityButton.enable(hasEntityVersion && !readonly);
     this.saveEntityButton.enable(!readonly);
     this.saveDraftButton.enable(!readonly);
+  };
+
+  ProgramBuilder.prototype.isGovernedStandardVersion = function(version) {
+    const source = version || {};
+    return String(source.programOrigin || "standard") === "standard"
+      && String(source.ownerScope || "system") === "system";
+  };
+
+  ProgramBuilder.prototype.governanceGateState = function(version) {
+    const source = version || {};
+    const required = this.isGovernedStandardVersion(source);
+    const grant = source.governance && source.governance.grant ? source.governance.grant : null;
+    const approval = source.governance && source.governance.approval ? source.governance.approval : null;
+    const issues = [];
+    if (!required) {
+      return { required: false, ready: true, issues: issues, grant: grant, approval: approval };
+    }
+
+    if (!grant || grant.status !== "active") {
+      issues.push("Falta grant ativo para editar e publicar o programa padrao.");
+    }
+    if (!this.state.currentLock || !this.state.currentLock.id) {
+      issues.push("Falta lock ativo de autoria para a sessao atual.");
+    } else if (grant && this.state.currentLock.grantId && Number(this.state.currentLock.grantId) !== Number(grant.id)) {
+      issues.push("O lock atual nao esta vinculado ao grant ativo.");
+    }
+    if (!approval || approval.status !== "approved") {
+      issues.push("Falta aprovacao final ativa para a versao corrente.");
+    } else if (!approval.testExecutionBundleId) {
+      issues.push("A aprovacao final ainda nao referencia o bundle de testes executados.");
+    }
+
+    return {
+      required: true,
+      ready: issues.length === 0,
+      issues: issues,
+      grant: grant,
+      approval: approval
+    };
+  };
+
+  ProgramBuilder.prototype.renderGovernanceChecklist = function(container, version) {
+    const gate = this.governanceGateState(version);
+    if (!gate.required) {
+      $("<p class=\"program-builder-empty\"></p>").text("Esta versao nao exige gate de governanca de programa padrao.").appendTo(container);
+      return gate;
+    }
+
+    const list = $("<ul class=\"program-builder-checklist\"></ul>").appendTo(container);
+    [
+      { ok: !!(gate.grant && gate.grant.status === "active"), text: "Grant ativo" },
+      { ok: !!(this.state.currentLock && this.state.currentLock.id), text: "Lock ativo da sessao" },
+      { ok: !!(gate.approval && gate.approval.status === "approved"), text: "Aprovacao final ativa" },
+      { ok: !!(gate.approval && gate.approval.testExecutionBundleId), text: "Bundle de testes vinculado" }
+    ].forEach(function(item) {
+      $("<li></li>")
+        .addClass(item.ok ? "is-valid" : "is-invalid")
+        .text((item.ok ? "OK: " : "Pendente: ") + item.text)
+        .appendTo(list);
+    });
+
+    gate.issues.forEach(function(message) {
+      $("<p class=\"program-builder-inline-warning\"></p>").text(message).appendTo(container);
+    });
+
+    return gate;
+  };
+
+  ProgramBuilder.prototype.renderGovernanceWorkflowPanel = function(container, version) {
+    const source = version || {};
+    const governance = source.governance || {};
+    const gate = this.governanceGateState(source);
+    const panel = $("<section class=\"program-builder-subpanel\"></section>").appendTo(container);
+    $("<div class=\"program-builder-versions-header\"><h3>Workflow guiado</h3><p>Resume o estado atual e aponta a proxima acao necessaria.</p></div>").appendTo(panel);
+    const grid = $("<div class=\"program-builder-governance-grid\"></div>").appendTo(panel);
+    [
+      { label: "Solicitacao", status: governance.request && governance.request.status ? governance.request.status : "pendente", valid: !!governance.request },
+      { label: "Grant", status: gate.grant && gate.grant.status ? gate.grant.status : "pendente", valid: !!(gate.grant && gate.grant.status === "active") },
+      { label: "Lock", status: this.state.currentLock && this.state.currentLock.id ? "ativo" : "pendente", valid: !!(this.state.currentLock && this.state.currentLock.id) },
+      { label: "Bundle", status: gate.approval && gate.approval.testExecutionBundleId ? gate.approval.testExecutionBundleId : "pendente", valid: !!(gate.approval && gate.approval.testExecutionBundleId) },
+      { label: "Aprovacao", status: gate.approval && gate.approval.status ? gate.approval.status : "pendente", valid: !!(gate.approval && gate.approval.status === "approved") }
+    ].forEach(function(item) {
+      const card = $("<article class=\"program-builder-governance-card\"></article>").appendTo(grid);
+      $("<strong></strong>").text(item.label).appendTo(card);
+      $("<span></span>").addClass(item.valid ? "is-valid" : "is-invalid").text(item.status).appendTo(card);
+    });
+
+    const nextAction = !governance.request
+      ? "Criar a solicitacao formal de alteracao."
+      : !(gate.grant && gate.grant.status === "active")
+        ? "Liberar ou reativar o grant da versao."
+        : !(this.state.currentLock && this.state.currentLock.id)
+          ? "Adquirir lock de autoria para a sessao corrente."
+          : !(gate.approval && gate.approval.testExecutionBundleId)
+            ? "Registrar o bundle de testes executado."
+            : !(gate.approval && gate.approval.status === "approved")
+              ? "Registrar a aprovacao final da publicacao."
+              : "Gate completo. A versao ja pode seguir para publicacao governada.";
+    $("<p class=\"program-builder-inline-warning\"></p>").text(nextAction).appendTo(panel);
+
+    if (governance.retentionPolicy) {
+      $("<p class=\"program-builder-inline-muted\"></p>")
+        .text("Retencao: solicitacoes " + governance.retentionPolicy.changeRequestsDays + "d, grants " + governance.retentionPolicy.grantsDays + "d, aprovacoes " + governance.retentionPolicy.approvalsDays + "d, testes " + governance.retentionPolicy.testExecutionsDays + "d.")
+        .appendTo(panel);
+    }
+  };
+
+  ProgramBuilder.prototype.renderGovernanceDashboard = function(container, dashboard, currentVersion) {
+    container.empty();
+    if (!dashboard || typeof dashboard !== "object") {
+      $("<p class=\"program-builder-empty\"></p>").text("Nao foi possivel carregar o painel operacional da governanca.").appendTo(container);
+      return;
+    }
+
+    const summary = $("<section class=\"program-builder-subpanel\"></section>").appendTo(container);
+    $("<div class=\"program-builder-versions-header\"><h3>Painel operacional</h3><p>Ultimas solicitacoes, grants, aprovacoes e bundles do programa corrente.</p></div>").appendTo(summary);
+    const summaryGrid = $("<div class=\"program-builder-governance-grid\"></div>").appendTo(summary);
+    [
+      { label: "Solicitacoes pendentes", status: String(dashboard.summary && dashboard.summary.pendingRequests || 0), valid: Number(dashboard.summary && dashboard.summary.pendingRequests || 0) === 0 },
+      { label: "Grants ativos", status: String(dashboard.summary && dashboard.summary.activeGrants || 0), valid: Number(dashboard.summary && dashboard.summary.activeGrants || 0) > 0 },
+      { label: "Aprovacoes", status: String(dashboard.summary && dashboard.summary.approvedPublications || 0), valid: Number(dashboard.summary && dashboard.summary.approvedPublications || 0) > 0 },
+      { label: "Testes aprovados", status: String(dashboard.summary && dashboard.summary.passedTests || 0), valid: Number(dashboard.summary && dashboard.summary.passedTests || 0) > 0 }
+    ].forEach(function(item) {
+      const card = $("<article class=\"program-builder-governance-card\"></article>").appendTo(summaryGrid);
+      $("<strong></strong>").text(item.label).appendTo(card);
+      $("<span></span>").addClass(item.valid ? "is-valid" : "is-invalid").text(item.status).appendTo(card);
+    });
+
+    if (dashboard.retentionPolicy) {
+      $("<p class=\"program-builder-inline-muted\"></p>")
+        .text("Retencao parametrizavel em admin.parametros: solicitacoes " + dashboard.retentionPolicy.changeRequestsDays + "d, grants " + dashboard.retentionPolicy.grantsDays + "d, aprovacoes " + dashboard.retentionPolicy.approvalsDays + "d, testes " + dashboard.retentionPolicy.testExecutionsDays + "d, notificacoes " + dashboard.retentionPolicy.administrativeNotificationsDays + "d.")
+        .appendTo(summary);
+    }
+
+    [
+      {
+        title: "Solicitacoes recentes",
+        items: dashboard.requests || [],
+        formatter: function(item) { return (item.requestCode || "-") + " | " + (item.status || "pendente") + " | " + (item.requestedBy || "-"); },
+        renderActions: function(actions, item) {
+          $("<button type=\"button\"></button>").text("Usar request").appendTo(actions).kendoButton({
+            icon: "arrow-right",
+            click: function() {
+              container.closest(".k-window-content").find("input").each(function() {
+                const label = $(this).closest(".program-builder-field").find("label").text();
+                if (/Request ID/i.test(label)) {
+                  this.value = String(item.id || "");
+                }
+              });
+              global.CrudUtils.showMessage("Request carregado no formulario do grant.", "info");
+            }
+          });
+        }
+      },
+      {
+        title: "Grants recentes",
+        items: dashboard.grants || [],
+        formatter: function(item) { return "Grant " + (item.id || "-") + " | " + (item.status || "-") + " | " + (item.grantedToUserId || "-"); },
+        renderActions: function(actions, item) {
+          [["active", "Reativar"], ["frozen", "Congelar"], ["revoked", "Revogar"]].forEach(function(entry) {
+            $("<button type=\"button\"></button>").text(entry[1]).appendTo(actions).kendoButton({
+              click: function() {
+                this.http.request({
+                  url: "/api/admin/program-builder/governance/grants/status",
+                  method: "POST",
+                  data: { grantId: Number(item.id || 0), status: entry[0] }
+                }).then(function() {
+                  global.CrudUtils.showMessage("Grant atualizado.", "success");
+                  this.openGovernanceDialog();
+                }.bind(this)).catch(function(error) {
+                  this.handleError(error, "Nao foi possivel alterar o grant.");
+                }.bind(this));
+              }.bind(this)
+            });
+          }.bind(this));
+        }.bind(this)
+      },
+      {
+        title: "Aprovacoes recentes",
+        items: dashboard.approvals || [],
+        formatter: function(item) { return "Aprovacao " + (item.id || "-") + " | " + (item.status || "-") + " | bundle " + (item.testExecutionBundleId || "-"); },
+        renderActions: function(actions, item) {
+          $("<button type=\"button\"></button>").text("Usar bundle").appendTo(actions).kendoButton({
+            icon: "arrow-right",
+            click: function() {
+              container.closest(".k-window-content").find("input").each(function() {
+                const label = $(this).closest(".program-builder-field").find("label").text();
+                if (/Bundle/i.test(label)) {
+                  this.value = String(item.testExecutionBundleId || "");
+                }
+              });
+              global.CrudUtils.showMessage("Bundle carregado no formulario.", "info");
+            }
+          });
+        }
+      },
+      {
+        title: "Bundles recentes",
+        items: dashboard.tests || [],
+        formatter: function(item) { return (item.bundleId || "-") + " | " + (item.status || "-") + " | " + (item.testPlanId || "-"); },
+        renderActions: function(actions, item) {
+          $("<button type=\"button\"></button>").text("Usar bundle").appendTo(actions).kendoButton({
+            icon: "arrow-right",
+            click: function() {
+              container.closest(".k-window-content").find("input").each(function() {
+                const label = $(this).closest(".program-builder-field").find("label").text();
+                if (/Bundle/i.test(label)) {
+                  this.value = String(item.bundleId || "");
+                }
+              });
+              global.CrudUtils.showMessage("Bundle carregado no formulario.", "info");
+            }
+          });
+        }
+      }
+    ].forEach(function(section) {
+      const panel = $("<section class=\"program-builder-subpanel\"></section>").appendTo(container);
+      $("<div class=\"program-builder-versions-header\"><h3></h3><p></p></div>").appendTo(panel)
+        .find("h3").text(section.title).end()
+        .find("p").text("Resumo operacional para reduzir dependencia do CRUD administrativo generico.");
+      if (!Array.isArray(section.items) || !section.items.length) {
+        $("<p class=\"program-builder-empty\"></p>").text("Nenhum registro recente.").appendTo(panel);
+        return;
+      }
+      const list = $("<div class=\"program-builder-governance-dashboard-list\"></div>").appendTo(panel);
+      section.items.forEach(function(item) {
+        const row = $("<div class=\"program-builder-governance-dashboard-row\"></div>").appendTo(list);
+        $("<div class=\"program-builder-governance-dashboard-text\"></div>").text(section.formatter(item)).appendTo(row);
+        const actions = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(row);
+        if (typeof section.renderActions === "function") {
+          section.renderActions(actions, item);
+        }
+      });
+    });
+
+    const retention = $("<section class=\"program-builder-subpanel\"></section>").appendTo(container);
+    $("<div class=\"program-builder-versions-header\"><h3>Retencao</h3><p>Edicao direta da politica de limpeza da governanca.</p></div>").appendTo(retention);
+    const retentionGrid = $("<div class=\"program-builder-governance-grid\"></div>").appendTo(retention);
+    const retentionInputs = {};
+    [
+      { key: "changeRequestsDays", label: "Solicitacoes" },
+      { key: "grantsDays", label: "Grants" },
+      { key: "approvalsDays", label: "Aprovacoes" },
+      { key: "testExecutionsDays", label: "Testes" },
+      { key: "administrativeNotificationsDays", label: "Notificacoes" }
+    ].forEach(function(item) {
+      const field = $("<div class=\"program-builder-field\"></div>").appendTo(retentionGrid);
+      $("<label></label>").text(item.label + " (dias)").appendTo(field);
+      retentionInputs[item.key] = $("<input type=\"number\" min=\"1\">")
+        .val(String((dashboard.retentionPolicy && dashboard.retentionPolicy[item.key]) || ""))
+        .appendTo(field);
+    });
+    const retentionActions = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(retention);
+    $("<button type=\"button\"></button>").text("Salvar retencao").appendTo(retentionActions).kendoButton({
+      icon: "save",
+      click: function() {
+        const payload = {};
+        Object.keys(retentionInputs).forEach(function(key) {
+          payload[key] = Number(retentionInputs[key].val() || 0);
+        });
+        this.http.request({
+          url: "/api/admin/program-builder/governance/retention",
+          method: "POST",
+          data: payload
+        }).then(function(response) {
+          global.CrudUtils.showMessage("Retencao atualizada.", "success");
+          this.renderGovernanceDashboard(container, response, currentVersion);
+        }.bind(this)).catch(function(error) {
+          this.handleError(error, "Nao foi possivel atualizar a retencao.");
+        }.bind(this));
+      }.bind(this)
+    });
+  };
+
+  ProgramBuilder.prototype.renderOverlayRebasePreview = function(container, response) {
+    this.overlayRebasePreview = response || null;
+    this.overlayRebaseSelections = this.overlayRebaseSelections || {};
+    container.empty();
+    if (!response || typeof response !== "object") {
+      $("<p class=\"program-builder-empty\"></p>").text("Nenhum preview de rebase foi carregado.").appendTo(container);
+      return;
+    }
+
+    const summary = $("<section class=\"program-builder-subpanel\"></section>").appendTo(container);
+    $("<div class=\"program-builder-versions-header\"><h3>Resumo do rebase</h3><p>Compara a base antiga, a nova base publicada e a definicao resolvida do overlay.</p></div>").appendTo(summary);
+    const statusRow = $("<div class=\"program-builder-inline-actions program-builder-diff-status-row\"></div>").appendTo(summary);
+    $("<span class=\"k-badge k-rounded-md\"></span>")
+      .addClass(response.status === "ok" ? "k-badge-solid k-badge-solid-success" : (response.status === "warning" ? "k-badge-solid k-badge-solid-warning" : "k-badge-solid k-badge-solid-error"))
+      .text("Status: " + String(response.status || "desconhecido"))
+      .appendTo(statusRow);
+    if (response.currentBaseVersion) {
+      $("<span class=\"k-badge k-rounded-md\"></span>").text("Base atual: " + response.currentBaseVersion).appendTo(statusRow);
+    }
+    if (response.targetBaseVersion) {
+      $("<span class=\"k-badge k-rounded-md\"></span>").text("Base alvo: " + response.targetBaseVersion).appendTo(statusRow);
+    }
+    if (response.customizationKind) {
+      $("<span class=\"k-badge k-rounded-md\"></span>").text("Tipo: " + response.customizationKind).appendTo(statusRow);
+    }
+    if (response.summaryCounts) {
+      $("<span class=\"k-badge k-rounded-md\"></span>").text("Auto merge: " + String(response.summaryCounts.autoMerge || 0)).appendTo(statusRow);
+      $("<span class=\"k-badge k-rounded-md\"></span>").text("Overlay only: " + String(response.summaryCounts.overlayOnly || 0)).appendTo(statusRow);
+      $("<span class=\"k-badge k-rounded-md\"></span>").text("Conflitos leves: " + String(response.summaryCounts.warningConflicts || 0)).appendTo(statusRow);
+      $("<span class=\"k-badge k-rounded-md\"></span>").text("Conflitos bloqueantes: " + String(response.summaryCounts.blockingConflicts || 0)).appendTo(statusRow);
+    }
+    $("<p class=\"program-builder-inline-warning\"></p>").text(response.reason || "Sem diagnostico adicional.").appendTo(summary);
+
+    if (response.summaryCounts) {
+      const cards = $("<div class=\"program-builder-governance-grid\"></div>").appendTo(summary);
+      [
+        { label: "Merge automatico", value: response.summaryCounts.autoMerge || 0, valid: (response.summaryCounts.autoMerge || 0) > 0 },
+        { label: "Apenas overlay", value: response.summaryCounts.overlayOnly || 0, valid: (response.summaryCounts.overlayOnly || 0) > 0 },
+        { label: "Conflitos leves", value: response.summaryCounts.warningConflicts || 0, valid: (response.summaryCounts.warningConflicts || 0) === 0 },
+        { label: "Conflitos bloqueantes", value: response.summaryCounts.blockingConflicts || 0, valid: (response.summaryCounts.blockingConflicts || 0) === 0 }
+      ].forEach(function(item) {
+        const card = $("<article class=\"program-builder-governance-card\"></article>").appendTo(cards);
+        $("<strong></strong>").text(item.label).appendTo(card);
+        $("<span></span>").addClass(item.valid ? "is-valid" : "is-invalid").text(String(item.value)).appendTo(card);
+      });
+    }
+
+    if (Array.isArray(response.sections) && response.sections.length) {
+      const controls = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(summary);
+      const filterInput = $("<input type=\"text\" placeholder=\"Filtrar secao/caminho\">").appendTo(controls);
+      const typeSelect = $("<select></select>").appendTo(controls);
+      [
+        { value: "all", text: "Todas" },
+        { value: "auto_merge", text: "Merge automatico" },
+        { value: "overlay_only", text: "Apenas overlay" },
+        { value: "conflict_warning", text: "Conflito leve" },
+        { value: "conflict_blocking", text: "Conflito bloqueante" }
+      ].forEach(function(option) {
+        $("<option></option>").attr("value", option.value).text(option.text).appendTo(typeSelect);
+      });
+      const resolutionSummary = $("<section class=\"program-builder-subpanel\"></section>").appendTo(summary);
+      $("<div class=\"program-builder-versions-header\"><h3>Plano de resolucao</h3><p>Resume o que sera aplicado no rebase conforme as escolhas por campo.</p></div>").appendTo(resolutionSummary);
+      const resolutionCards = $("<div class=\"program-builder-governance-grid\"></div>").appendTo(resolutionSummary);
+      const resolutionWarning = $("<p class=\"program-builder-inline-warning\"></p>").appendTo(resolutionSummary);
+      const renderResolutionSummary = function() {
+        const counters = {
+          rebased: 0,
+          overlay: 0,
+          base: 0,
+          blocking: 0,
+          warnings: 0
+        };
+        response.sections.forEach(function(section) {
+          const entries = Array.isArray(section && section.entries) ? section.entries : [];
+          entries.forEach(function(entry) {
+            const pathKey = entry && entry.path ? String(entry.path) : "";
+            const selectedResolution = this.overlayRebaseSelections[pathKey]
+              || (entry && entry.selectedResolution ? entry.selectedResolution : "rebased");
+            if (selectedResolution === "overlay") {
+              counters.overlay += 1;
+            } else if (selectedResolution === "base") {
+              counters.base += 1;
+            } else {
+              counters.rebased += 1;
+            }
+            if (entry && entry.classification === "conflict_blocking") {
+              counters.blocking += 1;
+            } else if (entry && entry.classification === "conflict_warning") {
+              counters.warnings += 1;
+            }
+          }, this);
+        }, this);
+        resolutionCards.empty();
+        [
+          { label: "Rebase sugerido", value: counters.rebased, valid: true },
+          { label: "Manter overlay", value: counters.overlay, valid: true },
+          { label: "Usar base", value: counters.base, valid: true },
+          { label: "Entradas bloqueantes", value: counters.blocking, valid: counters.blocking === 0 },
+          { label: "Entradas com aviso", value: counters.warnings, valid: counters.warnings === 0 }
+        ].forEach(function(item) {
+          const card = $("<article class=\"program-builder-governance-card\"></article>").appendTo(resolutionCards);
+          $("<strong></strong>").text(item.label).appendTo(card);
+          $("<span></span>").addClass(item.valid ? "is-valid" : "is-invalid").text(String(item.value)).appendTo(card);
+        });
+        resolutionWarning.text(
+          counters.blocking > 0
+            ? "Existem entradas bloqueantes no diff. Revise as escolhas antes de confirmar o rebase."
+            : "Resumo pronto. O rebase aplicara as escolhas atuais por campo e secao."
+        );
+      }.bind(this);
+      const navigator = $("<div class=\"program-builder-diff-navigator\"></div>").appendTo(summary);
+      const sectionList = $("<div class=\"program-builder-diff-sections\"></div>").appendTo(summary);
+      const renderSections = function() {
+        const query = String(filterInput.val() || "").toLowerCase();
+        const selectedType = String(typeSelect.val() || "all");
+        navigator.empty();
+        sectionList.empty();
+        response.sections.forEach(function(item) {
+          const classification = item && item.classification ? String(item.classification) : "unchanged";
+          const haystack = [
+            item && item.key ? item.key : "",
+            ...((item && item.basePaths) || []),
+            ...((item && item.overlayPaths) || []),
+            ...((item && item.conflictPaths) || [])
+          ].join(" ").toLowerCase();
+          if (selectedType !== "all" && classification !== selectedType) {
+            return;
+          }
+          if (query && haystack.indexOf(query) < 0) {
+            return;
+          }
+          $("<button type=\"button\" class=\"program-builder-diff-nav-item\"></button>")
+            .text(item && item.key ? item.key : "-")
+            .appendTo(navigator)
+            .on("click", function() {
+              const target = sectionList.find("[data-section-key='" + String(item && item.key ? item.key : "").replace(/'/g, "\\'") + "']").first();
+              if (target.length) {
+                target[0].scrollIntoView({ behavior: "smooth", block: "start" });
+              }
+            });
+          const label = classification === "conflict_blocking"
+            ? "conflito bloqueante"
+            : classification === "conflict_warning"
+              ? "conflito leve"
+              : classification === "overlay_only"
+                ? "apenas overlay"
+                : classification === "auto_merge"
+                  ? "merge automatico"
+                  : "inalterado";
+          const card = $("<article class=\"program-builder-diff-section-card\"></article>")
+            .attr("data-section-key", item && item.key ? item.key : "")
+            .toggleClass("is-conflict", item && item.conflict === true)
+            .toggleClass("is-blocking", classification === "conflict_blocking")
+            .appendTo(sectionList);
+          const header = $("<div class=\"program-builder-diff-section-header\"></div>").appendTo(card);
+          $("<strong></strong>").text(item && item.key ? item.key : "-").appendTo(header);
+          $("<span class=\"k-badge k-rounded-md\"></span>").text(label).appendTo(header);
+          $("<p class=\"program-builder-inline-muted\"></p>")
+            .text("Base: " + ((item && item.baseChanged) ? "alterada" : "igual") + " | Overlay: " + ((item && item.overlayChanged) ? "alterado" : "igual") + " | Resolucao: " + (item && item.resolution ? item.resolution : "-"))
+            .appendTo(card);
+          const paths = $("<div class=\"program-builder-diff-path-groups\"></div>").appendTo(card);
+          [
+            { title: "Base publicada", items: item && item.basePaths ? item.basePaths : [] },
+            { title: "Overlay atual", items: item && item.overlayPaths ? item.overlayPaths : [] },
+            { title: "Choque real", items: item && item.conflictPaths ? item.conflictPaths : [] }
+          ].forEach(function(group) {
+            const values = Array.isArray(group.items) ? group.items : [];
+            if (!values.length) {
+              return;
+            }
+            const block = $("<section class=\"program-builder-diff-path-group\"></section>").appendTo(paths);
+            $("<h5></h5>").text(group.title).appendTo(block);
+            const list = $("<ul class=\"program-builder-diff-list\"></ul>").appendTo(block);
+            values.forEach(function(pathValue) {
+              $("<li></li>").text(pathValue).appendTo(list);
+            });
+          });
+          const entries = Array.isArray(item && item.entries) ? item.entries : [];
+          if (entries.length) {
+            const detail = $("<section class=\"program-builder-diff-path-group\"></section>").appendTo(card);
+            $("<h5></h5>").text("Detalhe por campo").appendTo(detail);
+            const table = $("<table class=\"program-builder-diff-table\"></table>").appendTo(detail);
+            $("<thead><tr><th>Caminho</th><th>Classe</th><th>Resolucao</th><th>Base nova</th><th>Overlay</th><th>Rebase</th></tr></thead>").appendTo(table);
+            const tbody = $("<tbody></tbody>").appendTo(table);
+            entries.forEach(function(entry) {
+              const row = $("<tr></tr>")
+                .toggleClass("is-blocking", entry && entry.classification === "conflict_blocking")
+                .toggleClass("is-warning", entry && entry.classification === "conflict_warning")
+                .appendTo(tbody);
+              const entryPath = entry && entry.path ? String(entry.path) : "";
+              $("<td></td>").text(entry && entry.relativePath ? entry.relativePath : (entry && entry.path ? entry.path : "-")).appendTo(row);
+              $("<td></td>").text(entry && entry.classification ? String(entry.classification).replaceAll("_", " ") : "-").appendTo(row);
+              const resolutionCell = $("<td></td>").appendTo(row);
+              const resolutionOptions = Array.isArray(entry && entry.resolutionOptions) ? entry.resolutionOptions : ["rebased"];
+              const selectedResolution = this.overlayRebaseSelections[entryPath] || (entry && entry.selectedResolution ? entry.selectedResolution : resolutionOptions[0]);
+              const resolutionSelect = $("<select class=\"program-builder-diff-resolution\"></select>").appendTo(resolutionCell);
+              resolutionOptions.forEach(function(option) {
+                $("<option></option>")
+                  .attr("value", option)
+                  .prop("selected", option === selectedResolution)
+                  .text(option === "rebased" ? "Rebase sugerido" : (option === "overlay" ? "Manter overlay" : "Usar base"))
+                  .appendTo(resolutionSelect);
+              });
+              resolutionSelect.on("change", function() {
+                if (entryPath) {
+                  this.overlayRebaseSelections[entryPath] = String($(this).val() || "rebased");
+                }
+                renderResolutionSummary();
+              }.bind(this));
+              $("<td></td>").append($("<code></code>").text(this.stringifyInlineJson(entry ? entry.baseValue : null))).appendTo(row);
+              $("<td></td>").append($("<code></code>").text(this.stringifyInlineJson(entry ? entry.overlayValue : null))).appendTo(row);
+              $("<td></td>").append($("<code></code>").text(this.stringifyInlineJson(entry ? entry.rebasedValue : null))).appendTo(row);
+            }.bind(this));
+          }
+        });
+        renderResolutionSummary();
+      };
+      filterInput.on("input", renderSections);
+      typeSelect.on("change", renderSections);
+      renderSections();
+    }
+
+    const grid = $("<div class=\"program-builder-diff-grid\"></div>").appendTo(container);
+    [
+      { title: "Base antiga", payload: response.oldBaseDefinition || {} },
+      { title: "Base publicada", payload: response.targetBaseDefinition || {} },
+      { title: "Overlay atual", payload: response.currentResolvedDefinition || {} },
+      { title: "Overrides declarados", payload: response.definitionOverrides || {} },
+      { title: "Definicao rebaseada", payload: response.rebasedDefinition || {} }
+    ].forEach(function(section) {
+      const panel = $("<section class=\"program-builder-diff-panel\"></section>").appendTo(grid);
+      $("<h4></h4>").text(section.title).appendTo(panel);
+      $("<pre class=\"program-builder-inline-json\"></pre>").text(JSON.stringify(section.payload, null, 2)).appendTo(panel);
+    });
+  };
+
+  ProgramBuilder.prototype.stringifyPublicationPolicy = function(policy) {
+    const values = Array.isArray(policy && policy.allowedDatabaseEnvironments) ? policy.allowedDatabaseEnvironments : [];
+    return values.join(", ");
+  };
+
+  ProgramBuilder.prototype.stringifyInlineJson = function(value) {
+    if (value == null) {
+      return "null";
+    }
+    if (typeof value === "string") {
+      return value;
+    }
+    try {
+      const text = JSON.stringify(value);
+      return text.length > 180 ? text.slice(0, 177) + "..." : text;
+    } catch (_) {
+      return String(value);
+    }
+  };
+
+  ProgramBuilder.prototype.parseCommaSeparatedValues = function(value) {
+    return String(value || "").split(",").map(function(item) {
+      return String(item || "").trim();
+    }).filter(Boolean);
+  };
+
+  ProgramBuilder.prototype.ensureUtilityWindow = function(propertyName, title, width) {
+    if (this[propertyName]) {
+      this[propertyName].center().open();
+      return this[propertyName];
+    }
+    const host = $("<div></div>").appendTo(this.root);
+    host.kendoWindow({
+      title: title,
+      modal: true,
+      visible: false,
+      resizable: true,
+      width: width || 760
+    });
+    this[propertyName] = host.data("kendoWindow");
+    this[propertyName].center().open();
+    return this[propertyName];
+  };
+
+  ProgramBuilder.prototype.openGovernanceDialog = function() {
+    const current = this.state.currentVersion;
+    if (!current || !current.id) {
+      global.CrudUtils.showMessage("Selecione uma versao salva para operar a governanca.", "warning");
+      return;
+    }
+    const dialog = this.ensureUtilityWindow("governanceWindow", "Governanca do programa", 860);
+    const host = dialog.element;
+    host.empty();
+    const body = $("<div class=\"program-builder-form\"></div>").appendTo(host);
+    const governance = current.governance || {};
+    const summary = $("<section class=\"program-builder-subpanel\"></section>").appendTo(body);
+    $("<div class=\"program-builder-versions-header\"><h3>Resumo</h3><p>Grant, aprovacao e bundle de testes da versao corrente.</p></div>").appendTo(summary);
+    this.renderGovernanceChecklist(summary, current);
+    this.renderGovernanceWorkflowPanel(summary, current);
+    if (governance.request && governance.request.requestCode) {
+      $("<p></p>").text("Solicitacao atual: " + governance.request.requestCode + " (" + String(governance.request.status || "pendente") + ")").appendTo(summary);
+    }
+    $("<pre class=\"program-builder-inline-json\"></pre>").text(JSON.stringify(governance, null, 2)).appendTo(summary);
+    const dashboardSection = $("<section class=\"program-builder-subpanel\"></section>").appendTo(body);
+    $("<div class=\"program-builder-versions-header\"><h3>Operacao dedicada</h3><p>Carrega o painel real de governanca sem depender apenas das telas CRUD administrativas.</p></div>").appendTo(dashboardSection);
+    const dashboardBody = $("<div class=\"program-builder-governance-dashboard\"></div>").appendTo(dashboardSection);
+    $("<p class=\"program-builder-empty\"></p>").text("Carregando painel de governanca...").appendTo(dashboardBody);
+    this.http.request({
+      url: "/api/admin/program-builder/governance/dashboard",
+      method: "GET",
+      data: {
+        programCode: current.programCode,
+        builderProgramVersionId: current.id
+      }
+    }).then(function(response) {
+      this.renderGovernanceDashboard(dashboardBody, response, current);
+    }.bind(this)).catch(function(error) {
+      dashboardBody.empty();
+      $("<p class=\"program-builder-inline-warning\"></p>").text(global.CrudUtils.unwrapError(error, "Nao foi possivel carregar o painel real de governanca.").message).appendTo(dashboardBody);
+    });
+
+    const requestSection = $("<section class=\"program-builder-subpanel\"></section>").appendTo(body);
+    $("<div class=\"program-builder-versions-header\"><h3>Solicitacao</h3><p>Cria a solicitacao formal para programas padrao.</p></div>").appendTo(requestSection);
+    const requestReason = $("<textarea rows=\"3\"></textarea>").appendTo(this.appendField(requestSection, "Motivo", this.programFieldTechnicalProperties("changeSummary"))).kendoTextArea({
+      placeholder: "Motivo da alteracao"
+    }).data("kendoTextArea");
+    $("<button type=\"button\"></button>").text("Solicitar alteracao").appendTo(requestSection).kendoButton({
+      icon: "lock",
+      click: function() {
+        this.http.request({
+          url: "/api/admin/program-builder/governance/requests",
+          method: "POST",
+          data: {
+            programCode: current.programCode,
+            builderEntityCode: current.builderEntityCode || "",
+            requestedActions: ["edit", "publish"],
+            reason: requestReason.value() || ""
+          }
+        }).then(function(response) {
+          global.CrudUtils.showMessage("Solicitacao criada.", "success");
+          requestReason.value("");
+          this.refreshProgramVersions(current.programCode).then(this.openGovernanceDialog.bind(this));
+        }.bind(this)).catch(function(error) {
+          this.handleError(error, "Nao foi possivel criar a solicitacao.");
+        }.bind(this));
+      }.bind(this)
+    });
+
+    const grantSection = $("<section class=\"program-builder-subpanel\"></section>").appendTo(body);
+    $("<div class=\"program-builder-versions-header\"><h3>Grant</h3><p>Aprova a solicitacao, congela ou revoga a autorizacao atual.</p></div>").appendTo(grantSection);
+    const grantSplit = $("<div class=\"program-builder-split\"></div>").appendTo(grantSection);
+    const requestIdInput = this.createTextField(grantSplit, "Request ID");
+    const grantUserInput = this.createTextField(grantSplit, "Usuario liberado");
+    requestIdInput.value(governance.grant && governance.grant.requestId ? String(governance.grant.requestId) : (governance.request && governance.request.id ? String(governance.request.id) : ""));
+    const grantButtons = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(grantSection);
+    $("<button type=\"button\"></button>").text("Liberar grant").appendTo(grantButtons).kendoButton({
+      icon: "unlock",
+      click: function() {
+        this.http.request({
+          url: "/api/admin/program-builder/governance/grants",
+          method: "POST",
+          data: {
+            requestId: Number(requestIdInput.value() || 0),
+            grantedToUserId: grantUserInput.value() || (this.state.currentUser && this.state.currentUser.userId) || ""
+          }
+        }).then(function() {
+          global.CrudUtils.showMessage("Grant criado.", "success");
+          this.refreshProgramVersions(current.programCode).then(this.openGovernanceDialog.bind(this));
+        }.bind(this)).catch(function(error) {
+          this.handleError(error, "Nao foi possivel liberar o grant.");
+        }.bind(this));
+      }.bind(this)
+    });
+    ["active", "frozen", "revoked"].forEach(function(status) {
+      $("<button type=\"button\"></button>").text(status === "active" ? "Reativar" : (status === "frozen" ? "Congelar" : "Revogar")).appendTo(grantButtons).kendoButton({
+        click: function() {
+          const grantId = governance.grant && governance.grant.id ? Number(governance.grant.id) : 0;
+          if (!grantId) {
+            global.CrudUtils.showMessage("Nao existe grant ativo para alterar.", "warning");
+            return;
+          }
+          this.http.request({
+            url: "/api/admin/program-builder/governance/grants/status",
+            method: "POST",
+            data: {
+              grantId: grantId,
+              status: status
+            }
+          }).then(function() {
+            global.CrudUtils.showMessage("Grant atualizado.", "success");
+            this.refreshProgramVersions(current.programCode).then(this.openGovernanceDialog.bind(this));
+          }.bind(this)).catch(function(error) {
+            this.handleError(error, "Nao foi possivel alterar o grant.");
+          }.bind(this));
+        }.bind(this)
+      });
+    }.bind(this));
+
+    const testSection = $("<section class=\"program-builder-subpanel\"></section>").appendTo(body);
+    $("<div class=\"program-builder-versions-header\"><h3>Testes e aprovacao</h3><p>Registra o bundle executado e libera a publicacao governada.</p></div>").appendTo(testSection);
+    const testSplit = $("<div class=\"program-builder-split\"></div>").appendTo(testSection);
+    const bundleInput = this.createTextField(testSplit, "Bundle");
+    bundleInput.value(governance.approval && governance.approval.testExecutionBundleId ? governance.approval.testExecutionBundleId : ("bundle-" + current.id));
+    const testPlanInput = this.createTextField(testSplit, "Roteiro");
+    testPlanInput.value("roteiro-web");
+    const notesInput = $("<textarea rows=\"3\"></textarea>").appendTo(this.appendField(testSection, "Observacoes")).kendoTextArea({
+      placeholder: "Resumo da execucao"
+    }).data("kendoTextArea");
+    const testButtons = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(testSection);
+    $("<button type=\"button\"></button>").text("Registrar teste aprovado").appendTo(testButtons).kendoButton({
+      icon: "check",
+      click: function() {
+        this.http.request({
+          url: "/api/admin/program-builder/governance/tests",
+          method: "POST",
+          data: {
+            builderProgramVersionId: current.id,
+            bundleId: bundleInput.value(),
+            testPlanId: testPlanInput.value(),
+            status: "passed",
+            checklistSnapshot: [{ item: "roteiro-web", status: "passed" }],
+            notes: notesInput.value() || ""
+          }
+        }).then(function() {
+          global.CrudUtils.showMessage("Teste registrado.", "success");
+        }).catch(function(error) {
+          this.handleError(error, "Nao foi possivel registrar o teste.");
+        }.bind(this));
+      }.bind(this)
+    });
+    $("<button type=\"button\"></button>").text("Aprovar publicacao").appendTo(testButtons).kendoButton({
+      icon: "upload",
+      click: function() {
+        this.http.request({
+          url: "/api/admin/program-builder/governance/approvals",
+          method: "POST",
+          data: {
+            builderProgramVersionId: current.id,
+            bundleId: bundleInput.value()
+          }
+        }).then(function() {
+          global.CrudUtils.showMessage("Aprovacao registrada.", "success");
+          this.refreshProgramVersions(current.programCode).then(this.openGovernanceDialog.bind(this));
+        }).catch(function(error) {
+          this.handleError(error, "Nao foi possivel aprovar a publicacao.");
+        }.bind(this));
+      }.bind(this)
+    });
+  };
+
+  ProgramBuilder.prototype.openOverlayRebaseDialog = function() {
+    const current = this.state.currentVersion;
+    if (!current || !current.id) {
+      global.CrudUtils.showMessage("Selecione uma versao salva para operar overlays.", "warning");
+      return;
+    }
+    const dialog = this.ensureUtilityWindow("overlayRebaseWindow", "Rebase de overlay", 820);
+    const host = dialog.element;
+    host.empty();
+    const body = $("<div class=\"program-builder-form\"></div>").appendTo(host);
+    const intro = $("<section class=\"program-builder-subpanel\"></section>").appendTo(body);
+    $("<div class=\"program-builder-versions-header\"><h3>Assistente de rebase</h3><p>Use os IDs do overlay e da versao do overlay para comparar com a nova base publicada.</p></div>").appendTo(intro);
+    const split = $("<div class=\"program-builder-split\"></div>").appendTo(intro);
+    const overlayIdInput = this.createTextField(split, "Overlay ID");
+    const overlayVersionIdInput = this.createTextField(split, "Overlay Version ID");
+    const actions = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(intro);
+    const resultHost = $("<div class=\"program-builder-diff-host\"></div>").appendTo(body);
+    const rawSection = $("<section class=\"program-builder-subpanel\"></section>").appendTo(body);
+    $("<div class=\"program-builder-versions-header\"><h3>Payload bruto</h3><p>Resumo tecnico do preview retornado pelo backend.</p></div>").appendTo(rawSection);
+    const resultBox = $("<pre class=\"program-builder-inline-json\"></pre>").appendTo(rawSection);
+    $("<button type=\"button\"></button>").text("Preview").appendTo(actions).kendoButton({
+      icon: "eye",
+      click: function() {
+        const overlayId = Number(overlayIdInput.value() || 0);
+        if (!overlayId) {
+          global.CrudUtils.showMessage("Informe o Overlay ID.", "warning");
+          return;
+        }
+        this.http.request({
+          url: "/api/admin/program-builder/overlays/" + encodeURIComponent(overlayId) + "/rebase-preview",
+          method: "GET"
+        }).then(function(response) {
+          this.overlayRebaseSelections = {};
+          this.renderOverlayRebasePreview(resultHost, response);
+          resultBox.text(JSON.stringify(response, null, 2));
+        }.bind(this)).catch(function(error) {
+          this.handleError(error, "Nao foi possivel gerar o preview do rebase.");
+        }.bind(this));
+      }.bind(this)
+    });
+    $("<button type=\"button\"></button>").text("Executar rebase").appendTo(actions).kendoButton({
+      icon: "arrows-merge",
+      click: function() {
+        const overlayVersionId = Number(overlayVersionIdInput.value() || 0);
+        if (!overlayVersionId) {
+          global.CrudUtils.showMessage("Informe o Overlay Version ID.", "warning");
+          return;
+        }
+        const continueRebase = function() {
+          this.http.request({
+            url: "/api/admin/program-builder/overlay-versions/" + encodeURIComponent(overlayVersionId) + "/rebase",
+            method: "POST",
+            data: {
+              resolutions: this.overlayRebaseSelections || {}
+            }
+          }).then(function(response) {
+            global.CrudUtils.showMessage("Rebase concluido.", "success");
+            this.overlayRebaseSelections = {};
+            this.renderOverlayRebasePreview(resultHost, response.preview || response);
+            resultBox.text(JSON.stringify(response, null, 2));
+          }.bind(this)).catch(function(error) {
+            this.handleError(error, "Nao foi possivel rebasear o overlay.");
+          }.bind(this));
+        }.bind(this);
+        const preview = this.overlayRebasePreview || null;
+        const blockingCount = Array.isArray(preview && preview.sections)
+          ? preview.sections.reduce(function(acc, section) {
+              return acc + (Array.isArray(section && section.entries)
+                ? section.entries.filter(function(entry) { return entry && entry.classification === "conflict_blocking"; }).length
+                : 0);
+            }, 0)
+          : 0;
+        if (blockingCount > 0) {
+          global.CrudUtils.confirm("Existem conflitos bloqueantes no rebase. Deseja continuar mesmo assim?", {
+            title: "Conflitos bloqueantes",
+            confirmText: "Continuar",
+            cancelText: "Voltar"
+          }).then(function(confirmed) {
+            if (confirmed) {
+              continueRebase();
+            }
+          });
+          return;
+        }
+        continueRebase();
+      }.bind(this)
+    });
   };
 
   ProgramBuilder.prototype.syncSelectedEntityVersionRow = function() {
@@ -6966,6 +8249,9 @@
   };
 
   $(function() {
+    if (global.__PROGRAM_BUILDER_AUTO_INIT__ === false) {
+      return;
+    }
     const app = new ProgramBuilder({
       root: "#program-builder-root"
     });

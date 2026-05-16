@@ -144,6 +144,34 @@
         "defaultValue": {},
         "placeholder": { "type": "string" },
         "description": { "type": "string" },
+        "technicalProperties": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  { "type": "string" },
+                  { "type": "number" },
+                  { "type": "boolean" },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "section": { "type": "string" },
+                      "label": { "type": "string" },
+                      "value": {},
+                      "critical": { "type": "boolean" }
+                    },
+                    "additionalProperties": true
+                  }
+                ]
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": true
+            }
+          ]
+        },
         "options": {
           "type": "array",
           "items": {

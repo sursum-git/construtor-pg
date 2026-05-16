@@ -71,6 +71,30 @@ class BuilderProgramVersion
     #[ORM\Column(type: Types::JSON)]
     private array $generatedDefinition = [];
 
+    #[ORM\Column(length: 30)]
+    private string $programOrigin = 'standard';
+
+    #[ORM\Column(length: 20)]
+    private string $ownerScope = 'system';
+
+    #[ORM\Column(length: 30)]
+    private string $customizationPolicy = 'overlay_only';
+
+    #[ORM\Column(length: 120, nullable: true)]
+    private ?string $subscriberId = null;
+
+    #[ORM\Column(length: 120, nullable: true)]
+    private ?string $baseProgramCode = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?int $baseProgramVersionId = null;
+
+    #[ORM\Column]
+    private bool $upgradeFrozen = false;
+
+    #[ORM\Column(length: 160, nullable: true)]
+    private ?string $frozenReason = null;
+
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $publishedAt = null;
 
@@ -304,6 +328,102 @@ class BuilderProgramVersion
     public function setPublishedAt(?\DateTimeImmutable $publishedAt): self
     {
         $this->publishedAt = $publishedAt;
+        $this->touch();
+        return $this;
+    }
+
+    public function getProgramOrigin(): string
+    {
+        return $this->programOrigin;
+    }
+
+    public function setProgramOrigin(string $programOrigin): self
+    {
+        $this->programOrigin = mb_substr($programOrigin, 0, 30);
+        $this->touch();
+        return $this;
+    }
+
+    public function getOwnerScope(): string
+    {
+        return $this->ownerScope;
+    }
+
+    public function setOwnerScope(string $ownerScope): self
+    {
+        $this->ownerScope = mb_substr($ownerScope, 0, 20);
+        $this->touch();
+        return $this;
+    }
+
+    public function getCustomizationPolicy(): string
+    {
+        return $this->customizationPolicy;
+    }
+
+    public function setCustomizationPolicy(string $customizationPolicy): self
+    {
+        $this->customizationPolicy = mb_substr($customizationPolicy, 0, 30);
+        $this->touch();
+        return $this;
+    }
+
+    public function getSubscriberId(): ?string
+    {
+        return $this->subscriberId;
+    }
+
+    public function setSubscriberId(?string $subscriberId): self
+    {
+        $this->subscriberId = $subscriberId === null || $subscriberId === '' ? null : mb_substr($subscriberId, 0, 120);
+        $this->touch();
+        return $this;
+    }
+
+    public function getBaseProgramCode(): ?string
+    {
+        return $this->baseProgramCode;
+    }
+
+    public function setBaseProgramCode(?string $baseProgramCode): self
+    {
+        $this->baseProgramCode = $baseProgramCode === null || $baseProgramCode === '' ? null : mb_substr($baseProgramCode, 0, 120);
+        $this->touch();
+        return $this;
+    }
+
+    public function getBaseProgramVersionId(): ?int
+    {
+        return $this->baseProgramVersionId;
+    }
+
+    public function setBaseProgramVersionId(?int $baseProgramVersionId): self
+    {
+        $this->baseProgramVersionId = $baseProgramVersionId;
+        $this->touch();
+        return $this;
+    }
+
+    public function isUpgradeFrozen(): bool
+    {
+        return $this->upgradeFrozen;
+    }
+
+    public function setUpgradeFrozen(bool $upgradeFrozen): self
+    {
+        $this->upgradeFrozen = $upgradeFrozen;
+        $this->touch();
+        return $this;
+    }
+
+    public function getFrozenReason(): ?string
+    {
+        return $this->frozenReason;
+    }
+
+    public function setFrozenReason(?string $frozenReason): self
+    {
+        $this->frozenReason = $frozenReason === null || $frozenReason === '' ? null : mb_substr($frozenReason, 0, 160);
         $this->touch();
         return $this;
     }

@@ -120,9 +120,13 @@
 
       const shouldOpenInitialFilter = this.shouldOpenFiltersOnLoad();
       const shouldDeferInitialRead = shouldOpenInitialFilter && this.shouldWaitForFilterSubmitOnLoad();
-      const initialFilters = this.filterRenderer && !shouldDeferInitialRead
-        ? this.filterRenderer.getValues()
-        : [];
+      const queryFilters = global.CrudUtils.ensureArray(this.options.initialFilters);
+      if (this.filterRenderer && queryFilters.length) {
+        this.filterRenderer.setValues(queryFilters);
+      }
+      const initialFilters = !shouldDeferInitialRead
+        ? (this.filterRenderer ? this.filterRenderer.getValues() : queryFilters)
+        : queryFilters;
       this.currentFilters = initialFilters;
       this.gridRenderer = new global.CrudKendoGridRenderer({
         definition: this.definition,

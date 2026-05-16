@@ -181,13 +181,42 @@
       if (this.definition.custom.mode !== "iframe") {
         return source;
       }
-      let target = source;
+      let target = this.forwardCurrentQueryParameters(source);
       if (this.options.hideThemeSwitch) {
         target = this.appendUrlParameter(target, "hideThemeSwitch", "1");
       }
       if (this.options.hideHeader) {
         target = this.appendUrlParameter(target, "hideProgramHeader", "1");
       }
+      return target;
+    }
+
+    forwardCurrentQueryParameters(url) {
+      let params;
+      try {
+        params = new URLSearchParams(global.location && global.location.search || "");
+      } catch (_) {
+        return url;
+      }
+      if (!params) {
+        return url;
+      }
+      const reserved = {
+        screenId: true,
+        configUrl: true,
+        hideThemeSwitch: true,
+        hideProgramHeader: true
+      };
+      let target = url;
+      params.forEach((value, key) => {
+        if (reserved[key]) {
+          return;
+        }
+        if (String(value || "").trim() === "") {
+          return;
+        }
+        target = this.appendUrlParameter(target, key, value);
+      });
       return target;
     }
 

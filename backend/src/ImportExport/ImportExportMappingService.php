@@ -2,10 +2,17 @@
 
 namespace App\ImportExport;
 
+use App\Entity\ImportExportExecution;
 use App\Entity\ImportExportMapping;
+use App\Entity\ImportExportMappingVersion;
+use App\Entity\ImportExportSchedule;
+use App\Repository\ImportExportExecutionRepository;
 use App\Repository\ImportExportMappingRepository;
+use App\Repository\ImportExportMappingVersionRepository;
+use App\Repository\ImportExportScheduleRepository;
 use App\Runtime\PermissionResolver;
 use App\Runtime\RuntimeHttpException;
+use App\Runtime\StructuralIntegrityService;
 use App\Runtime\RuntimeTransactionService;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -13,14 +20,19 @@ class ImportExportMappingService
 {
     public function __construct(
         private readonly ImportExportMappingRepository $mappings,
+        private readonly ImportExportMappingVersionRepository $versions,
+        private readonly ImportExportExecutionRepository $executions,
+        private readonly ImportExportScheduleRepository $schedules,
         private readonly EntityManagerInterface $entityManager,
         private readonly ImportExportEncodingHelper $encodingHelper,
         private readonly ImportExportValueMapper $valueMapper,
         private readonly ImportExportTxtLayoutRenderer $txtLayoutRenderer,
+        private readonly ImportExportXmlRenderer $xmlRenderer,
         private readonly ImportExportSourceLoader $sourceLoader,
         private readonly ImportExportDestinationWriter $destinationWriter,
         private readonly RuntimeTransactionService $transactions,
         private readonly PermissionResolver $permissions,
+        private readonly StructuralIntegrityService $integrity,
     ) {
     }
 
@@ -28,6 +40,9 @@ class ImportExportMappingService
     {
         $this->assertAdminRead();
         $items = $this->mappings->findBy([], ['code' => 'ASC']);
+        foreach ($items as $item) {
+            $this->integrity->assertImportExportMapping($item);
+        }
 
         return [
             'items' => array_map(fn (ImportExportMapping $item): array => $this->summaryPayload($item), $items),
@@ -43,9 +58,15 @@ class ImportExportMappingService
                 'code' => $code,
             ]);
         }
+        $this->integrity->assertImportExportMapping($mapping);
+        foreach ($this->versions->findByMapping($mapping, 20) as $version) {
+            $this->integrity->assertImportExportMappingVersion($version);
+        }
 
         return [
             'mapping' => $this->mappingPayload($mapping),
+            'versions' => array_map(fn (ImportExportMappingVersion $version): array => $this->versionPayload($version), $this->versions->findByMapping($mapping, 20)),
+            'recentExecutions' => array_map(fn (ImportExportExecution $execution): array => $this->executionPayload($execution), $this->executions->findRecent(10, $mapping->getCode())),
         ];
     }
 
@@ -65,9 +86,106 @@ class ImportExportMappingService
             ->setMapping($config['mapping']);
         $this->entityManager->persist($mapping);
         $this->entityManager->flush();
+        $this->integrity->signImportExportMapping($mapping, ['source' => 'saveImportExportMapping']);
+        $this->createMappingVersion($mapping, trim((string) ($payload['changeSummary'] ?? '')) ?: null);
+        $this->entityManager->flush();
 
         return [
             'mapping' => $this->mappingPayload($mapping),
+            'versions' => array_map(fn (ImportExportMappingVersion $version): array => $this->versionPayload($version), $this->versions->findByMapping($mapping, 20)),
+        ];
+    }
+
+    public function listExecutions(array $filters = []): array
+    {
+        $this->assertAdminRead();
+        $mappingCode = trim((string) ($filters['mappingCode'] ?? '')) ?: null;
+
+        return [
+            'items' => array_map(fn (ImportExportExecution $execution): array => $this->executionPayload($execution), $this->executions->findRecent(100, $mappingCode)),
+        ];
+    }
+
+    public function listSchedules(): array
+    {
+        $this->assertAdminRead();
+        return [
+            'items' => array_map(fn (ImportExportSchedule $schedule): array => $this->schedulePayload($schedule), $this->schedules->findBy([], ['name' => 'ASC'])),
+        ];
+    }
+
+    public function saveSchedule(array $payload): array
+    {
+        $this->assertAdminWrite();
+        $schedule = $this->normalizeSchedulePayload($payload);
+        $entity = $this->schedules->findOneBy(['code' => $schedule['code']]) ?? new ImportExportSchedule();
+        $entity
+            ->setCode($schedule['code'])
+            ->setName($schedule['name'])
+            ->setMappingCode($schedule['mappingCode'])
+            ->setFrequency($schedule['frequency'])
+            ->setEnabled($schedule['enabled'])
+            ->setParameters($schedule['parameters'])
+            ->setIntervalMinutes($schedule['intervalMinutes'])
+            ->setDailyHour($schedule['dailyHour'])
+            ->setDailyMinute($schedule['dailyMinute'])
+            ->setNextRunAt($this->computeNextRunAt($schedule, new \DateTimeImmutable()))
+            ->setUpdatedAt(new \DateTimeImmutable())
+            ->setUpdatedBy($this->permissions->getUserId());
+        $this->entityManager->persist($entity);
+        $this->entityManager->flush();
+        $this->integrity->signImportExportSchedule($entity, ['source' => 'saveImportExportSchedule']);
+        $this->entityManager->flush();
+
+        return ['schedule' => $this->schedulePayload($entity)];
+    }
+
+    public function runDueSchedules(?\DateTimeImmutable $now = null): array
+    {
+        $now ??= new \DateTimeImmutable();
+        $executed = [];
+        foreach ($this->schedules->findDue($now) as $schedule) {
+            if (!$schedule instanceof ImportExportSchedule) {
+                continue;
+            }
+            $status = 'succeeded';
+            $config = null;
+            try {
+                $config = $this->resolveRequestConfig(['code' => $schedule->getMappingCode()]);
+                $result = $this->executeNormalized($config, true, false, $schedule->getParameters(), $schedule->getCode());
+                $executed[] = [
+                    'scheduleCode' => $schedule->getCode(),
+                    'mappingCode' => $schedule->getMappingCode(),
+                    'counts' => $result['counts'] ?? [],
+                ];
+            } catch (\Throwable $error) {
+                $status = 'failed';
+                if (isset($config) && is_array($config)) {
+                    $this->recordFailedExecution($config, $schedule->getParameters(), $error, $schedule->getCode());
+                }
+                $executed[] = [
+                    'scheduleCode' => $schedule->getCode(),
+                    'mappingCode' => $schedule->getMappingCode(),
+                    'error' => $error->getMessage(),
+                ];
+            }
+            $schedule
+                ->setLastRunAt($now)
+                ->setLastStatus($status)
+                ->setNextRunAt($this->computeNextRunAt([
+                    'frequency' => $schedule->getFrequency(),
+                    'intervalMinutes' => $schedule->getIntervalMinutes(),
+                    'dailyHour' => $schedule->getDailyHour(),
+                    'dailyMinute' => $schedule->getDailyMinute(),
+                ], $now))
+                ->setUpdatedAt($now);
+            $this->entityManager->persist($schedule);
+        }
+        $this->entityManager->flush();
+
+        return [
+            'executed' => $executed,
+            'count' => count($executed),
         ];
     }
 
@@ -84,11 +202,16 @@ class ImportExportMappingService
     {
         $this->assertAdminWrite();
         $config = $this->resolveRequestConfig($payload);
-
-        return $this->executeNormalized($config, true, false, is_array($payload['parameters'] ?? null) ? $payload['parameters'] : []);
+        $parameters = is_array($payload['parameters'] ?? null) ? $payload['parameters'] : [];
+        try {
+            return $this->executeNormalized($config, true, false, $parameters);
+        } catch (\Throwable $error) {
+            $this->recordFailedExecution($config, $parameters, $error, null);
+            throw $error;
+        }
     }
 
-    private function executeNormalized(array $config, bool $persist, bool $preview, array $parameters): array
+    private function executeNormalized(array $config, bool $persist, bool $preview, array $parameters, ?string $scheduleCode = null): array
     {
         $startedAt = microtime(true);
         $normalized = $config['mapping'];
@@ -128,6 +251,7 @@ class ImportExportMappingService
             'preview' => $preview,
             'durationMs' => (int) round((microtime(true) - $startedAt) * 1000),
             'counts' => $counts,
+            'scheduleCode' => $scheduleCode,
         ];
         $this->transactions->log(
             'import_export.' . $config['code'],
@@ -135,7 +259,7 @@ class ImportExportMappingService
             metadata: $metadata
         );
 
-        return [
+        $payload = [
             'mapping' => [
                 'code' => $config['code'],
                 'name' => $config['name'],
@@ -146,6 +270,11 @@ class ImportExportMappingService
             'diagnostics' => $diagnostics,
             'result' => $result,
         ];
+        if (!$preview) {
+            $this->recordExecution($config, $payload, $parameters, $metadata, $scheduleCode);
+        }
+
+        return $payload;
     }
 
     private function executeEntityDestination(array $mapping, array $sources, bool $persist, bool $preview, array &$counts, array &$diagnostics): array
@@ -195,6 +324,7 @@ class ImportExportMappingService
         return match ($destination['fileFormat']) {
             'csv' => $this->buildCsv($mapping, $sources, $preview),
             'txt_layout' => $this->buildTxtLayout($mapping, $sources, $preview),
+            'xml' => $this->buildXml($mapping, $sources, $preview),
             default => throw new RuntimeHttpException('IMPORT_EXPORT_FILE_FORMAT_NOT_SUPPORTED', 'Formato de arquivo nao suportado nesta etapa.', 422, [
                 'fileFormat' => $destination['fileFormat'],
             ]),
@@ -248,6 +378,11 @@ class ImportExportMappingService
         return $this->txtLayoutRenderer->build($mapping, $sources, $preview);
     }
 
+    private function buildXml(array $mapping, array $sources, bool $preview): array
+    {
+        return $this->xmlRenderer->build($mapping, $sources, $preview);
+    }
+
     private function resolveRequestConfig(array $payload): array
     {
         $code = trim((string) ($payload['code'] ?? ''));
@@ -291,7 +426,7 @@ class ImportExportMappingService
         if (!in_array($targetType, ['entity', 'file'], true)) {
             throw new RuntimeHttpException('IMPORT_EXPORT_TARGET_TYPE_INVALID', 'Tipo de destino invalido.', 422);
         }
-        if (!in_array($format, ['entity_copy', 'api_json', 'csv', 'txt_layout'], true)) {
+        if (!in_array($format, ['entity_copy', 'api_json', 'csv', 'txt_layout', 'xml'], true)) {
             throw new RuntimeHttpException('IMPORT_EXPORT_FORMAT_INVALID', 'Formato do mapeamento invalido nesta etapa.', 422, [
                 'format' => $format,
             ]);
@@ -355,11 +490,14 @@ class ImportExportMappingService
     private function normalizeSource(array $source): array
     {
         $type = strtolower(trim((string) ($source['type'] ?? 'entity')));
+        if ($type === 'file') {
+            return $this->normalizeFileSource($source);
+        }
         $entityCode = trim((string) ($source['entityCode'] ?? ''));
         $mode = strtolower(trim((string) ($source['mode'] ?? 'list')));
         $alias = trim((string) ($source['alias'] ?? $entityCode));
         if ($type !== 'entity' || $entityCode === '') {
-            throw new RuntimeHttpException('IMPORT_EXPORT_SOURCE_INVALID', 'Fonte invalida. Use type=entity e entityCode.', 422);
+            throw new RuntimeHttpException('IMPORT_EXPORT_SOURCE_INVALID', 'Fonte invalida. Use type=entity e entityCode, ou type=file para XML.', 422);
         }
         if (!in_array($mode, ['list', 'single'], true)) {
             throw new RuntimeHttpException('IMPORT_EXPORT_SOURCE_MODE_INVALID', 'Modo da fonte invalido.', 422);
@@ -376,9 +514,61 @@ class ImportExportMappingService
         ];
     }
 
+    private function normalizeFileSource(array $source): array
+    {
+        $fileFormat = strtolower(trim((string) ($source['fileFormat'] ?? 'xml')));
+        if ($fileFormat !== 'xml') {
+            throw new RuntimeHttpException('IMPORT_EXPORT_SOURCE_FILE_FORMAT_INVALID', 'Fonte file suporta apenas XML nesta etapa.', 422);
+        }
+        $alias = trim((string) ($source['alias'] ?? 'xml_file'));
+        $recordPath = trim((string) ($source['recordPath'] ?? ''));
+        if ($recordPath === '') {
+            throw new RuntimeHttpException('IMPORT_EXPORT_XML_RECORD_PATH_REQUIRED', 'Fonte XML exige recordPath.', 422);
+        }
+        $fields = array_values(array_filter(array_map(
+            fn ($field) => $this->normalizeXmlSourceField($field),
+            is_array($source['fields'] ?? null) ? $source['fields'] : []
+        )));
+        if (!$fields) {
+            throw new RuntimeHttpException('IMPORT_EXPORT_XML_SOURCE_FIELDS_REQUIRED', 'Fonte XML exige ao menos um campo.', 422);
+        }
+
+        return [
+            'type' => 'file',
+            'fileFormat' => 'xml',
+            'alias' => $alias,
+            'contentParameter' => trim((string) ($source['contentParameter'] ?? 'xmlContent')),
+            'recordPath' => $recordPath,
+            'fields' => $fields,
+            'namespaces' => array_values(array_filter(array_map(
+                fn ($namespace) => $this->normalizeXmlNamespace($namespace),
+                is_array($source['namespaces'] ?? null) ? $source['namespaces'] : []
+            ))),
+            'limit' => max(1, min(500, (int) ($source['limit'] ?? 200))),
+        ];
+    }
+
+    private function normalizeXmlSourceField(mixed $field): ?array
+    {
+        if (!is_array($field)) {
+            return null;
+        }
+        $targetField = trim((string) ($field['targetField'] ?? $field['name'] ?? ''));
+        $xpath = trim((string) ($field['xpath'] ?? $field['sourcePath'] ?? ''));
+        if ($targetField === '' || $xpath === '') {
+            return null;
+        }
+
+        return [
+            'targetField' => $targetField,
+            'xpath' => $xpath,
+            'transforms' => is_array($field['transforms'] ?? null) ? $field['transforms'] : [],
+        ];
+    }
+
     private function normalizeDestination(array $destination, string $format): array
     {
-        $type = strtolower(trim((string) ($destination['type'] ?? ($format === 'csv' || $format === 'txt_layout' ? 'file' : 'entity'))));
+        $type = strtolower(trim((string) ($destination['type'] ?? (in_array($format, ['csv', 'txt_layout', 'xml'], true) ? 'file' : 'entity'))));
         if ($type === 'entity') {
             $entityCode = trim((string) ($destination['entityCode'] ?? ''));
             if ($entityCode === '') {
@@ -401,6 +591,21 @@ class ImportExportMappingService
             'quote' => (string) ($destination['quote'] ?? '"'),
             'includeHeader' => ($destination['includeHeader'] ?? true) !== false,
             'columns' => is_array($destination['columns'] ?? null) ? $destination['columns'] : [],
+            'rootName' => trim((string) ($destination['rootName'] ?? 'items')),
+            'itemName' => trim((string) ($destination['itemName'] ?? 'item')),
+            'prettyPrint' => ($destination['prettyPrint'] ?? true) !== false,
+            'namespaces' => array_values(array_filter(array_map(
+                fn ($namespace) => $this->normalizeXmlNamespace($namespace),
+                is_array($destination['namespaces'] ?? null) ? $destination['namespaces'] : []
+            ))),
+            'rootAttributes' => array_values(array_filter(array_map(
+                fn ($attribute) => $this->normalizeXmlAttribute($attribute),
+                is_array($destination['rootAttributes'] ?? null) ? $destination['rootAttributes'] : []
+            ))),
+            'xmlLayouts' => array_values(array_filter(array_map(
+                fn ($layout) => $this->normalizeXmlLayoutNode($layout),
+                is_array($destination['xmlLayouts'] ?? null) ? $destination['xmlLayouts'] : []
+            ))),
             'lineBreak' => (string) ($destination['lineBreak'] ?? "\r\n"),
             'layoutMode' => strtolower(trim((string) ($destination['layoutMode'] ?? 'flat'))),
             'recordLayouts' => array_values(array_filter(array_map(
@@ -541,6 +746,110 @@ class ImportExportMappingService
         ];
     }
 
+    private function normalizeXmlNamespace(mixed $item): ?array
+    {
+        if (!is_array($item)) {
+            return null;
+        }
+        $prefix = preg_replace('/[^A-Za-z0-9_.-]+/', '_', trim((string) ($item['prefix'] ?? ''))) ?: '';
+        $uri = trim((string) ($item['uri'] ?? ''));
+        if ($prefix === '' || $uri === '') {
+            return null;
+        }
+
+        return [
+            'prefix' => $prefix,
+            'uri' => $uri,
+        ];
+    }
+
+    private function normalizeXmlAttribute(mixed $item): ?array
+    {
+        if (!is_array($item)) {
+            return null;
+        }
+        $name = trim((string) ($item['name'] ?? ''));
+        if ($name === '') {
+            return null;
+        }
+        $normalized = [
+            'name' => $name,
+            'sourcePath' => trim((string) ($item['sourcePath'] ?? '')),
+            'transforms' => is_array($item['transforms'] ?? null) ? $item['transforms'] : [],
+        ];
+        if (array_key_exists('constant', $item)) {
+            $normalized['constant'] = $item['constant'];
+        }
+        if ($normalized['sourcePath'] === '' && !array_key_exists('constant', $normalized)) {
+            return null;
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeXmlField(mixed $item): ?array
+    {
+        if (!is_array($item)) {
+            return null;
+        }
+        $name = trim((string) ($item['name'] ?? $item['targetName'] ?? ''));
+        if ($name === '') {
+            return null;
+        }
+        $normalized = [
+            'name' => $name,
+            'sourcePath' => trim((string) ($item['sourcePath'] ?? '')),
+            'transforms' => is_array($item['transforms'] ?? null) ? $item['transforms'] : [],
+        ];
+        if (array_key_exists('constant', $item)) {
+            $normalized['constant'] = $item['constant'];
+        }
+        if ($normalized['sourcePath'] === '' && !array_key_exists('constant', $normalized)) {
+            return null;
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeXmlLayoutNode(mixed $layout): ?array
+    {
+        if (!is_array($layout)) {
+            return null;
+        }
+        $name = trim((string) ($layout['name'] ?? ''));
+        if ($name === '') {
+            return null;
+        }
+        $normalized = [
+            'name' => $name,
+            'label' => trim((string) ($layout['label'] ?? $name)),
+            'sourceAlias' => trim((string) ($layout['sourceAlias'] ?? '')),
+            'attributes' => array_values(array_filter(array_map(
+                fn ($attribute) => $this->normalizeXmlAttribute($attribute),
+                is_array($layout['attributes'] ?? null) ? $layout['attributes'] : []
+            ))),
+            'fields' => array_values(array_filter(array_map(
+                fn ($field) => $this->normalizeXmlField($field),
+                is_array($layout['fields'] ?? null) ? $layout['fields'] : []
+            ))),
+            'children' => array_values(array_filter(array_map(
+                fn ($child) => $this->normalizeXmlLayoutNode($child),
+                is_array($layout['children'] ?? null) ? $layout['children'] : []
+            ))),
+            'linkBy' => array_values(array_filter(array_map(
+                fn ($rule) => $this->normalizeTxtLinkRule($rule),
+                is_array($layout['linkBy'] ?? null) ? $layout['linkBy'] : []
+            ))),
+            'textSourcePath' => trim((string) ($layout['textSourcePath'] ?? '')),
+            'textTransforms' => is_array($layout['textTransforms'] ?? null) ? $layout['textTransforms'] : [],
+        ];
+        if (array_key_exists('textConstant', $layout)) {
+            $normalized['textConstant'] = $layout['textConstant'];
+        }
+
+        return $normalized;
+    }
+
     private function normalizeFieldMapping(mixed $item): ?array
     {
         if (!is_array($item)) {
@@ -577,6 +886,62 @@ class ImportExportMappingService
         ];
     }
 
+    private function versionPayload(ImportExportMappingVersion $version): array
+    {
+        return [
+            'id' => $version->getId(),
+            'versionNumber' => $version->getVersionNumber(),
+            'changeSummary' => $version->getChangeSummary(),
+            'createdBy' => $version->getCreatedBy(),
+            'createdAt' => $version->getCreatedAt()->format(DATE_ATOM),
+            'snapshot' => $version->getSnapshot(),
+        ];
+    }
+
+    private function executionPayload(ImportExportExecution $execution): array
+    {
+        return [
+            'id' => $execution->getId(),
+            'mappingCode' => $execution->getMappingCode(),
+            'mappingName' => $execution->getMappingName(),
+            'direction' => $execution->getDirection(),
+            'format' => $execution->getFormat(),
+            'mode' => $execution->getMode(),
+            'status' => $execution->getStatus(),
+            'parameters' => $execution->getParameters(),
+            'counts' => $execution->getCounts(),
+            'diagnostics' => $execution->getDiagnostics(),
+            'resultSummary' => $execution->getResultSummary(),
+            'fileName' => $execution->getFileName(),
+            'mimeType' => $execution->getMimeType(),
+            'durationMs' => $execution->getDurationMs(),
+            'scheduleCode' => $execution->getScheduleCode(),
+            'createdBy' => $execution->getCreatedBy(),
+            'createdAt' => $execution->getCreatedAt()->format(DATE_ATOM),
+        ];
+    }
+
+    private function schedulePayload(ImportExportSchedule $schedule): array
+    {
+        return [
+            'id' => $schedule->getId(),
+            'code' => $schedule->getCode(),
+            'name' => $schedule->getName(),
+            'mappingCode' => $schedule->getMappingCode(),
+            'frequency' => $schedule->getFrequency(),
+            'enabled' => $schedule->isEnabled(),
+            'parameters' => $schedule->getParameters(),
+            'intervalMinutes' => $schedule->getIntervalMinutes(),
+            'dailyHour' => $schedule->getDailyHour(),
+            'dailyMinute' => $schedule->getDailyMinute(),
+            'nextRunAt' => $schedule->getNextRunAt()?->format(DATE_ATOM),
+            'lastRunAt' => $schedule->getLastRunAt()?->format(DATE_ATOM),
+            'lastStatus' => $schedule->getLastStatus(),
+            'updatedBy' => $schedule->getUpdatedBy(),
+            'updatedAt' => $schedule->getUpdatedAt()->format(DATE_ATOM),
+        ];
+    }
+
     private function summaryPayload(ImportExportMapping $mapping): array
     {
         return [
@@ -588,6 +953,112 @@ class ImportExportMappingService
             'format' => $mapping->getFormat(),
             'status' => $mapping->getStatus(),
         ];
+    }
+
+    private function createMappingVersion(ImportExportMapping $mapping, ?string $changeSummary = null): void
+    {
+        $version = (new ImportExportMappingVersion())
+            ->setMapping($mapping)
+            ->setVersionNumber($this->versions->findLatestVersionNumber($mapping) + 1)
+            ->setSnapshot($this->mappingPayload($mapping))
+            ->setChangeSummary($changeSummary)
+            ->setCreatedBy($this->permissions->getUserId());
+        $this->entityManager->persist($version);
+        $this->entityManager->flush();
+        $this->integrity->signImportExportMappingVersion($version, ['source' => 'createImportExportMappingVersion']);
+    }
+
+    private function recordExecution(array $config, array $payload, array $parameters, array $metadata, ?string $scheduleCode): void
+    {
+        $mapping = $this->mappings->findOneBy(['code' => $config['code']]);
+        $result = is_array($payload['result'] ?? null) ? $payload['result'] : [];
+        $summary = [
+            'type' => $result['type'] ?? null,
+            'recordCount' => is_array($result['records'] ?? null) ? count($result['records']) : null,
+            'previewText' => isset($result['previewText']) ? mb_substr((string) $result['previewText'], 0, 4000) : null,
+        ];
+        $execution = (new ImportExportExecution())
+            ->setMapping($mapping instanceof ImportExportMapping ? $mapping : null)
+            ->setMappingCode($config['code'])
+            ->setMappingName($config['name'])
+            ->setDirection($config['direction'])
+            ->setFormat($config['format'])
+            ->setMode($scheduleCode ? 'scheduled' : 'execute')
+            ->setStatus('succeeded')
+            ->setParameters($parameters)
+            ->setCounts(is_array($payload['counts'] ?? null) ? $payload['counts'] : [])
+            ->setDiagnostics(is_array($payload['diagnostics'] ?? null) ? $payload['diagnostics'] : [])
+            ->setResultSummary($summary)
+            ->setFileName(is_string($result['fileName'] ?? null) ? $result['fileName'] : null)
+            ->setMimeType(is_string($result['mimeType'] ?? null) ? $result['mimeType'] : null)
+            ->setDurationMs((int) ($metadata['durationMs'] ?? 0))
+            ->setScheduleCode($scheduleCode)
+            ->setCreatedBy($this->permissions->getUserId());
+        $this->entityManager->persist($execution);
+        $this->entityManager->flush();
+    }
+
+    private function recordFailedExecution(array $config, array $parameters, \Throwable $error, ?string $scheduleCode): void
+    {
+        $mapping = $this->mappings->findOneBy(['code' => $config['code']]);
+        $execution = (new ImportExportExecution())
+            ->setMapping($mapping instanceof ImportExportMapping ? $mapping : null)
+            ->setMappingCode($config['code'])
+            ->setMappingName($config['name'])
+            ->setDirection($config['direction'])
+            ->setFormat($config['format'])
+            ->setMode($scheduleCode ? 'scheduled' : 'execute')
+            ->setStatus('failed')
+            ->setParameters($parameters)
+            ->setCounts(['read' => 0, 'written' => 0, 'skipped' => 0, 'errors' => 1])
+            ->setDiagnostics([['level' => 'error', 'message' => $error->getMessage()]])
+            ->setResultSummary(['exception' => $error::class])
+            ->setScheduleCode($scheduleCode)
+            ->setCreatedBy($this->permissions->getUserId());
+        $this->entityManager->persist($execution);
+        $this->entityManager->flush();
+    }
+
+    private function normalizeSchedulePayload(array $payload): array
+    {
+        $code = $this->safeCode((string) ($payload['code'] ?? ''));
+        $name = trim((string) ($payload['name'] ?? ''));
+        $mappingCode = trim((string) ($payload['mappingCode'] ?? ''));
+        $frequency = strtolower(trim((string) ($payload['frequency'] ?? 'daily')));
+        if ($code === '' || $name === '' || $mappingCode === '') {
+            throw new RuntimeHttpException('IMPORT_EXPORT_SCHEDULE_REQUIRED_FIELDS', 'Informe codigo, nome e mappingCode do agendamento.', 422);
+        }
+        if (!in_array($frequency, ['manual', 'interval', 'hourly', 'daily'], true)) {
+            throw new RuntimeHttpException('IMPORT_EXPORT_SCHEDULE_FREQUENCY_INVALID', 'Frequencia invalida para o agendamento.', 422);
+        }
+        if (!$this->mappings->findOneBy(['code' => $mappingCode])) {
+            throw new RuntimeHttpException('IMPORT_EXPORT_SCHEDULE_MAPPING_NOT_FOUND', 'Mapping do agendamento nao encontrado.', 422, [
+                'mappingCode' => $mappingCode,
+            ]);
+        }
+
+        return [
+            'code' => $code,
+            'name' => $name,
+            'mappingCode' => $mappingCode,
+            'frequency' => $frequency,
+            'enabled' => ($payload['enabled'] ?? true) !== false,
+            'parameters' => is_array($payload['parameters'] ?? null) ? $payload['parameters'] : [],
+            'intervalMinutes' => isset($payload['intervalMinutes']) ? max(1, (int) $payload['intervalMinutes']) : null,
+            'dailyHour' => isset($payload['dailyHour']) ? max(0, min(23, (int) $payload['dailyHour'])) : 8,
+            'dailyMinute' => isset($payload['dailyMinute']) ? max(0, min(59, (int) $payload['dailyMinute'])) : 0,
+        ];
+    }
+
+    private function computeNextRunAt(array $schedule, \DateTimeImmutable $base): ?\DateTimeImmutable
+    {
+        $frequency = strtolower(trim((string) ($schedule['frequency'] ?? 'daily')));
+        return match ($frequency) {
+            'manual' => null,
+            'interval' => $base->modify('+' . max(1, (int) ($schedule['intervalMinutes'] ?? 60)) . ' minutes'),
+            'hourly' => $base->modify('+1 hour'),
+            default => $base->setTime((int) ($schedule['dailyHour'] ?? 8), (int) ($schedule['dailyMinute'] ?? 0))->modify('+1 day'),
+        };
     }
 
     private function assertAdminRead(): void
@@ -608,5 +1079,15 @@ class ImportExportMappingService
     {
         $normalized = strtolower(trim($value));
         return preg_match('/^[a-z0-9_.-]+$/', $normalized) ? $normalized : '';
+    }
+
+    private function safeXmlName(string $value, string $fallback): string
+    {
+        $normalized = preg_replace('/[^A-Za-z0-9_.-]+/', '_', trim($value)) ?: '';
+        if ($normalized === '' || preg_match('/^[0-9.-]/', $normalized)) {
+            return $fallback;
+        }
+
+        return $normalized;
     }
 }

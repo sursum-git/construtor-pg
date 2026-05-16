@@ -8,7 +8,14 @@
     "example": "examples"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:technical-properties": "node tests/frontend/technical-properties-smoke.mjs",
+    "test:program-builder-technical": "node tests/frontend/program-builder-technical-smoke.mjs",
+    "test:admin-integracoes": "node tests/frontend/admin-integracoes-smoke.mjs",
+    "test:program-builder-governance": "node tests/frontend/program-builder-governance-smoke.mjs",
+    "test:admin-program-governance": "node tests/frontend/admin-program-governance-smoke.mjs",
+    "test:admin-integridade": "node tests/frontend/admin-integridade-smoke.mjs",
+    "test:admin-integridade-production": "node tests/frontend/admin-integridade-production-smoke.mjs"
   },
   "repository": {
     "type": "git",

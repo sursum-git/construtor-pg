@@ -81,13 +81,18 @@ class RuntimeEntityDefinitionResolver
                     'readable' => ($options['readable'] ?? true) !== false,
                     'audit' => false,
                     'length' => $field->getLength() ?? ($options['validation']['maxLength'] ?? $options['maxLength'] ?? null),
-                'options' => $options,
-                'virtual' => true,
-                'derivedVersionField' => $this->normalizeVersionSnapshotFieldConfig($options),
-                'customCode' => $this->normalizeCustomCodeConfig($options),
-            ];
-            continue;
-        }
+                    'options' => $options,
+                    'virtual' => true,
+                    'technicalProperties' => $this->extendTechnicalProperties(
+                        $this->buildTechnicalProperties($entity->getCode(), $tableName, $field->getLabel(), $code, $field->getDataType(), $field->getDatabaseType(), $field->isRequired(), false, false, ($options['readable'] ?? true) !== false, true, $field->getLength() ?? ($options['validation']['maxLength'] ?? $options['maxLength'] ?? null), null),
+                        $options,
+                        $entityMetadata
+                    ),
+                    'derivedVersionField' => $this->normalizeVersionSnapshotFieldConfig($options),
+                    'customCode' => $this->normalizeCustomCodeConfig($options),
+                ];
+                continue;
+            }
             $this->assertSafeIdentifier($column, 'columnName');
             if (!isset($dbColumns[$column])) {
                 $ignoredFields[] = [
@@ -118,6 +123,11 @@ class RuntimeEntityDefinitionResolver
                 'length' => $field->getLength() ?? ($options['validation']['maxLength'] ?? $options['maxLength'] ?? null),
                 'options' => $options,
                 'virtual' => false,
+                'technicalProperties' => $this->extendTechnicalProperties(
+                    $this->buildTechnicalProperties($entity->getCode(), $tableName, $field->getLabel(), $code, $field->getDataType(), $field->getDatabaseType(), $field->isRequired(), $field->isPrimaryKey(), (($options['writable'] ?? true) !== false && ($options['editable'] ?? true) !== false && ($options['readonly'] ?? false) !== true), ($options['readable'] ?? true) !== false, false, $field->getLength() ?? ($options['validation']['maxLength'] ?? $options['maxLength'] ?? null), $column),
+                    $options,
+                    $entityMetadata
+                ),
                 'versionReference' => $this->normalizeVersionReferenceConfig($options),
                 'customCode' => $this->normalizeCustomCodeConfig($options),
             ];
@@ -414,6 +424,78 @@ class RuntimeEntityDefinitionResolver
             'mode' => (string) ($config['mode'] ?? 'snapshot_on_change'),
             'deduplicate' => ($config['deduplicate'] ?? true) !== false,
         ];
+    }
+
+    /**
+     * @return array<int, array<string, string>>
+     */
+    private function buildTechnicalProperties(
+        string $entityCode,
+        string $tableName,
+        string $label,
+        string $fieldCode,
+        string $dataType,
+        ?string $databaseType,
+        bool $required,
+        bool $primaryKey,
+        bool $writable,
+        bool $readable,
+        bool $virtual,
+        mixed $length,
+        ?string $column
+    ): array {
+        $properties = [
+            ['section' => 'Modelo', 'label' => 'Campo', 'value' => $fieldCode],
+            ['section' => 'Modelo', 'label' => 'Entidade', 'value' => $entityCode],
+            ['section' => 'Modelo', 'label' => 'Rotulo', 'value' => $label],
+            ['section' => 'Modelo', 'label' => 'Tipo de dado', 'value' => $dataType],
+            ['section' => 'Modelo', 'label' => 'Obrigatorio', 'value' => $required ? 'Sim' : 'Nao', 'critical' => $required],
+            ['section' => 'Modelo', 'label' => 'Chave primaria', 'value' => $primaryKey ? 'Sim' : 'Nao', 'critical' => $primaryKey],
+            ['section' => 'Runtime', 'label' => 'Gravavel', 'value' => $writable ? 'Sim' : 'Nao'],
+            ['section' => 'Runtime', 'label' => 'Legivel', 'value' => $readable ? 'Sim' : 'Nao'],
+        ];
+
+        if ($tableName !== '') {
+            $properties[] = ['section' => 'Banco', 'label' => 'Tabela', 'value' => $tableName];
+        }
+        if ($column !== null && $column !== '') {
+            $properties[] = ['section' => 'Banco', 'label' => 'Coluna', 'value' => $column];
+        }
+        if ($databaseType !== null && $databaseType !== '') {
+            $properties[] = ['section' => 'Banco', 'label' => 'Tipo banco', 'value' => $databaseType];
+        }
+        if ($length !== null && $length !== '') {
+            $properties[] = ['section' => 'Banco', 'label' => 'Tamanho', 'value' => (string) $length];
+        }
+        if ($virtual) {
+            $properties[] = ['section' => 'Runtime', 'label' => 'Campo virtual', 'value' => 'Sim'];
+        }
+
+        return $properties;
+    }
+
+    /**
+     * @param array<int, array<string, string>> $properties
+     * @param array<string, mixed> $options
+     * @param array<string, mixed> $entityMetadata
+     * @return array<int, array<string, string>>
+     */
+    private function extendTechnicalProperties(array $properties, array $options, array $entityMetadata): array
+    {
+        if (!empty($options['foreignKey']['entityCode'])) {
+            $properties[] = ['section' => 'Relacionamento', 'label' => 'FK entidade', 'value' => (string) $options['foreignKey']['entityCode']];
+        }
+        if (!empty($options['foreignKey']['fieldCode'])) {
+            $properties[] = ['section' => 'Relacionamento', 'label' => 'FK campo', 'value' => (string) $options['foreignKey']['fieldCode']];
+        }
+        if (!empty($options['unique'])) {
+            $properties[] = ['section' => 'Regra', 'label' => 'Valor unico', 'value' => 'Sim', 'critical' => true];
+        }
+        if (!empty($entityMetadata['versioning']['enabled'])) {
+            $properties[] = ['section' => 'Versionamento', 'label' => 'Entidade versionada', 'value' => 'Sim'];
+        }
+
+        return $properties;
     }
 
     private function normalizeVersionReferenceConfig(array $options): ?array

@@ -333,14 +333,18 @@
                 "programId": "admin-notificacoes",
                 "title": "Notificacoes"
               },
-              {
-                "programId": "admin-notificacao-destinatarios",
-                "title": "Destinatarios de Notificacoes"
-              },
-              {
-                "programId": "admin-listas-opcoes",
-                "title": "Listas de Opcoes"
-              },
+                {
+                  "programId": "admin-notificacao-destinatarios",
+                  "title": "Destinatarios de Notificacoes"
+                },
+                {
+                  "programId": "admin-integracoes",
+                  "title": "Integracoes"
+                },
+                {
+                  "programId": "admin-listas-opcoes",
+                  "title": "Listas de Opcoes"
+                },
               {
                 "programId": "admin-opcoes",
                 "title": "Opcoes"
@@ -493,6 +497,15 @@
           "icon": "sliders",
           "permission": "admin.read",
           "screenId": "admin.parametro-valores"
+        },
+        {
+          "id": "admin-integracoes",
+          "title": "Integracoes",
+          "subtitle": "Cadastro, preview e execucao de importacao/exportacao",
+          "type": "custom",
+          "icon": "link-horizontal",
+          "permission": "admin.read",
+          "screenId": "admin.integracoes"
         },
         {
           "id": "admin-literais",

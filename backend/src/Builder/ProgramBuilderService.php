@@ -9,6 +9,8 @@ use App\Entity\BuilderModule;
 use App\Entity\BuilderEntityVersion;
 use App\Entity\BuilderField;
 use App\Entity\BuilderProgramVersion;
+use App\Entity\ProgramChangeGrant;
+use App\Entity\ProgramChangeRequest;
 use App\Entity\Program;
 use App\Entity\RuntimeEndpoint;
 use App\Entity\ScreenDefinition;
@@ -23,9 +25,14 @@ use App\Repository\BuilderProgramVersionRepository;
 use App\Repository\ProgramRepository;
 use App\Repository\RuntimeEndpointRepository;
 use App\Repository\ScreenDefinitionRepository;
+use App\Runtime\ProgramOverlayService;
+use App\Runtime\ProgramGovernanceService;
 use App\Runtime\PermissionResolver;
+use App\Runtime\RuntimeEnvironmentIdentityResolver;
 use App\Runtime\RuntimeHttpException;
+use App\Runtime\RuntimeNotificationService;
 use App\Runtime\RuntimeSessionGuard;
+use App\Runtime\StructuralIntegrityService;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Yaml\Exception\ParseException;
@@ -109,6 +116,11 @@ class ProgramBuilderService
         private readonly ScreenDefinitionRepository $screens,
         private readonly RuntimeEndpointRepository $endpoints,
         private readonly EntityManagerInterface $entityManager,
+        private readonly StructuralIntegrityService $integrity,
+        private readonly ProgramGovernanceService $governance,
+        private readonly ProgramOverlayService $overlays,
+        private readonly RuntimeNotificationService $notifications,
+        private readonly RuntimeEnvironmentIdentityResolver $environmentIdentity,
         private readonly PermissionResolver $permissions,
         private readonly RuntimeSessionGuard $sessions,
         private readonly OdooClient $odoo,
@@ -168,6 +180,14 @@ class ProgramBuilderService
                 'programType' => $program->getProgramType(),
                 'screenId' => $program->getScreenId(),
                 'status' => $program->getStatus(),
+                'programOrigin' => $program->getProgramOrigin(),
+                'ownerScope' => $program->getOwnerScope(),
+                'customizationPolicy' => $program->getCustomizationPolicy(),
+                'subscriberId' => $program->getSubscriberId(),
+                'baseProgramCode' => $program->getBaseProgramCode(),
+                'baseProgramVersionId' => $program->getBaseProgramVersionId(),
+                'upgradeFrozen' => $program->isUpgradeFrozen(),
+                'frozenReason' => $program->getFrozenReason(),
                 'builderEntityCode' => $published?->getBuilderEntityCode() ?? $latest?->getBuilderEntityCode(),
                 'publishedVersion' => $published?->getVersion(),
                 'updatedAt' => $program->getUpdatedAt()->format(DATE_ATOM),
@@ -176,6 +196,7 @@ class ProgramBuilderService
 
         $apiSources = [];
         foreach ($this->apiSources->findBy([], ['name' => 'ASC']) as $source) {
+            $this->integrity->assertApiSource($source);
             $apiSources[] = $this->apiSourceSummaryPayload($source);
         }
 
@@ -197,6 +218,7 @@ class ProgramBuilderService
                 'code' => $code,
             ]);
         }
+        $this->integrity->assertApiSource($source);
 
         return [
             'apiSource' => $this->apiSourcePayload($source),
@@ -231,6 +253,8 @@ class ProgramBuilderService
             ->setMetadata($metadata);
 
         $this->entityManager->persist($source);
+        $this->entityManager->flush();
+        $this->integrity->signApiSource($source, ['source' => 'saveApiSource']);
         $this->entityManager->flush();
 
         return [
@@ -918,8 +942,13 @@ class ProgramBuilderService
         $scopeType = $this->normalizeLockScopeType((string) ($payload['scopeType'] ?? ''));
         $scopeCode = trim((string) ($payload['scopeCode'] ?? ''));
         $displayName = trim((string) ($payload['displayName'] ?? ''));
+        $grantId = $this->normalizePositiveInt($payload['grantId'] ?? null);
+        $lockCategory = in_array((string) ($payload['lockCategory'] ?? 'general'), ['general', 'authoring'], true) ? (string) $payload['lockCategory'] : 'general';
         if ($scopeType === '' || $scopeCode === '') {
             throw new RuntimeHttpException('PROGRAM_BUILDER_LOCK_SCOPE_REQUIRED', 'Informe o tipo e o codigo do item para bloquear.', 422);
+        }
+        if ($grantId) {
+            $this->governance->assertLockGrantStillActive($grantId, $scopeType, $scopeCode);
         }
 
         $session = $this->sessions->ensureActive();
@@ -955,6 +984,8 @@ class ProgramBuilderService
 
         $lock
             ->setDisplayName($displayName !== '' ? $displayName : $scopeCode)
+            ->setGrantId($grantId)
+            ->setLockCategory($lockCategory)
             ->setStatus('active')
             ->setAcquiredAt($current ? $current->getAcquiredAt() : $now)
             ->heartbeat(self::EDITOR_LOCK_TTL_SECONDS);
@@ -994,6 +1025,16 @@ class ProgramBuilderService
         }
 
         $lock->heartbeat(self::EDITOR_LOCK_TTL_SECONDS);
+        if ($lock->getGrantId()) {
+            try {
+                $this->governance->assertLockGrantStillActive((int) $lock->getGrantId(), $lock->getScopeType(), $lock->getScopeCode());
+            } catch (\Throwable $error) {
+                $lock->release();
+                $this->entityManager->persist($lock);
+                $this->entityManager->flush();
+                throw $error;
+            }
+        }
         $this->entityManager->persist($lock);
         $this->entityManager->flush();
 
@@ -1131,6 +1172,7 @@ class ProgramBuilderService
                 'builderEntityCode' => $entityCode,
             ]);
         }
+        $this->integrity->assertBuilderEntity($entity);
 
         return [
             'entity' => $this->entityPayload($entity),
@@ -1143,8 +1185,11 @@ class ProgramBuilderService
         $this->assertAdminWrite();
 
         $config = $this->normalizeEntityPayload($payload);
+        $this->governance->assertCanEditEntity($config['code']);
         $entity = $this->applyEntityConfig($config);
         $version = $this->createEntityVersionSnapshot($entity, 'save', 'Modelagem salva.');
+        $this->integrity->signBuilderEntity($entity, ['source' => 'saveEntity']);
+        $this->integrity->signBuilderEntityVersion($version, ['source' => 'saveEntity']);
 
         return [
             'entity' => $this->entityPayload($entity),
@@ -1186,6 +1231,8 @@ class ProgramBuilderService
             'Rollback a partir da revisao ' . $version->getRevision() . '.',
             $version->getId()
         );
+        $this->integrity->signBuilderEntity($entity, ['source' => 'restoreEntityVersion']);
+        $this->integrity->signBuilderEntityVersion($restored, ['source' => 'restoreEntityVersion']);
 
         return [
             'entity' => $this->entityPayload($entity),
@@ -1313,7 +1360,14 @@ class ProgramBuilderService
         }
 
         $program = $this->programs->findOneBy(['code' => $programCode]);
-        $versions = array_map(fn (BuilderProgramVersion $version): array => $this->versionPayload($version), $this->versions->findByProgramCodeOrdered($programCode));
+        if ($program) {
+            $this->integrity->assertProgram($program);
+        }
+        $versionItems = $this->versions->findByProgramCodeOrdered($programCode);
+        foreach ($versionItems as $versionItem) {
+            $this->integrity->assertProgramVersion($versionItem);
+        }
+        $versions = array_map(fn (BuilderProgramVersion $version): array => $this->versionPayload($version), $versionItems);
 
         return [
             'program' => $program ? [
@@ -1323,6 +1377,14 @@ class ProgramBuilderService
                 'programType' => $program->getProgramType(),
                 'screenId' => $program->getScreenId(),
                 'status' => $program->getStatus(),
+                'programOrigin' => $program->getProgramOrigin(),
+                'ownerScope' => $program->getOwnerScope(),
+                'customizationPolicy' => $program->getCustomizationPolicy(),
+                'subscriberId' => $program->getSubscriberId(),
+                'baseProgramCode' => $program->getBaseProgramCode(),
+                'baseProgramVersionId' => $program->getBaseProgramVersionId(),
+                'upgradeFrozen' => $program->isUpgradeFrozen(),
+                'frozenReason' => $program->getFrozenReason(),
                 'updatedAt' => $program->getUpdatedAt()->format(DATE_ATOM),
             ] : null,
             'versions' => $versions,
@@ -1340,6 +1402,9 @@ class ProgramBuilderService
         }
         if ($version->getId() !== null && $version->getStatus() !== 'draft') {
             throw new RuntimeHttpException('PROGRAM_VERSION_NOT_EDITABLE', 'Apenas rascunhos podem ser alterados.', 422, ['id' => $id]);
+        }
+        if ($version->getId() !== null) {
+            $this->integrity->assertProgramVersion($version);
         }
 
         $config = $this->normalizeBuilderPayload($payload);
@@ -1369,10 +1434,22 @@ class ProgramBuilderService
             ->setAllowUpdate($config['allowUpdate'])
             ->setAllowDelete($config['allowDelete'])
             ->setChangeSummary($config['changeSummary'])
+            ->setProgramOrigin($config['programOrigin'])
+            ->setOwnerScope($config['ownerScope'])
+            ->setCustomizationPolicy($config['customizationPolicy'])
+            ->setSubscriberId($config['subscriberId'])
+            ->setBaseProgramCode($config['baseProgramCode'])
+            ->setBaseProgramVersionId($config['baseProgramVersionId'])
+            ->setUpgradeFrozen($config['upgradeFrozen'])
+            ->setFrozenReason($config['frozenReason'])
             ->setBuilderConfig($this->publicBuilderConfig($config))
             ->setGeneratedDefinition($definition);
 
+        $this->governance->assertCanEditProgramDraft($version, $config['builderEntityCode'] !== '' ? $config['builderEntityCode'] : null);
+
         $this->entityManager->persist($version);
+        $this->entityManager->flush();
+        $this->integrity->signProgramVersion($version, ['source' => 'saveDraft']);
         $this->entityManager->flush();
 
         return $this->versionPayload($version);
@@ -1452,6 +1529,35 @@ class ProgramBuilderService
             throw new RuntimeHttpException('PROGRAM_VERSION_NOT_FOUND', 'Versao do programa nao encontrada.', 404, ['id' => $id]);
         }
 
+        $grant = null;
+        try {
+            if ($version->getProgramOrigin() === 'standard' && $version->getOwnerScope() === 'system') {
+                $grant = $this->governance->assertCanPublish($version);
+            }
+            $this->assertPublicationEnvironmentAllowed($version);
+            $this->integrity->assertProgramVersion($version);
+        } catch (RuntimeHttpException $error) {
+            $this->notifications->createAdministrativeNotification(
+                'Publicacao governada bloqueada',
+                sprintf('A publicacao da versao %s do programa %s foi bloqueada: %s', $version->getVersion(), $version->getProgramCode(), $error->getMessage()),
+                [
+                    'code' => 'governanca.publish_blocked.' . strtolower($version->getProgramCode()) . '.' . (int) $version->getId(),
+                    'category' => 'governanca',
+                    'severity' => 'warning',
+                    'actionRequired' => true,
+                    'linkProgramId' => $version->getProgramCode(),
+                    'linkScreenId' => 'admin.programa-aprovacoes',
+                    'metadata' => [
+                        'builderProgramVersionId' => $version->getId(),
+                        'programCode' => $version->getProgramCode(),
+                        'errorCode' => $error->getErrorCode(),
+                        'message' => $error->getMessage(),
+                    ],
+                ]
+            );
+            throw $error;
+        }
+
         foreach ($this->versions->findByProgramCodeOrdered($version->getProgramCode()) as $item) {
             if ($item->getStatus() === 'published' && $item->getId() !== $version->getId()) {
                 $item->setStatus('archived');
@@ -1459,7 +1565,7 @@ class ProgramBuilderService
             }
         }
 
-        $definition = $version->getGeneratedDefinition();
+        $definition = $this->decoratePublishedDefinition($version, $version->getGeneratedDefinition());
         $program = $this->programs->findOneBy(['code' => $version->getProgramCode()]) ?? new Program();
         $program
             ->setCode($version->getProgramCode())
@@ -1467,7 +1573,15 @@ class ProgramBuilderService
             ->setModule($version->getModule())
             ->setProgramType($version->getPageType())
             ->setScreenId($version->getScreenId())
-            ->setStatus('published');
+            ->setStatus('published')
+            ->setProgramOrigin($version->getProgramOrigin())
+            ->setOwnerScope($version->getOwnerScope())
+            ->setCustomizationPolicy($version->getCustomizationPolicy())
+            ->setSubscriberId($version->getSubscriberId())
+            ->setBaseProgramCode($version->getBaseProgramCode())
+            ->setBaseProgramVersionId($version->getBaseProgramVersionId())
+            ->setUpgradeFrozen($version->isUpgradeFrozen())
+            ->setFrozenReason($version->getFrozenReason());
         $this->entityManager->persist($program);
 
         $screen = $this->screens->findOneBy(['screenId' => $version->getScreenId()]) ?? new ScreenDefinition();
@@ -1486,6 +1600,18 @@ class ProgramBuilderService
             ->setStatus('published')
             ->setPublishedAt(new \DateTimeImmutable());
         $this->entityManager->persist($version);
+        $this->entityManager->flush();
+        $this->integrity->signProgram($program, ['source' => 'publishVersion']);
+        $this->integrity->signScreen($screen, ['source' => 'publishVersion']);
+        $this->signRuntimeEndpointsForScreen($version->getScreenId());
+        $this->integrity->signProgramVersion($version, [
+            'source' => 'publishVersion',
+            'grantId' => $grant?->getId(),
+        ]);
+        if ($grant) {
+            $this->governance->consumeGrant($grant);
+            $this->integrity->signTarget('program_change_grant', (int) $grant->getId(), ['source' => 'publishVersion.consumeGrant']);
+        }
         $this->entityManager->flush();
 
         return $this->getProgram($version->getProgramCode());
@@ -1524,13 +1650,272 @@ class ProgramBuilderService
             ->setAllowUpdate($source->isAllowUpdate())
             ->setAllowDelete($source->isAllowDelete())
             ->setChangeSummary($source->getChangeSummary())
+            ->setProgramOrigin($source->getProgramOrigin())
+            ->setOwnerScope($source->getOwnerScope())
+            ->setCustomizationPolicy($source->getCustomizationPolicy())
+            ->setSubscriberId($source->getSubscriberId())
+            ->setBaseProgramCode($source->getBaseProgramCode())
+            ->setBaseProgramVersionId($source->getBaseProgramVersionId())
+            ->setUpgradeFrozen($source->isUpgradeFrozen())
+            ->setFrozenReason($source->getFrozenReason())
             ->setBuilderConfig($builderConfig)
             ->setGeneratedDefinition($generatedDefinition);
 
         $this->entityManager->persist($copy);
         $this->entityManager->flush();
+        $this->integrity->signProgramVersion($copy, ['source' => 'duplicateVersion']);
+        $this->entityManager->flush();
 
         return $this->versionPayload($copy);
+    }
+
+    public function createGovernanceRequest(array $payload): array
+    {
+        $this->assertAdminWrite();
+
+        $programCode = $this->safeCode((string) ($payload['programCode'] ?? ''));
+        $builderEntityCode = $this->normalizeOptionalCode((string) ($payload['builderEntityCode'] ?? ''));
+        $reason = trim((string) ($payload['reason'] ?? ''));
+        $requestedActions = array_values(array_filter(array_map(
+            static fn (mixed $item): string => trim((string) $item),
+            (array) ($payload['requestedActions'] ?? ['edit', 'publish'])
+        )));
+        if ($programCode === '') {
+            throw new RuntimeHttpException('PROGRAM_CHANGE_REQUEST_PROGRAM_REQUIRED', 'Informe o codigo do programa para solicitar alteracao.', 422);
+        }
+        if (!$requestedActions) {
+            throw new RuntimeHttpException('PROGRAM_CHANGE_REQUEST_ACTIONS_REQUIRED', 'Informe ao menos uma acao para a solicitacao.', 422);
+        }
+
+        $request = $this->governance->createChangeRequest(
+            $programCode,
+            $builderEntityCode !== '' ? $builderEntityCode : null,
+            $requestedActions,
+            $reason !== '' ? $reason : null
+        );
+        $this->entityManager->flush();
+        $this->integrity->signTarget('program_change_request', (int) $request->getId(), ['source' => 'governance.request']);
+        $this->entityManager->flush();
+
+        return [
+            'request' => [
+                'id' => $request->getId(),
+                'requestCode' => $request->getRequestCode(),
+                'programCode' => $request->getProgramCode(),
+                'builderEntityCode' => $request->getBuilderEntityCode(),
+                'requestedBy' => $request->getRequestedBy(),
+                'requestedActions' => $request->getRequestedActions(),
+                'reason' => $request->getReason(),
+                'status' => $request->getStatus(),
+            ],
+        ];
+    }
+
+    public function approveGovernanceRequest(array $payload): array
+    {
+        $this->assertAdminWrite();
+
+        $requestId = $this->normalizePositiveInt($payload['requestId'] ?? null);
+        $grantedToUserId = trim((string) ($payload['grantedToUserId'] ?? $this->permissions->getUserId()));
+        $allowedActions = array_values(array_filter(array_map(
+            static fn (mixed $item): string => trim((string) $item),
+            (array) ($payload['allowedActions'] ?? ['edit', 'publish'])
+        )));
+        if (!$requestId || $grantedToUserId === '') {
+            throw new RuntimeHttpException('PROGRAM_CHANGE_GRANT_REQUIRED_FIELDS', 'Informe a solicitacao e o usuario que recebera a liberacao.', 422);
+        }
+
+        /** @var ProgramChangeRequest|null $request */
+        $request = $this->entityManager->find(ProgramChangeRequest::class, $requestId);
+        if (!$request) {
+            throw new RuntimeHttpException('PROGRAM_CHANGE_REQUEST_NOT_FOUND', 'Solicitacao de alteracao nao encontrada.', 404, ['requestId' => $requestId]);
+        }
+
+        $grant = $this->governance->createGrant($request, $grantedToUserId, $allowedActions ?: ['edit', 'publish']);
+        $this->entityManager->flush();
+        $this->integrity->signTarget('program_change_request', (int) $request->getId(), ['source' => 'governance.request.approved']);
+        $this->integrity->signTarget('program_change_grant', (int) $grant->getId(), ['source' => 'governance.grant']);
+        $this->entityManager->flush();
+
+        return [
+            'grant' => $this->governance->grantPayload($grant),
+        ];
+    }
+
+    public function changeGovernanceGrantStatus(array $payload): array
+    {
+        $this->assertAdminWrite();
+        $grantId = $this->normalizePositiveInt($payload['grantId'] ?? null);
+        $status = strtolower(trim((string) ($payload['status'] ?? '')));
+        if (!$grantId || $status === '') {
+            throw new RuntimeHttpException('PROGRAM_CHANGE_GRANT_STATUS_REQUIRED', 'Informe grant e status para alterar a autorizacao.', 422);
+        }
+
+        $grant = $this->governance->changeGrantStatus($grantId, $status);
+        $this->entityManager->flush();
+        $this->integrity->signTarget('program_change_grant', (int) $grant->getId(), ['source' => 'governance.grant.status']);
+        $this->entityManager->flush();
+
+        return [
+            'grant' => $this->governance->grantPayload($grant),
+        ];
+    }
+
+    public function registerGovernanceTest(array $payload): array
+    {
+        $this->assertAdminWrite();
+        $versionId = $this->normalizePositiveInt($payload['builderProgramVersionId'] ?? null);
+        $bundleId = trim((string) ($payload['bundleId'] ?? ''));
+        $testPlanId = trim((string) ($payload['testPlanId'] ?? 'roteiro-web'));
+        $status = strtolower(trim((string) ($payload['status'] ?? 'passed')));
+        $checklist = is_array($payload['checklistSnapshot'] ?? null) ? $payload['checklistSnapshot'] : [];
+        $evidences = is_array($payload['evidences'] ?? null) ? $payload['evidences'] : [];
+        $notes = trim((string) ($payload['notes'] ?? ''));
+        if (!$versionId || $bundleId === '') {
+            throw new RuntimeHttpException('PROGRAM_TEST_EXECUTION_REQUIRED_FIELDS', 'Informe versao e bundle para registrar o roteiro.', 422);
+        }
+
+        $version = $this->versions->find($versionId);
+        if (!$version) {
+            throw new RuntimeHttpException('PROGRAM_VERSION_NOT_FOUND', 'Versao do programa nao encontrada.', 404, ['id' => $versionId]);
+        }
+
+        $test = $this->governance->registerTestExecution(
+            $version,
+            $bundleId,
+            $testPlanId,
+            $status,
+            $checklist,
+            $evidences,
+            $notes !== '' ? $notes : null
+        );
+        $this->entityManager->flush();
+        $this->integrity->signTarget('program_test_execution', (int) $test->getId(), ['source' => 'governance.test']);
+        $this->entityManager->flush();
+
+        return [
+            'testExecution' => [
+                'id' => $test->getId(),
+                'programCode' => $test->getProgramCode(),
+                'builderProgramVersionId' => $test->getBuilderProgramVersionId(),
+                'bundleId' => $test->getBundleId(),
+                'testPlanId' => $test->getTestPlanId(),
+                'status' => $test->getStatus(),
+                'executedBy' => $test->getExecutedBy(),
+                'executedAt' => $test->getExecutedAt()?->format(DATE_ATOM),
+            ],
+        ];
+    }
+
+    public function approveGovernancePublication(array $payload): array
+    {
+        $this->assertAdminWrite();
+        $versionId = $this->normalizePositiveInt($payload['builderProgramVersionId'] ?? null);
+        $bundleId = trim((string) ($payload['bundleId'] ?? ''));
+        if (!$versionId || $bundleId === '') {
+            throw new RuntimeHttpException('PROGRAM_PUBLICATION_APPROVAL_REQUIRED_FIELDS', 'Informe versao e bundle para aprovar a publicacao.', 422);
+        }
+
+        $version = $this->versions->find($versionId);
+        if (!$version) {
+            throw new RuntimeHttpException('PROGRAM_VERSION_NOT_FOUND', 'Versao do programa nao encontrada.', 404, ['id' => $versionId]);
+        }
+
+        $approval = $this->governance->approvePublication($version, $bundleId);
+        $this->entityManager->flush();
+        $this->integrity->signTarget('program_publication_approval', (int) $approval->getId(), ['source' => 'governance.approval']);
+        $this->entityManager->flush();
+
+        return [
+            'approval' => [
+                'id' => $approval->getId(),
+                'programCode' => $approval->getProgramCode(),
+                'builderProgramVersionId' => $approval->getBuilderProgramVersionId(),
+                'testExecutionBundleId' => $approval->getTestExecutionBundleId(),
+                'status' => $approval->getStatus(),
+                'approvedBy' => $approval->getApprovedBy(),
+                'approvedAt' => $approval->getApprovedAt()?->format(DATE_ATOM),
+            ],
+        ];
+    }
+
+    public function governanceDashboard(array $payload): array
+    {
+        $this->assertAdminRead();
+
+        $programCode = $this->safeCode((string) ($payload['programCode'] ?? ''));
+        $builderProgramVersionId = $this->normalizePositiveInt($payload['builderProgramVersionId'] ?? null);
+        if ($programCode === '') {
+            throw new RuntimeHttpException('PROGRAM_GOVERNANCE_PROGRAM_REQUIRED', 'Informe o codigo do programa para consultar a governanca.', 422);
+        }
+
+        return $this->governance->dashboard($programCode, $builderProgramVersionId);
+    }
+
+    public function governanceRetentionPolicy(): array
+    {
+        $this->assertAdminRead();
+        return $this->governance->retentionPolicy();
+    }
+
+    public function updateGovernanceRetentionPolicy(array $payload): array
+    {
+        $this->assertAdminWrite();
+        return $this->governance->updateRetentionPolicy($payload);
+    }
+
+    public function previewOverlayRebase(int $overlayId): array
+    {
+        $this->assertAdminWrite();
+        return $this->overlays->previewRebase($overlayId);
+    }
+
+    public function rebaseOverlayVersion(int $overlayVersionId, array $payload = []): array
+    {
+        $this->assertAdminWrite();
+        $this->assertMaintenanceEnvironmentAllowed('rebase de overlay');
+        $preview = $this->overlays->previewRebaseVersion($overlayVersionId);
+        $targetBaseVersionId = (int) ($preview['targetBaseVersionId'] ?? 0);
+        if ($targetBaseVersionId > 0) {
+            $targetBaseVersion = $this->versions->find($targetBaseVersionId);
+            if ($targetBaseVersion instanceof BuilderProgramVersion) {
+                $this->assertPublicationEnvironmentAllowed($targetBaseVersion);
+            }
+        }
+        $resolutions = is_array($payload['resolutions'] ?? null) ? $payload['resolutions'] : [];
+        $result = $this->overlays->rebase($overlayVersionId, $resolutions);
+        $this->entityManager->flush();
+        return $result;
+    }
+
+    public function resignIntegrityRecord(array $payload): array
+    {
+        $this->assertAdminWrite();
+        $this->assertMaintenanceEnvironmentAllowed('reassinatura estrutural');
+
+        $record = is_array($payload['record'] ?? null) ? $payload['record'] : [];
+        $tableName = strtolower(trim((string) ($payload['tableName'] ?? $record['table_name'] ?? '')));
+        $recordId = $this->normalizePositiveInt($payload['recordId'] ?? $record['record_id'] ?? null);
+        if ($tableName === '' || !$recordId) {
+            throw new RuntimeHttpException('STRUCTURAL_INTEGRITY_TARGET_REQUIRED', 'Informe a tabela e o registro que serao reassinados.', 422);
+        }
+
+        $metadata = [
+            'source' => 'admin.integridade.ui',
+            'triggeredBy' => $this->permissions->getUserId(),
+            'tenantId' => $this->permissions->getTenantId(),
+            'sessionId' => $this->permissions->getSessionId(),
+        ];
+        $metadata['reason'] = trim((string) ($payload['reason'] ?? 'Reassinatura manual via admin.integridade'));
+
+        $this->integrity->resignTarget($tableName, $recordId, $metadata);
+        $this->entityManager->flush();
+        $status = $this->integrity->verifyTarget($tableName, $recordId);
+        $this->entityManager->flush();
+
+        return [
+            'integrity' => $status,
+        ];
     }
 
     private function assertAdminRead(): void
@@ -1720,6 +2105,29 @@ class ProgramBuilderService
         return in_array($normalized, ['module', 'entity', 'program'], true) ? $normalized : '';
     }
 
+    private function normalizeProgramOrigin(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+        return in_array($normalized, ['standard', 'customer_overlay', 'customer_custom'], true) ? $normalized : 'standard';
+    }
+
+    private function normalizeOwnerScope(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+        return in_array($normalized, ['system', 'subscriber'], true) ? $normalized : 'system';
+    }
+
+    private function normalizeCustomizationPolicy(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+        return in_array($normalized, ['locked', 'overlay_only', 'full_override_allowed'], true) ? $normalized : 'overlay_only';
+    }
+
+    private function normalizeOptionalCode(string $value): string
+    {
+        return $this->safeCode($value);
+    }
+
     private function editorLockPayload(BuilderEditorLock $lock): array
     {
         return [
@@ -1733,6 +2141,8 @@ class ProgramBuilderService
             'lockToken' => $lock->getLockToken(),
             'status' => $lock->getStatus(),
             'acquiredAt' => $lock->getAcquiredAt()->format(DATE_ATOM),
+            'grantId' => $lock->getGrantId(),
+            'lockCategory' => $lock->getLockCategory(),
             'lastSeenAt' => $lock->getLastSeenAt()->format(DATE_ATOM),
             'expiresAt' => $lock->getExpiresAt()->format(DATE_ATOM),
             'releasedAt' => $lock->getReleasedAt()?->format(DATE_ATOM),
@@ -2102,6 +2512,15 @@ class ProgramBuilderService
         $customMode = strtolower(trim((string) ($payload['customMode'] ?? 'iframe')));
         $customEntryUrl = trim((string) ($payload['customEntryUrl'] ?? ''));
         $customFrameTitle = trim((string) ($payload['customFrameTitle'] ?? ''));
+        $programOrigin = $this->normalizeProgramOrigin((string) ($payload['programOrigin'] ?? 'standard'));
+        $ownerScope = $this->normalizeOwnerScope((string) ($payload['ownerScope'] ?? ($programOrigin === 'standard' ? 'system' : 'subscriber')));
+        $customizationPolicy = $this->normalizeCustomizationPolicy((string) ($payload['customizationPolicy'] ?? 'overlay_only'));
+        $subscriberId = $this->normalizeOptionalCode((string) ($payload['subscriberId'] ?? ''));
+        $baseProgramCode = $this->normalizeOptionalCode((string) ($payload['baseProgramCode'] ?? ''));
+        $baseProgramVersionId = $this->normalizePositiveInt($payload['baseProgramVersionId'] ?? null);
+        $upgradeFrozen = ($payload['upgradeFrozen'] ?? false) === true;
+        $frozenReason = trim((string) ($payload['frozenReason'] ?? '')) ?: null;
+        $publicationPolicy = $this->normalizePublicationPolicy($payload['publicationPolicy'] ?? null);
 
         if ($programCode === '' || $programTitle === '' || $moduleCode === '' || $screenId === '') {
             throw new RuntimeHttpException('PROGRAM_BUILDER_REQUIRED_FIELDS', 'Informe codigo, titulo, modulo e screenId.', 422);
@@ -2114,6 +2533,40 @@ class ProgramBuilderService
         if (!preg_match('/^\d+\.\d+\.\d+$/', $version)) {
             throw new RuntimeHttpException('PROGRAM_VERSION_INVALID', 'Use versao no formato semantico x.y.z.', 422, [
                 'version' => $version,
+            ]);
+        }
+        if ($programOrigin === 'standard' && $ownerScope !== 'system') {
+            throw new RuntimeHttpException('PROGRAM_STANDARD_SCOPE_INVALID', 'Programa padrao precisa pertencer ao escopo do sistema.', 422, [
+                'programCode' => $programCode,
+                'ownerScope' => $ownerScope,
+            ]);
+        }
+        if ($programOrigin !== 'standard' && $ownerScope !== 'subscriber') {
+            throw new RuntimeHttpException('PROGRAM_CUSTOM_SCOPE_INVALID', 'Programas customizados precisam pertencer a um assinante.', 422, [
+                'programCode' => $programCode,
+                'ownerScope' => $ownerScope,
+            ]);
+        }
+        if ($ownerScope === 'subscriber' && $subscriberId === '') {
+            throw new RuntimeHttpException('PROGRAM_SUBSCRIBER_REQUIRED', 'Informe o assinante para programas de escopo do cliente.', 422, [
+                'programCode' => $programCode,
+            ]);
+        }
+        if ($programOrigin === 'standard' && $subscriberId !== '') {
+            throw new RuntimeHttpException('PROGRAM_STANDARD_SUBSCRIBER_NOT_ALLOWED', 'Programa padrao nao pode ser vinculado a assinante especifico.', 422, [
+                'programCode' => $programCode,
+                'subscriberId' => $subscriberId,
+            ]);
+        }
+        if ($programOrigin === 'standard' && ($baseProgramCode !== '' || $baseProgramVersionId !== null)) {
+            throw new RuntimeHttpException('PROGRAM_STANDARD_BASE_NOT_ALLOWED', 'Programa padrao nao pode apontar para uma base de outro programa.', 422, [
+                'programCode' => $programCode,
+            ]);
+        }
+        if ($programOrigin !== 'standard' && $baseProgramCode === '') {
+            throw new RuntimeHttpException('PROGRAM_CUSTOM_BASE_REQUIRED', 'Informe o programa base para customizacao overlay ou especifica.', 422, [
+                'programCode' => $programCode,
+                'programOrigin' => $programOrigin,
             ]);
         }
 
@@ -2177,6 +2630,22 @@ class ProgramBuilderService
             }
         }
 
+        $existingProgram = $this->programs->findOneBy(['code' => $programCode]);
+        if ($existingProgram) {
+            if (
+                $existingProgram->getProgramOrigin() !== $programOrigin
+                || $existingProgram->getOwnerScope() !== $ownerScope
+            ) {
+                throw new RuntimeHttpException('PROGRAM_ORIGIN_TRANSITION_NOT_ALLOWED', 'Nao e permitido converter a origem ou o escopo do programa por edicao direta.', 422, [
+                    'programCode' => $programCode,
+                    'currentProgramOrigin' => $existingProgram->getProgramOrigin(),
+                    'currentOwnerScope' => $existingProgram->getOwnerScope(),
+                    'requestedProgramOrigin' => $programOrigin,
+                    'requestedOwnerScope' => $ownerScope,
+                ]);
+            }
+        }
+
         return [
             'programCode' => $programCode,
             'programTitle' => $programTitle,
@@ -2192,6 +2661,15 @@ class ProgramBuilderService
             'allowUpdate' => $pageType === 'crud' ? ($this->apiEntitySupportsOperation($entity, 'update') ? (bool) ($payload['allowUpdate'] ?? true) : ($entity && $entity->getEntityType() === 'api' ? false : (bool) ($payload['allowUpdate'] ?? true))) : false,
             'allowDelete' => $pageType === 'crud' ? ($this->apiEntitySupportsOperation($entity, 'delete') ? (bool) ($payload['allowDelete'] ?? true) : ($entity && $entity->getEntityType() === 'api' ? false : (bool) ($payload['allowDelete'] ?? true))) : false,
             'changeSummary' => trim((string) ($payload['changeSummary'] ?? '')) ?: null,
+            'programOrigin' => $programOrigin,
+            'ownerScope' => $ownerScope,
+            'customizationPolicy' => $customizationPolicy,
+            'subscriberId' => $subscriberId !== '' ? $subscriberId : null,
+            'baseProgramCode' => $baseProgramCode !== '' ? $baseProgramCode : null,
+            'baseProgramVersionId' => $baseProgramVersionId,
+            'upgradeFrozen' => $upgradeFrozen,
+            'frozenReason' => $frozenReason,
+            'publicationPolicy' => $publicationPolicy,
             'customMode' => $pageType === 'custom' ? $customMode : null,
             'customEntryUrl' => $pageType === 'custom' ? $customEntryUrl : null,
             'customFrameTitle' => $pageType === 'custom' ? ($customFrameTitle !== '' ? $customFrameTitle : $programTitle) : null,
@@ -2202,9 +2680,71 @@ class ProgramBuilderService
 
     private function generateProgramDefinition(array $config): array
     {
-        return $config['pageType'] === 'custom'
+        $definition = $config['pageType'] === 'custom'
             ? $this->generateCustomDefinition($config)
             : $this->generateCrudDefinition($config);
+
+        $definition['program'] = is_array($definition['program'] ?? null) ? $definition['program'] : [];
+        $definition['program']['programOrigin'] = $config['programOrigin'];
+        $definition['program']['ownerScope'] = $config['ownerScope'];
+        $definition['program']['customizationPolicy'] = $config['customizationPolicy'];
+        $definition['program']['subscriberId'] = $config['subscriberId'];
+        $definition['program']['baseProgramCode'] = $config['baseProgramCode'];
+        $definition['program']['baseProgramVersionId'] = $config['baseProgramVersionId'];
+        $definition['program']['upgradeFrozen'] = $config['upgradeFrozen'];
+        $definition['program']['frozenReason'] = $config['frozenReason'];
+        $definition['program']['publicationPolicy'] = $config['publicationPolicy'];
+
+        return $definition;
+    }
+
+    private function decoratePublishedDefinition(BuilderProgramVersion $version, array $definition): array
+    {
+        $definition['program'] = is_array($definition['program'] ?? null) ? $definition['program'] : [];
+        $definition['program']['programOrigin'] = $version->getProgramOrigin();
+        $definition['program']['ownerScope'] = $version->getOwnerScope();
+        $definition['program']['customizationPolicy'] = $version->getCustomizationPolicy();
+        $definition['program']['subscriberId'] = $version->getSubscriberId();
+        $definition['program']['baseProgramCode'] = $version->getBaseProgramCode();
+        $definition['program']['baseProgramVersionId'] = $version->getBaseProgramVersionId();
+        $definition['program']['upgradeFrozen'] = $version->isUpgradeFrozen();
+        $definition['program']['frozenReason'] = $version->getFrozenReason();
+
+        $definition['runtime'] = is_array($definition['runtime'] ?? null) ? $definition['runtime'] : [];
+        $traceability = is_array($definition['runtime']['traceability'] ?? null) ? $definition['runtime']['traceability'] : [];
+        $traceability['programCode'] = $version->getProgramCode();
+        $traceability['programVersion'] = $version->getVersion();
+        $traceability['builderProgramVersionId'] = $version->getId();
+        $traceability['builderEntityVersionId'] = $this->latestBuilderEntityVersionId($version->getBuilderEntityCode());
+        $traceability['screenDefinitionVersion'] = $version->getVersion();
+        $traceability['customizationKind'] = $version->getProgramOrigin();
+        $traceability['schemaFingerprint'] = $this->programSchemaFingerprint($version, $definition);
+        $definition['runtime']['traceability'] = $traceability;
+
+        return $definition;
+    }
+
+    private function latestBuilderEntityVersionId(string $builderEntityCode): ?int
+    {
+        if ($builderEntityCode === '') {
+            return null;
+        }
+        $versions = $this->entityVersions->findByEntityCodeOrdered($builderEntityCode);
+        return $versions[0]?->getId();
+    }
+
+    private function programSchemaFingerprint(BuilderProgramVersion $version, array $definition): string
+    {
+        $payload = [
+            'programCode' => $version->getProgramCode(),
+            'programVersion' => $version->getVersion(),
+            'builderEntityCode' => $version->getBuilderEntityCode(),
+            'pageType' => $version->getPageType(),
+            'permissions' => $definition['permissions'] ?? [],
+            'dataModel' => $definition['dataModel'] ?? [],
+        ];
+
+        return hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
     private function generateCrudDefinition(array $config): array
@@ -2230,6 +2770,7 @@ class ProgramBuilderService
                 'label' => $field->getLabel(),
                 'type' => $dataType,
                 'nullable' => !$field->isRequired(),
+                'technicalProperties' => $this->programFieldTechnicalProperties($entity, $field, $dataType, $options),
             ];
             if (($options['readonly'] ?? false) === true || ($options['virtual'] ?? false) === true) {
                 $fields[$code]['readonly'] = true;
@@ -2264,6 +2805,7 @@ class ProgramBuilderService
                     'field' => $code,
                     'title' => $field->getLabel(),
                     'width' => in_array($dataType, ['datetime', 'text'], true) ? 220 : 150,
+                    'technicalProperties' => $this->programGridTechnicalProperties($entity, $field, $dataType, $options),
                 ];
             }
             if ($showInFilter && $position < 5 && !in_array($dataType, ['json', 'text'], true)) {
@@ -2273,6 +2815,7 @@ class ProgramBuilderService
                     'label' => $field->getLabel(),
                     'type' => in_array($dataType, ['boolean', 'enum', 'integer', 'date', 'datetime'], true) ? $dataType : 'text',
                     'operator' => in_array($dataType, ['boolean', 'enum', 'integer'], true) ? 'eq' : 'contains',
+                    'technicalProperties' => $this->programFilterTechnicalProperties($entity, $field, $dataType, $options),
                 ];
             }
             ++$position;
@@ -2438,6 +2981,96 @@ class ProgramBuilderService
         ];
     }
 
+    /**
+     * @return array<int, array<string, string>>
+     */
+    private function programFieldTechnicalProperties(BuilderEntity $entity, BuilderField $field, string $dataType, array $options): array
+    {
+        $properties = [
+            ['section' => 'Modelo', 'label' => 'Campo', 'value' => $field->getCode()],
+            ['section' => 'Modelo', 'label' => 'Entidade', 'value' => $entity->getCode()],
+            ['section' => 'Modelo', 'label' => 'Tipo de dado', 'value' => $dataType],
+            ['section' => 'Modelo', 'label' => 'Obrigatorio', 'value' => $field->isRequired() ? 'Sim' : 'Nao', 'critical' => $field->isRequired()],
+            ['section' => 'Modelo', 'label' => 'Chave primaria', 'value' => $field->isPrimaryKey() ? 'Sim' : 'Nao', 'critical' => $field->isPrimaryKey()],
+        ];
+
+        if ($entity->getEntityType() !== 'api') {
+            $columnName = trim((string) ($options['columnName'] ?? $field->getCode()));
+            if ($entity->getTableName()) {
+                $properties[] = ['section' => 'Banco', 'label' => 'Tabela', 'value' => (string) $entity->getTableName()];
+            }
+            if ($columnName !== '') {
+                $properties[] = ['section' => 'Banco', 'label' => 'Coluna', 'value' => $columnName];
+            }
+        }
+
+        if ($field->getDatabaseType()) {
+            $properties[] = ['section' => 'Banco', 'label' => 'Tipo banco', 'value' => (string) $field->getDatabaseType()];
+        }
+        if ($field->getLength() !== null) {
+            $properties[] = ['section' => 'Banco', 'label' => 'Tamanho', 'value' => (string) $field->getLength()];
+        }
+        if ($field->isPrimaryKey() || ($options['readonly'] ?? false) === true || ($options['editable'] ?? true) === false) {
+            $properties[] = ['section' => 'Runtime', 'label' => 'Somente leitura', 'value' => 'Sim', 'critical' => true];
+        }
+        if (($options['virtual'] ?? false) === true) {
+            $properties[] = ['section' => 'Runtime', 'label' => 'Campo virtual', 'value' => 'Sim'];
+        }
+        if ($entity->getEntityType() === 'api') {
+            $apiJsonPath = trim((string) (($options['api']['jsonPath'] ?? '') ?: ($options['apiJsonPath'] ?? '')));
+            if ($apiJsonPath !== '') {
+                $properties[] = ['section' => 'API', 'label' => 'JSON Path', 'value' => $apiJsonPath, 'critical' => true];
+            }
+            $apiSourceCode = trim((string) ($entity->getMetadata()['apiSourceCode'] ?? ''));
+            if ($apiSourceCode !== '') {
+                $properties[] = ['section' => 'API', 'label' => 'API cadastrada', 'value' => $apiSourceCode];
+            }
+            $listOperationCode = trim((string) ($entity->getMetadata()['apiListOperationCode'] ?? ''));
+            if ($listOperationCode !== '') {
+                $properties[] = ['section' => 'API', 'label' => 'Operacao de lista', 'value' => $listOperationCode];
+            }
+            $detailOperationCode = trim((string) ($entity->getMetadata()['apiDetailOperationCode'] ?? ''));
+            if ($detailOperationCode !== '') {
+                $properties[] = ['section' => 'API', 'label' => 'Operacao de detalhe', 'value' => $detailOperationCode];
+            }
+            $providerType = strtolower(trim((string) ($entity->getMetadata()['apiSource']['providerType'] ?? $entity->getMetadata()['providerType'] ?? '')));
+            if ($providerType === 'odoo') {
+                $odoo = is_array($entity->getMetadata()['apiSource']['odoo'] ?? null) ? $entity->getMetadata()['apiSource']['odoo'] : [];
+                if (($odoo['model'] ?? '') !== '') {
+                    $properties[] = ['section' => 'Odoo', 'label' => 'Modelo', 'value' => (string) $odoo['model']];
+                }
+                if (($odoo['transport'] ?? '') !== '') {
+                    $properties[] = ['section' => 'Odoo', 'label' => 'Transporte', 'value' => strtoupper((string) $odoo['transport'])];
+                }
+            }
+        }
+
+        if (!empty($options['foreignKey']['entityCode'])) {
+            $properties[] = ['section' => 'Relacionamento', 'label' => 'FK entidade', 'value' => (string) $options['foreignKey']['entityCode']];
+        }
+        if (!empty($options['foreignKey']['fieldCode'])) {
+            $properties[] = ['section' => 'Relacionamento', 'label' => 'FK campo', 'value' => (string) $options['foreignKey']['fieldCode']];
+        }
+
+        return $properties;
+    }
+
+    private function programGridTechnicalProperties(BuilderEntity $entity, BuilderField $field, string $dataType, array $options): array
+    {
+        return array_merge([
+            ['section' => 'Exibicao', 'label' => 'Superficie', 'value' => 'Grid'],
+            ['section' => 'Exibicao', 'label' => 'Largura sugerida', 'value' => in_array($dataType, ['datetime', 'text'], true) ? '220' : '150'],
+        ], $this->programFieldTechnicalProperties($entity, $field, $dataType, $options));
+    }
+
+    private function programFilterTechnicalProperties(BuilderEntity $entity, BuilderField $field, string $dataType, array $options): array
+    {
+        return array_merge([
+            ['section' => 'Exibicao', 'label' => 'Superficie', 'value' => 'Filtro'],
+            ['section' => 'Exibicao', 'label' => 'Operador inicial', 'value' => in_array($dataType, ['boolean', 'enum', 'integer'], true) ? 'eq' : 'contains'],
+        ], $this->programFieldTechnicalProperties($entity, $field, $dataType, $options));
+    }
+
     private function syncRuntimeEndpoints(BuilderProgramVersion $version): void
     {
         if ($version->getPageType() !== 'crud') {
@@ -2509,6 +3142,7 @@ class ProgramBuilderService
                 ->setConfig($this->endpointConfig($version, $endpointId, $handler));
 
             $this->entityManager->persist($endpoint);
+            $this->integrity->signEndpoint($endpoint, ['source' => 'syncRuntimeEndpoints']);
             $activeEndpointIds[] = $endpointId;
         }
 
@@ -2520,6 +3154,14 @@ class ProgramBuilderService
         foreach ($this->endpoints->findBy(['screenId' => $screenId]) as $endpoint) {
             $endpoint->setEnabled(false);
             $this->entityManager->persist($endpoint);
+            $this->integrity->signEndpoint($endpoint, ['source' => 'disableRuntimeEndpointsForScreen']);
+        }
+    }
+
+    private function signRuntimeEndpointsForScreen(string $screenId): void
+    {
+        foreach ($this->endpoints->findBy(['screenId' => $screenId]) as $endpoint) {
+            $this->integrity->signEndpoint($endpoint, ['source' => 'publishVersion']);
         }
     }
 
@@ -2560,6 +3202,7 @@ class ProgramBuilderService
             }
             $endpoint->setEnabled(false);
             $this->entityManager->persist($endpoint);
+            $this->integrity->signEndpoint($endpoint, ['source' => 'disableUnusedCrudGeneratedEndpoints']);
         }
     }
 
@@ -2595,6 +3238,16 @@ class ProgramBuilderService
                 'actionId' => $endpointId,
                 'programId' => $version->getProgramCode(),
                 'permissionPrefix' => $version->getPermissionPrefix(),
+                'traceability' => [
+                    'programCode' => $version->getProgramCode(),
+                    'programVersion' => $version->getVersion(),
+                    'builderProgramVersionId' => $version->getId(),
+                    'builderEntityVersionId' => $this->latestBuilderEntityVersionId($version->getBuilderEntityCode()),
+                    'screenDefinitionVersion' => $version->getVersion(),
+                    'schemaFingerprint' => $this->programSchemaFingerprint($version, $version->getGeneratedDefinition()),
+                    'customizationKind' => $version->getProgramOrigin(),
+                    'subscriberId' => $version->getSubscriberId(),
+                ],
             ];
         }
 
@@ -2692,6 +3345,15 @@ class ProgramBuilderService
             'allowUpdate' => $version->isAllowUpdate(),
             'allowDelete' => $version->isAllowDelete(),
             'changeSummary' => $version->getChangeSummary(),
+            'programOrigin' => $version->getProgramOrigin(),
+            'ownerScope' => $version->getOwnerScope(),
+            'customizationPolicy' => $version->getCustomizationPolicy(),
+            'subscriberId' => $version->getSubscriberId(),
+            'baseProgramCode' => $version->getBaseProgramCode(),
+            'baseProgramVersionId' => $version->getBaseProgramVersionId(),
+            'upgradeFrozen' => $version->isUpgradeFrozen(),
+            'frozenReason' => $version->getFrozenReason(),
+            'governance' => $this->governance->governanceSummary($version),
             'customMode' => $version->getBuilderConfig()['customMode'] ?? null,
             'customEntryUrl' => $version->getBuilderConfig()['customEntryUrl'] ?? null,
             'customFrameTitle' => $version->getBuilderConfig()['customFrameTitle'] ?? null,
@@ -2709,6 +3371,65 @@ class ProgramBuilderService
         unset($copy['_entity']);
 
         return $copy;
+    }
+
+    private function normalizePublicationPolicy(mixed $value): array
+    {
+        $input = is_array($value) ? $value : [];
+        $allowed = [];
+        foreach ((array) ($input['allowedDatabaseEnvironments'] ?? []) as $item) {
+            $normalized = strtolower(trim((string) $item));
+            if ($normalized === '') {
+                continue;
+            }
+            $allowed[] = $normalized;
+        }
+        $allowed = array_values(array_unique($allowed));
+
+        return [
+            'allowedDatabaseEnvironments' => $allowed,
+        ];
+    }
+
+    private function assertPublicationEnvironmentAllowed(BuilderProgramVersion $version): void
+    {
+        $config = $version->getBuilderConfig();
+        $policy = is_array($config['publicationPolicy'] ?? null) ? $config['publicationPolicy'] : [];
+        $allowed = array_values(array_filter(array_map(static fn (mixed $item): string => strtolower(trim((string) $item)), (array) ($policy['allowedDatabaseEnvironments'] ?? []))));
+        if (!$allowed) {
+            return;
+        }
+
+        $environment = strtolower(trim((string) ($this->environmentIdentity->resolve()['databaseEnvironment'] ?? '')));
+        if ($environment !== '' && !in_array($environment, $allowed, true)) {
+            throw new RuntimeHttpException('PROGRAM_PUBLICATION_ENVIRONMENT_BLOCKED', 'A publicacao nao esta autorizada para o ambiente atual.', 422, [
+                'programCode' => $version->getProgramCode(),
+                'builderProgramVersionId' => $version->getId(),
+                'databaseEnvironment' => $environment,
+                'allowedDatabaseEnvironments' => $allowed,
+            ]);
+        }
+    }
+
+    private function assertMaintenanceEnvironmentAllowed(string $operation): void
+    {
+        $rawAllowed = (string) ($_ENV['PROGRAM_BUILDER_MAINTENANCE_DATABASE_ENVIRONMENTS'] ?? $_SERVER['PROGRAM_BUILDER_MAINTENANCE_DATABASE_ENVIRONMENTS'] ?? 'dev,test,homolog');
+        $allowed = array_values(array_filter(array_map(
+            static fn (string $item): string => strtolower(trim($item)),
+            explode(',', $rawAllowed)
+        )));
+        if (!$allowed) {
+            $allowed = ['dev', 'test', 'homolog'];
+        }
+
+        $environment = strtolower(trim((string) ($this->environmentIdentity->resolve()['databaseEnvironment'] ?? '')));
+        if ($environment !== '' && !in_array($environment, $allowed, true)) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_MAINTENANCE_ENVIRONMENT_BLOCKED', 'A operacao de manutencao nao esta autorizada para o ambiente atual.', 422, [
+                'operation' => $operation,
+                'databaseEnvironment' => $environment,
+                'allowedDatabaseEnvironments' => $allowed,
+            ]);
+        }
     }
 
     private function buildTransientEntity(array $config): BuilderEntity
@@ -2863,6 +3584,15 @@ class ProgramBuilderService
             'allowUpdate' => $config['allowUpdate'],
             'allowDelete' => $config['allowDelete'],
             'changeSummary' => $config['changeSummary'],
+            'programOrigin' => $config['programOrigin'],
+            'ownerScope' => $config['ownerScope'],
+            'customizationPolicy' => $config['customizationPolicy'],
+            'subscriberId' => $config['subscriberId'],
+            'baseProgramCode' => $config['baseProgramCode'],
+            'baseProgramVersionId' => $config['baseProgramVersionId'],
+            'upgradeFrozen' => $config['upgradeFrozen'],
+            'frozenReason' => $config['frozenReason'],
+            'publicationPolicy' => $config['publicationPolicy'],
             'generatedDefinition' => $definition,
             'builderConfig' => $this->publicBuilderConfig($config),
         ];

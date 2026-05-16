@@ -101,10 +101,14 @@ Niveis importantes:
 - Ao abrir o atendimento, o `HomeEngine` captura o programa corrente e envia no contexto das chamadas de suporte (`programId`, `programCode`, `programTitle`, `programScreenId`, `programType`, `moduleId` e `currentProgram`).
 - No backend atual, o chat entre usuarios e o chat de suporte usam `runtime_user_message` como historico/persistencia leve. Solicitacoes de suporte ficam em `runtime_support_request`.
 - O envio de mensagem continua em `POST`, mas o recebimento em tempo quase real pode usar SSE proprio por conversa/atendimento.
+- A mesma rota runtime aceita `GET` para consultas de lista/status e `GET ...?stream=1` para abrir o stream dos endpoints de eventos.
 - `layout.appbar.aiChat`: habilita outro botao no appbar global para chat de IA, sem selecao de destinatario, com endpoints `history` e `send`.
 - `layout.appbar.alerts`: habilita o botao de sino no appbar global e informa endpoint `list` para alertas de informacoes recebidas.
 - `layout.appbar.requests`: habilita o botao de solicitacoes no appbar global e informa endpoint `list` para solicitacoes recebidas ou atualizadas.
 - `layout.appbar.jobs`: habilita o botao de jobs concluidos no appbar global, informa endpoint `list` e pode apontar `programId` para a pagina "Meus Jobs".
+- `layout.appbar.notifications`: habilita a central de notificacoes. Pode usar endpoint dedicado `list`/`ack` ou agregar `alerts`, `requests` e `jobs` quando nao houver endpoint proprio.
+- Quando houver endpoint dedicado, a Home permite filtro por severidade, exigencia de acao, somente nao lidas e marcacao em lote conforme o filtro atual.
+- Quando a notificacao trouxer `navigation.query`, a Home encaminha esses parametros para a tela aberta, preservando foco contextual e filtros sem depender de URL livre.
 - `layout.appbar.runtimeMessages`: habilita polling de mensagens/interceptacoes do runtime, incluindo pedido de saida e derrubada de sessao.
 - `navigation.modules`: sistemas/modulos disponiveis no ComboBox acima do menu; o motor acrescenta a opcao interna `Todos`.
 - `navigation.initialModuleId`: modulo inicial selecionado; se ausente ou em branco, exibe `Todos` ao abrir.
@@ -146,12 +150,15 @@ new HomeEngine({
 - Endpoints de chat, atendimento, IA, alertas e solicitacoes podem usar `endpointId` ou `actionId`, resolvidos pelo gateway runtime.
 - `home.chat.contacts` lista usuarios ativos a partir das sessoes runtime.
 - `home.chat.history` e `home.chat.send` persistem conversa simples entre usuarios.
-- `home.chat.events` expõe SSE proprio por conversa, enviando apenas mensagens novas a partir de `afterId`.
+- `home.chat.events` expoe SSE proprio por conversa, enviando apenas mensagens novas a partir de `afterId`.
 - `home.support.onlineUsers` lista atendentes online por setor usando sessoes ativas e grupos `support` ou `support.<setor>`.
 - `home.support.history` e `home.support.send` persistem o atendimento em `runtime_user_message` com canal proprio.
 - `home.support.createRequest` grava protocolo em `runtime_support_request`.
 - `home.support.requestStatus` consulta o ultimo protocolo do usuario ou um protocolo especifico.
-- `home.support.events` expõe SSE proprio para presenca online, novas mensagens do atendimento e evolucao do protocolo da solicitacao.
+- `home.support.events` expoe SSE proprio para presenca online, novas mensagens do atendimento e evolucao do protocolo da solicitacao.
+- `home.notifications.list` pode devolver notificacoes reais por destinatario, com filtro por severidade/categoria/acao.
+- `home.notifications.ack` pode confirmar leitura individual ou em lote a partir do filtro atual da central.
+- A navegacao de notificacoes pode usar `screenId` ou `programId` mais `query`, permitindo abrir telas administrativas ja filtradas no item correspondente.
 - Endpoints da troca de assinante seguem a mesma regra dos demais endpoints da appbar em producao.
 - Endpoint de jobs do appbar e endpoints de processamento devem usar `endpointId` ou `actionId` em producao.
 - Nao aceitar JavaScript vindo do JSON.

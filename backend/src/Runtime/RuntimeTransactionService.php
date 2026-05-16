@@ -15,6 +15,7 @@ class RuntimeTransactionService
         private readonly PermissionResolver $permissions,
         private readonly RuntimeExecutionContext $executionContext,
         private readonly RuntimeEntityDefinitionResolver $definitions,
+        private readonly RuntimeEnvironmentIdentityResolver $environmentIdentity,
     ) {
     }
 
@@ -23,6 +24,7 @@ class RuntimeTransactionService
         $context = is_array($payload['context'] ?? null) ? $payload['context'] : [];
         $runtime = is_array($payload['_runtime'] ?? null) ? $payload['_runtime'] : [];
         $entityCode = $this->inferEntityCode($handler, $payload);
+        $traceability = $this->buildTraceability($screenId, $endpointId, $handler, $payload, $entityCode);
 
         $transaction = (new RuntimeTransaction())
             ->setTenantId($this->permissions->getTenantId())
@@ -35,7 +37,7 @@ class RuntimeTransactionService
             ->setActionId((string) ($payload['actionId'] ?? $payload['action'] ?? $endpointId))
             ->setOperation($handler)
             ->setLockToken((string) ($runtime['lockToken'] ?? $payload['lockToken'] ?? ''))
-            ->setRequestContext($this->compactPayload($payload, $entityCode));
+            ->setRequestContext($this->compactPayload($payload, $entityCode, $traceability));
 
         $this->entityManager->persist($transaction);
         $this->current = $transaction;
@@ -50,6 +52,7 @@ class RuntimeTransactionService
             'actionId' => (string) ($payload['actionId'] ?? $payload['action'] ?? $endpointId),
             'operation' => $handler,
             'source' => 'runtime',
+            'traceability' => $traceability,
         ], $transaction);
         $this->log('runtime.request', 'Chamada runtime recebida.', metadata: [
             'screenId' => $screenId,
@@ -113,7 +116,7 @@ class RuntimeTransactionService
             ->setBeforeData($before)
             ->setAfterData($after)
             ->setDiffData($this->diff($before, $after))
-            ->setMetadata($metadata);
+            ->setMetadata($this->mergeTraceabilityMetadata($metadata));
 
         $this->entityManager->persist($log);
     }
@@ -132,7 +135,7 @@ class RuntimeTransactionService
         return null;
     }
 
-    private function compactPayload(array $payload, ?string $entityCode): array
+    private function compactPayload(array $payload, ?string $entityCode, array $traceability): array
     {
         $payload = $this->redactSensitiveValues($payload);
 
@@ -147,7 +150,83 @@ class RuntimeTransactionService
             }
         }
 
+        $payload['traceability'] = $traceability;
+
         return $payload;
+    }
+
+    private function mergeTraceabilityMetadata(array $metadata): array
+    {
+        $requestContext = $this->current?->getRequestContext() ?? [];
+        $traceability = is_array($requestContext['traceability'] ?? null) ? $requestContext['traceability'] : [];
+        foreach ($traceability as $key => $value) {
+            if (!array_key_exists($key, $metadata)) {
+                $metadata[$key] = $value;
+            }
+        }
+
+        return $metadata;
+    }
+
+    private function buildTraceability(string $screenId, string $endpointId, string $handler, array $payload, ?string $entityCode): array
+    {
+        $runtimeEndpoint = is_array($payload['_runtimeEndpoint'] ?? null) ? $payload['_runtimeEndpoint'] : [];
+        $traceability = is_array($runtimeEndpoint['traceability'] ?? null) ? $runtimeEndpoint['traceability'] : [];
+        $environment = $this->environmentIdentity->resolve();
+        $definition = null;
+        if ($entityCode !== null) {
+            try {
+                $definition = $this->definitions->resolve($entityCode);
+            } catch (\Throwable) {
+                $definition = null;
+            }
+        }
+
+        $schemaFingerprint = (string) ($traceability['schemaFingerprint'] ?? '');
+        if ($schemaFingerprint === '' && is_array($definition)) {
+            $schemaFingerprint = $this->entitySchemaFingerprint($definition);
+        }
+
+        return array_filter([
+            'programCode' => $traceability['programCode'] ?? ($payload['programId'] ?? $runtimeEndpoint['programId'] ?? null),
+            'programVersion' => $traceability['programVersion'] ?? null,
+            'builderProgramVersionId' => $traceability['builderProgramVersionId'] ?? null,
+            'entityCode' => $traceability['entityCode'] ?? $entityCode,
+            'builderEntityVersionId' => $traceability['builderEntityVersionId'] ?? null,
+            'screenId' => $screenId,
+            'screenDefinitionVersion' => $traceability['screenDefinitionVersion'] ?? null,
+            'schemaFingerprint' => $schemaFingerprint !== '' ? $schemaFingerprint : null,
+            'databaseIdentity' => $environment['databaseIdentity'] ?? null,
+            'databaseEnvironment' => $environment['databaseEnvironment'] ?? null,
+            'customizationKind' => $traceability['customizationKind'] ?? null,
+            'subscriberId' => $traceability['subscriberId'] ?? $this->permissions->getTenantId(),
+            'grantId' => $traceability['grantId'] ?? null,
+            'requestCode' => $traceability['requestCode'] ?? null,
+            'approvalId' => $traceability['approvalId'] ?? null,
+            'testExecutionBundleId' => $traceability['testExecutionBundleId'] ?? null,
+            'endpointId' => $endpointId,
+            'handler' => $handler,
+        ], static fn (mixed $value): bool => $value !== null && $value !== '');
+    }
+
+    private function entitySchemaFingerprint(array $definition): string
+    {
+        $payload = [
+            'entityCode' => $definition['entityCode'] ?? null,
+            'tableName' => $definition['tableName'] ?? null,
+            'primaryKey' => $definition['primaryKey'] ?? null,
+            'fields' => array_map(static function (array $field): array {
+                return [
+                    'column' => $field['column'] ?? null,
+                    'dataType' => $field['dataType'] ?? null,
+                    'databaseType' => $field['databaseType'] ?? null,
+                    'writable' => $field['writable'] ?? null,
+                    'readable' => $field['readable'] ?? null,
+                ];
+            }, is_array($definition['fields'] ?? null) ? $definition['fields'] : []),
+        ];
+
+        return hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
     private function extractRecordId(array $payload): null|string|int

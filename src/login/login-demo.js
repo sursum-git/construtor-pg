@@ -5,6 +5,15 @@
     if (global.kendo) {
       kendo.culture("pt-BR");
     }
+    const literalClient = global.CrudHttpClient ? new global.CrudHttpClient({ allowLocalFallback: true }) : null;
+    const t = function(key, fallback, params) {
+      return global.LoginLiterals && typeof global.LoginLiterals.t === "function"
+        ? global.LoginLiterals.t(key, fallback, params)
+        : fallback;
+    };
+    if (global.LoginLiterals && typeof global.LoginLiterals.init === "function") {
+      global.LoginLiterals.init(literalClient);
+    }
 
     const notification = $("#login-notification").kendoNotification({
       position: {
@@ -21,11 +30,11 @@
     }).data("kendoNotification");
 
     $("#login-user").kendoTextBox({
-      placeholder: "usuario@empresa.com"
+      placeholder: t("login.placeholder.username", "usuario@empresa.com")
     });
     const passwordInput = $("#login-password");
     passwordInput.kendoTextBox({
-      placeholder: "Senha"
+      placeholder: t("login.placeholder.password", "Senha")
     });
     const passwordToggle = $("#login-toggle-password").kendoButton({
       icon: "eye",
@@ -45,7 +54,7 @@
       const username = String($("#login-user").val() || "").trim();
       const password = String($("#login-password").val() || "");
       if (!username || !password) {
-        show("Informe usuario e senha para continuar.");
+        show(t("login.message.credentials_required", "Informe usuario e senha para continuar."));
         return;
       }
       openSubscriberSelection(function() {
@@ -77,13 +86,13 @@
 
     function openSubscriberSelection(onSelected) {
       const wrapper = $("<div class=\"login-dialog-form\"></div>");
-      $("<p></p>").text("Demo: selecione o assinante que seria retornado pelo backend apos validar o usuario.").appendTo(wrapper);
+      $("<p></p>").text(t("login.demo.subscriber_info", "Demo: selecione o assinante que seria retornado pelo backend apos validar o usuario.")).appendTo(wrapper);
       const field = $("<label class=\"login-field\"></label>").appendTo(wrapper);
-      $("<span>Assinante</span>").appendTo(field);
+      $("<span></span>").text(t("login.label.subscriber", "Assinante")).appendTo(field);
       const input = $("<input type=\"text\">").appendTo(field);
       const actions = $("<div class=\"login-dialog-actions\"></div>").appendTo(wrapper);
-      const confirmButton = $("<button type=\"button\">Continuar</button>").appendTo(actions);
-      const cancelButton = $("<button type=\"button\">Cancelar</button>").appendTo(actions);
+      const confirmButton = $("<button type=\"button\"></button>").text(t("literal.button.continue", "Continuar")).appendTo(actions);
+      const cancelButton = $("<button type=\"button\"></button>").text(t("literal.button.cancel", "Cancelar")).appendTo(actions);
       const subscribers = [
         { id: "default", name: "Principal" },
         { id: "empresa-a", name: "Empresa A" },
@@ -99,7 +108,7 @@
       confirmButton.kendoButton({ icon: "login", themeColor: "primary" });
       cancelButton.kendoButton({ icon: "x" });
       wrapper.kendoWindow({
-        title: "Selecionar assinante",
+        title: t("login.title.select_subscriber", "Selecionar assinante"),
         modal: true,
         visible: false,
         resizable: false,
@@ -117,7 +126,7 @@
         const selected = input.data("kendoDropDownList").dataItem();
         win.close();
         saveLocalValue("crudEngine.currentSubscriber", JSON.stringify(selected || subscribers[0]));
-        show("Demo pronta: assinante selecionado: " + (selected && selected.name || "Principal") + ".");
+        show(t("login.demo.subscriber_selected", "Demo pronta: assinante selecionado: {name}.", { name: selected && selected.name || "Principal" }));
         if (typeof onSelected === "function") {
           onSelected(selected || subscribers[0]);
         }
@@ -126,10 +135,10 @@
 
     function openAdminAreaSelection() {
       const wrapper = $("<div class=\"login-dialog-form login-area-selector\"></div>");
-      $("<p></p>").text("Demo: usuario administrador pode escolher a area de entrada apos autenticar.").appendTo(wrapper);
+      $("<p></p>").text(t("login.demo.area_info", "Demo: usuario administrador pode escolher a area de entrada apos autenticar.")).appendTo(wrapper);
       const actions = $("<div class=\"login-dialog-actions\"></div>").appendTo(wrapper);
-      const mainButton = $("<button type=\"button\">Area principal</button>").appendTo(actions);
-      const adminButton = $("<button type=\"button\">Area administrativa</button>").appendTo(actions);
+      const mainButton = $("<button type=\"button\"></button>").text(t("login.area.main", "Area principal")).appendTo(actions);
+      const adminButton = $("<button type=\"button\"></button>").text(t("login.area.admin", "Area administrativa")).appendTo(actions);
 
       mainButton.kendoButton({ icon: "home", themeColor: "primary" });
       adminButton.kendoButton({ icon: "gear" });
@@ -153,7 +162,7 @@
         }
 
         wrapper.kendoWindow({
-          title: "Selecionar area",
+          title: t("login.title.select_area", "Selecionar area"),
           modal: true,
           visible: false,
           resizable: false,
@@ -184,7 +193,7 @@
 
     function openPasswordResetDemo() {
       const wrapper = $("<div class=\"login-dialog-form\"></div>");
-      $("<p></p>").text("Demo: em producao, o backend envia o token por e-mail e valida a nova senha.").appendTo(wrapper);
+      $("<p></p>").text(t("login.demo.reset_info", "Demo: em producao, o backend envia o token por e-mail e valida a nova senha.")).appendTo(wrapper);
       const identityField = $("<label class=\"login-field\"></label>").appendTo(wrapper);
       $("<span>Usuario ou e-mail</span>").appendTo(identityField);
       $("<input type=\"text\">").appendTo(identityField).kendoTextBox({ placeholder: "usuario ou e-mail" });

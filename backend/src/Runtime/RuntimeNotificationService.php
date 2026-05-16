@@ -67,6 +67,79 @@ class RuntimeNotificationService
         return $values;
     }
 
+    public function createAdministrativeNotification(string $title, string $message, array $options = []): ?int
+    {
+        $tenantId = trim((string) ($options['tenantId'] ?? $this->permissions->getTenantId()));
+        $targetUserIds = $this->normalizeStringList($options['targetUserIds'] ?? [$this->permissions->getUserId()]);
+        $targetGroups = $this->normalizeStringList($options['targetGroups'] ?? []);
+        if (!$targetUserIds && !$targetGroups) {
+            $targetUserIds = [$this->permissions->getUserId()];
+        }
+
+        $category = trim((string) ($options['category'] ?? 'governanca'));
+        $severity = $this->normalizeSeverity($options['severity'] ?? 'warning');
+        $code = trim((string) ($options['code'] ?? ''));
+        if ($code === '') {
+            $code = $this->normalizeCode($category . '.' . date('YmdHis') . '.' . substr(md5($title . $message), 0, 8), true);
+        }
+
+        $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
+        $metadata = is_array($options['metadata'] ?? null) ? $options['metadata'] : [];
+        $existingId = $this->connection->fetchOne(
+            'SELECT id FROM runtime_notification WHERE tenant_id = :tenantId AND code = :code LIMIT 1',
+            [
+                'tenantId' => $tenantId,
+                'code' => $code,
+            ]
+        );
+        if ($existingId) {
+            $this->connection->update('runtime_notification', [
+                'title' => mb_substr(trim($title), 0, 255),
+                'message' => trim($message),
+                'category' => $category !== '' ? $category : 'governanca',
+                'severity' => $severity,
+                'status' => 'published',
+                'action_required' => ($options['actionRequired'] ?? false) === true,
+                'target_user_ids' => json_encode($targetUserIds, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'target_groups' => json_encode($targetGroups, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'link_program_id' => $this->nullableTrimmed($options['linkProgramId'] ?? null),
+                'link_screen_id' => $this->nullableTrimmed($options['linkScreenId'] ?? null),
+                'metadata' => json_encode($metadata, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'expires_at' => $this->normalizeDateTime($options['expiresAt'] ?? null),
+                'published_at' => $now,
+                'updated_at' => $now,
+            ], ['id' => (int) $existingId]);
+            $this->syncRecipients((int) $existingId);
+            return (int) $existingId;
+        }
+
+        $this->connection->insert('runtime_notification', [
+            'tenant_id' => $tenantId,
+            'code' => $code,
+            'title' => mb_substr(trim($title), 0, 255),
+            'message' => trim($message),
+            'category' => $category !== '' ? $category : 'governanca',
+            'severity' => $severity,
+            'status' => 'published',
+            'action_required' => ($options['actionRequired'] ?? false) === true,
+            'target_user_ids' => json_encode($targetUserIds, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'target_groups' => json_encode($targetGroups, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'link_program_id' => $this->nullableTrimmed($options['linkProgramId'] ?? null),
+            'link_screen_id' => $this->nullableTrimmed($options['linkScreenId'] ?? null),
+            'metadata' => json_encode($metadata, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'expires_at' => $this->normalizeDateTime($options['expiresAt'] ?? null),
+            'published_at' => $now,
+            'created_by' => $this->permissions->getUserId(),
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        $notificationId = (int) $this->connection->lastInsertId();
+        $this->syncRecipients($notificationId);
+
+        return $notificationId > 0 ? $notificationId : null;
+    }
+
     public function validateValues(array $values): void
     {
         if (($values['status'] ?? 'draft') !== 'published') {
@@ -168,13 +241,17 @@ class RuntimeNotificationService
         $this->connection->delete('runtime_notification_recipient', ['notification_id' => $notificationId]);
     }
 
-    public function listForCurrentUser(bool $includeRead = false): array
+    public function listForCurrentUser(bool $includeRead = false, array $filters = []): array
     {
         $tenantId = $this->permissions->getTenantId();
         $userId = $this->permissions->getUserId();
         $statuses = $includeRead ? ['pending', 'delivered', 'read'] : ['pending', 'delivered'];
+        if (($filters['unreadOnly'] ?? false) === true) {
+            $statuses = ['pending', 'delivered'];
+        }
 
-        $rows = $this->connection->createQueryBuilder()
+        $limit = max(1, min(100, (int) ($filters['limit'] ?? 30)));
+        $query = $this->connection->createQueryBuilder()
             ->select(
                 'r.id AS recipient_id',
                 'r.status AS recipient_status',
@@ -206,13 +283,36 @@ class RuntimeNotificationService
             ->setParameter('notificationStatus', 'published')
             ->setParameter('now', (new \DateTimeImmutable())->format('Y-m-d H:i:s'))
             ->orderBy('n.created_at', 'DESC')
-            ->setMaxResults(30)
-            ->executeQuery()
-            ->fetchAllAssociative();
+            ->setMaxResults($limit);
+
+        $severity = trim((string) ($filters['severity'] ?? ''));
+        if ($severity !== '') {
+            $query
+                ->andWhere('n.severity = :severity')
+                ->setParameter('severity', $severity);
+        }
+        $category = trim((string) ($filters['category'] ?? ''));
+        if ($category !== '') {
+            $query
+                ->andWhere('n.category = :category')
+                ->setParameter('category', $category);
+        }
+        if (array_key_exists('actionRequired', $filters) && $filters['actionRequired'] !== null && $filters['actionRequired'] !== '') {
+            $query
+                ->andWhere('n.action_required = :actionRequired')
+                ->setParameter('actionRequired', ($filters['actionRequired'] ?? false) === true);
+        }
+
+        $rows = $query->executeQuery()->fetchAllAssociative();
 
         $pendingIds = [];
         $items = [];
         foreach ($rows as $row) {
+            $metadata = $this->decodeJsonMap($row['metadata'] ?? null);
+            $actionLabel = trim((string) ($metadata['actionLabel'] ?? ''));
+            $resolvedProgramId = $this->nullableTrimmed($metadata['actionProgramId'] ?? $row['link_program_id'] ?? null);
+            $resolvedScreenId = $this->nullableTrimmed($metadata['actionScreenId'] ?? $row['link_screen_id'] ?? null);
+            $navigationQuery = $this->normalizeNavigationQuery($metadata['actionQuery'] ?? null);
             if ((string) ($row['recipient_status'] ?? '') === 'pending') {
                 $pendingIds[] = (int) $row['recipient_id'];
             }
@@ -224,12 +324,45 @@ class RuntimeNotificationService
                 'type' => (string) ($row['category'] ?? 'Notificacao'),
                 'status' => $this->formatRecipientStatus((string) ($row['recipient_status'] ?? 'pending')),
                 'severity' => (string) ($row['severity'] ?? 'info'),
-                'programId' => $row['link_program_id'] ?: null,
-                'screenId' => $row['link_screen_id'] ?: null,
+                'programId' => $resolvedProgramId,
+                'screenId' => $resolvedScreenId,
+                'linkText' => $actionLabel !== '' ? $actionLabel : ($resolvedProgramId || $resolvedScreenId ? 'Abrir item' : null),
                 'actionRequired' => (bool) ($row['action_required'] ?? false),
                 'createdAt' => $this->formatDateTime($row['created_at'] ?? null),
                 'updatedAt' => $this->formatDateTime($row['read_at'] ?? $row['delivered_at'] ?? $row['created_at'] ?? null),
-                'metadata' => $this->decodeJsonMap($row['metadata'] ?? null),
+                'metadata' => $metadata,
+                'navigation' => array_filter([
+                    'programId' => $resolvedProgramId,
+                    'screenId' => $resolvedScreenId,
+                    'query' => $navigationQuery ?: null,
+                ], static fn ($value) => $value !== null && $value !== ''),
+                'technicalProperties' => [
+                    ['section' => 'Notificacao', 'labelKey' => 'technical.label.code', 'label' => 'Codigo', 'value' => (string) ($row['code'] ?? '')],
+                    ['section' => 'Notificacao', 'labelKey' => 'technical.label.severity', 'label' => 'Severidade', 'value' => (string) ($row['severity'] ?? 'info'), 'critical' => strtolower((string) ($row['severity'] ?? '')) === 'error'],
+                    ['section' => 'Destinatario', 'labelKey' => 'technical.label.status', 'label' => 'Status', 'value' => (string) ($row['recipient_status'] ?? 'pending'), 'critical' => (bool) ($row['action_required'] ?? false) && strtolower((string) ($row['recipient_status'] ?? '')) !== 'read'],
+                    array_filter([
+                        'section' => 'Navegacao',
+                        'labelKey' => 'technical.label.program',
+                        'label' => 'Programa',
+                        'value' => (string) ($resolvedProgramId ?: '-'),
+                        'action' => $resolvedProgramId ? [
+                            'type' => 'openProgram',
+                            'programId' => (string) $resolvedProgramId,
+                            'label' => $actionLabel !== '' ? $actionLabel : 'Abrir programa',
+                        ] : null,
+                    ], static fn ($value) => $value !== null),
+                    array_filter([
+                        'section' => 'Navegacao',
+                        'labelKey' => 'technical.label.screen_id',
+                        'label' => 'Screen ID',
+                        'value' => (string) ($resolvedScreenId ?: '-'),
+                        'action' => $resolvedScreenId ? [
+                            'type' => 'openScreen',
+                            'screenId' => (string) $resolvedScreenId,
+                            'label' => $actionLabel !== '' ? $actionLabel : 'Abrir tela',
+                        ] : null,
+                    ], static fn ($value) => $value !== null),
+                ],
             ];
         }
 
@@ -245,33 +378,33 @@ class RuntimeNotificationService
         return ['items' => $items];
     }
 
-    public function acknowledgeForCurrentUser(array $ids): int
+    public function acknowledgeForCurrentUser(array $ids, array $filters = []): int
     {
         $normalizedIds = array_values(array_unique(array_filter(array_map(static fn ($id) => (int) $id, $ids), static fn ($id) => $id > 0)));
-        if (!$normalizedIds) {
-            return 0;
-        }
-
         $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
 
-        return $this->connection->executeStatement(
-            'UPDATE runtime_notification_recipient
-                SET status = :status,
-                    read_at = COALESCE(read_at, :now),
-                    delivered_at = COALESCE(delivered_at, :now),
-                    updated_at = :now
-              WHERE tenant_id = :tenantId
-                AND user_id = :userId
-                AND notification_id IN (:ids)',
-            [
-                'status' => 'read',
-                'now' => $now,
-                'tenantId' => $this->permissions->getTenantId(),
-                'userId' => $this->permissions->getUserId(),
-                'ids' => $normalizedIds,
-            ],
-            ['ids' => Connection::PARAM_INT_ARRAY],
-        );
+        if ($normalizedIds) {
+            return $this->connection->executeStatement(
+                'UPDATE runtime_notification_recipient
+                    SET status = :status,
+                        read_at = COALESCE(read_at, :now),
+                        delivered_at = COALESCE(delivered_at, :now),
+                        updated_at = :now
+                  WHERE tenant_id = :tenantId
+                    AND user_id = :userId
+                    AND notification_id IN (:ids)',
+                [
+                    'status' => 'read',
+                    'now' => $now,
+                    'tenantId' => $this->permissions->getTenantId(),
+                    'userId' => $this->permissions->getUserId(),
+                    'ids' => $normalizedIds,
+                ],
+                ['ids' => Connection::PARAM_INT_ARRAY],
+            );
+        }
+
+        return $this->acknowledgeFilteredForCurrentUser($filters, $now);
     }
 
     /**
@@ -407,6 +540,28 @@ class RuntimeNotificationService
         return $text === '' ? null : $text;
     }
 
+    private function normalizeNavigationQuery(mixed $query): array
+    {
+        if (!is_array($query)) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($query as $key => $value) {
+            $name = trim((string) $key);
+            if ($name === '' || $value === null) {
+                continue;
+            }
+            $text = trim((string) $value);
+            if ($text === '') {
+                continue;
+            }
+            $normalized[$name] = $text;
+        }
+
+        return $normalized;
+    }
+
     private function formatDateTime(mixed $value): ?string
     {
         if (!$value) {
@@ -435,5 +590,83 @@ class RuntimeNotificationService
             $code = 'notif_' . (new \DateTimeImmutable())->format('YmdHis');
         }
         return $code === '' ? null : mb_substr($code, 0, 120);
+    }
+
+    private function acknowledgeFilteredForCurrentUser(array $filters, string $now): int
+    {
+        if (!$this->hasNotificationFilter($filters)) {
+            return $this->connection->executeStatement(
+                'UPDATE runtime_notification_recipient
+                    SET status = :status,
+                        read_at = COALESCE(read_at, :now),
+                        delivered_at = COALESCE(delivered_at, :now),
+                        updated_at = :now
+                  WHERE tenant_id = :tenantId
+                    AND user_id = :userId
+                    AND status IN (:statuses)',
+                [
+                    'status' => 'read',
+                    'now' => $now,
+                    'tenantId' => $this->permissions->getTenantId(),
+                    'userId' => $this->permissions->getUserId(),
+                    'statuses' => ['pending', 'delivered'],
+                ],
+                ['statuses' => Connection::PARAM_STR_ARRAY],
+            );
+        }
+
+        $query = $this->connection->createQueryBuilder()
+            ->select('r.id')
+            ->from('runtime_notification_recipient', 'r')
+            ->innerJoin('r', 'runtime_notification', 'n', 'n.id = r.notification_id')
+            ->where('r.tenant_id = :tenantId')
+            ->andWhere('r.user_id = :userId')
+            ->andWhere('r.status IN (:statuses)')
+            ->andWhere('n.status = :notificationStatus')
+            ->andWhere('(n.expires_at IS NULL OR n.expires_at > :filterNow)')
+            ->setParameter('tenantId', $this->permissions->getTenantId())
+            ->setParameter('userId', $this->permissions->getUserId())
+            ->setParameter('statuses', ['pending', 'delivered'], Connection::PARAM_STR_ARRAY)
+            ->setParameter('notificationStatus', 'published')
+            ->setParameter('filterNow', $now);
+
+        $severity = trim((string) ($filters['severity'] ?? ''));
+        if ($severity !== '') {
+            $query->andWhere('n.severity = :severity')->setParameter('severity', $severity);
+        }
+        $category = trim((string) ($filters['category'] ?? ''));
+        if ($category !== '') {
+            $query->andWhere('n.category = :category')->setParameter('category', $category);
+        }
+        if (array_key_exists('actionRequired', $filters) && $filters['actionRequired'] !== null && $filters['actionRequired'] !== '') {
+            $query->andWhere('n.action_required = :actionRequired')->setParameter('actionRequired', ($filters['actionRequired'] ?? false) === true);
+        }
+
+        $ids = array_map('intval', array_column($query->executeQuery()->fetchAllAssociative(), 'id'));
+        if (!$ids) {
+            return 0;
+        }
+
+        return $this->connection->executeStatement(
+            'UPDATE runtime_notification_recipient
+                SET status = :status,
+                    read_at = COALESCE(read_at, :now),
+                    delivered_at = COALESCE(delivered_at, :now),
+                    updated_at = :now
+              WHERE id IN (:ids)',
+            [
+                'status' => 'read',
+                'now' => $now,
+                'ids' => $ids,
+            ],
+            ['ids' => Connection::PARAM_INT_ARRAY],
+        );
+    }
+
+    private function hasNotificationFilter(array $filters): bool
+    {
+        return trim((string) ($filters['severity'] ?? '')) !== ''
+            || trim((string) ($filters['category'] ?? '')) !== ''
+            || array_key_exists('actionRequired', $filters);
     }
 }

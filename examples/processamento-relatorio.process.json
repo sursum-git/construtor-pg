@@ -37,7 +37,12 @@
           "label": "Data inicial",
           "type": "date",
           "required": true,
-          "defaultValue": "2026-05-01"
+          "defaultValue": "2026-05-01",
+          "technicalProperties": [
+            { "section": "Modelo", "label": "Campo", "value": "dataInicial" },
+            { "section": "Runtime", "label": "Tipo", "value": "date" },
+            { "section": "Runtime", "label": "Obrigatorio", "value": "Sim", "critical": true }
+          ]
         },
         {
           "id": "data-final",
@@ -45,7 +50,12 @@
           "label": "Data final",
           "type": "date",
           "required": true,
-          "defaultValue": "2026-05-08"
+          "defaultValue": "2026-05-08",
+          "technicalProperties": [
+            { "section": "Modelo", "label": "Campo", "value": "dataFinal" },
+            { "section": "Runtime", "label": "Tipo", "value": "date" },
+            { "section": "Runtime", "label": "Obrigatorio", "value": "Sim", "critical": true }
+          ]
         },
         {
           "id": "status",
@@ -53,6 +63,11 @@
           "label": "Status do cliente",
           "type": "enum",
           "defaultValue": "TODOS",
+          "technicalProperties": [
+            { "section": "Modelo", "label": "Campo", "value": "status" },
+            { "section": "Runtime", "label": "Tipo", "value": "enum" },
+            { "section": "Processo", "label": "Faixa de opcoes", "value": "TODOS|ATIVO|INATIVO" }
+          ],
           "options": [
             { "value": "TODOS", "text": "Todos" },
             { "value": "ATIVO", "text": "Ativo" },
@@ -67,6 +82,11 @@
           "required": true,
           "defaultValue": "grid",
           "description": "Na demo este campo simula os retornos possiveis do backend.",
+          "technicalProperties": [
+            { "section": "Modelo", "label": "Campo", "value": "resultado" },
+            { "section": "Runtime", "label": "Tipo", "value": "enum" },
+            { "section": "Processo", "label": "Resultado padrao", "value": "grid|message|report|job" }
+          ],
           "options": [
             { "value": "grid", "text": "Grid" },
             { "value": "message", "text": "Mensagem" },

@@ -16,6 +16,7 @@ final class ImportExportSourceLoader
         private readonly RuntimeEntityActionService $runtimeEntities,
         private readonly RuntimeApiEntityActionService $runtimeApis,
         private readonly RuntimeOdooEntityActionService $runtimeOdoo,
+        private readonly ImportExportValueMapper $valueMapper,
     ) {
     }
 
@@ -120,8 +121,12 @@ final class ImportExportSourceLoader
 
     private function loadSource(array $source, array $parameters, bool $preview): array
     {
-        if (($source['type'] ?? 'entity') !== 'entity') {
-            throw new RuntimeHttpException('IMPORT_EXPORT_SOURCE_TYPE_NOT_SUPPORTED', 'Fonte suportada nesta etapa: entity.', 422);
+        $type = strtolower(trim((string) ($source['type'] ?? 'entity')));
+        if ($type === 'file') {
+            return $this->loadFileSource($source, $parameters, $preview);
+        }
+        if ($type !== 'entity') {
+            throw new RuntimeHttpException('IMPORT_EXPORT_SOURCE_TYPE_NOT_SUPPORTED', 'Fonte suportada nesta etapa: entity ou file/xml.', 422);
         }
         $entityCode = trim((string) ($source['entityCode'] ?? ''));
         $alias = trim((string) ($source['alias'] ?? $entityCode));
@@ -158,5 +163,106 @@ final class ImportExportSourceLoader
             'entityType' => $entity->getEntityType(),
             'records' => $records,
         ];
+    }
+
+    private function loadFileSource(array $source, array $parameters, bool $preview): array
+    {
+        $fileFormat = strtolower(trim((string) ($source['fileFormat'] ?? 'xml')));
+        if ($fileFormat !== 'xml') {
+            throw new RuntimeHttpException('IMPORT_EXPORT_SOURCE_FILE_FORMAT_NOT_SUPPORTED', 'Fonte file suporta apenas XML nesta etapa.', 422);
+        }
+        $alias = trim((string) ($source['alias'] ?? 'xml_file'));
+        $contentParameter = trim((string) ($source['contentParameter'] ?? 'xmlContent'));
+        $content = (string) ($source['content'] ?? $parameters[$contentParameter] ?? '');
+        if (trim($content) === '') {
+            throw new RuntimeHttpException('IMPORT_EXPORT_XML_CONTENT_REQUIRED', 'Informe o conteudo XML no parametro configurado.', 422, [
+                'contentParameter' => $contentParameter,
+            ]);
+        }
+        $recordPath = trim((string) ($source['recordPath'] ?? ''));
+        if ($recordPath === '') {
+            throw new RuntimeHttpException('IMPORT_EXPORT_XML_RECORD_PATH_REQUIRED', 'Fonte XML exige recordPath.', 422);
+        }
+        $fields = is_array($source['fields'] ?? null) ? $source['fields'] : [];
+        if (!$fields) {
+            throw new RuntimeHttpException('IMPORT_EXPORT_XML_SOURCE_FIELDS_REQUIRED', 'Fonte XML exige fields.', 422);
+        }
+
+        $document = new \DOMDocument();
+        $loaded = @$document->loadXML($content);
+        if ($loaded !== true) {
+            throw new RuntimeHttpException('IMPORT_EXPORT_XML_INVALID', 'Conteudo XML invalido.', 422);
+        }
+
+        $xpath = new \DOMXPath($document);
+        foreach (is_array($source['namespaces'] ?? null) ? $source['namespaces'] : [] as $namespace) {
+            if (!is_array($namespace)) {
+                continue;
+            }
+            $prefix = trim((string) ($namespace['prefix'] ?? ''));
+            $uri = trim((string) ($namespace['uri'] ?? ''));
+            if ($prefix !== '' && $uri !== '') {
+                $xpath->registerNamespace($prefix, $uri);
+            }
+        }
+
+        $nodes = $xpath->query($recordPath);
+        if (!$nodes instanceof \DOMNodeList) {
+            throw new RuntimeHttpException('IMPORT_EXPORT_XML_PATH_INVALID', 'Nao foi possivel consultar recordPath no XML.', 422, [
+                'recordPath' => $recordPath,
+            ]);
+        }
+
+        $records = [];
+        $limit = max(1, min(500, (int) ($source['limit'] ?? ($preview ? 20 : 200))));
+        foreach ($nodes as $node) {
+            if (!$node instanceof \DOMNode) {
+                continue;
+            }
+            $record = [];
+            foreach ($fields as $field) {
+                if (!is_array($field)) {
+                    continue;
+                }
+                $targetField = trim((string) ($field['targetField'] ?? $field['name'] ?? ''));
+                $query = trim((string) ($field['xpath'] ?? $field['sourcePath'] ?? ''));
+                if ($targetField === '' || $query === '') {
+                    continue;
+                }
+                $value = $this->readXmlValue($xpath, $node, $query);
+                $record[$targetField] = $this->valueMapper->applyTransforms($value, is_array($field['transforms'] ?? null) ? $field['transforms'] : []);
+            }
+            $records[] = $record;
+            if (count($records) >= $limit) {
+                break;
+            }
+        }
+
+        return [
+            'alias' => $alias,
+            'entityCode' => null,
+            'entityType' => 'file',
+            'records' => $records,
+        ];
+    }
+
+    private function readXmlValue(\DOMXPath $xpath, \DOMNode $contextNode, string $query): mixed
+    {
+        $result = $xpath->evaluate($query, $contextNode);
+        if ($result instanceof \DOMNodeList) {
+            if ($result->length === 0) {
+                return null;
+            }
+            if ($result->length === 1) {
+                return $result->item(0)?->textContent;
+            }
+            $values = [];
+            foreach ($result as $node) {
+                $values[] = $node instanceof \DOMNode ? $node->textContent : null;
+            }
+            return $values;
+        }
+
+        return $result;
     }
 }

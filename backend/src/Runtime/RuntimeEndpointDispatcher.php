@@ -23,6 +23,7 @@ class RuntimeEndpointDispatcher
         private readonly RuntimeJobEnqueueService $jobEnqueue,
         private readonly RuntimeExecutionContext $executionContext,
         private readonly RuntimeAsyncJobService $asyncJobs,
+        private readonly StructuralIntegrityService $integrity,
     ) {
     }
 
@@ -128,6 +129,7 @@ class RuntimeEndpointDispatcher
             'runtime.messages.poll' => $this->system->handle('messagesPoll', $screenId, $payload),
             'runtime.messages.ack' => $this->system->handle('messagesAck', $screenId, $payload),
             'runtime.admin.forceLogout' => $this->system->handle('adminForceLogout', $screenId, $payload),
+            'runtime.admin.integrity.resign' => $this->system->handle('adminIntegrityResign', $screenId, $payload),
             default => throw new RuntimeHttpException('RUNTIME_HANDLER_NOT_FOUND', 'Handler runtime nao encontrado.', 404, [
                 'handler' => $handler,
             ]),
@@ -158,6 +160,7 @@ class RuntimeEndpointDispatcher
             'operation' => $payload['operation'] ?? null,
             'actionId' => $payload['actionId'] ?? null,
             'programId' => $payload['programId'] ?? null,
+            'traceability' => is_array($config['traceability'] ?? null) ? $config['traceability'] : [],
         ];
         if (isset($config['jobs']) && is_array($config['jobs'])) {
             $payload['_runtimeEndpoint']['jobs'] = $config['jobs'];
@@ -196,6 +199,7 @@ class RuntimeEndpointDispatcher
                 'endpointId' => $endpointId,
             ]);
         }
+        $this->integrity->assertEndpoint($endpoint);
 
         return $endpoint;
     }

@@ -339,13 +339,27 @@
         "type": "integer",
         "label": "ID",
         "editable": false,
-        "nullable": false
+        "nullable": false,
+        "technicalProperties": [
+          { "section": "Modelo", "label": "Campo", "value": "id" },
+          { "section": "Banco", "label": "Tabela", "value": "cliente" },
+          { "section": "Banco", "label": "Coluna", "value": "id" },
+          { "section": "Banco", "label": "Tipo banco", "value": "integer" },
+          { "section": "Runtime", "label": "Chave primaria", "value": "Sim" }
+        ]
       },
       "nome": {
         "type": "string",
         "label": "Nome",
         "editable": true,
         "nullable": false,
+        "technicalProperties": [
+          { "section": "Modelo", "label": "Campo", "value": "nome" },
+          { "section": "Banco", "label": "Tabela", "value": "cliente" },
+          { "section": "Banco", "label": "Coluna", "value": "nome" },
+          { "section": "Banco", "label": "Tipo banco", "value": "varchar(120)" },
+          { "section": "Runtime", "label": "Obrigatorio", "value": "Sim" }
+        ],
         "validation": {
           "required": true,
           "maxLength": 120
@@ -356,6 +370,13 @@
         "label": "E-mail",
         "editable": true,
         "nullable": true,
+        "technicalProperties": [
+          { "section": "Modelo", "label": "Campo", "value": "email" },
+          { "section": "Banco", "label": "Tabela", "value": "cliente" },
+          { "section": "Banco", "label": "Coluna", "value": "email" },
+          { "section": "Banco", "label": "Tipo banco", "value": "varchar(150)" },
+          { "section": "Runtime", "label": "Obrigatorio", "value": "Nao" }
+        ],
         "validation": {
           "required": false,
           "maxLength": 150
@@ -376,6 +397,13 @@
         "label": "Status",
         "editable": true,
         "nullable": false,
+        "technicalProperties": [
+          { "section": "Modelo", "label": "Campo", "value": "status" },
+          { "section": "Banco", "label": "Tabela", "value": "cliente" },
+          { "section": "Banco", "label": "Coluna", "value": "status" },
+          { "section": "Banco", "label": "Tipo banco", "value": "varchar(20)" },
+          { "section": "Regra", "label": "Dominio", "value": "ATIVO | INATIVO" }
+        ],
         "options": [
           {
             "value": "ATIVO",
@@ -553,6 +581,10 @@
           "label": "Nome",
           "type": "text",
           "placeholder": "Informe o nome",
+          "technicalProperties": [
+            { "section": "Exibicao", "label": "Superficie", "value": "Filtro" },
+            { "section": "Exibicao", "label": "Operadores", "value": "contains | eq | startsWith | notContains | isEmpty | isNull | isNotEmpty | isNotNull | between | in" }
+          ],
           "operators": [
             "contains",
             "eq",
@@ -797,7 +829,12 @@
           "width": 120,
           "visible": true,
           "filterable": true,
-          "sortable": true
+          "sortable": true,
+          "technicalProperties": [
+            { "section": "Exibicao", "label": "Superficie", "value": "Grid" },
+            { "section": "Exibicao", "label": "Largura", "value": "120" },
+            { "section": "Exibicao", "label": "Ordenavel", "value": "Sim" }
+          ]
         },
         {
           "field": "data_cadastro",

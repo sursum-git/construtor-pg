@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
@@ -271,7 +271,8 @@
             ],
             cautions: [
               "A troca de assinante nao ocorre no formulario inicial; ocorre depois da credencial.",
-              "A recuperacao de senha abre janela Kendo, nao usa prompt nativo."
+              "A recuperacao de senha abre janela Kendo, nao usa prompt nativo.",
+              "O login de producao agora tambem pode carregar literais remotos por locale, com fallback pt-BR local."
             ]
           },
           references: {
@@ -316,7 +317,8 @@
               "Abrir o chat ou atendimento pelo appbar quando o recurso estiver habilitado.",
               "No atendimento, escolher o setor e conversar com um atendente online ou abrir uma solicitacao quando nao houver disponibilidade.",
               "Abrir a central de notificacoes quando houver badge no appbar.",
-              "Marcar notificacoes como lidas ou abrir o programa relacionado.",
+              "Filtrar notificacoes por severidade, exigencia de acao e nao lidas.",
+              "Marcar notificacoes como lidas individualmente ou em lote e abrir o programa relacionado.",
               "Usar favoritos e filtros para localizar programas.",
               "Usar o menu do usuario para sair ou abrir preferencias."
             ],
@@ -392,7 +394,7 @@
             outputs: [
               "Mensagem de retorno.",
               "Grid de resultado.",
-              "Documento seguro ou job assíncrono."
+              "Documento seguro ou job assÃ­ncrono."
             ]
           },
           operational: {
@@ -404,7 +406,7 @@
               "Preencher os parametros obrigatorios.",
               "Acionar `Processar`.",
               "Aguardar o retorno direto ou acompanhar o job.",
-              "Abrir relatorio ou consultar jobs quando o processamento for assíncrono."
+              "Abrir relatorio ou consultar jobs quando o processamento for assÃ­ncrono."
             ],
             cautions: [
               "A tela nao e CRUD e nao deve ser modelada como consulta de tabela.",
@@ -423,9 +425,9 @@
           type: "CRUD somente consulta",
           route: "../../examples/pages/consulta-jobs-assincronos.html",
           screenId: "runtime.jobs.mine / admin.jobs",
-          summary: "Consulta jobs gerados por processamentos e acoes assíncronas. Permite verificar situacao, payload, resultados e falhas.",
+          summary: "Consulta jobs gerados por processamentos e acoes assÃ­ncronas. Permite verificar situacao, payload, resultados e falhas.",
           functional: {
-            objective: "Dar rastreabilidade operacional a processamentos assíncronos do usuario e da administracao.",
+            objective: "Dar rastreabilidade operacional a processamentos assÃ­ncronos do usuario e da administracao.",
             scope: [
               "Consulta de jobs por usuario corrente.",
               "Consulta administrativa completa.",
@@ -455,7 +457,7 @@
           references: {
             permissions: ["jobs.read", "admin.read"],
             relatedPrograms: ["Processamento de clientes", "Administracao de transacoes"],
-            notes: ["Exemplo local: ../../examples/pages/consulta-jobs-assincronos.html", "Produção: ../../production/app.html?screenId=admin.jobs"]
+            notes: ["Exemplo local: ../../examples/pages/consulta-jobs-assincronos.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.jobs"]
           }
         },
         "admin-parametros": {
@@ -495,7 +497,7 @@
           references: {
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Valores de parametros", "Listas de opcoes", "Opcoes de listas"],
-            notes: ["Exemplo local: ../../examples/pages/admin-parametros.html", "Produção: ../../production/app.html?screenId=admin.parametros"]
+            notes: ["Exemplo local: ../../examples/pages/admin-parametros.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.parametros"]
           }
         },
         "admin-parametro-valores": {
@@ -534,7 +536,7 @@
           references: {
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Administracao de parametros"],
-            notes: ["Exemplo local: ../../examples/pages/admin-parametro-valores.html", "Produção: ../../production/app.html?screenId=admin.parametro-valores"]
+            notes: ["Exemplo local: ../../examples/pages/admin-parametro-valores.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.parametro-valores"]
           }
         },
         "admin-literais": {
@@ -573,7 +575,7 @@
           references: {
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Administracao de parametros"],
-            notes: ["Exemplo local: ../../examples/pages/admin-literais.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.literais"]
+            notes: ["Exemplo local: ../../examples/pages/admin-literais.html", "ProduÃƒÂ§ÃƒÂ£o: ../../production/app.html?screenId=admin.literais"]
           }
         },
         "admin-notificacoes": {
@@ -659,6 +661,409 @@
             notes: ["Entrada de producao: ../../production/app.html?screenId=admin.notificacao-destinatarios"]
           }
         },
+        "admin-integracoes": {
+          title: "Importacao e exportacao",
+          module: "Administracao",
+          type: "Custom administrativo",
+          route: "../../production/admin/import-export-mappings.html",
+          screenId: "admin.integracoes",
+          summary: "Tela administrativa real para cadastro, preview e execucao de mapeamentos entre entidades e arquivos CSV, TXT e XML, com editor visual, historico persistido, versionamento e agendamentos.",
+          functional: {
+            objective: "Centralizar configuracao e execucao de integracoes sem depender apenas de endpoints tecnicos.",
+            scope: [
+              "Cadastro do cabecalho do mapeamento.",
+              "Edicao direta do JSON de mapping e parametros.",
+              "Editor visual com TreeView para TXT layout e XML hierarquico.",
+              "Preview antes da execucao.",
+              "Execucao manual com retorno de contagens e diagnosticos.",
+              "Historico persistido de execucoes e versoes do mapping.",
+              "Agendamentos simples e execucao dos vencidos.",
+              "Importacao XML declarativa por XPath para carga em entidades."
+            ],
+            outputs: [
+              "Mapeamento salvo em `import_export_mapping`.",
+              "Preview do arquivo ou dos registros de destino.",
+              "Execucao manual ou agendada de importacao/exportacao."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa.",
+              "Entidades de origem e destino ja publicadas quando o fluxo nao for apenas de arquivo."
+            ],
+            steps: [
+              "Criar ou localizar o mapeamento.",
+              "Informar `mapping` e parametros auxiliares.",
+              "Usar o editor visual quando o leiaute tiver registros pai/filho, totalizadores ou arvore XML.",
+              "Executar `Preview` para validar formato e diagnosticos.",
+              "Executar a integracao quando o resultado estiver consistente.",
+              "Consultar o historico persistido para revisar execucoes anteriores e versoes do mapping.",
+              "Usar a aba de agendamentos quando a integracao precisar de recorrencia simples."
+            ],
+            cautions: [
+              "XML agora aceita tambem namespaces, atributos e `xmlLayouts[]`, mas continua sem template livre ou script.",
+              "TXT pode ser plano, delimitado ou hierarquico; para leiaute fiscal, validar ordem e totalizadores antes da execucao real.",
+              "A importacao XML depende de `recordPath`, namespaces corretos e `fields[].xpath` coerentes com o documento real."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Program Builder", "Logs de transacoes"],
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.integracoes", "Entrada custom local: ../../production/admin/import-export-mappings.html", "Demo local de smoke: ../../examples/pages/import-export-admin-demo.html", "Comando de agenda: php backend/bin/console app:import-export:run-schedules"]
+          }
+        },
+        "admin-programa-solicitacoes": {
+          title: "Solicitacoes de alteracao de programas",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../production/app.html?screenId=admin.programa-solicitacoes",
+          screenId: "admin.programa-solicitacoes",
+          summary: "Controla a abertura formal de pedidos para alterar programas padrao governados.",
+          functional: {
+            objective: "Registrar quem pediu, o que quer alterar e qual programa padrao entrou em fluxo governado.",
+            scope: [
+              "Cadastro do pedido de alteracao.",
+              "Rastreio do solicitante, programa e entidade base.",
+              "Acompanhamento do status do pedido."
+            ],
+            outputs: [
+              "Solicitacao formal pronta para aprovacao superior.",
+              "Codigo de request usado depois em grant, transacao e publicacao."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa apropriada.",
+              "Programa padrao identificado."
+            ],
+            steps: [
+              "Criar a solicitacao informando programa, entidade base e motivo.",
+              "Registrar as acoes desejadas, como editar ou publicar.",
+              "Encaminhar para aprovacao."
+            ],
+            cautions: [
+              "Abrir a solicitacao nao libera edicao por si so.",
+              "Mudancas em programa padrao continuam bloqueadas sem grant ativo."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Grants de programas", "Aprovacoes de publicacao", "Program Builder"],
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.programa-solicitacoes"]
+          }
+        },
+        "admin-programa-grants": {
+          title: "Grants de programas",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../production/app.html?screenId=admin.programa-grants",
+          screenId: "admin.programa-grants",
+          summary: "Mantem grants temporarios de edicao/publicacao para programas padrao sensiveis.",
+          functional: {
+            objective: "Liberar, congelar, revogar e consumir autorizacoes temporarias vinculadas ao programa e a entidade base.",
+            scope: [
+              "Grant vinculado a request.",
+              "Escopo por usuario, programa e entidade.",
+              "Estados `active`, `frozen`, `revoked`, `consumed` e `expired`."
+            ],
+            outputs: [
+              "Autorizacao temporaria usada pelo builder e pelo publish governado."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Solicitacao previa criada.",
+              "Usuario responsavel identificado."
+            ],
+            steps: [
+              "Criar ou revisar o grant do usuario.",
+              "Congelar ou revogar quando o fluxo precisar parar.",
+              "Validar o consumo do grant apos a publicacao."
+            ],
+            cautions: [
+              "Grant congelado ou revogado invalida a continuidade da edicao governada.",
+              "Grant sem lock ativo ainda nao libera alteracao do programa padrao."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Solicitacoes de alteracao de programas", "Program Builder"],
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.programa-grants", "Entrada focada: ../../production/app.html?screenId=admin.programa-grants-operacao", "Exemplo local focado: ../../examples/pages/admin-program-grants.html"]
+          }
+        },
+        "admin-programa-testes": {
+          title: "Testes de programas",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../production/app.html?screenId=admin.programa-testes",
+          screenId: "admin.programa-testes",
+          summary: "Registra bundles e execucoes de roteiros obrigatorios antes de publicar programa padrao.",
+          functional: {
+            objective: "Garantir que a esteira de publicacao tenha evidencias de teste por versao de programa.",
+            scope: [
+              "Bundle de testes por versao.",
+              "Resultado `passed`, `failed` ou `blocked`.",
+              "Responsavel, evidencia e checklist."
+            ],
+            outputs: [
+              "Bundle de testes que pode ser referenciado pela aprovacao final."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Versao do programa definida.",
+              "Roteiro de testes executado."
+            ],
+            steps: [
+              "Registrar o bundle e os itens executados.",
+              "Informar evidencias e responsavel.",
+              "Validar se todos os itens obrigatorios ficaram `passed`."
+            ],
+            cautions: [
+              "Publicacao governada falha sem bundle de testes.",
+              "Bundle com qualquer item nao aprovado bloqueia o publish."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Aprovacoes de publicacao", "Program Builder"],
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.programa-testes"]
+          }
+        },
+        "admin-programa-aprovacoes": {
+          title: "Aprovacoes de publicacao",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../production/app.html?screenId=admin.programa-aprovacoes",
+          screenId: "admin.programa-aprovacoes",
+          summary: "Registra a aprovacao final para publicar versoes governadas de programas padrao.",
+          functional: {
+            objective: "Controlar o gate final de publicacao depois de grant e testes.",
+            scope: [
+              "Aprovacao por versao de programa.",
+              "Vinculo com bundle de testes.",
+              "Status ativo ou revogado."
+            ],
+            outputs: [
+              "Aprovacao final consumida pela publicacao do builder."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Grant ativo.",
+              "Bundle de testes executado."
+            ],
+            steps: [
+              "Criar a aprovacao final apontando para o bundle correto.",
+              "Validar se a versao corresponde ao programa que sera publicado.",
+              "Executar a publicacao no builder."
+            ],
+            cautions: [
+              "Sem aprovacao ativa a publicacao governada falha.",
+              "Aprovacao apontando para bundle vazio ou incompleto tambem bloqueia."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Testes de programas", "Program Builder"],
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.programa-aprovacoes", "Entrada focada: ../../production/app.html?screenId=admin.programa-aprovacoes-operacao", "Exemplo local focado: ../../examples/pages/admin-program-approvals.html"]
+          }
+        },
+        "admin-programa-governanca": {
+          title: "Governanca de programas",
+          module: "Administracao",
+          type: "Painel administrativo",
+          route: "../../production/app.html?screenId=admin.programa-governanca",
+          screenId: "admin.programa-governanca",
+          summary: "Tela dedicada para operar requests, grants, bundles, aprovacoes, retencao e rebase de programas governados sem depender apenas do dialogo do construtor.",
+          functional: {
+            objective: "Concentrar a operacao de governanca por programa em uma tela unica, com foco direto no item pendente.",
+            scope: [
+              "Resumo do estado atual do programa governado.",
+              "Requests, grants, bundles de teste e aprovacoes por versao.",
+              "Retencao da governanca e preview/execucao de rebase."
+            ],
+            outputs: [
+              "Painel administrativo contextual para governanca de programas."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Programa padrao existente.",
+              "Permissao administrativa para operar governanca."
+            ],
+            steps: [
+              "Abrir a tela com o programa alvo ou a partir de uma notificacao administrativa.",
+              "Criar ou localizar o request/grant necessario.",
+              "Registrar bundle e aprovacao final quando houver publicacao governada.",
+              "Usar a aba de rebase para comparar a base nova com o overlay antes de executar a operacao."
+            ],
+            cautions: [
+              "Grant congelado ou revogado bloqueia a continuidade do fluxo.",
+              "A tela ajuda na operacao, mas o backend continua sendo a autoridade final do gate."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Solicitacoes de alteracao de programas", "Grants de programas", "Program Builder", "Integridade estrutural"],
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.programa-governanca", "Exemplo local: ../../examples/pages/admin-program-governance.html"]
+          }
+        },
+        "admin-programa-retencao-operacao": {
+          title: "Retencao da governanca",
+          module: "Administracao",
+          type: "Painel administrativo",
+          route: "../../production/app.html?screenId=admin.programa-retencao-operacao",
+          screenId: "admin.programa-retencao-operacao",
+          summary: "Entrada focada para revisar e ajustar a politica de retencao sem ruido das outras operacoes de governanca.",
+          functional: {
+            objective: "Ajustar rapidamente a politica de limpeza do historico de requests, grants, aprovacoes, bundles e notificacoes administrativas.",
+            scope: [
+              "Leitura da politica atual.",
+              "Edicao dos dias de retencao por categoria.",
+              "Operacao direta por contexto administrativo."
+            ],
+            outputs: [
+              "Politica persistida em `admin.parametros`."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa para governanca."
+            ],
+            steps: [
+              "Abrir a entrada focada de retencao.",
+              "Revisar os prazos de limpeza.",
+              "Salvar a nova politica e confirmar o impacto operacional."
+            ],
+            cautions: [
+              "Reducao agressiva de prazos pode eliminar trilhas uteis de auditoria.",
+              "A limpeza efetiva continua sendo aplicada pelo comando administrativo do backend."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Governanca de programas", "Integridade estrutural"],
+            notes: ["Entrada focada: ../../production/app.html?screenId=admin.programa-retencao-operacao", "Exemplo local focado: ../../examples/pages/admin-program-retention.html"]
+          }
+        },
+        "admin-integridade": {
+          title: "Integridade estrutural",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../production/app.html?screenId=admin.integridade",
+          screenId: "admin.integridade",
+          summary: "Monitora as assinaturas estruturais e o ultimo resultado de verificacao dos registros protegidos do sistema.",
+          functional: {
+            objective: "Dar visibilidade para violacoes ou divergencias de integridade em programa, versao, entidade, tela, endpoint e overlay.",
+            scope: [
+              "Registros assinados em `system_record_integrity`.",
+              "Status `pending`, `valid` ou `invalid`.",
+              "Ultimo erro e horario da verificacao.",
+              "Cobertura tambem para `builder_module`, `builder_entity_situation`, `builder_entity_situation_transition`, `runtime_lock_policy`, `system_option_list`, `system_option`, `system_parameter` e `system_parameter_value`."
+            ],
+            outputs: [
+              "Painel administrativo dos registros estruturais protegidos."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Migration de integridade aplicada."
+            ],
+            steps: [
+              "Executar `php backend/bin/console app:integrity:check` ou `php backend/bin/console app:integrity:monitor --fail-on-invalid` para atualizar o status dos registros.",
+              "Abrir o monitor administrativo e localizar itens invalidos.",
+              "Quando houver justificativa tecnica, reassinar o alvo pelo botao da propria tela ou com `php backend/bin/console app:integrity:resign`.",
+              "Aplicar a retencao administrativa com `php backend/bin/console app:governance:cleanup-history --apply` quando o historico antigo puder ser encerrado."
+            ],
+            cautions: [
+              "Registro estrutural invalido pode bloquear builder, publish e runtime.",
+              "Reassinatura deve ser controlada, documentada e usar o endpoint seguro do runtime."
+            ]
+          },
+          references: {
+            permissions: ["admin.read"],
+            relatedPrograms: ["Program Builder", "Governanca de programas", "Solicitacoes de alteracao de programas", "Overlays de programas", "Parametros"],
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.integridade", "Exemplo local: ../../examples/pages/admin-integridade.html", "Comandos: `app:integrity:check`, `app:integrity:monitor`, `app:integrity:resign` e `app:governance:cleanup-history`", "A retencao de historico de governanca pode ser ajustada em `admin.parametros`.", "Existe smoke real da entrada de producao em `npm run test:admin-integridade-production`."]
+          }
+        },
+        "admin-programa-overlays": {
+          title: "Overlays de programas",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../production/app.html?screenId=admin.programa-overlays",
+          screenId: "admin.programa-overlays",
+          summary: "Mantem overlays e variantes por assinante sobre programas padrao publicados.",
+          functional: {
+            objective: "Separar base padrao, overlay limitado e customizacao especifica do cliente.",
+            scope: [
+              "Overlay por assinante.",
+              "Variante `customer_custom` com congelamento de upgrade.",
+              "Base versionada de referencia."
+            ],
+            outputs: [
+              "Cadastro de customizacao resolvido pelo runtime por assinante."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Programa base existente.",
+              "Assinante alvo identificado."
+            ],
+            steps: [
+              "Criar o overlay ou a variante do assinante.",
+              "Vincular a versao base do programa.",
+              "Publicar a versao correspondente do overlay."
+            ],
+            cautions: [
+              "Assinante nao deve criar programa `standard`.",
+              "Variante completa do cliente pode congelar upgrade automatico."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Versoes de overlays", "Program Builder"],
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.programa-overlays"]
+          }
+        },
+        "admin-programa-overlay-versoes": {
+          title: "Versoes de overlays",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../production/app.html?screenId=admin.programa-overlay-versoes",
+          screenId: "admin.programa-overlay-versoes",
+          summary: "Consulta o historico versionado das customizacoes por assinante sobre programas padrao.",
+          functional: {
+            objective: "Permitir leitura, comparacao e publicacao das revisoes de overlay.",
+            scope: [
+              "Historico de versoes do overlay.",
+              "Status draft/published.",
+              "Snapshot e definicao resolvida."
+            ],
+            outputs: [
+              "Rastro de como a customizacao do assinante evoluiu."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Overlay previamente cadastrado."
+            ],
+            steps: [
+              "Abrir o historico do overlay.",
+              "Comparar revisoes e definicao resolvida.",
+              "Publicar a versao correta para o assinante."
+            ],
+            cautions: [
+              "Alterar a versao errada do overlay pode mudar a tela efetiva do assinante.",
+              "Sempre validar a base de referencia antes de publicar."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Overlays de programas", "Program Builder"],
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.programa-overlay-versoes"]
+          }
+        },
         "admin-usuarios": {
           title: "Administracao de usuarios",
           module: "Administracao",
@@ -695,7 +1100,7 @@
           references: {
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Usuario por assinante", "Permissoes"],
-            notes: ["Exemplo local: ../../examples/pages/admin-usuarios.html", "Produção: ../../production/app.html?screenId=admin.usuarios"]
+            notes: ["Exemplo local: ../../examples/pages/admin-usuarios.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.usuarios"]
           }
         },
         "admin-usuario-assinantes": {
@@ -733,7 +1138,7 @@
           references: {
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Administracao de usuarios"],
-            notes: ["Exemplo local: ../../examples/pages/admin-usuario-assinantes.html", "Produção: ../../production/app.html?screenId=admin.usuario-assinantes"]
+            notes: ["Exemplo local: ../../examples/pages/admin-usuario-assinantes.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.usuario-assinantes"]
           }
         },
         "admin-permissoes": {
@@ -771,7 +1176,7 @@
           references: {
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Administracao de usuarios", "Usuarios por assinante"],
-            notes: ["Exemplo local: ../../examples/pages/admin-permissoes.html", "Produção: ../../production/app.html?screenId=admin.permissoes"]
+            notes: ["Exemplo local: ../../examples/pages/admin-permissoes.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.permissoes"]
           }
         },
         "admin-sessoes": {
@@ -808,7 +1213,7 @@
           references: {
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Transacoes", "Logs de transacoes"],
-            notes: ["Exemplo local: ../../examples/pages/admin-sessoes.html", "Produção: ../../production/app.html?screenId=admin.sessoes"]
+            notes: ["Exemplo local: ../../examples/pages/admin-sessoes.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.sessoes"]
           }
         },
         "admin-transacoes": {
@@ -817,11 +1222,12 @@
           type: "CRUD somente consulta",
           route: "../../examples/pages/admin-transacoes.html",
           screenId: "admin.transacoes",
-          summary: "Consulta o historico das transacoes de runtime, com contexto de programa, tela, usuario e tenant.",
+          summary: "Consulta o historico das transacoes de runtime, com contexto de programa, tela, usuario, tenant, versao estrutural e identidade do banco.",
           functional: {
             objective: "Rastrear a execucao das telas e processos no runtime.",
             scope: [
               "Consulta do cabecalho da transacao.",
+              "Rastreabilidade por versao de programa, versao estrutural e base de dados.",
               "Ligacao com logs detalhados."
             ],
             outputs: [
@@ -834,6 +1240,7 @@
             ],
             steps: [
               "Filtrar por tela, programa, usuario ou periodo.",
+              "Conferir versao do programa, entidade e ambiente/banco da operacao.",
               "Abrir o detalhe quando precisar de diagnostico.",
               "Seguir para logs quando a transacao exigir mais detalhe."
             ],
@@ -845,7 +1252,7 @@
           references: {
             permissions: ["admin.read"],
             relatedPrograms: ["Logs de transacoes", "Sessoes"],
-            notes: ["Exemplo local: ../../examples/pages/admin-transacoes.html", "Produção: ../../production/app.html?screenId=admin.transacoes"]
+            notes: ["Exemplo local: ../../examples/pages/admin-transacoes.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.transacoes"]
           }
         },
         "admin-logs-transacoes": {
@@ -854,12 +1261,12 @@
           type: "CRUD somente consulta",
           route: "../../examples/pages/admin-logs-transacoes.html",
           screenId: "admin.logs-transacoes",
-          summary: "Exibe as mensagens registradas dentro de cada transacao de runtime, incluindo eventos de processo, importacao/exportacao e integrações.",
+          summary: "Exibe as mensagens registradas dentro de cada transacao de runtime, incluindo eventos de processo, importacao/exportacao e integraÃ§Ãµes.",
           functional: {
             objective: "Permitir leitura detalhada do que ocorreu dentro de uma transacao.",
             scope: [
               "Mensagens informativas.",
-              "Falhas e diagnósticos.",
+              "Falhas e diagnÃ³sticos.",
               "Metadados adicionais por evento."
             ],
             outputs: [
@@ -883,7 +1290,7 @@
           references: {
             permissions: ["admin.read"],
             relatedPrograms: ["Transacoes"],
-            notes: ["Exemplo local: ../../examples/pages/admin-logs-transacoes.html", "Produção: ../../production/app.html?screenId=admin.logs-transacoes"]
+            notes: ["Exemplo local: ../../examples/pages/admin-logs-transacoes.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.logs-transacoes"]
           }
         },
         "program-builder": {
@@ -892,7 +1299,7 @@
           type: "Editor administrativo",
           route: "../../program-builder.html",
           screenId: "",
-          summary: "Editor visual de modulos, entidades, programas, APIs, Odoo, importacao de tabelas, importacao de JSON externo, IA assistida, import/export e publicacao no runtime.",
+          summary: "Editor visual de modulos, entidades, programas, APIs, Odoo, importacao de tabelas, importacao de JSON externo, IA assistida, import/export, governanca de padrao, integridade estrutural e publicacao no runtime.",
           functional: {
             objective: "Permitir autoria de metadados do sistema sem editar JSON manualmente na maior parte dos casos.",
             scope: [
@@ -901,8 +1308,17 @@
               "Geracao, preview, versao, comparativo e publicacao de programas.",
               "Integracoes com APIs genericas, Odoo RPC e importacao OpenAPI/Swagger.",
               "Importacao de JSON externo validado e assistente interno de IA.",
-              "Mapeamentos de importacao/exportacao entre entidades e arquivos CSV/TXT.",
-              "Importacao de JSON externo, IA e integrações de API."
+              "Mapeamentos de importacao/exportacao entre entidades e arquivos CSV/TXT/XML.",
+              "Assistente de integracao para gerar esqueleto de mapping a partir da entidade atual.",
+              "Consumo do catalogo runtime de literais para a propria interface do construtor.",
+              "Governanca de programas padrao com grant, lock, bundle de testes e aprovacao final.",
+              "Classificacao de ownership e customizacao entre `standard`, `customer_overlay` e `customer_custom`.",
+              "Gate de ambiente de publicacao por `databaseEnvironment` e resolucao de identidade do banco.",
+              "Integridade estrutural com assinatura obrigatoria sobre programa, versao, entidade, situacoes, transicoes, tela, endpoint, API source, listas/opcoes e artefatos de import/export.",
+              "Dialogos dedicados de governanca e rebase assistido de overlay no proprio editor.",
+              "Dashboard operacional no dialogo de governanca com acoes diretas sobre requests, grants, bundles e retencao.",
+              "Diff visual no rebase com base antiga, base nova, overrides e definicao rebaseada, com filtro por classificacao, navegacao por secao, detalhe por campo e resolucao assistida `rebased|overlay|base`.",
+              "Gate guiado no proprio preview para apontar pendencias de grant, lock, bundle e aprovacao antes do publish."
             ],
             outputs: [
               "Entidades e programas versionados.",
@@ -920,12 +1336,23 @@
               "Selecionar ou criar modulo.",
               "Modelar a entidade e seus campos.",
               "Configurar integracoes, programa, preview e diagnostico.",
+              "Definir ownership, politica de customizacao e ambientes permitidos para publicacao quando o programa exigir governanca.",
+              "Usar o botao `Integracao` quando quiser abrir um esqueleto inicial de mapping vinculado a entidade atual.",
+              "Usar o botao `Governanca` para solicitar alteracao, liberar/congelar/revogar grant, registrar bundle de testes, ajustar a retencao e aprovar a publicacao.",
+              "Quando a operacao exigir uma superficie dedicada, abrir `admin.programa-governanca` para trabalhar com o mesmo fluxo fora do editor.",
+              "Se a notificacao ja apontar para grants, aprovacoes ou retencao, usar as entradas focadas `admin.programa-grants-operacao`, `admin.programa-aprovacoes-operacao` e `admin.programa-retencao-operacao`.",
+              "Usar o checklist de governanca do preview para localizar rapidamente o que ainda bloqueia a publicacao.",
+              "Usar o botao `Rebase overlay` para comparar o overlay com a nova base publicada, filtrar conflitos por tipo, navegar pelas secoes e escolher a resolucao por item antes de executar o rebase assistido.",
+              "Para programa padrao governado, garantir grant ativo, lock ativo e aprovacao antes da publicacao.",
               "Salvar, revisar versoes e publicar."
             ],
             cautions: [
               "Publicacao afeta a camada runtime.",
               "Recursos como API, Odoo, IA e import/export exigem validacao estrutural antes da publicacao.",
-              "Mensagens de regras por classe devem preferir `messageKey/messageParams` e o catalogo de literais."
+              "Mensagens de regras por classe devem preferir `messageKey/messageParams` e o catalogo de literais.",
+              "Assinante nao deve conseguir criar nem converter programa para `standard`.",
+              "Grant revogado ou congelado derruba o lock de autoria e bloqueia a continuidade do editor.",
+              "Em programas com politica de publicacao restrita, publicar em ambiente nao autorizado e bloqueado pelo backend."
             ]
           },
           references: {
@@ -937,14 +1364,20 @@
       };
 
       const architecture = {
-        overview: "O sistema usa frontend em HTML simples com Kendo UI for jQuery e jQuery local. O backend Symfony entrega metadados, endpoints runtime, telas administrativas, persistencia, autenticacao, permissoes, locks, logs, fila, catalogo de literais, notificacoes por destinatario, integracoes e publicacao do builder.",
+        overview: "O sistema usa frontend em HTML simples com Kendo UI for jQuery e jQuery local. O backend Symfony entrega metadados, endpoints runtime, telas administrativas, persistencia, autenticacao, permissoes, locks, logs, fila, catalogo de literais, notificacoes por destinatario, integracoes, governanca de alteracao/publicacao e publicacao do builder.",
         rendering: [
           "O backend decide e devolve definicoes por `screenId` ou arquivos de exemplo na camada local.",
           "O frontend renderiza a tela com motores fechados por tipo de pagina.",
           "O runtime seguro de producao resolve `endpointId` e `documentId`, evitando URL livre.",
           "Mensagens e titulos podem vir por `titleKey/titleParams` e `messageKey/messageParams`, resolvidos pelo catalogo de literais runtime com fallback pt-BR embutido.",
+          "Login e Program Builder agora tambem carregam o bundle remoto de literais quando a rota runtime estiver disponivel.",
           "A Home pode consumir notificacoes reais por `home.notifications.list` e confirmar leitura por `home.notifications.ack`.",
-          "Chat e suporte da Home usam `POST` para envio e SSE proprio para novas mensagens, presenca online e evolucao de protocolo."
+          "Notificacoes administrativas agora tambem conseguem abrir a tela alvo com querystring segura para aplicar foco e filtros contextuais.",
+          "Chat e suporte da Home usam `POST` para envio e SSE proprio para novas mensagens, presenca online e evolucao de protocolo.",
+          "As transacoes runtime podem carregar rastreabilidade tecnica com versao do programa, versao estrutural, fingerprint e identidade do banco.",
+          "Programas padrao agora podem passar por gate de governanca com grant, lock, bundle de testes e aprovacao final.",
+          "O construtor possui dialogos dedicados para governanca e rebase assistido de overlay, mas as regras continuam enforced no backend.",
+          "Os registros estruturais publicados podem ser protegidos por assinatura de integridade para detectar alteracao fora do fluxo oficial."
         ],
         engines: [
           { name: "CrudEngine", role: "Renderiza grid, filtro, formulario, acoes de linha, runtime de lock, mensagens e preferencias do usuario." },
@@ -962,11 +1395,20 @@
           "Importacao de tabelas PostgreSQL para modelagem.",
           "Importacao de JSON externo validado no builder.",
           "Assistente interno de IA com rascunho validado.",
-          "Catalogo inicial de importacao/exportacao com CSV e TXT plano ou hierarquico.",
+          "Catalogo inicial de importacao/exportacao com CSV, TXT plano/hierarquico, XML de exportacao e importacao XML declarativa.",
+          "Tela administrativa `admin.integracoes` para cadastro, TreeView, preview estrutural, historico persistido, versoes e agendamentos.",
           "Catalogo administrativo de literais e traducoes por locale.",
           "Mensagens de validacao e regra por chave, com parametros substituiveis no frontend.",
-          "Notificacoes runtime por usuario e grupo, com entrega e leitura por destinatario.",
-          "Chat entre usuarios e atendimento com historico em `runtime_user_message`, solicitacao em `runtime_support_request` e eventos SSE por conversa."
+          "Notificacoes runtime por usuario e grupo, com entrega, leitura por destinatario e marcacao em lote na Home.",
+          "Chat entre usuarios e atendimento com historico em `runtime_user_message`, solicitacao em `runtime_support_request` e eventos SSE por conversa.",
+          "Governanca de programa padrao com solicitacao, grant, testes, aprovacao final, lock de autoria e dashboard operacional no builder.",
+          "Versionamento com ownership/customizacao explicitos e overlays por assinante.",
+          "Gate de ambiente de publicacao por identidade e ambiente do banco.",
+          "Rebase assistido de overlay com classificacao `ok`, `warning` e `blocked`, detalhe por campo e resolucao assistida por item.",
+          "Monitor administrativo `admin.integridade`, endpoint seguro de reassinatura e comandos de verificacao/reassinatura estrutural.",
+          "Tela dedicada `admin.programa-governanca` para requests, grants, bundles, aprovacoes, retencao e rebase por programa, alem das entradas focadas `admin.programa-grants-operacao`, `admin.programa-aprovacoes-operacao` e `admin.programa-retencao-operacao`.",
+          "O smoke governado do builder agora cobre tambem revogacao e nova liberacao de grant antes do publish.",
+          "Retencao de historico de governanca parametrizada por `admin.parametros`."
         ],
         constraints: [
           "Nao aceita JavaScript vindo do JSON.",
@@ -985,6 +1427,16 @@
           { id: "admin-literais", text: "Literais e traducoes" },
           { id: "admin-notificacoes", text: "Administracao de notificacoes" },
           { id: "admin-notificacao-destinatarios", text: "Destinatarios de notificacoes" },
+          { id: "admin-integracoes", text: "Importacao e exportacao" },
+          { id: "admin-programa-solicitacoes", text: "Solicitacoes de alteracao de programas" },
+          { id: "admin-programa-grants", text: "Grants de programas" },
+          { id: "admin-programa-testes", text: "Testes de programas" },
+          { id: "admin-programa-aprovacoes", text: "Aprovacoes de publicacao" },
+          { id: "admin-programa-governanca", text: "Governanca de programas" },
+          { id: "admin-programa-retencao-operacao", text: "Retencao da governanca" },
+          { id: "admin-integridade", text: "Integridade estrutural" },
+          { id: "admin-programa-overlays", text: "Overlays de programas" },
+          { id: "admin-programa-overlay-versoes", text: "Versoes de overlays" },
           { id: "admin-usuarios", text: "Usuarios" },
           { id: "admin-usuario-assinantes", text: "Usuarios por assinante" },
           { id: "admin-permissoes", text: "Permissoes" },
@@ -1145,3 +1597,4 @@
   </script>
 </body>
 </html>
+

@@ -11,6 +11,8 @@ class ScreenDefinitionService
         private readonly RuntimeMetadataSanitizer $sanitizer,
         private readonly PermissionResolver $permissions,
         private readonly UserLayoutService $layouts,
+        private readonly ProgramCustomizationResolver $customizations,
+        private readonly StructuralIntegrityService $integrity,
     ) {
     }
 
@@ -35,8 +37,13 @@ class ScreenDefinitionService
                 'screenId' => $screenId,
             ]);
         }
+        $this->integrity->assertScreen($screen);
 
         $definition = $screen->getDefinition();
+        $customized = $this->customizations->resolve($screenId, $definition);
+        if (is_array($customized) && $customized) {
+            $definition = $customized;
+        }
         $definition['schemaVersion'] = $definition['schemaVersion'] ?? $screen->getSchemaVersion();
         $definition['pageType'] = $definition['pageType'] ?? $screen->getPageType();
         $definition['screenId'] = $screen->getScreenId();

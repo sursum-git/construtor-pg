@@ -68,7 +68,7 @@
       }
 
       const ids = {};
-      fields.forEach(function(field, index) {
+      fields.forEach((field, index) => {
         const label = "process.parameters.fields[" + index + "]";
         if (!field || typeof field !== "object" || Array.isArray(field)) {
           errors.push(label + " precisa ser um objeto.");
@@ -98,7 +98,26 @@
         if ((type === "enum" || type === "option" || type === "dropdown") && field.options != null && !Array.isArray(field.options)) {
           errors.push(label + ".options precisa ser uma lista.");
         }
+        if (field.technicalProperties != null && !this.isValidTechnicalProperties(field.technicalProperties)) {
+          errors.push(label + ".technicalProperties precisa ser lista ou objeto de propriedades tecnicas.");
+        }
       });
+    }
+
+    isValidTechnicalProperties(value) {
+      if (value == null) {
+        return true;
+      }
+      if (Array.isArray(value)) {
+        return value.every(function(item) {
+          return item == null ||
+            typeof item === "string" ||
+            typeof item === "number" ||
+            typeof item === "boolean" ||
+            (typeof item === "object" && !Array.isArray(item));
+        });
+      }
+      return typeof value === "object" && !Array.isArray(value);
     }
 
     validateEndpoints(definition, errors) {

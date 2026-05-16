@@ -223,13 +223,18 @@
       const wrapper = $("<div class=\"process-field\"></div>")
         .attr("data-process-field", field.name)
         .appendTo(form);
+      const labelRow = $("<div class=\"process-field-label-row\"></div>").appendTo(wrapper);
       const label = $("<label></label>")
         .attr("for", field.inputId)
         .text(field.label)
-        .appendTo(wrapper);
+        .appendTo(labelRow);
       if (field.required) {
         $("<span class=\"process-required\"></span>").text(" *").appendTo(label);
       }
+      global.CrudUtils.appendTechnicalInfoTrigger(labelRow, field.label, field.technicalProperties, {
+        cssClass: "process-technical-trigger",
+        dataRole: "process-technical-info"
+      });
       const input = $("<input>")
         .attr("id", field.inputId)
         .attr("name", field.name)
@@ -831,6 +836,7 @@
         name,
         type: String(source.type || "text"),
         label: source.label || source.title || name,
+        technicalProperties: global.CrudUtils.normalizeTechnicalProperties(source.technicalProperties),
         inputId: (this.getDomIdPrefix() + "-" + id).replace(/-+/g, "-")
       });
     }

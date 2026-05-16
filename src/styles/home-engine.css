@@ -487,6 +487,26 @@
   padding: 14px;
 }
 
+.home-appbar-list-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.home-appbar-list-toggle {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--crud-muted);
+  font-size: 13px;
+}
+
+.home-appbar-list-host {
+  display: grid;
+  gap: 12px;
+}
+
 .home-appbar-list,
 .home-appbar-list-item {
   display: grid;
@@ -500,11 +520,22 @@
   background: var(--crud-surface);
 }
 
+.home-appbar-list-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .home-appbar-list-title {
   margin: 0;
   color: var(--crud-title);
   font-size: 15px;
   line-height: 1.25;
+}
+
+.home-appbar-list-technical-trigger.k-button {
+  flex: 0 0 auto;
 }
 
 .home-appbar-list-meta,

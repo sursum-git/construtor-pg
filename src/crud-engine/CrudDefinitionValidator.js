@@ -115,8 +115,59 @@
         if (!fields[fieldName].type || !fields[fieldName].label) {
           errors.push("Campo " + fieldName + " precisa ter type e label.");
         }
-      });
+        this.validateTechnicalProperties(definition, fields[fieldName].technicalProperties, "dataModel.fields." + fieldName + ".technicalProperties", errors);
+      }, this);
       this.validateBulkActions(definition, errors);
+    }
+
+    validateTechnicalProperties(definition, technicalProperties, context, errors) {
+      if (technicalProperties == null) {
+        return;
+      }
+      if (Array.isArray(technicalProperties)) {
+        technicalProperties.forEach((item) => {
+          if (typeof item === "string" || typeof item === "number" || typeof item === "boolean") {
+            return;
+          }
+          if (!item || typeof item !== "object") {
+            errors.push(this.path(definition, context) + " deve conter itens texto ou objetos.");
+            return;
+          }
+          const label = item.label || item.name || item.key || item.id || item.labelKey;
+          const value = item.value != null ? item.value : item.text != null ? item.text : item.description != null ? item.description : item.valueKey;
+          if (!label || value == null || value === "") {
+            errors.push(this.path(definition, context) + " exige label e value em cada item.");
+          }
+          if (item.action != null) {
+            this.validateTechnicalPropertyAction(definition, item.action, context, errors);
+          }
+        });
+        return;
+      }
+      if (typeof technicalProperties !== "object") {
+        errors.push(this.path(definition, context) + " deve ser lista ou objeto.");
+      }
+    }
+
+    validateTechnicalPropertyAction(definition, action, context, errors) {
+      if (!action || typeof action !== "object" || Array.isArray(action)) {
+        errors.push(this.path(definition, context) + ".action deve ser um objeto.");
+        return;
+      }
+      const type = String(action.type || "");
+      if (["openUrl", "openProgram", "openScreen"].indexOf(type) === -1) {
+        errors.push(this.path(definition, context) + ".action.type invalido: " + type + ".");
+        return;
+      }
+      if (type === "openUrl" && !global.CrudUtils.isAllowedDocumentUrl(action.url || "")) {
+        errors.push(this.path(definition, context) + ".action.url deve ser URL segura.");
+      }
+      if (type === "openProgram" && !String(action.programId || "").trim()) {
+        errors.push(this.path(definition, context) + ".action.programId e obrigatorio.");
+      }
+      if (type === "openScreen" && !String(action.screenId || "").trim()) {
+        errors.push(this.path(definition, context) + ".action.screenId e obrigatorio.");
+      }
     }
 
     validateBulkActions(definition, errors) {
@@ -167,6 +218,7 @@
             errors.push(this.path(definition, "filter.fields") + " referencia campo inexistente: " + fieldName + ".");
           }
         });
+        this.validateTechnicalProperties(definition, item.technicalProperties, "filter.fields." + (item.id || item.field || "item") + ".technicalProperties", errors);
         this.validateFilterOperators(definition, item, errors);
         this.validateFilterTemplates(definition, item, errors);
       });
@@ -287,6 +339,7 @@
         if (column.formula) {
           errors.push("Formula de coluna ainda nao implementada: " + column.field + ".");
         }
+        this.validateTechnicalProperties(definition, column.technicalProperties, "grid.columns." + column.field + ".technicalProperties", errors);
         if (column.groupable != null && typeof column.groupable !== "boolean") {
           errors.push(this.path(definition, "grid.columns.groupable") + " precisa ser booleano.");
         }

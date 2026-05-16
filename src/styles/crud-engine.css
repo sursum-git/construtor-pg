@@ -631,6 +631,13 @@ body .k-notification:has(.crud-toast) .k-svg-icon {
   gap: 6px;
 }
 
+.crud-field-label-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
 .crud-field label {
   color: var(--crud-muted);
   font-size: 12px;
@@ -638,9 +645,185 @@ body .k-notification:has(.crud-toast) .k-svg-icon {
   text-transform: uppercase;
 }
 
-.crud-field-required > label::after {
+.crud-field-required label::after {
   content: " *";
   color: var(--crud-danger);
+}
+
+.crud-technical-info-trigger.k-button {
+  width: 22px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0;
+  border-color: transparent;
+  color: var(--crud-muted);
+}
+
+.crud-technical-info-trigger.k-button:hover,
+.crud-technical-info-trigger.k-button:focus {
+  border-color: var(--crud-accent-border);
+  background: var(--crud-accent-soft);
+  color: var(--crud-title);
+}
+
+.crud-technical-info-trigger .k-button-text {
+  display: none;
+}
+
+.crud-grid-header-technical-trigger.k-button {
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.crud-mobile-technical-trigger.k-button {
+  margin-left: 4px;
+}
+
+.crud-technical-info-dialog {
+  display: grid;
+  gap: 12px;
+  color: var(--crud-text);
+}
+
+.crud-technical-info-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.crud-technical-filter-input {
+  flex: 1 1 220px;
+}
+
+.crud-technical-copy-all-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--crud-border);
+  border-radius: 6px;
+  background: var(--crud-button-bg);
+  color: var(--crud-button-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.crud-technical-copy-json-button,
+.crud-technical-download-json-button,
+.crud-technical-action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid var(--crud-border);
+  border-radius: 6px;
+  background: var(--crud-button-bg);
+  color: var(--crud-button-text);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.crud-technical-copy-all-button:hover,
+.crud-technical-copy-all-button:focus,
+.crud-technical-copy-json-button:hover,
+.crud-technical-copy-json-button:focus,
+.crud-technical-download-json-button:hover,
+.crud-technical-download-json-button:focus,
+.crud-technical-action-button:hover,
+.crud-technical-action-button:focus {
+  border-color: var(--crud-accent-border);
+  background: var(--crud-accent-soft);
+  color: var(--crud-title);
+}
+
+.crud-technical-info-title {
+  margin: 0;
+  color: var(--crud-title);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.crud-technical-info-section {
+  display: grid;
+  gap: 8px;
+}
+
+.crud-technical-info-section-title {
+  margin: 0;
+  color: var(--crud-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.crud-technical-info-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.crud-technical-info-item {
+  display: grid;
+  grid-template-columns: minmax(120px, 36%) minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.crud-technical-info-item dt {
+  margin: 0;
+  color: var(--crud-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.crud-technical-info-label.is-critical {
+  color: var(--crud-title);
+}
+
+.crud-technical-info-item dd {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  color: var(--crud-text);
+  overflow-wrap: anywhere;
+}
+
+.crud-technical-info-value {
+  min-width: 0;
+}
+
+.crud-technical-copy-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--crud-accent);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.crud-technical-copy-button:hover,
+.crud-technical-copy-button:focus {
+  color: var(--crud-title);
+  text-decoration: underline;
+}
+
+.crud-technical-info-empty {
+  margin: 0;
+  color: var(--crud-muted);
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .crud-field-backend-invalid,

@@ -19,10 +19,17 @@
       this.runtimeEventSource = null;
       this.runtimeEventFallbackTimer = null;
       this.notificationsIndicatorTimer = null;
-      this.notificationsIndicatorButton = null;
-      this.notificationsIndicatorBadge = null;
-      this.notificationsCount = 0;
-      this.jobsIndicatorTimer = null;
+        this.notificationsIndicatorButton = null;
+        this.notificationsIndicatorBadge = null;
+        this.notificationsCount = 0;
+        this.notificationListFilters = {
+          severity: "",
+          category: "",
+          actionRequired: false,
+          unreadOnly: true,
+          includeRead: false
+        };
+        this.jobsIndicatorTimer = null;
       this.jobsIndicatorButton = null;
       this.jobsIndicatorBadge = null;
       this.completedJobsCount = 0;
@@ -2146,30 +2153,73 @@
     }
 
     loadAppbarListItems(kind, endpoint, content) {
+      content.empty();
+      if (kind === "notifications") {
+        this.renderNotificationToolbar(content, endpoint);
+      }
+      const listHost = $("<div class=\"home-appbar-list-host\"></div>").appendTo(content);
+      $("<div class=\"home-appbar-list-loading\"></div>").text("Carregando...").appendTo(listHost);
       const request = kind === "notifications" && !endpoint
         ? this.loadAggregatedNotificationItems()
         : this.requestAppbarListEndpoint(endpoint, {
-        user: this.buildChatUserPayload(),
-        context: this.buildChatContextPayload()
-      });
+            user: this.buildChatUserPayload(),
+            context: this.buildChatContextPayload()
+          }, kind);
       request.then((response) => {
         const defaults = this.getAppbarListDefaults(kind);
-        const items = this.normalizeAppbarListItems(response, kind);
-        content.empty();
-        this.renderAppbarListItems(content, items, defaults.emptyText, kind);
+        let items = this.normalizeAppbarListItems(response, kind);
+        if (kind === "notifications") {
+          items = this.filterNotificationItems(items);
+        }
+        listHost.empty();
+        this.renderAppbarListItems(listHost, items, defaults.emptyText, kind, endpoint);
       }).catch(() => {
-        content.empty();
+        listHost.empty();
         $("<div class=\"home-appbar-list-empty\"></div>")
           .text("Nao foi possivel carregar as informacoes.")
-          .appendTo(content);
+          .appendTo(listHost);
       });
     }
 
-    requestAppbarListEndpoint(endpoint, data) {
+    requestAppbarListEndpoint(endpoint, data, kind) {
+      const payload = Object.assign({}, data || {});
+      if (kind === "notifications") {
+        Object.assign(payload, this.getNotificationRequestPayload());
+      }
       return this.httpClient.request({
         url: endpoint.url,
         method: endpoint.method || "GET",
-        data
+        data: payload
+      });
+    }
+
+    getNotificationRequestPayload() {
+      return {
+        severity: this.notificationListFilters.severity || "",
+        category: this.notificationListFilters.category || "",
+        actionRequired: this.notificationListFilters.actionRequired === true,
+        unreadOnly: this.notificationListFilters.unreadOnly === true,
+        includeRead: this.notificationListFilters.includeRead === true,
+        limit: 50
+      };
+    }
+
+    filterNotificationItems(items) {
+      const filters = this.notificationListFilters || {};
+      return global.CrudUtils.ensureArray(items).filter(function(item) {
+        if (filters.severity && String(item.severity || "") !== filters.severity) {
+          return false;
+        }
+        if (filters.category && String(item.sourceKind || item.type || "") !== filters.category && String(item.status || "") !== filters.category) {
+          return false;
+        }
+        if (filters.actionRequired === true && item.actionRequired !== true) {
+          return false;
+        }
+        if (filters.unreadOnly === true && String(item.status || "").toLowerCase() === "lida") {
+          return false;
+        }
+        return true;
       });
     }
 
@@ -2226,8 +2276,88 @@
         linkText: source.linkText || "Abrir",
         status: source.status || "",
         severity: source.severity || "",
-        actionRequired: source.actionRequired === true
+        actionRequired: source.actionRequired === true,
+        technicalProperties: global.CrudUtils.normalizeTechnicalProperties(source.technicalProperties)
       };
+    }
+
+    renderNotificationToolbar(container, endpoint) {
+      const toolbar = $("<div class=\"home-appbar-list-toolbar\"></div>").appendTo(container);
+      const severitySelect = $("<input type=\"text\">").appendTo(toolbar);
+      severitySelect.kendoDropDownList({
+        optionLabel: "Todas as severidades",
+        dataTextField: "text",
+        dataValueField: "value",
+        value: this.notificationListFilters.severity || "",
+        dataSource: [
+          { value: "info", text: "Informacao" },
+          { value: "warning", text: "Aviso" },
+          { value: "error", text: "Erro" },
+          { value: "success", text: "Sucesso" }
+        ],
+        change: () => {
+          this.notificationListFilters.severity = String(severitySelect.data("kendoDropDownList").value() || "");
+          this.reloadNotificationsList(endpoint, container.closest(".home-appbar-list-window-content"));
+        }
+      });
+      const actionToggle = $("<label class=\"home-appbar-list-toggle\"></label>").appendTo(toolbar);
+      const actionInput = $("<input type=\"checkbox\">").prop("checked", this.notificationListFilters.actionRequired === true).appendTo(actionToggle);
+      if ($.fn.kendoCheckBox) {
+        actionInput.kendoCheckBox({
+          change: () => {
+            this.notificationListFilters.actionRequired = actionInput.is(":checked");
+            this.reloadNotificationsList(endpoint, container.closest(".home-appbar-list-window-content"));
+          }
+        });
+      } else {
+        actionInput.on("change", () => {
+          this.notificationListFilters.actionRequired = actionInput.is(":checked");
+          this.reloadNotificationsList(endpoint, container.closest(".home-appbar-list-window-content"));
+        });
+      }
+      $("<span></span>").text("Exige acao").appendTo(actionToggle);
+      const unreadToggle = $("<label class=\"home-appbar-list-toggle\"></label>").appendTo(toolbar);
+      const unreadInput = $("<input type=\"checkbox\">").prop("checked", this.notificationListFilters.unreadOnly !== false).appendTo(unreadToggle);
+      if ($.fn.kendoCheckBox) {
+        unreadInput.kendoCheckBox({
+          change: () => {
+            const checked = unreadInput.is(":checked");
+            this.notificationListFilters.unreadOnly = checked;
+            this.notificationListFilters.includeRead = !checked;
+            this.reloadNotificationsList(endpoint, container.closest(".home-appbar-list-window-content"));
+          }
+        });
+      } else {
+        unreadInput.on("change", () => {
+          const checked = unreadInput.is(":checked");
+          this.notificationListFilters.unreadOnly = checked;
+          this.notificationListFilters.includeRead = !checked;
+          this.reloadNotificationsList(endpoint, container.closest(".home-appbar-list-window-content"));
+        });
+      }
+      $("<span></span>").text("Somente nao lidas").appendTo(unreadToggle);
+      const markAllButton = $("<button type=\"button\"></button>").appendTo(toolbar);
+      markAllButton.kendoButton({ icon: "check" });
+      markAllButton.data("kendoButton").element.text("Marcar todas");
+      const ackEndpoint = this.getAppbarListActionEndpoint(this.getAppbarListConfig("notifications"), "ack", this.getAppbarListConfig("notifications").ackUrl);
+      if (!ackEndpoint) {
+        markAllButton.data("kendoButton").enable(false);
+      }
+      markAllButton.on("click", () => {
+        this.acknowledgeNotificationItem(ackEndpoint, null, true).then((acknowledged) => {
+          if (!acknowledged) {
+            return;
+          }
+          this.reloadNotificationsList(endpoint, container.closest(".home-appbar-list-window-content"));
+        });
+      });
+    }
+
+    reloadNotificationsList(endpoint, content) {
+      if (!content || !content.length) {
+        return;
+      }
+      this.loadAppbarListItems("notifications", endpoint, content);
     }
 
     formatAppbarListDate(value) {
@@ -2238,7 +2368,7 @@
       return kendo.toString(date, "dd/MM/yyyy HH:mm");
     }
 
-    renderAppbarListItems(container, items, emptyText, listKind) {
+    renderAppbarListItems(container, items, emptyText, listKind, endpoint) {
       if (!items.length) {
         $("<div class=\"home-appbar-list-empty\"></div>").text(emptyText).appendTo(container);
         return;
@@ -2249,7 +2379,12 @@
         if (item.sourceLabel) {
           $("<div class=\"home-appbar-list-meta\"></div>").text(item.sourceLabel).appendTo(element);
         }
-        $("<h2 class=\"home-appbar-list-title\"></h2>").text(item.title).appendTo(element);
+        const titleRow = $("<div class=\"home-appbar-list-title-row\"></div>").appendTo(element);
+        $("<h2 class=\"home-appbar-list-title\"></h2>").text(item.title).appendTo(titleRow);
+        global.CrudUtils.appendTechnicalInfoTrigger(titleRow, item.title, item.technicalProperties, {
+          cssClass: "home-appbar-list-technical-trigger",
+          dataRole: "home-list-technical-info"
+        });
         if (item.meta) {
           $("<div class=\"home-appbar-list-meta\"></div>").text(item.meta).appendTo(element);
         }
@@ -2285,7 +2420,12 @@
             });
           });
         }
-        if (item.programId && this.findProgram(item.programId)) {
+        const navigation = item && item.navigation && typeof item.navigation === "object" ? item.navigation : {};
+        const resolvedProgramId = navigation.programId || item.programId;
+        const resolvedScreenId = navigation.screenId || item.screenId;
+        const canOpenProgram = resolvedProgramId && this.findProgram(resolvedProgramId);
+        const canOpenScreen = !canOpenProgram && resolvedScreenId;
+        if (canOpenProgram || canOpenScreen) {
           const button = $("<button type=\"button\" class=\"home-appbar-list-link\"></button>")
             .text(item.linkText || "Abrir")
             .appendTo(actions);
@@ -2296,7 +2436,15 @@
               if (listKind === "jobs" || item.sourceKind === "jobs") {
                 this.setJobsIndicatorCount(0);
               }
-              this.openProgram(item.programId);
+              if (navigation.query && resolvedScreenId) {
+                this.openNotificationScreen(resolvedScreenId, navigation.query || null);
+                return;
+              }
+              if (resolvedProgramId && canOpenProgram) {
+                this.openProgram(resolvedProgramId);
+                return;
+              }
+              this.openNotificationScreen(resolvedScreenId, navigation.query || null);
             };
             if (listKind === "notifications" && notificationAckEndpoint && item.id) {
               this.acknowledgeNotificationItem(notificationAckEndpoint, item.id).then(open);
@@ -2308,15 +2456,20 @@
       });
     }
 
-    acknowledgeNotificationItem(endpoint, notificationId) {
-      if (!endpoint || !notificationId) {
+    acknowledgeNotificationItem(endpoint, notificationId, markAll) {
+      if (!endpoint || (!notificationId && markAll !== true)) {
         return Promise.resolve(false);
       }
-      return this.requestAppbarListEndpoint(endpoint, {
-        ids: [notificationId],
+      const payload = {
         user: this.buildChatUserPayload(),
         context: this.buildChatContextPayload()
-      }).then(() => {
+      };
+      if (notificationId) {
+        payload.ids = [notificationId];
+      } else if (markAll === true) {
+        Object.assign(payload, this.getNotificationRequestPayload());
+      }
+      return this.requestAppbarListEndpoint(endpoint, payload, "notifications").then(() => {
         this.refreshNotificationsIndicator();
         return true;
       }).catch((error) => {
@@ -2324,6 +2477,24 @@
         global.CrudUtils.showMessage(normalized.message, "error");
         return false;
       });
+    }
+
+    openNotificationScreen(screenId, query) {
+      const id = String(screenId || "").trim();
+      if (!id) {
+        return;
+      }
+      const program = this.findProgramByScreenId(id);
+      if (program) {
+        this.openProgram(program.id);
+        return;
+      }
+      const url = this.buildRuntimeScreenUrl(id, query);
+      if (!url) {
+        global.CrudUtils.showMessage("A notificacao nao possui destino navegavel.", "warning");
+        return;
+      }
+      global.open(url, "_blank", "noopener,noreferrer");
     }
 
     hasAppbarNotificationSources() {
@@ -4733,6 +4904,66 @@
       return global.CrudUtils.ensureArray(this.definition && this.definition.programs).find(function(program) {
         return program && program.id === programId;
       }) || null;
+    }
+
+    findProgramByScreenId(screenId) {
+      const id = String(screenId || "").trim();
+      if (!id) {
+        return null;
+      }
+      return global.CrudUtils.ensureArray(this.definition && this.definition.programs).find(function(program) {
+        return program && String(program.screenId || "").trim() === id;
+      }) || null;
+    }
+
+    buildRuntimeScreenUrl(screenId, query) {
+      const id = String(screenId || "").trim();
+      if (!id) {
+        return "";
+      }
+      try {
+        const current = new URL(global.location.href);
+        const path = /\/production\//.test(current.pathname) ? "app.html" : "production/app.html";
+        const target = new URL(path, current.href);
+        target.searchParams.set("screenId", id);
+        this.appendScreenQueryParams(target.searchParams, query);
+        return target.href;
+      } catch (_) {
+        let target = "production/app.html?screenId=" + encodeURIComponent(id);
+        const extra = this.stringifyScreenQueryParams(query);
+        if (extra) {
+          target += "&" + extra;
+        }
+        return target;
+      }
+    }
+
+    appendScreenQueryParams(searchParams, query) {
+      if (!searchParams || !query || typeof query !== "object") {
+        return;
+      }
+      Object.keys(query).forEach((key) => {
+        const value = query[key];
+        if (value == null || String(value).trim() === "") {
+          return;
+        }
+        searchParams.set(key, String(value));
+      });
+    }
+
+    stringifyScreenQueryParams(query) {
+      if (!query || typeof query !== "object") {
+        return "";
+      }
+      const pairs = [];
+      Object.keys(query).forEach((key) => {
+        const value = query[key];
+        if (value == null || String(value).trim() === "") {
+          return;
+        }
+        pairs.push(encodeURIComponent(key) + "=" + encodeURIComponent(String(value)));
+      });
+      return pairs.join("&");
     }
 
     hasPermission(permission) {

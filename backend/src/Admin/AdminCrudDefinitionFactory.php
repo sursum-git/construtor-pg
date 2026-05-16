@@ -225,6 +225,149 @@ final class AdminCrudDefinitionFactory
                 ],
             ),
             self::screen(
+                'admin.programa-solicitacoes',
+                'admin-programa-solicitacoes',
+                'program_change_request',
+                'Solicitacoes de Alteracao',
+                'Solicitacoes formais para editar programas padrao.',
+                self::programChangeRequestFields(),
+                ['request_code', 'program_code', 'builder_entity_code', 'requested_by', 'status'],
+                ['id', 'request_code', 'program_code', 'builder_entity_code', 'requested_by', 'status', 'approved_by', 'updated_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'request_code', 'program_code', 'builder_entity_code', 'requested_by', 'status']],
+                    ['id' => 'aprovacao', 'title' => 'Aprovacao', 'fields' => ['requested_actions', 'reason', 'approved_by', 'approved_at', 'metadata']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['created_at', 'updated_at']],
+                ],
+                editable: true,
+                defaultSort: [['field' => 'updated_at', 'dir' => 'desc']],
+            ),
+            self::screen(
+                'admin.programa-grants',
+                'admin-programa-grants',
+                'program_change_grant',
+                'Autorizacoes de Alteracao',
+                'Grants temporarios para editar e publicar programas padrao.',
+                self::programChangeGrantFields(),
+                ['request_id', 'program_code', 'builder_entity_code', 'granted_to_user_id', 'status'],
+                ['id', 'request_id', 'program_code', 'builder_entity_code', 'granted_to_user_id', 'status', 'consumed_at', 'updated_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'request_id', 'program_code', 'builder_entity_code', 'granted_to_user_id', 'status']],
+                    ['id' => 'escopo', 'title' => 'Escopo', 'fields' => ['allowed_actions', 'valid_until_publish', 'metadata']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['consumed_at', 'created_at', 'updated_at']],
+                ],
+                editable: true,
+                defaultSort: [['field' => 'updated_at', 'dir' => 'desc']],
+            ),
+            self::screen(
+                'admin.programa-testes',
+                'admin-programa-testes',
+                'program_test_execution',
+                'Execucoes de Teste',
+                'Roteiros de teste executados para liberar publicacao governada.',
+                self::programTestExecutionFields(),
+                ['program_code', 'builder_program_version_id', 'bundle_id', 'test_plan_id', 'status'],
+                ['id', 'program_code', 'builder_program_version_id', 'bundle_id', 'test_plan_id', 'executed_by', 'status', 'executed_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'program_code', 'builder_program_version_id', 'builder_entity_version_id', 'bundle_id', 'test_plan_id', 'executed_by', 'status', 'executed_at']],
+                    ['id' => 'evidencias', 'title' => 'Evidencias', 'fields' => ['checklist_snapshot', 'evidences', 'notes']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['created_at', 'updated_at']],
+                ],
+                editable: true,
+                defaultSort: [['field' => 'executed_at', 'dir' => 'desc']],
+            ),
+            self::screen(
+                'admin.programa-aprovacoes',
+                'admin-programa-aprovacoes',
+                'program_publication_approval',
+                'Aprovacoes de Publicacao',
+                'Aprovacao final para publicacao de programas padrao.',
+                self::programPublicationApprovalFields(),
+                ['program_code', 'builder_program_version_id', 'requested_by', 'approved_by', 'status'],
+                ['id', 'program_code', 'builder_program_version_id', 'requested_by', 'approved_by', 'status', 'approved_at', 'updated_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'program_code', 'builder_program_version_id', 'requested_by', 'approved_by', 'status']],
+                    ['id' => 'controle', 'title' => 'Controle', 'fields' => ['test_execution_bundle_id', 'approved_at', 'metadata']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['created_at', 'updated_at']],
+                ],
+                editable: true,
+                defaultSort: [['field' => 'updated_at', 'dir' => 'desc']],
+            ),
+            self::screen(
+                'admin.integridade',
+                'admin-integridade',
+                'system_record_integrity',
+                'Integridade Estrutural',
+                'Monitor administrativo das assinaturas estruturais.',
+                self::systemRecordIntegrityFields(),
+                ['table_name', 'record_id', 'last_check_status', 'signed_by'],
+                ['id', 'table_name', 'record_id', 'last_check_status', 'signed_by', 'signed_at', 'last_checked_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'table_name', 'record_id', 'integrity_schema_version', 'last_check_status']],
+                    ['id' => 'assinatura', 'title' => 'Assinatura', 'fields' => ['payload_hash', 'signature', 'signed_by', 'signed_at']],
+                    ['id' => 'verificacao', 'title' => 'Verificacao', 'fields' => ['last_checked_at', 'last_error_message', 'metadata']],
+                ],
+                editable: false,
+                defaultSort: [['field' => 'last_check_status', 'dir' => 'asc'], ['field' => 'last_checked_at', 'dir' => 'desc']],
+                extraApi: ['runtime.admin.integrity.resign' => ['endpointId' => 'runtime.admin.integrity.resign', 'method' => 'POST']],
+                otherActions: [
+                    'enabled' => true,
+                    'label' => 'Acoes',
+                    'icon' => 'more-vertical',
+                    'actions' => [
+                        [
+                            'id' => 'resignIntegrity',
+                            'label' => 'Reassinar',
+                            'icon' => 'reload',
+                            'endpointId' => 'runtime.admin.integrity.resign',
+                            'permission' => 'read',
+                            'visibleIn' => ['view'],
+                            'refreshGrid' => true,
+                            'confirm' => [
+                                'title' => 'Reassinar registro estrutural',
+                                'message' => 'Deseja reassinar o registro {table_name}#{record_id}?',
+                                'confirmText' => 'Reassinar',
+                                'confirmIcon' => 'reload',
+                            ],
+                            'successMessage' => 'Registro reassinado.',
+                        ],
+                    ],
+                ],
+            ),
+            self::screen(
+                'admin.programa-overlays',
+                'admin-programa-overlays',
+                'builder_program_overlay',
+                'Overlays de Programa',
+                'Customizacoes por assinante para programas padrao.',
+                self::programOverlayFields(),
+                ['program_code', 'subscriber_id', 'customization_kind', 'status'],
+                ['id', 'program_code', 'subscriber_id', 'customization_kind', 'status', 'base_program_version_id', 'upgrade_frozen', 'updated_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'program_code', 'subscriber_id', 'customization_kind', 'status', 'base_program_version_id']],
+                    ['id' => 'customizacao', 'title' => 'Customizacao', 'fields' => ['upgrade_frozen', 'frozen_reason', 'overlay_config', 'metadata']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['created_at', 'updated_at']],
+                ],
+                editable: true,
+                defaultSort: [['field' => 'updated_at', 'dir' => 'desc']],
+            ),
+            self::screen(
+                'admin.programa-overlay-versoes',
+                'admin-programa-overlay-versoes',
+                'builder_program_overlay_version',
+                'Versoes de Overlay',
+                'Versoes publicadas e rascunhos das customizacoes por assinante.',
+                self::programOverlayVersionFields(),
+                ['overlay_id', 'version_number', 'status'],
+                ['id', 'overlay_id', 'version_number', 'status', 'published_at', 'updated_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'overlay_id', 'version_number', 'status', 'published_at']],
+                    ['id' => 'conteudo', 'title' => 'Conteudo', 'fields' => ['snapshot', 'resolved_definition', 'change_summary']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['created_at', 'updated_at']],
+                ],
+                editable: true,
+                defaultSort: [['field' => 'updated_at', 'dir' => 'desc']],
+            ),
+            self::screen(
                 'admin.transacoes',
                 'admin-transacoes',
                 'runtime_transaction',
@@ -300,6 +443,7 @@ final class AdminCrudDefinitionFactory
         array $extraApi = [],
         ?array $otherActions = null,
     ): array {
+        $fields = self::withTechnicalProperties($entityCode, $fields);
         $readOnlyFields = array_keys(array_filter($fields, fn (array $field): bool => ($field['editable'] ?? true) === false));
 
         return [
@@ -501,6 +645,232 @@ final class AdminCrudDefinitionFactory
             'editable' => $editable,
             'nullable' => $nullable,
         ], $extra);
+    }
+
+    /**
+     * @param array<string, array<string, mixed>> $fields
+     * @return array<string, array<string, mixed>>
+     */
+    private static function withTechnicalProperties(string $entityCode, array $fields): array
+    {
+        foreach ($fields as $fieldName => $config) {
+            if (!empty($config['technicalProperties'])) {
+                continue;
+            }
+            $properties = [
+                ['section' => 'Modelo', 'labelKey' => 'technical.label.field', 'label' => 'Campo', 'value' => $fieldName],
+                ['section' => 'Modelo', 'labelKey' => 'technical.label.entity', 'label' => 'Entidade', 'value' => $entityCode],
+                ['section' => 'Modelo', 'labelKey' => 'technical.label.data_type', 'label' => 'Tipo de dado', 'value' => (string) ($config['type'] ?? 'string')],
+                ['section' => 'Runtime', 'labelKey' => 'technical.label.editable', 'label' => 'Editavel', 'value' => (($config['editable'] ?? true) === true) ? 'Sim' : 'Nao', 'critical' => (($config['editable'] ?? true) !== true)],
+                ['section' => 'Runtime', 'labelKey' => 'technical.label.nullable', 'label' => 'Aceita nulo', 'value' => (($config['nullable'] ?? true) === true) ? 'Sim' : 'Nao'],
+            ];
+            if (!empty($config['editor'])) {
+                $properties[] = ['section' => 'Exibicao', 'labelKey' => 'technical.label.editor', 'label' => 'Editor', 'value' => (string) $config['editor']];
+            }
+            if (!empty($config['width'])) {
+                $properties[] = ['section' => 'Exibicao', 'labelKey' => 'technical.label.suggested_width', 'label' => 'Largura sugerida', 'value' => (string) $config['width']];
+            }
+            $adminScreen = self::adminScreenForEntity($entityCode);
+            if ($adminScreen !== null) {
+                $properties[] = [
+                    'section' => 'Navegacao',
+                    'labelKey' => 'technical.label.admin_screen',
+                    'label' => 'Tela administrativa',
+                    'value' => $adminScreen,
+                    'action' => [
+                        'type' => 'openScreen',
+                        'screenId' => $adminScreen,
+                        'label' => 'Abrir tela',
+                    ],
+                ];
+            }
+            $fields[$fieldName]['technicalProperties'] = $properties;
+        }
+
+        return $fields;
+    }
+
+    private static function adminScreenForEntity(string $entityCode): ?string
+    {
+        return match ($entityCode) {
+            'runtime_notification' => 'admin.notificacoes',
+            'runtime_notification_recipient' => 'admin.notificacao-destinatarios',
+            'runtime_user_session' => 'admin.sessoes',
+            'runtime_transaction' => 'admin.transacoes',
+            'program_change_request' => 'admin.programa-solicitacoes',
+            'program_change_grant' => 'admin.programa-grants',
+            'program_test_execution' => 'admin.programa-testes',
+            'program_publication_approval' => 'admin.programa-aprovacoes',
+            'builder_program_overlay' => 'admin.programa-overlays',
+            'builder_program_overlay_version' => 'admin.programa-overlay-versoes',
+            'import_export_mapping' => 'admin.integracoes',
+            default => null,
+        };
+    }
+
+    private static function programChangeRequestFields(): array
+    {
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'request_code' => self::field('string', 'Codigo da solicitacao', true, false),
+            'program_code' => self::field('string', 'Programa', true, false),
+            'builder_entity_code' => self::field('string', 'Entidade base', true, true),
+            'requested_by' => self::field('string', 'Solicitado por', true, false),
+            'requested_actions' => self::field('json', 'Acoes solicitadas', true, false, ['editor' => 'textarea']),
+            'reason' => self::field('text', 'Justificativa', true, true, ['editor' => 'textarea']),
+            'status' => self::field('enum', 'Status', true, false, ['options' => [
+                ['value' => 'pending', 'text' => 'Pendente'],
+                ['value' => 'approved', 'text' => 'Aprovada'],
+                ['value' => 'rejected', 'text' => 'Rejeitada'],
+                ['value' => 'revoked', 'text' => 'Revogada'],
+                ['value' => 'frozen', 'text' => 'Congelada'],
+                ['value' => 'consumed', 'text' => 'Consumida'],
+                ['value' => 'expired', 'text' => 'Expirada'],
+            ]]),
+            'approved_by' => self::field('string', 'Aprovado por', true, true),
+            'approved_at' => self::field('datetime', 'Aprovado em', true, true),
+            'metadata' => self::field('json', 'Metadata', true, false, ['editor' => 'textarea']),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+        ];
+    }
+
+    private static function programChangeGrantFields(): array
+    {
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'request_id' => self::field('integer', 'Solicitacao', true, false),
+            'program_code' => self::field('string', 'Programa', true, false),
+            'builder_entity_code' => self::field('string', 'Entidade base', true, true),
+            'granted_to_user_id' => self::field('string', 'Usuario liberado', true, false),
+            'allowed_actions' => self::field('json', 'Acoes permitidas', true, false, ['editor' => 'textarea']),
+            'status' => self::field('enum', 'Status', true, false, ['options' => [
+                ['value' => 'active', 'text' => 'Ativa'],
+                ['value' => 'revoked', 'text' => 'Revogada'],
+                ['value' => 'frozen', 'text' => 'Congelada'],
+                ['value' => 'consumed', 'text' => 'Consumida'],
+                ['value' => 'expired', 'text' => 'Expirada'],
+            ]]),
+            'valid_until_publish' => self::field('boolean', 'Valida ate publicar', true, false),
+            'consumed_at' => self::field('datetime', 'Consumida em', true, true),
+            'metadata' => self::field('json', 'Metadata', true, false, ['editor' => 'textarea']),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+        ];
+    }
+
+    private static function programTestExecutionFields(): array
+    {
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'program_code' => self::field('string', 'Programa', true, false),
+            'builder_program_version_id' => self::field('integer', 'Versao do programa', true, true),
+            'builder_entity_version_id' => self::field('integer', 'Versao da entidade', true, true),
+            'bundle_id' => self::field('string', 'Bundle de teste', true, false),
+            'test_plan_id' => self::field('string', 'Roteiro', true, false),
+            'executed_by' => self::field('string', 'Executado por', true, false),
+            'status' => self::field('enum', 'Status', true, false, ['options' => [
+                ['value' => 'passed', 'text' => 'Aprovado'],
+                ['value' => 'failed', 'text' => 'Falhou'],
+                ['value' => 'blocked', 'text' => 'Bloqueado'],
+            ]]),
+            'checklist_snapshot' => self::field('json', 'Checklist', true, false, ['editor' => 'textarea']),
+            'evidences' => self::field('json', 'Evidencias', true, false, ['editor' => 'textarea']),
+            'notes' => self::field('text', 'Observacoes', true, true, ['editor' => 'textarea']),
+            'executed_at' => self::field('datetime', 'Executado em', true, false),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+        ];
+    }
+
+    private static function programPublicationApprovalFields(): array
+    {
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'program_code' => self::field('string', 'Programa', true, false),
+            'builder_program_version_id' => self::field('integer', 'Versao do programa', true, true),
+            'requested_by' => self::field('string', 'Solicitado por', true, false),
+            'approved_by' => self::field('string', 'Aprovado por', true, true),
+            'status' => self::field('enum', 'Status', true, false, ['options' => [
+                ['value' => 'pending', 'text' => 'Pendente'],
+                ['value' => 'approved', 'text' => 'Aprovada'],
+                ['value' => 'rejected', 'text' => 'Rejeitada'],
+                ['value' => 'revoked', 'text' => 'Revogada'],
+                ['value' => 'frozen', 'text' => 'Congelada'],
+            ]]),
+            'test_execution_bundle_id' => self::field('string', 'Bundle de teste', true, true),
+            'approved_at' => self::field('datetime', 'Aprovado em', true, true),
+            'metadata' => self::field('json', 'Metadata', true, false, ['editor' => 'textarea']),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+        ];
+    }
+
+    private static function programOverlayFields(): array
+    {
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'program_code' => self::field('string', 'Programa base', true, false),
+            'subscriber_id' => self::field('string', 'Assinante', true, false),
+            'customization_kind' => self::field('enum', 'Tipo', true, false, ['options' => [
+                ['value' => 'customer_overlay', 'text' => 'Overlay'],
+                ['value' => 'customer_custom', 'text' => 'Custom completo'],
+            ]]),
+            'base_program_version_id' => self::field('integer', 'Versao base', true, true),
+            'status' => self::field('enum', 'Status', true, false, ['options' => [
+                ['value' => 'draft', 'text' => 'Rascunho'],
+                ['value' => 'published', 'text' => 'Publicado'],
+                ['value' => 'archived', 'text' => 'Arquivado'],
+            ]]),
+            'upgrade_frozen' => self::field('boolean', 'Upgrade congelado', true, false),
+            'frozen_reason' => self::field('string', 'Motivo do congelamento', true, true),
+            'overlay_config' => self::field('json', 'Configuracao', true, false, ['editor' => 'textarea']),
+            'metadata' => self::field('json', 'Metadata', true, false, ['editor' => 'textarea']),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+        ];
+    }
+
+    private static function programOverlayVersionFields(): array
+    {
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'overlay_id' => self::field('integer', 'Overlay', true, false),
+            'version_number' => self::field('integer', 'Versao', true, false),
+            'status' => self::field('enum', 'Status', true, false, ['options' => [
+                ['value' => 'draft', 'text' => 'Rascunho'],
+                ['value' => 'published', 'text' => 'Publicado'],
+                ['value' => 'archived', 'text' => 'Arquivado'],
+            ]]),
+            'snapshot' => self::field('json', 'Snapshot', true, false, ['editor' => 'textarea']),
+            'resolved_definition' => self::field('json', 'Definicao resolvida', true, false, ['editor' => 'textarea']),
+            'change_summary' => self::field('text', 'Resumo', true, true, ['editor' => 'textarea']),
+            'published_at' => self::field('datetime', 'Publicado em', true, true),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+        ];
+    }
+
+    private static function systemRecordIntegrityFields(): array
+    {
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'table_name' => self::field('string', 'Tabela', false, false),
+            'record_id' => self::field('integer', 'Registro', false, false),
+            'integrity_schema_version' => self::field('integer', 'Schema da integridade', false, false),
+            'payload_hash' => self::field('string', 'Hash do payload', false, false),
+            'signature' => self::field('string', 'Assinatura', false, false),
+            'signed_by' => self::field('string', 'Assinado por', false, true),
+            'metadata' => self::field('json', 'Metadata', false, false, ['editor' => 'textarea']),
+            'signed_at' => self::field('datetime', 'Assinado em', false, false),
+            'last_check_status' => self::field('enum', 'Ultimo status', false, false, ['options' => [
+                ['value' => 'pending', 'text' => 'Pendente'],
+                ['value' => 'valid', 'text' => 'Valida'],
+                ['value' => 'invalid', 'text' => 'Invalida'],
+            ]]),
+            'last_checked_at' => self::field('datetime', 'Ultima verificacao', false, true),
+            'last_error_message' => self::field('text', 'Ultimo erro', false, true, ['editor' => 'textarea']),
+        ];
     }
 
     private static function parameterFields(): array

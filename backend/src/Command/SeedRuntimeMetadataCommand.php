@@ -37,6 +37,7 @@ use App\Repository\ScreenDefinitionRepository;
 use App\Repository\SystemParameterRepository;
 use App\Repository\SystemParameterValueRepository;
 use App\Repository\SystemLiteralTranslationRepository;
+use App\Runtime\StructuralIntegrityService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -122,6 +123,7 @@ class SeedRuntimeMetadataCommand extends Command
         'runtime.messages.poll' => 'runtime.messages.poll',
         'runtime.messages.ack' => 'runtime.messages.ack',
         'runtime.admin.forceLogout' => 'runtime.admin.forceLogout',
+        'runtime.admin.integrity.resign' => 'runtime.admin.integrity.resign',
     ];
 
     private const PROCESS_ENDPOINTS = [
@@ -153,6 +155,7 @@ class SeedRuntimeMetadataCommand extends Command
         private readonly SystemParameterRepository $systemParameters,
         private readonly SystemParameterValueRepository $systemParameterValues,
         private readonly SystemLiteralTranslationRepository $systemLiteralTranslations,
+        private readonly StructuralIntegrityService $integrity,
     ) {
         parent::__construct();
     }
@@ -167,6 +170,86 @@ class SeedRuntimeMetadataCommand extends Command
         $homeDefinition = $this->readJson($projectRoot . '/examples/home.home.json');
         $processDefinition = $this->readJson($projectRoot . '/examples/processamento-relatorio.process.json');
         $customCodePdmDefinition = $this->readJson($projectRoot . '/examples/codificacao-assistente-pdm.process.json');
+        $importExportAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.integracoes',
+            'program' => [
+                'id' => 'admin-integracoes',
+                'title' => 'Integracoes',
+                'subtitle' => 'Mapeamentos administrativos de importacao e exportacao',
+                'version' => '1.0.0',
+                'screenId' => 'admin.integracoes',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/import-export-mappings.html',
+                'frameTitle' => 'Integracoes administrativas',
+            ],
+        ];
+        $programGovernanceAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.programa-governanca',
+            'program' => [
+                'id' => 'admin-programa-governanca',
+                'title' => 'Governanca de programas',
+                'subtitle' => 'Solicitacoes, grants, testes, aprovacoes e rebase de overlays',
+                'version' => '1.0.0',
+                'screenId' => 'admin.programa-governanca',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/program-governance.html',
+                'frameTitle' => 'Governanca de programas',
+            ],
+        ];
+        $programGrantsAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.programa-grants-operacao',
+            'program' => [
+                'id' => 'admin-programa-grants-operacao',
+                'title' => 'Grants de programas',
+                'subtitle' => 'Operacao focada em liberacao, congelamento e revogacao',
+                'version' => '1.0.0',
+                'screenId' => 'admin.programa-grants-operacao',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/program-grants.html',
+                'frameTitle' => 'Grants de programas',
+            ],
+        ];
+        $programApprovalsAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.programa-aprovacoes-operacao',
+            'program' => [
+                'id' => 'admin-programa-aprovacoes-operacao',
+                'title' => 'Aprovacoes de publicacao',
+                'subtitle' => 'Operacao focada em bundle e aprovacao final',
+                'version' => '1.0.0',
+                'screenId' => 'admin.programa-aprovacoes-operacao',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/program-approvals.html',
+                'frameTitle' => 'Aprovacoes de publicacao',
+            ],
+        ];
+        $programRetentionAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.programa-retencao-operacao',
+            'program' => [
+                'id' => 'admin-programa-retencao-operacao',
+                'title' => 'Retencao da governanca',
+                'subtitle' => 'Operacao focada em politica de retencao e limpeza',
+                'version' => '1.0.0',
+                'screenId' => 'admin.programa-retencao-operacao',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/program-retention.html',
+                'frameTitle' => 'Retencao da governanca',
+            ],
+        ];
 
         $clientesDefinition['screenId'] = 'cadastros.clientes';
         $clientesDefinition['program']['screenId'] = 'cadastros.clientes';
@@ -181,6 +264,11 @@ class SeedRuntimeMetadataCommand extends Command
         $adminScreens = AdminCrudDefinitionFactory::screens();
         $this->attachRuntimeJobsProgramToHome($homeDefinition);
         $this->attachAdminProgramsToHome($homeDefinition, $adminScreens);
+        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-integracoes', 'Integracoes', 'Administracao de integracoes', 'admin.integracoes');
+        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-governanca', 'Governanca de programas', 'Governanca de alteracao, grant, testes e aprovacao', 'admin.programa-governanca');
+        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-grants-operacao', 'Grants de programas', 'Operacao focada em grants', 'admin.programa-grants-operacao');
+        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-aprovacoes-operacao', 'Aprovacoes de publicacao', 'Operacao focada em aprovacoes', 'admin.programa-aprovacoes-operacao');
+        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-retencao-operacao', 'Retencao da governanca', 'Operacao focada em retencao da governanca', 'admin.programa-retencao-operacao');
 
         foreach (($homeDefinition['programs'] ?? []) as $index => $program) {
             if (($program['id'] ?? '') === 'clientes-crud') {
@@ -191,6 +279,11 @@ class SeedRuntimeMetadataCommand extends Command
 
         $this->upsertProgram('cadastros.clientes', 'Clientes', 'cadastros', 'crud', 'cadastros.clientes');
         $this->upsertProgram('runtime-jobs', 'Jobs Assincronos', 'administracao', 'crud', 'admin.jobs');
+        $this->upsertProgram('admin-integracoes', 'Integracoes', 'administracao', 'custom', 'admin.integracoes');
+        $this->upsertProgram('admin-programa-governanca', 'Governanca de programas', 'administracao', 'custom', 'admin.programa-governanca');
+        $this->upsertProgram('admin-programa-grants-operacao', 'Grants de programas', 'administracao', 'custom', 'admin.programa-grants-operacao');
+        $this->upsertProgram('admin-programa-aprovacoes-operacao', 'Aprovacoes de publicacao', 'administracao', 'custom', 'admin.programa-aprovacoes-operacao');
+        $this->upsertProgram('admin-programa-retencao-operacao', 'Retencao da governanca', 'administracao', 'custom', 'admin.programa-retencao-operacao');
         $this->upsertProgram('processamento-clientes', 'Processamento de Clientes', 'operacional', 'process', 'processamento.relatorio-clientes');
         $this->upsertProgram('home', 'Home', 'global', 'home', 'home');
         foreach ($adminScreens as $screen) {
@@ -203,6 +296,11 @@ class SeedRuntimeMetadataCommand extends Command
         }
         $this->upsertScreen('cadastros.clientes', 'crud', $clientesDefinition);
         $this->upsertScreen('admin.jobs', 'crud', $jobsDefinition);
+        $this->upsertScreen('admin.integracoes', 'custom', $importExportAdminDefinition);
+        $this->upsertScreen('admin.programa-governanca', 'custom', $programGovernanceAdminDefinition);
+        $this->upsertScreen('admin.programa-grants-operacao', 'custom', $programGrantsAdminDefinition);
+        $this->upsertScreen('admin.programa-aprovacoes-operacao', 'custom', $programApprovalsAdminDefinition);
+        $this->upsertScreen('admin.programa-retencao-operacao', 'custom', $programRetentionAdminDefinition);
         $this->upsertScreen('processamento.relatorio-clientes', 'process', $processDefinition);
         $this->upsertScreen('assistente.codificacao.produto-pdm', 'process', $customCodePdmDefinition);
         foreach ($adminScreens as $screen) {
@@ -226,6 +324,8 @@ class SeedRuntimeMetadataCommand extends Command
         $this->seedClientes();
         $this->seedClienteTelefones();
 
+        $this->entityManager->flush();
+        $this->integrity->backfillAll();
         $this->entityManager->flush();
 
         $io->success('Metadados e dados iniciais carregados.');
@@ -255,7 +355,15 @@ class SeedRuntimeMetadataCommand extends Command
             ->setModule($module)
             ->setProgramType($type)
             ->setScreenId($screenId)
-            ->setStatus('published');
+            ->setStatus('published')
+            ->setProgramOrigin('standard')
+            ->setOwnerScope('system')
+            ->setCustomizationPolicy('overlay_only')
+            ->setSubscriberId(null)
+            ->setBaseProgramCode(null)
+            ->setBaseProgramVersionId(null)
+            ->setUpgradeFrozen(false)
+            ->setFrozenReason(null);
 
         $this->entityManager->persist($program);
     }
@@ -703,6 +811,42 @@ class SeedRuntimeMetadataCommand extends Command
         return false;
     }
 
+    private function attachCustomAdminProgramToHome(array &$homeDefinition, string $programId, string $title, string $subtitle, string $screenId): void
+    {
+        $navigation = is_array($homeDefinition['navigation'] ?? null) ? $homeDefinition['navigation'] : [];
+        $groups = is_array($navigation['groups'] ?? null) ? $navigation['groups'] : [];
+        foreach ($groups as $index => $group) {
+            if (($group['id'] ?? '') !== 'admin-runtime') {
+                continue;
+            }
+            $items = is_array($group['items'] ?? null) ? $group['items'] : [];
+            if (!$this->containsByProgramId($items, $programId)) {
+                $items[] = [
+                    'programId' => $programId,
+                    'title' => $title,
+                ];
+            }
+            $groups[$index]['items'] = $items;
+            break;
+        }
+        $navigation['groups'] = $groups;
+        $homeDefinition['navigation'] = $navigation;
+
+        $programs = is_array($homeDefinition['programs'] ?? null) ? $homeDefinition['programs'] : [];
+        if (!$this->containsById($programs, $programId)) {
+            $programs[] = [
+                'id' => $programId,
+                'title' => $title,
+                'subtitle' => $subtitle,
+                'type' => 'custom',
+                'icon' => 'gear',
+                'permission' => 'admin.read',
+                'screenId' => $screenId,
+            ];
+        }
+        $homeDefinition['programs'] = $programs;
+    }
+
     private function upsertScreen(string $screenId, string $pageType, array $definition): void
     {
         $screen = $this->screens->findOneBy(['screenId' => $screenId]) ?? new ScreenDefinition();
@@ -743,6 +887,9 @@ class SeedRuntimeMetadataCommand extends Command
         }
         if ($endpointId === 'runtime.admin.forceLogout') {
             return 'admin.sessions.revoke';
+        }
+        if ($endpointId === 'runtime.admin.integrity.resign') {
+            return 'admin.write';
         }
         if (str_starts_with($handler, 'layout.')) {
             return 'user.preferences';
@@ -879,6 +1026,7 @@ class SeedRuntimeMetadataCommand extends Command
                 'runtime.messages.poll' => 'runtime.messages.poll',
                 'runtime.messages.ack' => 'runtime.messages.ack',
                 'runtime.admin.forceLogout' => 'runtime.admin.forceLogout',
+                'runtime.admin.integrity.resign' => 'runtime.admin.integrity.resign',
                 default => 'entity.crud',
             };
         }
@@ -1168,6 +1316,56 @@ class SeedRuntimeMetadataCommand extends Command
             ''
         );
         $this->upsertGlobalSystemParameterValue($aiTranscriptionModel, null);
+
+        $governanceRetentionChangeRequests = $this->upsertSystemParameterDefinition(
+            'governance.retention.change_requests_days',
+            'Retencao de solicitacoes de governanca',
+            'Quantidade de dias para manter solicitacoes de alteracao antes da limpeza automatica.',
+            'integer',
+            true,
+            180
+        );
+        $this->upsertGlobalSystemParameterValue($governanceRetentionChangeRequests, 180);
+
+        $governanceRetentionGrants = $this->upsertSystemParameterDefinition(
+            'governance.retention.grants_days',
+            'Retencao de grants de governanca',
+            'Quantidade de dias para manter grants de alteracao/publicacao antes da limpeza automatica.',
+            'integer',
+            true,
+            180
+        );
+        $this->upsertGlobalSystemParameterValue($governanceRetentionGrants, 180);
+
+        $governanceRetentionApprovals = $this->upsertSystemParameterDefinition(
+            'governance.retention.approvals_days',
+            'Retencao de aprovacoes de governanca',
+            'Quantidade de dias para manter aprovacoes finais antes da limpeza automatica.',
+            'integer',
+            true,
+            365
+        );
+        $this->upsertGlobalSystemParameterValue($governanceRetentionApprovals, 365);
+
+        $governanceRetentionTests = $this->upsertSystemParameterDefinition(
+            'governance.retention.test_executions_days',
+            'Retencao de bundles de teste',
+            'Quantidade de dias para manter execucoes de testes governados antes da limpeza automatica.',
+            'integer',
+            true,
+            365
+        );
+        $this->upsertGlobalSystemParameterValue($governanceRetentionTests, 365);
+
+        $governanceRetentionNotifications = $this->upsertSystemParameterDefinition(
+            'governance.retention.notifications_days',
+            'Retencao de notificacoes administrativas de governanca',
+            'Quantidade de dias para manter notificacoes administrativas antes da limpeza automatica.',
+            'integer',
+            true,
+            30
+        );
+        $this->upsertGlobalSystemParameterValue($governanceRetentionNotifications, 30);
     }
 
     private function upsertLiteralTranslations(): void

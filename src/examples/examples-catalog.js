@@ -223,6 +223,54 @@
       }
     },
     {
+      id: "program-builder-technical-properties",
+      engine: "program-builder",
+      category: "Construtor",
+      title: "Program Builder - Propriedades tecnicas",
+      summary: "Exemplo local do construtor com mock leve para validar icones de propriedades tecnicas em entidade, programa, API/Odoo e inspetor lateral.",
+      page: pagePath + "program-builder-technical-properties.html"
+    },
+    {
+      id: "program-builder-governance",
+      engine: "program-builder",
+      category: "Construtor",
+      title: "Program Builder - Governanca",
+      summary: "Exemplo local do fluxo governado com solicitacao, grant, bundle de testes, aprovacao final e preview visual de rebase de overlay.",
+      page: pagePath + "program-builder-governance.html"
+    },
+    {
+      id: "admin-program-governance",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Governanca de programas",
+      summary: "Tela administrativa dedicada para requests, grants, bundles, aprovacoes, retencao e rebase de overlays sem depender so do CRUD generico.",
+      page: pagePath + "admin-program-governance.html"
+    },
+    {
+      id: "admin-program-grants",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Grants de programas",
+      summary: "Entrada focada da governanca para liberar, congelar, reativar e revogar grants com menos ruído operacional.",
+      page: pagePath + "admin-program-grants.html"
+    },
+    {
+      id: "admin-program-approvals",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Aprovacoes de publicacao",
+      summary: "Entrada focada da governanca para bundles aprovados e aprovacao final de publicacao governada.",
+      page: pagePath + "admin-program-approvals.html"
+    },
+    {
+      id: "admin-program-retention",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Retencao da governanca",
+      summary: "Entrada focada da governanca para revisar e ajustar a politica de retencao sem ruido das outras operacoes.",
+      page: pagePath + "admin-program-retention.html"
+    },
+    {
       id: "programa-ajuda-logs",
       category: "Programa",
       title: "Cabecalho com ajuda e logs",
@@ -499,18 +547,37 @@
       page: pagePath + "manual-programas.html",
       code: {}
     },
-    {
-      id: "import-export-mappings",
-      category: "Integracao",
-      title: "Mapeamentos de importacao e exportacao",
-      summary: "Documenta o contrato da engine de mapeamentos para API, tabela, CSV e TXT, incluindo leiaute posicional, por separador e arvore hierarquica com TreeView para registros pai, filhos e totalizadores.",
-      page: pagePath + "import-export-mappings.html",
-      code: {}
-    },
-    {
-      id: "filtro-inicial",
-      category: "Filtros",
-      title: "Filtro aberto na entrada",
+      {
+        id: "import-export-mappings",
+        category: "Integracao",
+        title: "Mapeamentos de importacao e exportacao",
+        summary: "Documenta o contrato da engine de mapeamentos para API, tabela, CSV, XML e TXT, incluindo leiaute posicional, por separador e arvore hierarquica com TreeView para registros pai, filhos e totalizadores.",
+        page: pagePath + "import-export-mappings.html",
+        code: {}
+      },
+      {
+        id: "admin-integracoes",
+        category: "Backend",
+        title: "Admin de integracoes",
+        summary: "Tela administrativa real para cadastrar, validar e executar mapeamentos de importacao/exportacao.",
+        page: "production/admin/import-export-mappings.html",
+        code: {
+          screenId: "admin.integracoes",
+          productionUrl: "production/app.html?screenId=admin.integracoes"
+        }
+      },
+      {
+        id: "admin-integracoes-demo",
+        category: "Integracao",
+        title: "Admin de integracoes - demo local",
+        summary: "Superficie local para validar a UI completa de integracoes, com TreeView para TXT/XML, preview lado a lado e historico de execucao.",
+        page: pagePath + "import-export-admin-demo.html",
+        code: {}
+      },
+      {
+        id: "filtro-inicial",
+        category: "Filtros",
+        title: "Filtro aberto na entrada",
       summary: "Abre a janela de filtros ao entrar e espera o usuario consultar.",
       initialAction: null,
       code: {
@@ -1258,6 +1325,20 @@
       }
     },
     {
+      id: "admin-integridade",
+      category: "Backend",
+      title: "Admin de integridade estrutural",
+      summary: "Tela administrativa para monitorar assinaturas estruturais e reassinatura controlada.",
+      page: pagePath + "admin-integridade.html",
+      loadByScreenId: true,
+      screenId: "admin.integridade",
+      code: {
+        screenId: "admin.integridade",
+        relatedScreens: ["admin.programa-grants", "admin.programa-aprovacoes"],
+        productionUrl: "production/app.html?screenId=admin.integridade"
+      }
+    },
+    {
       id: "admin-listas-opcoes",
       category: "Backend",
       title: "Admin de listas de opcoes",
@@ -1606,6 +1687,9 @@
     option("Dados/API", "dataSource.api.*.method", "GET | POST | PUT | PATCH | DELETE", "GET", "Metodo usado pelo mock/backend."),
     option("Dados/API", "dataModel.fields[].type", "string | text | integer | decimal | number | boolean | date | datetime | email | enum | lookup | hidden", "Obrigatorio", "Tipo base usado por grid, filtros e formulario."),
     option("Dados/API", "dataModel.fields[].format", "currency | date | datetime | number", "por tipo", "Atalhos implementados para formatacao Kendo."),
+    option("Dados/API", "dataModel.fields[].technicalProperties[]", "lista de { label, value }", "vazio", "Exibe um icone tecnico ao lado do nome do campo no grid, filtro e formulario."),
+    option("Grid", "crud.grid.columns[].technicalProperties[]", "lista de { section, label, value }", "fallback do campo", "Permite sobrescrever ou complementar as propriedades tecnicas mostradas no cabecalho do grid."),
+    option("Filtro", "crud.filter.fields[].technicalProperties[]", "lista de { section, label, value }", "fallback do campo", "Permite sobrescrever ou complementar as propriedades tecnicas mostradas no filtro."),
     option("Consulta", "crud.query.defaultSort[].dir", "asc | desc", "vazio", "Direcao da ordenacao inicial."),
     option("Filtro", "crud.filter.type", "window", "window", "Renderizador de filtro implementado hoje."),
     option("Filtro", "crud.filter.mode", "basic", "basic", "Modo interno atual do filtro."),
@@ -1761,6 +1845,7 @@
     option("Custom", "custom.frameTitle", "texto", "program.title", "Titulo acessivel usado no iframe do programa manual."),
     option("Processamento", "process.parameters.fields[].type", "text | string | number | integer | decimal | date | datetime | boolean | enum | option | dropdown", "text", "Tipo de campo usado para montar os parametros do processamento."),
     option("Processamento", "process.parameters.fields[].required", "true | false", "false", "Impede processar sem valor no parametro."),
+    option("Processamento", "process.parameters.fields[].technicalProperties[]", "lista de { section, label, value }", "vazio", "Exibe um icone tecnico ao lado do parametro do processamento."),
     option("Processamento", "process.actions.process.label/icon", "texto", "Processar / play", "Texto e icone do botao principal de processamento."),
     option("Processamento", "process.wait.mode", "auto | sse | polling | none", "auto", "Define se o motor acompanha o job por SSE, polling, automatico ou apenas inicia o job."),
     option("Processamento", "process.wait.pollIntervalSeconds", "numero", "2", "Intervalo do polling de status quando SSE nao estiver disponivel."),

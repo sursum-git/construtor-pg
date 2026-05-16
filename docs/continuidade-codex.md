@@ -75,6 +75,74 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - carga automatica de campos do modelo via `fields_get`;
   - runtime separado por `entity.api.odoo.readonly`;
   - publicacao de tela CRUD em modo consulta, com `create/edit/delete=false`.
+- a governanca do construtor ganhou dashboard operacional real no dialogo:
+  - resumo de requests, grants, aprovacoes e bundles de teste;
+  - leitura do backend por `GET /api/admin/program-builder/governance/dashboard`;
+  - `CrudHttpClient` agora serializa `data` em `GET` para suportar esse fluxo sem URL montada manualmente.
+- a tela `admin.integridade` ficou alinhada entre demo e producao:
+  - mock local passou a expandir `extraApi` em `definition.api`;
+  - a reassinatura usa `endpointId=runtime.admin.integrity.resign` em vez de URL livre;
+  - existe smoke local `npm run test:admin-integridade`;
+  - existe smoke real de producao `npm run test:admin-integridade-production`.
+- a retencao de historico de governanca agora pode ser lida por parametros:
+  - `governance.retention.change_requests_days`
+  - `governance.retention.grants_days`
+  - `governance.retention.approvals_days`
+  - `governance.retention.test_executions_days`
+  - `governance.retention.notifications_days`
+- o dialogo de governanca do `program-builder` agora tambem consegue:
+  - reutilizar request recente;
+  - congelar, reativar ou revogar grant recente;
+  - reaproveitar bundle recente;
+  - ajustar a retencao da governanca pelo proprio painel.
+- endpoints novos dessa frente:
+  - `GET /api/admin/program-builder/governance/retention`
+  - `POST /api/admin/program-builder/governance/retention`
+- a reassinatura estrutural agora grava trilha adicional no `metadata.auditTrail` com:
+  - motivo;
+  - usuario;
+  - horario;
+  - status antes/depois;
+  - hash anterior.
+- a integridade estrutural passou a cobrir tambem:
+  - `builder_api_source`
+  - `builder_module`
+  - `builder_entity_situation`
+  - `builder_entity_situation_transition`
+  - `runtime_lock_policy`
+  - `system_option_list`
+  - `system_option`
+  - `system_parameter`
+  - `system_parameter_value`
+  - `import_export_mapping`
+  - `import_export_mapping_version`
+  - `import_export_schedule`
+- o preview de rebase de overlay agora tem:
+  - filtro por secao/caminho;
+  - filtro por classificacao do conflito;
+  - navegacao rapida por secao.
+- o preview de rebase agora tambem detalha caminhos por campo dentro de cada secao, com classificacao e comparacao entre base nova, overlay e resultado rebaseado.
+- existe agora uma tela administrativa dedicada de governanca:
+  - `production/app.html?screenId=admin.programa-governanca`;
+  - pagina local de smoke: `examples/pages/admin-program-governance.html`;
+  - cobre requests, grants, bundles, aprovacoes, retencao e rebase por programa.
+- existem tambem entradas focadas para operacao direta:
+  - `production/app.html?screenId=admin.programa-grants-operacao`;
+  - `production/app.html?screenId=admin.programa-aprovacoes-operacao`;
+  - `production/app.html?screenId=admin.programa-retencao-operacao`;
+  - paginas locais:
+    - `examples/pages/admin-program-grants.html`
+    - `examples/pages/admin-program-approvals.html`
+    - `examples/pages/admin-program-retention.html`
+  - usadas por notificacoes/contexto e validadas no smoke de governanca.
+- o smoke de governanca agora valida tambem:
+  - revogacao e nova liberacao de grant antes do publish governado;
+  - o modo focado de retencao na tela administrativa dedicada.
+- a Home agora consegue abrir notificacoes com contexto seguro:
+  - `screenId` ou `programId`;
+  - `navigation.query` serializado na URL interna;
+  - filtros aplicados na tela administrativa de destino;
+  - grants e aprovacoes podem abrir direto nas entradas focadas de operacao.
 - validacao real mais recente desta frente:
   - mock Odoo local em `tmp/mock-odoo-router.php`;
   - `XML-RPC` e `JSON-RPC` com sucesso no teste de conexao;
@@ -96,6 +164,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `POST /api/admin/import-export-mappings/execute`
   - formatos de arquivo suportados:
     - `csv`
+    - `xml`
     - `txt_layout`
   - `txt_layout` agora aceita:
     - `lineMode="fixed"` para leiaute posicional;
@@ -110,15 +179,74 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `cliente -> txt_layout` hierarquico com filho e totalizador
   - exemplo documental novo:
     - `examples/pages/import-export-mappings.html`
-  - existe agora tambem uma pagina documental de manual por programa:
-    - `examples/pages/manual-programas.html`
+  - existe agora tambem uma tela administrativa real:
+    - `screenId=admin.integracoes`
+    - `production/admin/import-export-mappings.html`
+    - cadastro, preview e execucao manual do mapping;
+    - editor visual com `TreeView` para TXT/XML;
+    - inspetor de no;
+    - preview estrutural lado a lado;
+    - historico persistido de execucoes;
+    - historico de versoes do proprio mapping;
+    - aba de agendamentos com execucao manual dos vencidos.
+  - exportacao XML atual:
+    - colunas simples por `sourcePath -> targetName`;
+    - ou estrutura rica por `xmlLayouts[]`;
+    - `rootName`, `itemName`, `prettyPrint`, `encodingLabel`, `namespaces[]` e `rootAttributes[]`;
+    - filhos repetitivos com `sourceAlias`;
+    - vinculo pai/filho com `linkBy`;
+    - sem template livre e sem script.
+  - importacao XML atual:
+    - origem `type=file` com `fileFormat=xml`;
+    - leitura por `recordPath`;
+    - suporte a `namespaces[]`;
+    - mapeamento declarativo por `fields[].targetField + xpath`.
+  - persistencia operacional nova:
+    - `import_export_execution`;
+    - `import_export_mapping_version`;
+    - `import_export_schedule`.
+  - execucao agendada:
+    - endpoint administrativo `POST /api/admin/import-export-mappings/schedules/run-due`;
+    - comando `php backend/bin/console app:import-export:run-schedules`.
+- existe agora tambem uma pagina documental de manual por programa:
+  - `examples/pages/manual-programas.html`
   - ela usa:
-    - `TreeView` para indice dos programas;
-    - `TabStrip` para separar visao funcional, operacional e referencias;
-    - secao adicional de arquitetura do sistema, motores de renderizacao e escopo suportado hoje;
-    - filtro por nome, modulo ou `screenId`.
-  - pendencia assumida:
-    - ainda nao existe tela administrativa completa do catalogo; nesta etapa o uso fica pelos endpoints e pelo exemplo documental.
+  - `TreeView` para indice dos programas;
+  - `TabStrip` para separar visao funcional, operacional e referencias;
+  - secao adicional de arquitetura do sistema, motores de renderizacao e escopo suportado hoje;
+  - filtro por nome, modulo ou `screenId`.
+- existe agora tambem a frente de governanca/rastreabilidade/versionamento:
+  - ownership do programa em `programOrigin`, `ownerScope` e `customizationPolicy`;
+  - overlays por assinante em `builder_program_overlay` e `builder_program_overlay_version`;
+  - solicitacoes e grants em `program_change_request` e `program_change_grant`;
+  - bundles de testes e aprovacoes em `program_test_execution` e `program_publication_approval`;
+  - locks de autoria reaproveitando `builder_editor_lock` com `grantId` e `lockCategory`;
+  - rastreabilidade ampliada em `runtime_transaction` e `runtime_transaction_log` com `programVersion`, `builderProgramVersionId`, `builderEntityVersionId`, `screenDefinitionVersion`, `schemaFingerprint`, `databaseIdentity`, `databaseEnvironment`, `customizationKind`, `grantId`, `requestCode`, `approvalId` e `testExecutionBundleId`;
+  - integridade estrutural em `system_record_integrity`, com assinatura por HMAC para `builder_program`, `builder_program_version`, `builder_entity`, `builder_entity_version`, `screen_definition`, `runtime_endpoint`, overlays e versoes de overlay;
+  - monitor administrativo `admin.integridade` para acompanhar ultimo status, horario, erro da verificacao estrutural e disparar reassinatura controlada;
+  - comandos operacionais `app:integrity:check`, `app:integrity:monitor` e `app:integrity:resign`;
+  - politica inicial de retencao e limpeza por `app:governance:cleanup-history`;
+- `Program Builder` com dialogs proprios para solicitar alteracao, liberar/congelar/revogar grant, registrar bundle de testes, aprovar publicacao e pedir preview/execucao de rebase do overlay, com diff visual das secoes da base antiga, base nova, overrides e definicao rebaseada;
+- o rebase do overlay agora aceita resolucao assistida por item:
+  - `rebased` para manter o merge sugerido;
+  - `overlay` para preservar o valor customizado;
+  - `base` para usar o valor da nova base;
+- tela dedicada `admin.programa-governanca` para operar o mesmo fluxo fora do editor, inclusive retencao e rebase assistido;
+  - gate guiado no proprio editor para apontar pendencias de grant, lock, bundle e aprovacao antes do publish.
+- regras praticas desta fase:
+  - assinante nao cria nem converte programa para `standard`;
+  - publicar programa `standard/system` exige grant ativo, lock ativo, bundle de testes aprovado e aprovacao final ativa;
+  - grant congelado ou revogado derruba lock de autoria na proxima verificacao de heartbeat do editor;
+  - politica de `publicationPolicy.allowedDatabaseEnvironments` pode bloquear publicacao em ambiente de banco nao autorizado;
+  - o runtime tenta resolver primeiro `customer_custom`, depois `customer_overlay`, depois `standard`;
+  - as telas administrativas novas sao:
+    - `admin.programa-solicitacoes`
+    - `admin.programa-grants`
+    - `admin.programa-testes`
+    - `admin.programa-aprovacoes`
+    - `admin.integridade`
+    - `admin.programa-overlays`
+    - `admin.programa-overlay-versoes`
 - o `CrudUtils` agora possui um resolvedor central de literais pt-BR:
   - suporta `titleKey/titleParams` e `messageKey/messageParams` no contrato de validacao;
   - mantem fallback para `title` e `message`;
@@ -133,6 +261,10 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - entidade `system_literal_translation`;
   - rota runtime `GET /api/runtime/literals/{locale}`;
   - o frontend carrega esse bundle pela configuracao `config.literals` e faz merge sobre o dicionario pt-BR embutido.
+- o login e o program-builder agora tambem conseguem consumir o bundle runtime de literais:
+  - login com `LoginLiterals`;
+  - construtor com `ProgramBuilderLiterals`;
+  - ambos preservam fallback local quando o bundle nao estiver disponivel.
 - existe agora tambem um modulo real de notificacoes runtime:
   - telas `admin.notificacoes` e `admin.notificacao-destinatarios`;
   - tabelas `runtime_notification` e `runtime_notification_recipient`;
@@ -141,7 +273,12 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - endpoints da Home:
     - `home.notifications.list`
     - `home.notifications.ack`
-  - a Home mostra as notificacoes no appbar e permite `Marcar como lida`.
+  - a Home mostra as notificacoes no appbar e permite:
+    - filtro por severidade;
+    - filtro de exigencia de acao;
+    - somente nao lidas;
+    - `Marcar como lida` individual;
+    - `Marcar todas` por filtro.
   - a demo mock agora tambem preserva o estado de leitura por destinatario ao recarregar os dados administrativos, em vez de recriar tudo como pendente.
 - o backend da Home agora tambem cobre chat e atendimento:
   - `home.chat.contacts`, `home.chat.history` e `home.chat.send`;
@@ -153,6 +290,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - atendentes online resolvidos por sessoes ativas e grupos `support` ou `support.<setor>`.
   - o polling global de `runtime.messages` agora ignora `chat` e `support_chat`, para nao transformar conversa em toast/runtime message da shell.
   - envio continua por `POST`; recepcao em tempo quase real agora usa SSE proprio por conversa/atendimento, com fallback natural para carregamento sob demanda quando o stream nao abre.
+  - a mesma rota runtime agora tambem atende `GET /api/runtime/screens/{screenId}/endpoints/{endpointId}` para listas/status e `GET ...?stream=1` para os streams `home.chat.events` e `home.support.events`.
 - validacao real mais recente desta frente:
   - migration `Version20260512100000` aplicada;
   - `POST /api/admin/program-builder/api-sources/import-openapi` validado contra OpenAPI local servido em `http://127.0.0.1:8765/tmp/openapi-api-source-test.json`;
@@ -160,6 +298,31 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - entidade `api_meta_teste_001` salva apontando para `api_produtos_ext`;
   - `POST /api/admin/program-builder/preview` devolveu CRUD `readonly` com `create/edit/delete=false`;
   - CRUD completo por tela runtime validado em `api.crud.mock.produtos` com create, update e delete reais via API externa mockada.
+  - `screenId=admin.integracoes` publicado via `custom` para a tela administrativa real de import/export.
+  - SSE real de chat validado com `home.chat.send` + `home.chat.events?stream=1`, entregando a mensagem nova na conversa.
+  - SSE real de atendimento validado com `home.support.createRequest`, `home.support.requestStatus` e `home.support.events?stream=1`, entregando presenca online e status do protocolo.
+  - smoke local novo da tela administrativa de integracoes:
+    - `npm run test:admin-integracoes`
+    - pagina local: `examples/pages/import-export-admin-demo.html`
+    - cobre TreeView TXT, preview estrutural, execucao e XML hierarquico.
+- validacao real mais recente da frente de governanca/rastreabilidade/versionamento:
+  - `php backend/vendor/bin/phpunit backend/tests/Runtime/ProgramGovernanceServiceTest.php backend/tests/Runtime/ProgramCustomizationResolverTest.php backend/tests/Runtime/RuntimeTransactionServiceTraceabilityTest.php backend/tests/Runtime/RuntimeEntityDefinitionResolverTest.php backend/tests/Builder/ProgramBuilderServiceTechnicalPropertiesTest.php`
+    - `OK (8 tests, 72 assertions)`
+  - `php backend/bin/console doctrine:migrations:migrate --no-interaction`
+  - `php backend/bin/console app:seed-runtime-metadata`
+  - `php backend/bin/console lint:container`
+  - `php backend/bin/console app:integrity:monitor --fail-on-invalid`
+    - `Registros verificados: 678`
+    - `Registros invalidos: 0`
+  - `npm run test:program-builder-governance`
+    - fluxo local validado em `file:///C:/construtor-pg/examples/pages/program-builder-governance.html`
+    - cobre solicitacao, grant, bundle de testes, aprovacao, publish governado e preview de rebase do overlay
+  - `npm run test:admin-integridade`
+    - fluxo local validado em `file:///C:/construtor-pg/examples/pages/admin-integridade.html`
+    - cobre abertura da tela, visualizacao do registro invalido, reassinatura pela UI e persistencia do novo status no mock administrativo
+  - `npm run test:admin-program-governance`
+    - fluxo local validado em `file:///C:/construtor-pg/examples/pages/admin-program-governance.html`
+    - cobre request, grant, retencao, preview de rebase e os modos focados de grants/aprovacoes
 
 ## Comandos uteis
 
@@ -384,4 +547,4 @@ Implementado ate agora, em nivel demo/frontend:
 - Envio real de e-mail depende de configurar `MAILER_DSN`; no ambiente atual o envio fica preparado/logado com `null://null`.
 - `subscriber.enabled` fica `false` por padrao. Para testar selecao de assinante, altere o valor vigente em `system_parameter_value` para `true` e depois volte para `false` se quiser manter o fluxo local direto.
 - Antes de uma versao estavel, revisar `docs/backlog-v1-estavel.md`.
-- Push ainda depende de configurar remote Git.
+- O remote `origin` ja esta configurado e os pushes recentes foram concluidos em `origin/master`.

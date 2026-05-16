@@ -52,7 +52,8 @@ Na Home:
 - o appbar continua aceitando agregacao de `alerts`, `requests` e `jobs` quando nao houver endpoint proprio;
 - quando existir endpoint dedicado de notificacoes, a central passa a listar os registros reais do backend;
 - cada item pode ser marcado como lido por `home.notifications.ack`;
-- quando a notificacao tiver `link_program_id` ou `link_screen_id`, o shell pode abrir o programa relacionado.
+- quando a notificacao tiver `link_program_id` ou `link_screen_id`, o shell pode abrir o programa relacionado;
+- a notificacao tambem pode carregar `navigation.query`, permitindo abrir a tela alvo com filtros e foco contextual via querystring segura.
 
 Limites desta fase:
 
@@ -78,6 +79,7 @@ Escopo atual:
   - `readonly`;
   - `crud` basico para APIs JSON previsiveis.
 - tambem existe um provedor especifico `odoo` dentro do cadastro reutilizavel de APIs, em modo `readonly`, com suporte a `XML-RPC` e `JSON-RPC`, teste de conexao, leitura de metadados do modelo e geracao de CRUD em modo consulta.
+- `builder_api_source` agora tambem entra na protecao de integridade estrutural e e validado pelo backend antes do uso no construtor.
 
 No backend:
 
@@ -197,6 +199,11 @@ Escopo atual:
 
 No `txt_layout`, a engine aceita tanto estrutura plana quanto hierarquica.
 
+No `xml`, a engine aceita dois modos:
+
+- estrutura simples por `columns[]`;
+- estrutura rica por `xmlLayouts[]`, com namespaces, atributos, filhos repetitivos e vinculo por `linkBy`.
+
 Contratos suportados na primeira entrega:
 
 - `api -> tabela`;
@@ -210,6 +217,19 @@ O corpo do mapeamento usa:
 - `destination`;
 - `fieldMappings[]`;
 - `options`.
+
+Os artefatos estruturais dessa frente tambem entram na camada de integridade do sistema:
+
+- `import_export_mapping`;
+- `import_export_mapping_version`;
+- `import_export_schedule`.
+
+Outras superfícies estruturais sensiveis agora cobertas pela mesma assinatura:
+
+- `builder_module`;
+- `runtime_lock_policy`;
+- `system_parameter`;
+- `system_parameter_value`.
 
 Para arquivo TXT, cada item de `recordLayouts[]` aceita:
 
@@ -304,12 +324,21 @@ Transformacoes fechadas suportadas nesta etapa:
 - `pad_left`
 - `pad_right`
 
+No XML rico, cada no pode usar:
+
+- `name`;
+- `sourceAlias`;
+- `attributes[]`;
+- `fields[]`;
+- `children[]`;
+- `textSourcePath` ou `textConstant`;
+- `linkBy[]` para relacionar filhos ao registro pai.
+
 Limites desta fase:
 
-- execucao apenas manual por endpoint administrativo;
-- ainda nao existe tela administrativa completa para o catalogo;
-- ainda nao existe `xml`;
-- ainda nao existe historico funcional dedicado das execucoes fora do runtime padrao.
+- execucao manual por endpoint administrativo ou por agendamento simples (`interval`, `hourly`, `daily`);
+- a tela administrativa ja cobre cadastro, `TreeView`, preview estrutural, execucao, historico persistido, versoes do mapping e agendamentos;
+- o XML ainda nao cobre cenarios avancados como namespaces default, escolha de atributo vs conteudo por expressao livre ou transformacao por script.
 
 ## Estrutura principal
 
@@ -766,6 +795,35 @@ Endpoints atuais:
 - `POST /api/admin/program-builder/versions/{id}/duplicate`: cria novo rascunho com incremento de versao;
 - `POST /api/admin/program-builder/external/validate`: valida JSON externo e devolve rascunho normalizado para revisao.
 
+Novos conceitos de ownership e customizacao:
+
+- `programOrigin = standard | customer_overlay | customer_custom`;
+- `ownerScope = system | subscriber`;
+- `customizationPolicy = locked | overlay_only | full_override_allowed`;
+- `subscriberId`, `baseProgramCode`, `baseProgramVersionId`, `upgradeFrozen` e `frozenReason` no catalogo/versionamento do programa.
+
+Fluxo atual:
+
+- programa padrao continua versionado em `builder_program_version`;
+- overlay por assinante usa `builder_program_overlay` + `builder_program_overlay_version`;
+- variante especifica do cliente usa `customer_custom`;
+- o runtime tenta resolver `customer_custom`, depois `customer_overlay`, depois `standard`.
+
+Para programas padrao, a publicacao passou a poder exigir gate de governanca:
+
+- solicitacao formal em `program_change_request`;
+- grant temporario em `program_change_grant`;
+- lock de autoria reaproveitando `builder_editor_lock` com `grantId`;
+- bundle de testes em `program_test_execution`;
+- aprovacao final em `program_publication_approval`.
+
+Na esteira atual, publicar programa `standard/system` exige:
+
+- grant ativo do usuario;
+- lock ativo do programa e da entidade base, ambos vinculados ao grant;
+- bundle de testes executado;
+- aprovacao final ativa.
+
 Primeiro escopo suportado:
 
 - somente `pageType="crud"`;
@@ -1030,6 +1088,15 @@ As areas administrativas usam o mesmo CRUD Engine, carregadas por `screenId` e `
 - `admin.transacoes`: consulta de transacoes (`runtime_transaction`);
 - `admin.logs-transacoes`: consulta dos logs das transacoes (`runtime_transaction_log`);
 - `admin.jobs`: consulta de jobs assincronos (`runtime_async_job`).
+- `admin.programa-solicitacoes`: solicitacoes formais para alteracao de programa padrao;
+- `admin.programa-grants`: grants temporarios de edicao/publicacao;
+- `admin.programa-grants-operacao`: entrada focada para grants com contexto direto por notificacao;
+- `admin.programa-testes`: bundles e execucoes de roteiros obrigatorios;
+- `admin.programa-aprovacoes`: aprovacao final para publish governado;
+- `admin.programa-aprovacoes-operacao`: entrada focada para aprovacoes com contexto direto por notificacao;
+- `admin.programa-retencao-operacao`: entrada focada para ajuste rapido da retencao;
+- `admin.programa-overlays`: overlays e variantes por assinante;
+- `admin.programa-overlay-versoes`: historico versionado dessas customizacoes.
 
 Campos sensiveis como tokens de semaforo nao sao expostos no JSON das telas administrativas.
 
@@ -1052,6 +1119,34 @@ O CRUD pode consumir endpointIds fechados para:
 - enviar `lockToken`, `transactionId` e `version` em gravacoes;
 - receber mensagens runtime por SSE, com polling como fallback, e tratar `force_logout`;
 - avisar antes de sair de formulario sujo.
+
+## Rastreabilidade de transacao
+
+`runtime_transaction.requestContext` e `runtime_transaction_log.metadata` agora podem receber um bloco tecnico de rastreabilidade com:
+
+- `programCode`;
+- `programVersion`;
+- `builderProgramVersionId`;
+- `entityCode`;
+- `builderEntityVersionId`;
+- `screenId`;
+- `screenDefinitionVersion`;
+- `schemaFingerprint`;
+- `databaseIdentity`;
+- `databaseEnvironment`;
+- `customizationKind`;
+- `subscriberId`;
+- `grantId`;
+- `requestCode`;
+- `approvalId`;
+- `testExecutionBundleId`.
+
+Objetivo:
+
+- auditar qual versao de programa e de estrutura gerou a operacao;
+- distinguir base padrao, overlay e variante especifica;
+- identificar o ambiente/banco que executou a gravacao;
+- ligar a transacao aos controles de governanca quando a operacao vier de publicacao ou alteracao sensivel.
 
 O bloqueio real, expiracao por entidade/programa/acao, auditoria e validacao de versao ficam no backend.
 

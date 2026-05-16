@@ -13,6 +13,7 @@
 
     request(options) {
       const request = options || {};
+      const method = request.method || "GET";
       const headers = Object.assign({
         "Accept": "application/json",
         "Content-Type": "application/json",
@@ -24,12 +25,13 @@
         headers.Authorization = "Bearer " + this.authToken;
         headers["X-Runtime-Auth-Token"] = this.authToken;
       }
+      const requestUrl = this.buildRequestUrl(request.url, method, request.data);
 
-      return fetch(request.url, {
-        method: request.method || "GET",
+      return fetch(requestUrl, {
+        method,
         headers,
         credentials: request.credentials || "include",
-        body: request.method && request.method !== "GET" ? JSON.stringify(request.data || {}) : undefined
+        body: method !== "GET" ? JSON.stringify(request.data || {}) : undefined
       }).then(function(response) {
         return response.text().then(function(text) {
           const payload = text ? JSON.parse(text) : {};
@@ -52,6 +54,30 @@
         }
         throw error;
       });
+    }
+
+    buildRequestUrl(url, method, data) {
+      if (!url || method !== "GET" || !data || typeof data !== "object") {
+        return url;
+      }
+      const base = global.location && global.location.href || "http://localhost/";
+      const target = new URL(url, base);
+      Object.keys(data).forEach(function(key) {
+        const value = data[key];
+        if (value == null || value === "") {
+          return;
+        }
+        if (Array.isArray(value)) {
+          value.forEach(function(item) {
+            if (item != null && item !== "") {
+              target.searchParams.append(key, String(item));
+            }
+          });
+          return;
+        }
+        target.searchParams.set(key, String(value));
+      });
+      return target.href;
     }
 
     buildRuntimeEventUrl(url, params) {
