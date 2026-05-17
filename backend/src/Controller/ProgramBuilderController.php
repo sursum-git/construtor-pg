@@ -429,12 +429,68 @@ class ProgramBuilderController extends AbstractController
         }
     }
 
+    #[Route('/governance/audit', methods: ['GET'])]
+    public function governanceAudit(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->builder->governanceAudit([
+                'programCode' => $request->query->get('programCode'),
+                'builderProgramVersionId' => $request->query->getInt('builderProgramVersionId', 0),
+                'eventType' => $request->query->get('eventType'),
+                'userId' => $request->query->get('userId'),
+                'dateFrom' => $request->query->get('dateFrom'),
+                'dateTo' => $request->query->get('dateTo'),
+            ]));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
     #[Route('/governance/retention', methods: ['GET'])]
     public function governanceRetention(): JsonResponse
     {
         try {
             $this->sessions->ensureActive();
             return $this->json($this->builder->governanceRetentionPolicy());
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/governance/operations', methods: ['GET'])]
+    public function governanceOperationsSnapshot(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->builder->governanceOperationsSnapshot([
+                'programCode' => $request->query->get('programCode'),
+                'builderProgramVersionId' => $request->query->getInt('builderProgramVersionId', 0),
+            ]));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/governance/operations/monitor', methods: ['POST'])]
+    public function runGovernanceMonitor(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->runGovernanceMonitor(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/governance/operations', methods: ['POST'])]
+    public function runGovernanceOperations(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->runGovernanceOperations(is_array($payload) ? $payload : []));
         } catch (\Throwable $error) {
             return $this->error($error);
         }
@@ -463,12 +519,26 @@ class ProgramBuilderController extends AbstractController
         }
     }
 
-    #[Route('/governance/retention/cleanup', methods: ['POST'])]
-    public function executeGovernanceRetentionCleanup(): JsonResponse
+    #[Route('/governance/retention/history', methods: ['GET'])]
+    public function listGovernanceRetentionRuns(Request $request): JsonResponse
     {
         try {
             $this->sessions->ensureActive();
-            return $this->json($this->builder->executeGovernanceRetentionCleanup());
+            return $this->json([
+                'items' => $this->builder->listGovernanceRetentionRuns($request->query->getInt('limit', 20)),
+            ]);
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/governance/retention/cleanup', methods: ['POST'])]
+    public function executeGovernanceRetentionCleanup(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->executeGovernanceRetentionCleanup(is_array($payload) ? $payload : []));
         } catch (\Throwable $error) {
             return $this->error($error);
         }

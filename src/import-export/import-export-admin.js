@@ -10,7 +10,10 @@
       current: null,
       preview: null,
       execution: null,
-      executionHistory: []
+      executionHistory: [],
+      currentExecutions: [],
+      currentSchedules: [],
+      selectedExecution: null
     };
     this.locale = "pt-BR";
     this.designerState = {
@@ -237,7 +240,21 @@
     $("<h2></h2>").text("Historico persistido").appendTo(header);
     const actions = $("<div class=\"import-export-admin-inline-actions\"></div>").appendTo(header);
     this.reloadExecutionsButton = this.createButton(actions, "Atualizar historico", "reload", null, this.loadExecutions.bind(this));
+    this.exportExecutionButton = this.createButton(actions, "Exportar execucao", "download", null, this.handleExportSelectedExecution.bind(this));
     this.versionsSummary = $("<div class=\"import-export-admin-node-summary\"></div>").appendTo(panel);
+    const filters = $("<div class=\"import-export-admin-inline-filters\"></div>").appendTo(panel);
+    this.executionFilterMappingInput = this.appendStandaloneTextField(filters, "Mapping");
+    this.executionFilterModeInput = this.appendStandaloneDropDown(filters, "Modo", [
+      { value: "", text: "Todos" },
+      { value: "execute", text: "Execucao" },
+      { value: "scheduled", text: "Agendado" }
+    ]);
+    this.executionFilterStatusInput = this.appendStandaloneDropDown(filters, "Status", [
+      { value: "", text: "Todos" },
+      { value: "succeeded", text: "Sucesso" },
+      { value: "failed", text: "Falha" }
+    ]);
+    this.applyExecutionFiltersButton = this.createButton(filters, "Aplicar filtro", "filter", null, this.loadExecutions.bind(this));
     const body = $("<div class=\"import-export-admin-execution-body\"></div>").appendTo(panel);
     const left = $("<div class=\"import-export-admin-result-panel\"></div>").appendTo(body);
     $("<h3></h3>").text("Execucoes").appendTo(left);
@@ -247,6 +264,7 @@
       selectable: "row",
       sortable: true,
       pageable: false,
+      change: this.handleExecutionSelection.bind(this),
       columns: [
         { field: "createdAt", title: "Quando", width: 180 },
         { field: "mappingCode", title: "Mapping", width: 150 },
@@ -257,6 +275,10 @@
     });
     this.executionsGrid = this.executionsGridElement.data("kendoGrid");
     const right = $("<div class=\"import-export-admin-result-panel\"></div>").appendTo(body);
+    $("<h3></h3>").text("Detalhe da execucao").appendTo(right);
+    this.executionDetailSummary = $("<div class=\"import-export-admin-node-summary\"></div>").appendTo(right);
+    this.executionDetailDiagnostics = $("<div class=\"import-export-admin-diagnostics\"></div>").appendTo(right);
+    this.executionDetailResult = $("<pre class=\"import-export-admin-pre import-export-admin-pre-compact\"></pre>").appendTo(right);
     $("<h3></h3>").text("Versoes do mapping").appendTo(right);
     this.versionsGridElement = $("<div></div>").appendTo(right);
     this.versionsGridElement.kendoGrid({
@@ -308,6 +330,7 @@
       selectable: "row",
       sortable: true,
       pageable: false,
+      change: this.handleScheduleSelection.bind(this),
       columns: [
         { field: "code", title: "Codigo", width: 140 },
         { field: "mappingCode", title: "Mapping", width: 140 },
@@ -317,6 +340,7 @@
       ]
     });
     this.schedulesGrid = this.schedulesGridElement.data("kendoGrid");
+    this.scheduleSummary = $("<div class=\"import-export-admin-node-summary\"></div>").appendTo(right);
   };
 
   ImportExportAdmin.prototype.createButton = function(parent, text, icon, themeColor, handler) {
@@ -378,6 +402,30 @@
         return input.val();
       }
     };
+  };
+
+  ImportExportAdmin.prototype.appendStandaloneTextField = function(parent, label) {
+    const field = $("<label class=\"import-export-admin-inline-field\"></label>").appendTo(parent);
+    if (label) {
+      $("<span></span>").text(label).appendTo(field);
+    }
+    const input = $("<input type=\"text\">").appendTo(field);
+    input.kendoTextBox();
+    return input.data("kendoTextBox");
+  };
+
+  ImportExportAdmin.prototype.appendStandaloneDropDown = function(parent, label, items) {
+    const field = $("<label class=\"import-export-admin-inline-field\"></label>").appendTo(parent);
+    if (label) {
+      $("<span></span>").text(label).appendTo(field);
+    }
+    const input = $("<input type=\"text\">").appendTo(field);
+    input.kendoDropDownList({
+      dataTextField: "text",
+      dataValueField: "value",
+      dataSource: items
+    });
+    return input.data("kendoDropDownList");
   };
 
   ImportExportAdmin.prototype.loadLiterals = function() {
@@ -662,13 +710,29 @@
   };
 
   ImportExportAdmin.prototype.loadExecutions = function(mappingCode) {
-    const query = mappingCode ? ("?mappingCode=" + encodeURIComponent(mappingCode)) : "";
+    const filters = [];
+    const selectedMapping = String(mappingCode || this.executionFilterMappingInput && this.executionFilterMappingInput.value() || "").trim();
+    const selectedMode = String(this.executionFilterModeInput && this.executionFilterModeInput.value() || "").trim();
+    const selectedStatus = String(this.executionFilterStatusInput && this.executionFilterStatusInput.value() || "").trim();
+    if (selectedMapping) {
+      filters.push("mappingCode=" + encodeURIComponent(selectedMapping));
+    }
+    if (selectedMode) {
+      filters.push("mode=" + encodeURIComponent(selectedMode));
+    }
+    if (selectedStatus) {
+      filters.push("status=" + encodeURIComponent(selectedStatus));
+    }
+    const query = filters.length ? ("?" + filters.join("&")) : "";
     return this.http.request({
       url: "/api/admin/import-export-mappings/executions" + query,
       method: "GET"
     }).then(function(response) {
       const items = global.CrudUtils.ensureArray(response && response.items);
+      this.state.currentExecutions = items;
+      this.state.selectedExecution = null;
       this.executionsGrid.dataSource.data(items);
+      this.renderSelectedExecution(null);
       return items;
     }.bind(this)).catch(function() {
       return [];
@@ -695,11 +759,80 @@
       method: "GET"
     }).then(function(response) {
       const items = global.CrudUtils.ensureArray(response && response.items);
+      this.state.currentSchedules = items;
       this.schedulesGrid.dataSource.data(items);
+      this.renderScheduleSummary(null);
       return items;
     }.bind(this)).catch(function() {
       return [];
     });
+  };
+
+  ImportExportAdmin.prototype.handleExecutionSelection = function() {
+    const selected = this.executionsGrid.select();
+    const item = selected && selected.length ? this.executionsGrid.dataItem(selected) : null;
+    this.state.selectedExecution = item ? item.toJSON ? item.toJSON() : item : null;
+    this.renderSelectedExecution(this.state.selectedExecution);
+  };
+
+  ImportExportAdmin.prototype.renderSelectedExecution = function(item) {
+    this.executionDetailSummary.empty();
+    this.executionDetailDiagnostics.empty();
+    this.executionDetailResult.text("");
+    if (!item) {
+      $("<p class=\"import-export-admin-empty\"></p>").text("Selecione uma execucao para ver o detalhe.").appendTo(this.executionDetailSummary);
+      return;
+    }
+    this.renderDefinitionList(this.executionDetailSummary, [
+      { label: "Mapping", value: item.mappingCode || "-" },
+      { label: "Modo", value: item.mode || "-" },
+      { label: "Status", value: item.status || "-" },
+      { label: "Quando", value: item.createdAt || "-" },
+      { label: "Arquivo", value: item.fileName || "-" }
+    ]);
+    global.CrudUtils.ensureArray(item.diagnostics).forEach(function(entry) {
+      $("<div class=\"import-export-admin-diagnostic\"></div>")
+        .addClass("is-" + String(entry && entry.level || "info"))
+        .text(String(entry && entry.message || "Diagnostico"))
+        .appendTo(this.executionDetailDiagnostics);
+    }, this);
+    this.executionDetailResult.text(this.stringifyJson({
+      counts: item.counts || {},
+      resultSummary: item.resultSummary || {},
+      parameters: item.parameters || {}
+    }, true));
+  };
+
+  ImportExportAdmin.prototype.handleExportSelectedExecution = function() {
+    if (!this.state.selectedExecution) {
+      global.CrudUtils.showMessage("Selecione uma execucao para exportar.", "warning");
+      return;
+    }
+    const payload = this.stringifyJson(this.state.selectedExecution, true);
+    const fileName = "import-export-execution-" + String(this.state.selectedExecution.id || "selecionada") + ".json";
+    this.downloadTextFile(fileName, payload, "application/json;charset=utf-8");
+    global.CrudUtils.showMessage("Execucao exportada.", "success");
+  };
+
+  ImportExportAdmin.prototype.handleScheduleSelection = function() {
+    const selected = this.schedulesGrid.select();
+    const item = selected && selected.length ? this.schedulesGrid.dataItem(selected) : null;
+    this.renderScheduleSummary(item ? (item.toJSON ? item.toJSON() : item) : null);
+  };
+
+  ImportExportAdmin.prototype.renderScheduleSummary = function(item) {
+    this.scheduleSummary.empty();
+    if (!item) {
+      $("<p class=\"import-export-admin-empty\"></p>").text("Selecione um agendamento para ver o resumo.").appendTo(this.scheduleSummary);
+      return;
+    }
+    this.renderDefinitionList(this.scheduleSummary, [
+      { label: "Mapping", value: item.mappingCode || "-" },
+      { label: "Frequencia", value: item.frequency || "-" },
+      { label: "Status", value: item.lastStatus || "-" },
+      { label: "Proxima execucao", value: item.nextRunAt || "-" },
+      { label: "Ultima execucao", value: item.lastRunAt || "-" }
+    ]);
   };
 
   ImportExportAdmin.prototype.handleSaveSchedule = function() {
@@ -1202,6 +1335,20 @@
     this.banner.text(normalized.message);
     global.CrudUtils.showMessage(normalized.message, "error");
     throw error;
+  };
+
+  ImportExportAdmin.prototype.downloadTextFile = function(fileName, content, mimeType) {
+    const blob = new Blob([String(content || "")], { type: mimeType || "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.setTimeout(function() {
+      URL.revokeObjectURL(url);
+    }, 0);
   };
 
   ImportExportAdmin.prototype.stringifyJson = function(value, pretty) {

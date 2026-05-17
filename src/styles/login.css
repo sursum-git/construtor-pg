@@ -214,6 +214,14 @@
   justify-content: space-between;
 }
 
+.login-option-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
 .login-remember {
   display: inline-flex;
   min-width: 0;
@@ -374,6 +382,10 @@
   .login-options {
     display: grid;
     justify-content: stretch;
+  }
+
+  .login-option-actions {
+    justify-content: flex-start;
   }
 
   .login-link-button {

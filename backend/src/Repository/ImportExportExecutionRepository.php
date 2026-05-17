@@ -13,13 +13,19 @@ class ImportExportExecutionRepository extends ServiceEntityRepository
         parent::__construct($registry, ImportExportExecution::class);
     }
 
-    public function findRecent(int $limit = 50, ?string $mappingCode = null): array
+    public function findRecent(int $limit = 50, ?string $mappingCode = null, ?string $mode = null, ?string $status = null): array
     {
         $qb = $this->createQueryBuilder('e')
             ->orderBy('e.createdAt', 'DESC')
             ->setMaxResults(max(1, min(200, $limit)));
         if ($mappingCode !== null && $mappingCode !== '') {
             $qb->andWhere('e.mappingCode = :mappingCode')->setParameter('mappingCode', $mappingCode);
+        }
+        if ($mode !== null && $mode !== '') {
+            $qb->andWhere('e.mode = :mode')->setParameter('mode', $mode);
+        }
+        if ($status !== null && $status !== '') {
+            $qb->andWhere('e.status = :status')->setParameter('status', $status);
         }
 
         return $qb->getQuery()->getResult();

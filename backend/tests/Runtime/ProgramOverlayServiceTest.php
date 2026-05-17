@@ -98,10 +98,156 @@ class ProgramOverlayServiceTest extends TestCase
         self::assertSame(['program'], $result['conflicts']);
         self::assertSame('1.1.0', $result['targetBaseVersion']);
         self::assertSame('1.0.0', $result['currentBaseVersion']);
+        self::assertTrue($result['canApply']);
+        self::assertTrue($result['requiresConfirmation']);
         self::assertSame(['title' => 'Clientes Overlay'], $result['definitionOverrides']['program'] ?? null);
         self::assertSame(['title' => 'Clientes v2'], $result['targetBaseDefinition']['program'] ?? null);
         self::assertCount(1, $result['sections']);
         self::assertTrue($result['sections'][0]['conflict']);
+    }
+
+    public function testRebaseWarningRequiresExplicitConfirmation(): void
+    {
+        $overlay = (new BuilderProgramOverlay())
+            ->setProgramCode('cd0001')
+            ->setSubscriberId('tenant-a')
+            ->setCustomizationKind('customer_overlay')
+            ->setBaseProgramVersionId(10)
+            ->setStatus('published');
+
+        $overlayVersion = (new BuilderProgramOverlayVersion())
+            ->setOverlay($overlay)
+            ->setStatus('published')
+            ->setSnapshot([
+                'definitionOverrides' => [
+                    'program' => ['title' => 'Clientes Overlay'],
+                ],
+            ])
+            ->setResolvedDefinition([
+                'pageType' => 'crud',
+                'program' => ['title' => 'Clientes Overlay'],
+            ]);
+        $this->setEntityId($overlayVersion, 34);
+
+        $publishedBase = (new BuilderProgramVersion())
+            ->setProgramCode('cd0001')
+            ->setVersion('1.1.0')
+            ->setGeneratedDefinition([
+                'pageType' => 'crud',
+                'program' => ['title' => 'Clientes v2'],
+            ]);
+        $this->setEntityId($publishedBase, 11);
+
+        $oldBase = (new BuilderProgramVersion())
+            ->setProgramCode('cd0001')
+            ->setVersion('1.0.0')
+            ->setGeneratedDefinition([
+                'pageType' => 'crud',
+                'program' => ['title' => 'Clientes'],
+            ]);
+
+        $overlayVersions = $this->createMock(BuilderProgramOverlayVersionRepository::class);
+        $overlayVersions->expects(self::once())
+            ->method('find')
+            ->with(34)
+            ->willReturn($overlayVersion);
+
+        $programVersions = $this->createMock(BuilderProgramVersionRepository::class);
+        $programVersions->expects(self::once())
+            ->method('findPublishedByProgramCode')
+            ->willReturn($publishedBase);
+        $programVersions->expects(self::once())
+            ->method('find')
+            ->with(10)
+            ->willReturn($oldBase);
+
+        $integrity = $this->createMock(StructuralIntegrityService::class);
+        $integrity->expects(self::once())->method('assertOverlay')->with($overlay);
+        $integrity->expects(self::once())->method('assertOverlayVersion')->with($overlayVersion);
+
+        $service = new ProgramOverlayService(
+            $this->createStub(BuilderProgramOverlayRepository::class),
+            $overlayVersions,
+            $programVersions,
+            $this->createStub(EntityManagerInterface::class),
+            $integrity,
+        );
+
+        $this->expectException(RuntimeHttpException::class);
+        $this->expectExceptionMessage('confirmacao explicita');
+        $service->rebase(34);
+    }
+
+    public function testRebasePolicyBlocksOverlayChoiceOnCriticalWarningPath(): void
+    {
+        $overlay = (new BuilderProgramOverlay())
+            ->setProgramCode('cd0001')
+            ->setSubscriberId('tenant-a')
+            ->setCustomizationKind('customer_overlay')
+            ->setBaseProgramVersionId(10)
+            ->setStatus('published');
+
+        $overlayVersion = (new BuilderProgramOverlayVersion())
+            ->setOverlay($overlay)
+            ->setStatus('published')
+            ->setSnapshot([
+                'definitionOverrides' => [
+                    'program' => ['title' => 'Clientes Overlay'],
+                ],
+            ])
+            ->setResolvedDefinition([
+                'pageType' => 'crud',
+                'program' => ['title' => 'Clientes Overlay'],
+            ]);
+        $this->setEntityId($overlayVersion, 35);
+
+        $publishedBase = (new BuilderProgramVersion())
+            ->setProgramCode('cd0001')
+            ->setVersion('1.1.0')
+            ->setGeneratedDefinition([
+                'pageType' => 'crud',
+                'program' => ['title' => 'Clientes v2'],
+            ]);
+        $this->setEntityId($publishedBase, 11);
+
+        $oldBase = (new BuilderProgramVersion())
+            ->setProgramCode('cd0001')
+            ->setVersion('1.0.0')
+            ->setGeneratedDefinition([
+                'pageType' => 'crud',
+                'program' => ['title' => 'Clientes'],
+            ]);
+
+        $overlayVersions = $this->createMock(BuilderProgramOverlayVersionRepository::class);
+        $overlayVersions->expects(self::once())
+            ->method('find')
+            ->with(35)
+            ->willReturn($overlayVersion);
+
+        $programVersions = $this->createMock(BuilderProgramVersionRepository::class);
+        $programVersions->expects(self::once())
+            ->method('findPublishedByProgramCode')
+            ->willReturn($publishedBase);
+        $programVersions->expects(self::once())
+            ->method('find')
+            ->with(10)
+            ->willReturn($oldBase);
+
+        $integrity = $this->createMock(StructuralIntegrityService::class);
+        $integrity->expects(self::once())->method('assertOverlay')->with($overlay);
+        $integrity->expects(self::once())->method('assertOverlayVersion')->with($overlayVersion);
+
+        $service = new ProgramOverlayService(
+            $this->createStub(BuilderProgramOverlayRepository::class),
+            $overlayVersions,
+            $programVersions,
+            $this->createStub(EntityManagerInterface::class),
+            $integrity,
+        );
+
+        $this->expectException(RuntimeHttpException::class);
+        $this->expectExceptionMessage('politica de rebase');
+        $service->rebase(35, ['program.title' => 'overlay', '__confirmWarning__' => true]);
     }
 
     public function testRebaseBlocksFrozenCustomerCustom(): void

@@ -63,6 +63,17 @@ class ProgramOverlayService
         if (($preview['status'] ?? '') === 'blocked') {
             throw new RuntimeHttpException('PROGRAM_OVERLAY_REBASE_BLOCKED', 'O overlay nao pode ser rebaseado automaticamente.', 422, $preview);
         }
+        $policyViolations = $this->validateRequestedResolutionsAgainstPolicy((array) ($preview['sections'] ?? []), $resolutions);
+        if ($policyViolations) {
+            throw new RuntimeHttpException('PROGRAM_OVERLAY_REBASE_POLICY_BLOCKED', 'O plano atual viola a politica de rebase para conflitos leves.', 422, [
+                'overlayVersionId' => $overlayVersionId,
+                'violations' => $policyViolations,
+                'preview' => $preview,
+            ]);
+        }
+        if (($preview['requiresConfirmation'] ?? false) === true && ($resolutions['__confirmWarning__'] ?? false) !== true) {
+            throw new RuntimeHttpException('PROGRAM_OVERLAY_REBASE_CONFIRMATION_REQUIRED', 'O rebase possui conflitos leves e exige confirmacao explicita.', 422, $preview);
+        }
 
         $overlay = $currentVersion->getOverlay();
         $nextVersionNumber = ($this->overlayVersions->findLatestByOverlayId((int) $overlay->getId())?->getVersionNumber() ?? 0) + 1;
@@ -262,9 +273,21 @@ class ProgramOverlayService
             );
         }
 
+        $resolutionSummary = $this->buildResolutionSummary($sections, $resolutions);
+        $runtimeImpact = $this->buildRuntimeImpactSummary($sections);
+        $policySummary = $this->buildPolicySummary($sections, $resolutions);
+        $finalDiffEntries = $this->buildFinalDiffEntries($resolvedCurrent, $rebasedDefinition);
+
         return [
             'status' => $status,
             'reason' => $reason,
+            'canApply' => $status !== 'blocked',
+            'requiresConfirmation' => $status === 'warning',
+            'policyDecision' => $status === 'blocked'
+                ? 'Conflito bloqueante: rebase proibido ate revisao manual.'
+                : ($status === 'warning'
+                    ? 'Conflito leve: rebase permitido apenas com confirmacao explicita.'
+                    : 'Sem bloqueios: rebase pode seguir normalmente.'),
             'overlayId' => $overlay->getId(),
             'overlayVersionId' => $currentVersion->getId(),
             'customizationKind' => $overlay->getCustomizationKind(),
@@ -285,6 +308,11 @@ class ProgramOverlayService
                 'warningConflicts' => count($warningConflicts),
                 'blockingConflicts' => count($blockingConflicts),
             ],
+            'runtimeImpactSummary' => $runtimeImpact,
+            'finalResolutionSummary' => $resolutionSummary,
+            'policySummary' => $policySummary,
+            'finalDiffEntries' => $finalDiffEntries,
+            'finalDiffDefinition' => $this->buildFinalDiffDefinition($finalDiffEntries),
             'requestedResolutions' => $resolutions,
             'sections' => $sections,
             'rebasedDefinition' => $rebasedDefinition,
@@ -543,6 +571,130 @@ class ProgramOverlayService
         }
 
         return $rebasedDefinition;
+    }
+
+    private function buildResolutionSummary(array $sections, array $requestedResolutions): array
+    {
+        $summary = ['rebased' => 0, 'overlay' => 0, 'base' => 0];
+        foreach ($sections as $section) {
+            foreach ((array) ($section['entries'] ?? []) as $entry) {
+                $path = (string) ($entry['path'] ?? '');
+                if ($path === '') {
+                    continue;
+                }
+                $selected = strtolower(trim((string) ($requestedResolutions[$path] ?? $entry['selectedResolution'] ?? $entry['defaultResolution'] ?? 'rebased')));
+                if (!array_key_exists($selected, $summary)) {
+                    $selected = 'rebased';
+                }
+                $summary[$selected]++;
+            }
+        }
+
+        return $summary;
+    }
+
+    private function buildPolicySummary(array $sections, array $requestedResolutions): array
+    {
+        $violations = $this->validateRequestedResolutionsAgainstPolicy($sections, $requestedResolutions);
+        $criticalWarnings = 0;
+        foreach ($sections as $section) {
+            foreach ((array) ($section['entries'] ?? []) as $entry) {
+                if (($entry['classification'] ?? '') === 'conflict_warning') {
+                    $criticalWarnings++;
+                }
+            }
+        }
+
+        return [
+            'criticalWarningPaths' => $criticalWarnings,
+            'violationCount' => count($violations),
+            'violations' => $violations,
+            'message' => $violations
+                ? 'Existem escolhas no plano atual que violam a politica de rebase para conflitos leves.'
+                : ($criticalWarnings > 0
+                    ? 'Conflitos leves aceitam apenas rebase sugerido ou base publicada.'
+                    : 'Sem restricoes adicionais de politica no plano atual.'),
+        ];
+    }
+
+    private function buildRuntimeImpactSummary(array $sections): array
+    {
+        return [
+            'criticalSections' => count(array_filter($sections, static fn (array $item): bool => in_array((string) ($item['key'] ?? ''), self::BLOCKING_CONFLICT_KEYS, true))),
+            'blockingConflicts' => count(array_filter($sections, static fn (array $item): bool => ($item['classification'] ?? '') === 'conflict_blocking')),
+            'warningConflicts' => count(array_filter($sections, static fn (array $item): bool => ($item['classification'] ?? '') === 'conflict_warning')),
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function buildFinalDiffEntries(array $currentDefinition, array $finalDefinition): array
+    {
+        $paths = $this->changedPaths($currentDefinition, $finalDefinition, 'root');
+        $items = [];
+        foreach ($paths as $path) {
+            $relativePath = $path === 'root'
+                ? ''
+                : (str_starts_with($path, 'root.') ? substr($path, 5) : $path);
+            if ($relativePath === '') {
+                continue;
+            }
+            $tokens = $this->pathTokens($relativePath);
+            $items[] = [
+                'path' => $relativePath,
+                'currentValue' => $this->resolvePathValue($currentDefinition, $tokens),
+                'finalValue' => $this->resolvePathValue($finalDefinition, $tokens),
+                'selectedResolution' => 'final',
+                'classification' => 'changed',
+            ];
+        }
+
+        return $items;
+    }
+
+    private function buildFinalDiffDefinition(array $entries): array
+    {
+        $definition = [];
+        foreach ($entries as $entry) {
+            $path = trim((string) ($entry['path'] ?? ''));
+            if ($path === '') {
+                continue;
+            }
+            $this->assignPathValue($definition, $path, $entry['finalValue'] ?? null);
+        }
+
+        return $definition;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function validateRequestedResolutionsAgainstPolicy(array $sections, array $requestedResolutions): array
+    {
+        $violations = [];
+        foreach ($sections as $section) {
+            foreach ((array) ($section['entries'] ?? []) as $entry) {
+                if (($entry['classification'] ?? '') !== 'conflict_warning') {
+                    continue;
+                }
+                $path = (string) ($entry['path'] ?? '');
+                if ($path === '') {
+                    continue;
+                }
+                $selected = strtolower(trim((string) ($requestedResolutions[$path] ?? $entry['selectedResolution'] ?? 'rebased')));
+                if ($selected === 'overlay') {
+                    $violations[] = [
+                        'path' => $path,
+                        'section' => (string) ($section['key'] ?? ''),
+                        'selectedResolution' => $selected,
+                        'allowedResolutions' => ['rebased', 'base'],
+                    ];
+                }
+            }
+        }
+
+        return $violations;
     }
 
     private function assignPathValue(array &$definition, string $path, mixed $value): void

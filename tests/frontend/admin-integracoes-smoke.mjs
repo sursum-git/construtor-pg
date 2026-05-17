@@ -29,7 +29,8 @@ try {
     txtTreeItems: 0,
     xmlTreeItems: 0,
     previewTreeItems: 0,
-    executionHistoryItems: 0
+    executionHistoryItems: 0,
+    selectedExecutionHasDetail: false
   };
 
   await page.goto(pageUrl);
@@ -53,6 +54,16 @@ try {
   await page.waitForSelector(".import-export-admin-history-card", { timeout: 15000 });
   result.executionHistoryItems = await page.locator(".import-export-admin-history-card").count();
   await screenshot(page, "admin-integracoes-smoke-execution.png");
+
+  await page.locator(".k-tabstrip-items li").nth(3).click();
+  result.selectedExecutionHasDetail = await page.evaluate(() => {
+    const app = window.importExportAdminDemoApp;
+    if (!app || !app.state || !app.state.execution) {
+      return false;
+    }
+    const summary = app.state.execution.counts || {};
+    return typeof summary.read === "number" && typeof summary.written === "number";
+  });
 
   await page.locator(".k-tabstrip-items li").first().click();
   await page.click(".k-grid-content tr:nth-child(2)");

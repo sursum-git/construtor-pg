@@ -1189,6 +1189,7 @@ class ProgramBuilderService
         $entity = $this->applyEntityConfig($config);
         $version = $this->createEntityVersionSnapshot($entity, 'save', 'Modelagem salva.');
         $this->integrity->signBuilderEntity($entity, ['source' => 'saveEntity']);
+        $this->signEntityFields($entity, 'saveEntity');
         $this->integrity->signBuilderEntityVersion($version, ['source' => 'saveEntity']);
 
         return [
@@ -1232,6 +1233,7 @@ class ProgramBuilderService
             $version->getId()
         );
         $this->integrity->signBuilderEntity($entity, ['source' => 'restoreEntityVersion']);
+        $this->signEntityFields($entity, 'restoreEntityVersion');
         $this->integrity->signBuilderEntityVersion($restored, ['source' => 'restoreEntityVersion']);
 
         return [
@@ -1349,6 +1351,15 @@ class ProgramBuilderService
         );
         $this->entityManager->refresh($entity);
         return $entity;
+    }
+
+    private function signEntityFields(BuilderEntity $entity, string $source): void
+    {
+        foreach ($entity->getFields() as $field) {
+            if ($field->getId()) {
+                $this->integrity->signBuilderField($field, ['source' => $source]);
+            }
+        }
     }
 
     public function getProgram(string $programCode): array
@@ -1852,10 +1863,55 @@ class ProgramBuilderService
         return $this->governance->dashboard($programCode, $builderProgramVersionId);
     }
 
+    public function governanceAudit(array $payload): array
+    {
+        $this->assertAdminRead();
+
+        $programCode = $this->safeCode((string) ($payload['programCode'] ?? ''));
+        $builderProgramVersionId = $this->normalizePositiveInt($payload['builderProgramVersionId'] ?? null);
+        if ($programCode === '') {
+            throw new RuntimeHttpException('PROGRAM_GOVERNANCE_PROGRAM_REQUIRED', 'Informe o codigo do programa para consultar a auditoria.', 422);
+        }
+
+        return $this->governance->audit($programCode, $builderProgramVersionId, [
+            'eventType' => $payload['eventType'] ?? null,
+            'userId' => $payload['userId'] ?? null,
+            'dateFrom' => $payload['dateFrom'] ?? null,
+            'dateTo' => $payload['dateTo'] ?? null,
+        ]);
+    }
+
     public function governanceRetentionPolicy(): array
     {
         $this->assertAdminRead();
         return $this->governance->retentionPolicy();
+    }
+
+    public function governanceOperationsSnapshot(array $payload): array
+    {
+        $this->assertAdminRead();
+        $programCode = $this->safeCode((string) ($payload['programCode'] ?? ''));
+        $builderProgramVersionId = $this->normalizePositiveInt($payload['builderProgramVersionId'] ?? null);
+
+        return $this->governance->operationsSnapshot($programCode, $builderProgramVersionId);
+    }
+
+    public function runGovernanceMonitor(array $payload): array
+    {
+        $this->assertAdminWrite();
+        $programCode = $this->safeCode((string) ($payload['programCode'] ?? ''));
+
+        return $this->governance->runOperationalMonitor($programCode !== '' ? $programCode : null);
+    }
+
+    public function runGovernanceOperations(array $payload): array
+    {
+        $this->assertAdminWrite();
+        $this->assertMaintenanceEnvironmentAllowed('operacao unificada da governanca');
+        $programCode = $this->safeCode((string) ($payload['programCode'] ?? ''));
+        $applyCleanup = (bool) ($payload['applyCleanup'] ?? false);
+
+        return $this->governance->runOperations($programCode !== '' ? $programCode : null, $applyCleanup);
     }
 
     public function updateGovernanceRetentionPolicy(array $payload): array
@@ -1870,11 +1926,21 @@ class ProgramBuilderService
         return $this->governance->previewRetentionCleanup();
     }
 
-    public function executeGovernanceRetentionCleanup(): array
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function listGovernanceRetentionRuns(int $limit = 20): array
+    {
+        $this->assertAdminRead();
+        return $this->governance->listRetentionRuns($limit);
+    }
+
+    public function executeGovernanceRetentionCleanup(?array $payload = null): array
     {
         $this->assertAdminWrite();
         $this->assertMaintenanceEnvironmentAllowed('limpeza de historico da governanca');
-        return $this->governance->executeRetentionCleanup();
+        $previewRunId = $this->normalizePositiveInt(($payload ?? [])['previewRunId'] ?? null);
+        return $this->governance->executeRetentionCleanup($previewRunId);
     }
 
     public function previewOverlayRebase(int $overlayId): array

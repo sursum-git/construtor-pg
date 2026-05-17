@@ -250,6 +250,54 @@ class SeedRuntimeMetadataCommand extends Command
                 'frameTitle' => 'Retencao da governanca',
             ],
         ];
+        $programRetentionHistoryAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.programa-retencao-historico-operacao',
+            'program' => [
+                'id' => 'admin-programa-retencao-historico-operacao',
+                'title' => 'Historico da retencao',
+                'subtitle' => 'Operacao focada em historico persistido da retencao',
+                'version' => '1.0.0',
+                'screenId' => 'admin.programa-retencao-historico-operacao',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/program-retention-history.html',
+                'frameTitle' => 'Historico da retencao',
+            ],
+        ];
+        $programAuditAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.programa-auditoria-operacao',
+            'program' => [
+                'id' => 'admin-programa-auditoria-operacao',
+                'title' => 'Auditoria da governanca',
+                'subtitle' => 'Operacao focada em timeline, sinais operacionais e historico por programa',
+                'version' => '1.0.0',
+                'screenId' => 'admin.programa-auditoria-operacao',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/program-audit.html',
+                'frameTitle' => 'Auditoria da governanca',
+            ],
+        ];
+        $programOperationsAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.programa-operacoes-operacao',
+            'program' => [
+                'id' => 'admin-programa-operacoes-operacao',
+                'title' => 'Operacoes da governanca',
+                'subtitle' => 'Operacao administrativa unificada de monitoramento, integridade e retencao',
+                'version' => '1.0.0',
+                'screenId' => 'admin.programa-operacoes-operacao',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/program-operations.html',
+                'frameTitle' => 'Operacoes da governanca',
+            ],
+        ];
         $programOverlaysAdminDefinition = [
             'pageType' => 'custom',
             'screenId' => 'admin.programa-overlays-operacao',
@@ -301,6 +349,9 @@ class SeedRuntimeMetadataCommand extends Command
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-grants-operacao', 'Grants de programas', 'Operacao focada em grants', 'admin.programa-grants-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-aprovacoes-operacao', 'Aprovacoes de publicacao', 'Operacao focada em aprovacoes', 'admin.programa-aprovacoes-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-retencao-operacao', 'Retencao da governanca', 'Operacao focada em retencao da governanca', 'admin.programa-retencao-operacao');
+        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-retencao-historico-operacao', 'Historico da retencao', 'Operacao focada em historico da retencao', 'admin.programa-retencao-historico-operacao');
+        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-auditoria-operacao', 'Auditoria da governanca', 'Operacao focada em timeline e historico operacional', 'admin.programa-auditoria-operacao');
+        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-operacoes-operacao', 'Operacoes da governanca', 'Operacao administrativa unificada', 'admin.programa-operacoes-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-overlays-operacao', 'Overlays de programas', 'Operacao focada em overlays e rebase', 'admin.programa-overlays-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-overlay-versoes-operacao', 'Versoes de overlay', 'Operacao focada em versoes de overlay', 'admin.programa-overlay-versoes-operacao');
 
@@ -318,6 +369,9 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertProgram('admin-programa-grants-operacao', 'Grants de programas', 'administracao', 'custom', 'admin.programa-grants-operacao');
         $this->upsertProgram('admin-programa-aprovacoes-operacao', 'Aprovacoes de publicacao', 'administracao', 'custom', 'admin.programa-aprovacoes-operacao');
         $this->upsertProgram('admin-programa-retencao-operacao', 'Retencao da governanca', 'administracao', 'custom', 'admin.programa-retencao-operacao');
+        $this->upsertProgram('admin-programa-retencao-historico-operacao', 'Historico da retencao', 'administracao', 'custom', 'admin.programa-retencao-historico-operacao');
+        $this->upsertProgram('admin-programa-auditoria-operacao', 'Auditoria da governanca', 'administracao', 'custom', 'admin.programa-auditoria-operacao');
+        $this->upsertProgram('admin-programa-operacoes-operacao', 'Operacoes da governanca', 'administracao', 'custom', 'admin.programa-operacoes-operacao');
         $this->upsertProgram('admin-programa-overlays-operacao', 'Overlays de programas', 'administracao', 'custom', 'admin.programa-overlays-operacao');
         $this->upsertProgram('admin-programa-overlay-versoes-operacao', 'Versoes de overlay', 'administracao', 'custom', 'admin.programa-overlay-versoes-operacao');
         $this->upsertProgram('processamento-clientes', 'Processamento de Clientes', 'operacional', 'process', 'processamento.relatorio-clientes');
@@ -337,6 +391,9 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertScreen('admin.programa-grants-operacao', 'custom', $programGrantsAdminDefinition);
         $this->upsertScreen('admin.programa-aprovacoes-operacao', 'custom', $programApprovalsAdminDefinition);
         $this->upsertScreen('admin.programa-retencao-operacao', 'custom', $programRetentionAdminDefinition);
+        $this->upsertScreen('admin.programa-retencao-historico-operacao', 'custom', $programRetentionHistoryAdminDefinition);
+        $this->upsertScreen('admin.programa-auditoria-operacao', 'custom', $programAuditAdminDefinition);
+        $this->upsertScreen('admin.programa-operacoes-operacao', 'custom', $programOperationsAdminDefinition);
         $this->upsertScreen('admin.programa-overlays-operacao', 'custom', $programOverlaysAdminDefinition);
         $this->upsertScreen('admin.programa-overlay-versoes-operacao', 'custom', $programOverlayVersionsAdminDefinition);
         $this->upsertScreen('processamento.relatorio-clientes', 'process', $processDefinition);

@@ -7293,6 +7293,9 @@
       $("<span class=\"k-badge k-rounded-md\"></span>").text("Conflitos bloqueantes: " + String(response.summaryCounts.blockingConflicts || 0)).appendTo(statusRow);
     }
     $("<p class=\"program-builder-inline-warning\"></p>").text(response.reason || "Sem diagnostico adicional.").appendTo(summary);
+    if (response.policyDecision) {
+      $("<p class=\"program-builder-inline-warning\"></p>").text(String(response.policyDecision)).appendTo(summary);
+    }
 
     if (response.summaryCounts) {
       const cards = $("<div class=\"program-builder-governance-grid\"></div>").appendTo(summary);
@@ -7325,13 +7328,24 @@
       $("<div class=\"program-builder-versions-header\"><h3>Plano de resolucao</h3><p>Resume o que sera aplicado no rebase conforme as escolhas por campo.</p></div>").appendTo(resolutionSummary);
       const resolutionCards = $("<div class=\"program-builder-governance-grid\"></div>").appendTo(resolutionSummary);
       const resolutionWarning = $("<p class=\"program-builder-inline-warning\"></p>").appendTo(resolutionSummary);
+      if (response.runtimeImpactSummary) {
+        $("<div class=\"program-builder-inline-muted\"></div>")
+          .text("Impacto no runtime: secoes criticas " + String(response.runtimeImpactSummary.criticalSections || 0) + " | conflitos leves " + String(response.runtimeImpactSummary.warningConflicts || 0) + " | conflitos bloqueantes " + String(response.runtimeImpactSummary.blockingConflicts || 0))
+          .appendTo(resolutionSummary);
+      }
+      if (response.policySummary) {
+        $("<div class=\"program-builder-inline-muted\"></div>")
+          .text(String(response.policySummary.message || ""))
+          .appendTo(resolutionSummary);
+      }
       const renderResolutionSummary = function() {
         const counters = {
           rebased: 0,
           overlay: 0,
           base: 0,
           blocking: 0,
-          warnings: 0
+          warnings: 0,
+          policyViolations: 0
         };
         response.sections.forEach(function(section) {
           const entries = Array.isArray(section && section.entries) ? section.entries : [];
@@ -7350,6 +7364,9 @@
               counters.blocking += 1;
             } else if (entry && entry.classification === "conflict_warning") {
               counters.warnings += 1;
+              if (selectedResolution === "overlay") {
+                counters.policyViolations += 1;
+              }
             }
           }, this);
         }, this);
@@ -7359,7 +7376,8 @@
           { label: "Manter overlay", value: counters.overlay, valid: true },
           { label: "Usar base", value: counters.base, valid: true },
           { label: "Entradas bloqueantes", value: counters.blocking, valid: counters.blocking === 0 },
-          { label: "Entradas com aviso", value: counters.warnings, valid: counters.warnings === 0 }
+          { label: "Entradas com aviso", value: counters.warnings, valid: counters.warnings === 0 },
+          { label: "Violacoes de politica", value: counters.policyViolations, valid: counters.policyViolations === 0 }
         ].forEach(function(item) {
           const card = $("<article class=\"program-builder-governance-card\"></article>").appendTo(resolutionCards);
           $("<strong></strong>").text(item.label).appendTo(card);
@@ -7368,7 +7386,9 @@
         resolutionWarning.text(
           counters.blocking > 0
             ? "Existem entradas bloqueantes no diff. Revise as escolhas antes de confirmar o rebase."
-            : "Resumo pronto. O rebase aplicara as escolhas atuais por campo e secao."
+            : (counters.policyViolations > 0
+                ? "Existem escolhas locais que violam a politica de rebase para campos criticos."
+                : "Resumo pronto. O rebase aplicara as escolhas atuais por campo e secao.")
         );
       }.bind(this);
       const navigator = $("<div class=\"program-builder-diff-navigator\"></div>").appendTo(summary);
@@ -7760,7 +7780,7 @@
             url: "/api/admin/program-builder/overlay-versions/" + encodeURIComponent(overlayVersionId) + "/rebase",
             method: "POST",
             data: {
-              resolutions: this.overlayRebaseSelections || {}
+              resolutions: Object.assign({}, this.overlayRebaseSelections || {}, { __confirmWarning__: true })
             }
           }).then(function(response) {
             global.CrudUtils.showMessage("Rebase concluido.", "success");
@@ -7779,10 +7799,14 @@
                 : 0);
             }, 0)
           : 0;
-        if (blockingCount > 0) {
-          global.CrudUtils.confirm("Existem conflitos bloqueantes no rebase. Deseja continuar mesmo assim?", {
-            title: "Conflitos bloqueantes",
-            confirmText: "Continuar",
+        if (blockingCount > 0 || preview && preview.canApply === false) {
+          global.CrudUtils.showMessage("O preview possui conflitos bloqueantes. Ajuste o overlay antes de tentar o rebase.", "error");
+          return;
+        }
+        if (preview && preview.requiresConfirmation) {
+          global.CrudUtils.confirm("Existem conflitos leves no rebase. Deseja seguir com o plano atual?", {
+            title: "Confirmar rebase",
+            confirmText: "Confirmar",
             cancelText: "Voltar"
           }).then(function(confirmed) {
             if (confirmed) {

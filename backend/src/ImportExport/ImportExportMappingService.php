@@ -100,9 +100,11 @@ class ImportExportMappingService
     {
         $this->assertAdminRead();
         $mappingCode = trim((string) ($filters['mappingCode'] ?? '')) ?: null;
+        $mode = trim((string) ($filters['mode'] ?? '')) ?: null;
+        $status = trim((string) ($filters['status'] ?? '')) ?: null;
 
         return [
-            'items' => array_map(fn (ImportExportExecution $execution): array => $this->executionPayload($execution), $this->executions->findRecent(100, $mappingCode)),
+            'items' => array_map(fn (ImportExportExecution $execution): array => $this->executionPayload($execution), $this->executions->findRecent(100, $mappingCode, $mode, $status)),
         ];
     }
 

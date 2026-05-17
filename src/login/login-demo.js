@@ -32,6 +32,10 @@
     $("#login-user").kendoTextBox({
       placeholder: t("login.placeholder.username", "usuario@empresa.com")
     });
+    const rememberedUsername = readLocalValue("crudEngine.lastUsername");
+    if (rememberedUsername) {
+      $("#login-user").val(rememberedUsername);
+    }
     const passwordInput = $("#login-password");
     passwordInput.kendoTextBox({
       placeholder: t("login.placeholder.password", "Senha")
@@ -57,6 +61,7 @@
         show(t("login.message.credentials_required", "Informe usuario e senha para continuar."));
         return;
       }
+      saveLocalValue("crudEngine.lastUsername", username);
       openSubscriberSelection(function() {
         openAdminAreaSelection().then(redirectAfterLogin);
       });
@@ -64,6 +69,13 @@
 
     $("#login-forgot").on("click", function() {
       openPasswordResetDemo();
+    });
+    $("#login-clear-session").on("click", function() {
+      clearLocalSession();
+      $("#login-user").val("");
+      $("#login-password").val("");
+      $("#login-remember").prop("checked", false);
+      show("Sessao local removida.");
     });
 
     $("#login-toggle-password").on("click", function() {
@@ -259,5 +271,42 @@
       return false;
     }
     return true;
+  }
+
+  function readLocalValue(key) {
+    try {
+      return global.localStorage ? global.localStorage.getItem(key) || "" : "";
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function removeLocalValue(key) {
+    try {
+      if (global.localStorage) {
+        global.localStorage.removeItem(key);
+      }
+    } catch (_) {
+      return false;
+    }
+    return true;
+  }
+
+  function clearLocalSession() {
+    [
+      "crudEngine.authToken",
+      "crudEngine.runtimeTenantId",
+      "crudEngine.runtimeSessionId",
+      "crudEngine.currentSubscriber",
+      "crudEngine.availableSubscribers",
+      "crudEngine.runtimeUserId",
+      "crudEngine.runtimeUserName",
+      "crudEngine.runtimeUserGroups",
+      "crudEngine.runtimeUserPermissions",
+      "crudEngine.accessArea",
+      "crudEngine.lastUsername",
+      "crudEngine.rememberToken",
+      "crudEngine.rememberTokenExpiresAt"
+    ].forEach(removeLocalValue);
   }
 })(window, jQuery);

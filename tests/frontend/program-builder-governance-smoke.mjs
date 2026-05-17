@@ -23,6 +23,22 @@ async function clickButtonByText(page, text) {
   }, text);
 }
 
+async function clickFirstVisibleButton(page, candidates) {
+  for (const text of candidates) {
+    const exists = await page.evaluate((buttonText) => {
+      return Boolean(window.jQuery("button").filter(function() {
+        const $button = window.jQuery(this);
+        return $button.text().trim() === buttonText && $button.is(":visible") && !$button.prop("disabled");
+      }).get(0));
+    }, text);
+    if (exists) {
+      await clickButtonByText(page, text);
+      return text;
+    }
+  }
+  throw new Error("Nenhum botao visivel encontrado: " + candidates.join(", "));
+}
+
 async function setVisibleWindowField(page, title, selector, value, index = 0) {
   await page.evaluate(({ windowTitle, fieldSelector, fieldValue, fieldIndex }) => {
     const host = window.jQuery(".k-window-content").filter(function() {
@@ -205,12 +221,15 @@ async function main() {
       }
     });
     await clickButtonByText(page, "Executar rebase");
-    await page.waitForFunction(() => {
-      const text = document.body.innerText;
-      return text.includes("Conflitos bloqueantes") || text.includes("Rebase concluido.");
-    }, null, { timeout: 10000 });
-    if (await page.evaluate(() => document.body.innerText.includes("Conflitos bloqueantes"))) {
-      await clickButtonByText(page, "Continuar");
+    await page.waitForTimeout(500);
+    const hasRebaseConfirm = await page.evaluate(() => {
+      return Boolean(window.jQuery("button").filter(function() {
+        const text = window.jQuery(this).text().trim();
+        return window.jQuery(this).is(":visible") && (text === "Confirmar" || text === "Continuar");
+      }).get(0));
+    });
+    if (hasRebaseConfirm) {
+      await clickFirstVisibleButton(page, ["Confirmar", "Continuar"]);
     }
     await page.waitForFunction(() => document.body.innerText.includes("Rebase concluido."), null, { timeout: 10000 });
     await page.screenshot({ path: path.join(outputDir, "program-builder-governance-rebase.png"), fullPage: true });

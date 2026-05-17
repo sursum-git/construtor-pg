@@ -18,7 +18,12 @@
       overlayVersions: [],
       overlayVersionComparison: null,
       selectedOverlayId: 0,
-      lastRetentionReport: null
+      lastRetentionReport: null,
+      retentionRuns: [],
+      selectedRetentionRun: null,
+      auditSummary: null,
+      savedAuditFilters: null,
+      operationsReport: null
     };
     this.query = this.readQuery();
     this.mode = String(this.options.mode || this.queryValue("mode") || "full").trim().toLowerCase();
@@ -26,6 +31,7 @@
 
   ProgramGovernanceAdmin.prototype.init = function() {
     this.renderShell();
+    this.applySavedAuditFilters();
     return this.loadBootstrap().then(function() {
       return this.initializeSelection();
     }.bind(this));
@@ -59,6 +65,21 @@
         title: "Retencao da governanca",
         subtitle: "Operacao dedicada de retencao de historico e politica de limpeza da governanca.",
         tabs: [0, 5]
+      },
+      "retention-history": {
+        title: "Historico da retencao",
+        subtitle: "Operacao dedicada ao historico persistido da retencao, com comparacao entre preview e aplicacao.",
+        tabs: [5]
+      },
+      audit: {
+        title: "Auditoria da governanca",
+        subtitle: "Operacao dedicada para revisar a linha do tempo, sinais operacionais e o historico detalhado por programa.",
+        tabs: [0]
+      },
+      operations: {
+        title: "Operacoes da governanca",
+        subtitle: "Operacao administrativa unificada para monitoramento, integridade e retencao.",
+        tabs: [0]
       },
       overlays: {
         title: "Overlays de programas",
@@ -155,6 +176,8 @@
     this.summaryGrid = $("<div class=\"program-builder-governance-grid\"></div>").appendTo(panel);
     this.operationalSignals = $("<div class=\"program-governance-admin-list\"></div>").appendTo(panel);
     this.summaryActions = $("<div class=\"program-governance-admin-list\"></div>").appendTo(panel);
+    this.summaryOperationsHost = $("<div class=\"program-governance-admin-list\"></div>").appendTo(panel);
+    this.auditSummaryHost = $("<div class=\"program-governance-admin-list\"></div>").appendTo(panel);
 
     const timelinePanel = $("<div class=\"program-governance-admin-timeline\"></div>").appendTo(panel);
     $("<h3></h3>").text("Linha do tempo").appendTo(timelinePanel);
@@ -163,16 +186,23 @@
     this.timelineUserInput = this.appendTextField(filterGrid, "Usuario");
     this.timelineDaysInput = this.appendNumberField(filterGrid, "Periodo (dias)");
     this.timelineDaysInput.value(365);
+    this.timelineStartDateInput = this.appendDateField(filterGrid, "Data inicial");
+    this.timelineEndDateInput = this.appendDateField(filterGrid, "Data final");
     const timelineFilterActions = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(timelinePanel);
-    this.createButton(timelineFilterActions, "Aplicar filtro", "filter", this.renderTimeline.bind(this));
+    this.createButton(timelineFilterActions, "Aplicar filtro", "filter", this.handleApplyAuditFilters.bind(this));
     this.createButton(timelineFilterActions, "Limpar filtro", "reset", function() {
       this.timelineTypeInput.value("");
       this.timelineUserInput.value("");
       this.timelineDaysInput.value(365);
-      this.renderTimeline();
+      this.timelineStartDateInput.value(null);
+      this.timelineEndDateInput.value(null);
+      this.persistAuditFilters(this.currentAuditFilters());
+      this.handleApplyAuditFilters();
     }.bind(this));
     this.timelineHost = $("<div class=\"program-governance-admin-timeline\"></div>").appendTo(timelinePanel);
+    this.timelineSummaryHost = $("<div class=\"program-governance-admin-list\"></div>").appendTo(timelinePanel);
     this.timelineDetailHost = $("<pre class=\"program-builder-inline-json\"></pre>").appendTo(timelinePanel);
+    this.timelineActionHost = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(timelinePanel);
 
     this.integrityCoverageHost = $("<div class=\"program-governance-admin-list\"></div>").appendTo(panel);
     this.summaryJson = $("<pre class=\"program-builder-inline-json\"></pre>").appendTo(panel);
@@ -243,6 +273,12 @@
     this.createButton(actions, "Exportar JSON", "download", this.handleExportRetention.bind(this, "json"));
     this.createButton(actions, "Exportar CSV", "file-csv", this.handleExportRetention.bind(this, "csv"));
     this.retentionCleanupHost = $("<div class=\"program-governance-admin-list\"></div>").appendTo(panel);
+    this.retentionHistoryHost = $("<div class=\"program-governance-admin-list\"></div>").appendTo(panel);
+    this.retentionHistoryCompareHost = $("<div class=\"program-governance-admin-list\"></div>").appendTo(panel);
+    this.retentionHistoryDetailHost = $("<pre class=\"program-builder-inline-json\"></pre>").appendTo(panel);
+    this.retentionHistoryActions = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(panel);
+    this.createButton(this.retentionHistoryActions, "Exportar historico JSON", "download", this.handleExportRetentionHistory.bind(this, "json"));
+    this.createButton(this.retentionHistoryActions, "Exportar historico CSV", "file-csv", this.handleExportRetentionHistory.bind(this, "csv"));
   };
 
   ProgramGovernanceAdmin.prototype.renderOverlaysTab = function() {
@@ -318,6 +354,15 @@
     }).data("kendoNumericTextBox");
   };
 
+  ProgramGovernanceAdmin.prototype.appendDateField = function(host, label) {
+    const field = $("<div class=\"program-builder-field\"></div>").appendTo(host);
+    $("<label></label>").text(label).appendTo(field);
+    return $("<input>").appendTo(field).kendoDatePicker({
+      format: "dd/MM/yyyy",
+      parseFormats: ["yyyy-MM-dd", "dd/MM/yyyy"]
+    }).data("kendoDatePicker");
+  };
+
   ProgramGovernanceAdmin.prototype.appendTextArea = function(host, label, rows) {
     const field = $("<div class=\"program-builder-field\"></div>").appendTo(host);
     $("<label></label>").text(label).appendTo(field);
@@ -380,6 +425,7 @@
       return Promise.resolve();
     }
     this.state.currentProgramCode = code;
+    this.applySavedAuditFilters();
     return this.http.request({
       url: "/api/admin/program-builder/programs/" + encodeURIComponent(code),
       method: "GET"
@@ -419,8 +465,15 @@
       this.state.timelineItems = global.CrudUtils.ensureArray(this.state.dashboard.timeline);
       this.state.selectedTimelineItem = this.state.timelineItems[0] || null;
       this.state.lastRetentionReport = this.state.dashboard.retentionPreview || null;
+      this.state.retentionRuns = global.CrudUtils.ensureArray(this.state.dashboard.retentionRuns);
+      this.state.selectedRetentionRun = this.state.retentionRuns[0] || null;
+      this.state.auditSummary = null;
       this.renderDashboard();
       this.applyTabSelection();
+      this.loadOperationsSnapshot();
+      if (this.mode === "audit" || (this.state.savedAuditFilters && (this.state.savedAuditFilters.eventType || this.state.savedAuditFilters.userId || this.state.savedAuditFilters.dateFrom || this.state.savedAuditFilters.dateTo))) {
+        return this.loadAuditData();
+      }
     }.bind(this)).catch(this.handleError.bind(this, "Nao foi possivel carregar a governanca."));
   };
 
@@ -444,7 +497,9 @@
 
     this.renderOperationalSignals(dashboard.operationalSignals);
     this.renderSuggestedActions(dashboard.suggestedActions);
+    this.renderOperationsPanel();
     this.renderTimeline();
+    this.renderAuditSummary();
     this.renderIntegrityCoverage(dashboard.integrityCoverage);
     this.summaryJson.text(JSON.stringify(dashboard, null, 2));
 
@@ -466,6 +521,7 @@
       this.retentionInputs[key].value(Number(retention[key] || 0));
     }.bind(this));
     this.renderRetentionPreview(dashboard.retentionPreview);
+    this.renderRetentionHistory(this.state.retentionRuns);
     this.renderOverlays(dashboard.overlays);
     this.renderOverlayVersions(this.state.overlayVersions);
 
@@ -518,6 +574,34 @@
     }.bind(this));
   };
 
+  ProgramGovernanceAdmin.prototype.renderOperationsPanel = function() {
+    this.summaryOperationsHost.empty();
+    $("<h3></h3>").text("Operacao administrativa").appendTo(this.summaryOperationsHost);
+    const actions = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(this.summaryOperationsHost);
+    this.createButton(actions, "Atualizar operacoes", "reload", this.handleRefreshOperations.bind(this));
+    this.createButton(actions, "Rodar monitor", "search", this.handleRunGovernanceMonitor.bind(this));
+    this.createButton(actions, "Rodar operacao unificada", "gear", this.handleRunGovernanceOperations.bind(this));
+
+    if (!this.state.operationsReport) {
+      $("<p class=\"program-builder-inline-muted\"></p>").text("Nenhuma execucao administrativa registrada nesta sessao.").appendTo(this.summaryOperationsHost);
+      return;
+    }
+
+    const report = this.state.operationsReport;
+    $("<div class=\"program-governance-admin-row is-info\"></div>")
+      .text("Ultimo resultado: " + String(report.modeLabel || "snapshot") + " | " + String(report.generatedAt || "-"))
+      .appendTo(this.summaryOperationsHost);
+    [
+      "Integridade invalida: " + String(report.invalidIntegrity || 0),
+      "Alertas operacionais: " + String(report.alertCount || 0),
+      "Retencao elegivel: " + String(report.retentionTotalRecords || 0),
+      report.cleanupApplied ? ("Limpeza aplicada: " + String(report.cleanupAppliedRecords || 0)) : "Limpeza aplicada: nao"
+    ].forEach(function(text) {
+      $("<div class=\"program-governance-admin-row\"></div>").text(text).appendTo(this.summaryOperationsHost);
+    }.bind(this));
+    $("<pre class=\"program-builder-inline-json\"></pre>").text(JSON.stringify(report, null, 2)).appendTo(this.summaryOperationsHost);
+  };
+
   ProgramGovernanceAdmin.prototype.renderOperationalSignals = function(items) {
     this.operationalSignals.empty();
     const rows = global.CrudUtils.ensureArray(items);
@@ -538,6 +622,11 @@
     const type = String(this.timelineTypeInput && this.timelineTypeInput.value() || "").trim();
     const userFilter = String(this.timelineUserInput && this.timelineUserInput.value() || "").trim().toLowerCase();
     const days = Number(this.timelineDaysInput && this.timelineDaysInput.value() || 0);
+    const dateFrom = this.timelineStartDateInput && this.timelineStartDateInput.value() ? new Date(this.timelineStartDateInput.value()) : null;
+    const dateTo = this.timelineEndDateInput && this.timelineEndDateInput.value() ? new Date(this.timelineEndDateInput.value()) : null;
+    if (dateTo) {
+      dateTo.setHours(23, 59, 59, 999);
+    }
     const cutoff = days > 0 ? Date.now() - (days * 24 * 60 * 60 * 1000) : 0;
     return global.CrudUtils.ensureArray(this.state.timelineItems).filter(function(item) {
       if (type && String(item.type || "") !== type) {
@@ -552,12 +641,88 @@
           return false;
         }
       }
+      if (item.timestamp && dateFrom instanceof Date && !Number.isNaN(dateFrom.getTime())) {
+        const timestamp = Date.parse(String(item.timestamp));
+        if (!Number.isNaN(timestamp) && timestamp < dateFrom.getTime()) {
+          return false;
+        }
+      }
+      if (item.timestamp && dateTo instanceof Date && !Number.isNaN(dateTo.getTime())) {
+        const timestamp = Date.parse(String(item.timestamp));
+        if (!Number.isNaN(timestamp) && timestamp > dateTo.getTime()) {
+          return false;
+        }
+      }
       return true;
     });
   };
 
+  ProgramGovernanceAdmin.prototype.handleApplyAuditFilters = function() {
+    this.persistAuditFilters(this.currentAuditFilters());
+    return this.loadAuditData().catch(this.handleError.bind(this, "Nao foi possivel aplicar os filtros da auditoria."));
+  };
+
+  ProgramGovernanceAdmin.prototype.loadAuditData = function() {
+    const filters = this.currentAuditFilters();
+    return this.http.request({
+      url: "/api/admin/program-builder/governance/audit",
+      method: "GET",
+      data: {
+        programCode: this.state.currentProgramCode,
+        builderProgramVersionId: this.state.currentVersionId || null,
+        eventType: filters.eventType,
+        userId: filters.userId,
+        dateFrom: filters.dateFrom,
+        dateTo: filters.dateTo
+      }
+    }).then(function(response) {
+      this.state.timelineItems = global.CrudUtils.ensureArray(response && response.timeline);
+      this.state.selectedTimelineItem = this.state.timelineItems[0] || null;
+      this.state.retentionRuns = global.CrudUtils.ensureArray(response && response.retentionRuns);
+      this.state.selectedRetentionRun = this.state.retentionRuns[0] || this.state.selectedRetentionRun;
+      this.state.auditSummary = response && response.summary || null;
+      this.renderTimeline();
+      this.renderAuditSummary();
+      this.renderRetentionHistory(this.state.retentionRuns);
+      return response;
+    }.bind(this));
+  };
+
+  ProgramGovernanceAdmin.prototype.renderAuditSummary = function() {
+    this.auditSummaryHost.empty();
+    const summary = this.state.auditSummary || null;
+    if (!summary) {
+      $("<p class=\"program-builder-inline-muted\"></p>").text("Sem resumo dedicado da auditoria para o recorte atual.").appendTo(this.auditSummaryHost);
+      return;
+    }
+    $("<h3></h3>").text("Resumo da auditoria").appendTo(this.auditSummaryHost);
+    [
+      "Eventos no recorte: " + String(summary.timelineCount || 0),
+      "Execucoes de retencao no recorte: " + String(summary.retentionRunCount || 0)
+    ].forEach(function(text) {
+      $("<div class=\"program-governance-admin-row is-info\"></div>").text(text).appendTo(this.auditSummaryHost);
+    }.bind(this));
+    this.renderAuditCountList("Eventos por tipo", summary.eventTypeCounts);
+    this.renderAuditCountList("Eventos por usuario", summary.userCounts);
+    this.renderAuditCountList("Retencao por modo", summary.retentionByMode);
+  };
+
+  ProgramGovernanceAdmin.prototype.renderAuditCountList = function(title, items) {
+    const rows = global.CrudUtils.ensureArray(items);
+    if (!rows.length) {
+      return;
+    }
+    $("<strong></strong>").text(title).appendTo(this.auditSummaryHost);
+    rows.forEach(function(item) {
+      $("<div class=\"program-governance-admin-row\"></div>")
+        .text(String(item.label || "-") + ": " + String(item.count || 0))
+        .appendTo(this.auditSummaryHost);
+    }.bind(this));
+  };
+
   ProgramGovernanceAdmin.prototype.renderTimeline = function() {
     this.timelineHost.empty();
+    this.timelineSummaryHost.empty();
     const rows = this.filteredTimeline();
     const eventTypes = Array.from(new Set(global.CrudUtils.ensureArray(this.state.timelineItems).map(function(item) {
       return String(item.type || "");
@@ -565,12 +730,23 @@
     this.timelineTypeInput.setDataSource([{ value: "", text: "Todos" }].concat(eventTypes.map(function(type) {
       return { value: type, text: type };
     })));
+    if (this.state.savedAuditFilters && this.state.savedAuditFilters.eventType) {
+      this.timelineTypeInput.value(String(this.state.savedAuditFilters.eventType));
+    }
 
     if (!rows.length) {
       $("<p class=\"program-builder-empty\"></p>").text("Nenhum evento atende ao filtro atual.").appendTo(this.timelineHost);
+      $("<p class=\"program-builder-inline-muted\"></p>").text("Ajuste os filtros para ampliar o recorte auditado.").appendTo(this.timelineSummaryHost);
       this.timelineDetailHost.text("");
       return;
     }
+    [
+      "Eventos filtrados: " + String(rows.length),
+      "Primeiro evento: " + String(rows[0] && rows[0].timestamp || "-"),
+      "Ultimo evento: " + String(rows[rows.length - 1] && rows[rows.length - 1].timestamp || "-")
+    ].forEach(function(text) {
+      $("<div class=\"program-governance-admin-row is-info\"></div>").text(text).appendTo(this.timelineSummaryHost);
+    }.bind(this));
     rows.forEach(function(item, index) {
       const row = $("<article class=\"program-governance-admin-timeline-item\"></article>")
         .toggleClass("is-focused", this.state.selectedTimelineItem === item || (!this.state.selectedTimelineItem && index === 0))
@@ -594,7 +770,30 @@
   };
 
   ProgramGovernanceAdmin.prototype.renderTimelineDetail = function(item) {
+    this.timelineSummaryHost.find(".is-focused").remove();
+    if (item) {
+      [
+        item.type ? "Tipo selecionado: " + String(item.type) : "",
+        item.userId ? "Usuario: " + String(item.userId) : "",
+        item.status ? "Status: " + String(item.status) : ""
+      ].filter(Boolean).forEach(function(text) {
+        $("<div class=\"program-governance-admin-row is-focused\"></div>").text(text).appendTo(this.timelineSummaryHost);
+      }.bind(this));
+    }
     this.timelineDetailHost.text(item ? JSON.stringify(item.details || item, null, 2) : "");
+    this.timelineActionHost.empty();
+    if (!item) {
+      return;
+    }
+    const target = this.resolveTimelineTarget(item);
+    if (target) {
+      this.createButton(this.timelineActionHost, "Abrir governanca completa", "open", function() {
+        global.location.href = this.buildGovernanceUrl(target.tab, target.query || {});
+      }.bind(this));
+      this.createButton(this.timelineActionHost, "Abrir tela focada", "open", function() {
+        global.location.href = this.buildFocusedTargetUrl(item, target);
+      }.bind(this));
+    }
   };
 
   ProgramGovernanceAdmin.prototype.renderIntegrityCoverage = function(payload) {
@@ -641,12 +840,251 @@
       .addClass((Number(info.totalRecords || 0) > 0) ? "is-warning" : "is-valid")
       .text("Total elegivel: " + String(info.totalRecords || 0))
       .appendTo(this.retentionCleanupHost);
+    if (info.executionGroup || info.retentionRunId || info.relatedPreviewRunId) {
+      $("<div class=\"program-governance-admin-row is-info\"></div>")
+        .text("Execucao: " + String(info.executionGroup || "-") + " | Run #" + String(info.retentionRunId || "-") + (info.relatedPreviewRunId ? " | Preview relacionado #" + String(info.relatedPreviewRunId) : ""))
+        .appendTo(this.retentionCleanupHost);
+    }
     global.CrudUtils.ensureArray(info.items).forEach(function(item) {
       $("<div class=\"program-governance-admin-row\"></div>")
         .toggleClass("is-focused", Number(item.records || 0) > 0)
         .text(String(item.label || "-") + " | " + String(item.records || 0) + " | corte " + String(item.cutoff || "-"))
         .appendTo(this.retentionCleanupHost);
     }.bind(this));
+  };
+
+  ProgramGovernanceAdmin.prototype.renderRetentionHistory = function(items) {
+    this.retentionHistoryHost.empty();
+    $("<h3></h3>").text("Historico da retencao").appendTo(this.retentionHistoryHost);
+    const rows = global.CrudUtils.ensureArray(items);
+    if (!rows.length) {
+      $("<p class=\"program-builder-empty\"></p>").text("Nenhuma execucao registrada ate agora.").appendTo(this.retentionHistoryHost);
+      this.retentionHistoryDetailHost.text("");
+      return;
+    }
+    rows.forEach(function(item) {
+      const row = $("<div class=\"program-governance-admin-row\"></div>")
+        .addClass(String(item.mode || "") === "apply" ? "is-warning" : "is-info")
+        .appendTo(this.retentionHistoryHost);
+      row.toggleClass("is-focused", this.state.selectedRetentionRun && Number(this.state.selectedRetentionRun.id || 0) === Number(item.id || 0));
+      $("<span></span>").text([
+        String(item.createdAt || "-"),
+        String(item.mode || "-"),
+        String(item.executionGroup || "-"),
+        String(item.source || "-"),
+        String(item.executedBy || "-"),
+        "total " + String(item.totalRecords || 0)
+      ].join(" | ")).appendTo(row);
+      if (item.databaseEnvironment || item.databaseIdentity) {
+        $("<small></small>").text([
+          item.databaseEnvironment ? "ambiente " + String(item.databaseEnvironment) : null,
+          item.databaseIdentity ? "base " + String(item.databaseIdentity) : null
+        ].filter(Boolean).join(" | ")).appendTo(row);
+      }
+      if (Number(item.deltaTotalRecords || 0) !== 0) {
+        $("<small></small>").text("Delta total: " + String(item.deltaTotalRecords || 0)).appendTo(row);
+      }
+      if (item.beforeAfterLabel) {
+        $("<small></small>").text(String(item.beforeAfterLabel)).appendTo(row);
+      }
+      if (item.pairedRun && item.pairedRun.id) {
+        $("<small></small>").text("Relacionada a #" + String(item.pairedRun.id) + " (" + String(item.pairedRun.mode || "-") + ")").appendTo(row);
+      }
+      row.on("click", function() {
+        this.state.selectedRetentionRun = item;
+        this.renderRetentionHistory(this.state.retentionRuns);
+      }.bind(this));
+    }.bind(this));
+    this.renderRetentionHistoryDetail(this.state.selectedRetentionRun || rows[0]);
+  };
+
+  ProgramGovernanceAdmin.prototype.renderRetentionHistoryDetail = function(item) {
+    this.retentionHistoryCompareHost.empty();
+    if (item) {
+      $("<h3></h3>").text("Comparativo da execucao").appendTo(this.retentionHistoryCompareHost);
+      if (item.executionGroup) {
+        const relatedRuns = global.CrudUtils.ensureArray(this.state.retentionRuns).filter(function(candidate) {
+          return String(candidate.executionGroup || "") === String(item.executionGroup || "");
+        });
+        $("<div class=\"program-governance-admin-row is-info\"></div>")
+          .text("Grupo " + String(item.executionGroup) + " | execucoes " + String(relatedRuns.length))
+          .appendTo(this.retentionHistoryCompareHost);
+      }
+      [
+        "Execucao: " + String(item.executionGroup || "-"),
+        "Modo: " + String(item.mode || "-"),
+        "Total atual: " + String(item.totalRecords || 0),
+        item.pairedRun ? ("Relacionada a " + String(item.pairedRun.mode || "-") + " #" + String(item.pairedRun.id || "-") + " com total " + String(item.pairedRun.totalRecords || 0)) : "Sem execucao relacionada"
+      ].forEach(function(text) {
+        $("<div class=\"program-governance-admin-row is-info\"></div>").text(text).appendTo(this.retentionHistoryCompareHost);
+      }.bind(this));
+      global.CrudUtils.ensureArray(item.deltaByTable).forEach(function(delta) {
+        $("<div class=\"program-governance-admin-row\"></div>")
+          .addClass(Number(delta.deltaRecords || 0) !== 0 ? "is-warning" : "is-valid")
+          .text(String(delta.label || delta.table || "-") + " | atual " + String(delta.records || 0) + " | anterior " + String(delta.previousRecords || 0) + " | delta " + String(delta.deltaRecords || 0))
+          .appendTo(this.retentionHistoryCompareHost);
+      }.bind(this));
+    }
+    this.retentionHistoryDetailHost.text(item ? JSON.stringify(item, null, 2) : "");
+  };
+
+  ProgramGovernanceAdmin.prototype.currentAuditFilters = function() {
+    return {
+      eventType: this.timelineTypeInput && this.timelineTypeInput.value() || "",
+      userId: this.timelineUserInput && this.timelineUserInput.value() || "",
+      dateFrom: this.formatDateInput(this.timelineStartDateInput && this.timelineStartDateInput.value()),
+      dateTo: this.formatDateInput(this.timelineEndDateInput && this.timelineEndDateInput.value()),
+      days: Number(this.timelineDaysInput && this.timelineDaysInput.value() || 365)
+    };
+  };
+
+  ProgramGovernanceAdmin.prototype.auditFilterStorageKey = function() {
+    return "program-governance-audit-filters:" + this.auditFilterScopeProgramCode();
+  };
+
+  ProgramGovernanceAdmin.prototype.auditFilterScopeProgramCode = function() {
+    return String(this.state.currentProgramCode || this.queryValue("programCode") || "global").trim().toLowerCase();
+  };
+
+  ProgramGovernanceAdmin.prototype.applySavedAuditFilters = function() {
+    let stored = null;
+    if (this.timelineTypeInput) {
+      this.timelineTypeInput.value("");
+    }
+    if (this.timelineUserInput) {
+      this.timelineUserInput.value("");
+    }
+    if (this.timelineDaysInput) {
+      this.timelineDaysInput.value(365);
+    }
+    if (this.timelineStartDateInput) {
+      this.timelineStartDateInput.value(null);
+    }
+    if (this.timelineEndDateInput) {
+      this.timelineEndDateInput.value(null);
+    }
+    try {
+      stored = JSON.parse(global.localStorage.getItem(this.auditFilterStorageKey()) || "null");
+    } catch (_) {
+      stored = null;
+    }
+    this.state.savedAuditFilters = stored;
+    if (!stored || typeof stored !== "object") {
+      return;
+    }
+    if (this.timelineUserInput && stored.userId) {
+      this.timelineUserInput.value(String(stored.userId || ""));
+    }
+    if (this.timelineDaysInput && Number(stored.days || 0) > 0) {
+      this.timelineDaysInput.value(Number(stored.days));
+    }
+    if (this.timelineStartDateInput && stored.dateFrom) {
+      this.timelineStartDateInput.value(new Date(stored.dateFrom));
+    }
+    if (this.timelineEndDateInput && stored.dateTo) {
+      this.timelineEndDateInput.value(new Date(stored.dateTo));
+    }
+  };
+
+  ProgramGovernanceAdmin.prototype.persistAuditFilters = function(filters) {
+    this.state.savedAuditFilters = filters || null;
+    try {
+      global.localStorage.setItem(this.auditFilterStorageKey(), JSON.stringify(filters || {}));
+    } catch (_) {
+      // ambiente sem localStorage
+    }
+  };
+
+  ProgramGovernanceAdmin.prototype.loadOperationsSnapshot = function() {
+    return this.http.request({
+      url: "/api/admin/program-builder/governance/operations",
+      method: "GET",
+      data: {
+        programCode: this.state.currentProgramCode || "",
+        builderProgramVersionId: this.state.currentVersionId || null
+      }
+    }).then(function(response) {
+      this.state.operationsReport = response || null;
+      this.renderOperationsPanel();
+    }.bind(this)).catch(function() {
+      return null;
+    });
+  };
+
+  ProgramGovernanceAdmin.prototype.handleRefreshOperations = function() {
+    return this.loadOperationsSnapshot().then(function() {
+      global.CrudUtils.showMessage("Resumo operacional atualizado.", "info");
+    }).catch(this.handleError.bind(this, "Nao foi possivel atualizar o resumo operacional."));
+  };
+
+  ProgramGovernanceAdmin.prototype.handleRunGovernanceMonitor = function() {
+    return this.http.request({
+      url: "/api/admin/program-builder/governance/operations/monitor",
+      method: "POST",
+      data: {
+        programCode: this.state.currentProgramCode || ""
+      }
+    }).then(function(response) {
+      this.state.operationsReport = response || null;
+      this.renderOperationsPanel();
+      return this.refreshCurrent().then(function() {
+        global.CrudUtils.showMessage("Monitor operacional executado.", "success");
+      });
+    }.bind(this)).catch(this.handleError.bind(this, "Nao foi possivel executar o monitor operacional."));
+  };
+
+  ProgramGovernanceAdmin.prototype.handleRunGovernanceOperations = function() {
+    return global.CrudUtils.confirm({
+      title: "Rodar operacao unificada",
+      message: "A rotina vai revisar integridade, monitoramento e preview de retencao. Deseja continuar?",
+      confirmText: "Executar",
+      cancelText: "Cancelar"
+    }).then(function(confirmed) {
+      if (!confirmed) {
+        return null;
+      }
+      return this.http.request({
+        url: "/api/admin/program-builder/governance/operations",
+        method: "POST",
+        data: {
+          programCode: this.state.currentProgramCode || "",
+          builderProgramVersionId: this.state.currentVersionId || null,
+          applyCleanup: false
+        }
+      }).then(function(response) {
+        this.state.operationsReport = response || null;
+        this.renderOperationsPanel();
+        return this.refreshCurrent().then(function() {
+          global.CrudUtils.showMessage("Operacao unificada executada.", "success");
+        });
+      }.bind(this));
+    }.bind(this)).catch(this.handleError.bind(this, "Nao foi possivel executar a operacao unificada."));
+  };
+
+  ProgramGovernanceAdmin.prototype.handleExportRetentionHistory = function(format) {
+    const run = this.state.selectedRetentionRun;
+    if (!run) {
+      global.CrudUtils.showMessage("Selecione uma execucao do historico para exportar.", "warning");
+      return;
+    }
+    const stamp = String(run.createdAt || new Date().toISOString()).replace(/[:T]/g, "-").slice(0, 19);
+    if (format === "csv") {
+      const lines = ["label,table,records,previousRecords,deltaRecords"];
+      global.CrudUtils.ensureArray(run.deltaByTable).forEach(function(item) {
+        lines.push([
+          item.label,
+          item.table,
+          item.records,
+          item.previousRecords,
+          item.deltaRecords
+        ].map(function(value) {
+          return "\"" + String(value == null ? "" : value).replace(/"/g, "\"\"") + "\"";
+        }).join(","));
+      });
+      this.downloadFile("governanca-retencao-historico-" + stamp + ".csv", "text/csv;charset=utf-8", lines.join("\n"));
+      return;
+    }
+    this.downloadFile("governanca-retencao-historico-" + stamp + ".json", "application/json;charset=utf-8", JSON.stringify(run, null, 2));
   };
 
   ProgramGovernanceAdmin.prototype.renderOverlays = function(items) {
@@ -832,6 +1270,9 @@
     }).then(function(response) {
       this.renderRetentionPreview(response);
       global.CrudUtils.showMessage("Preview da limpeza carregado.", "info");
+      return this.loadRetentionHistory().catch(function() {
+        return null;
+      });
     }.bind(this)).catch(this.handleError.bind(this, "Nao foi possivel gerar o preview da limpeza."));
   };
 
@@ -845,15 +1286,36 @@
       if (!confirmed) {
         return null;
       }
+      const selectedPreviewRun = this.state.selectedRetentionRun && String(this.state.selectedRetentionRun.mode || "") === "preview"
+        ? Number(this.state.selectedRetentionRun.id || 0)
+        : 0;
       return this.http.request({
         url: "/api/admin/program-builder/governance/retention/cleanup",
-        method: "POST"
+        method: "POST",
+        data: {
+          previewRunId: Number(this.state.lastRetentionReport && this.state.lastRetentionReport.retentionRunId || 0) || selectedPreviewRun || null
+        }
       }).then(function(response) {
         this.renderRetentionPreview(response);
         global.CrudUtils.showMessage("Limpeza executada.", "success");
-        return this.refreshCurrent();
+        return this.loadRetentionHistory().catch(function() {
+          return null;
+        }).then(function() {
+          return this.refreshCurrent();
+        }.bind(this));
       }.bind(this));
     }.bind(this)).catch(this.handleError.bind(this, "Nao foi possivel executar a limpeza da governanca."));
+  };
+
+  ProgramGovernanceAdmin.prototype.loadRetentionHistory = function() {
+    return this.http.request({
+      url: "/api/admin/program-builder/governance/retention/history",
+      method: "GET",
+      data: { limit: 20 }
+    }).then(function(response) {
+      this.state.retentionRuns = global.CrudUtils.ensureArray(response && response.items);
+      this.renderRetentionHistory(this.state.retentionRuns);
+    }.bind(this));
   };
 
   ProgramGovernanceAdmin.prototype.handleExportRetention = function(format) {
@@ -988,12 +1450,12 @@
     const hasBlocking = global.CrudUtils.ensureArray(preview && preview.sections).some(function(section) {
       return String(section.classification || "") === "conflict_blocking";
     });
-    const runner = function() {
+    const runner = function(confirmWarning) {
       return this.http.request({
         url: "/api/admin/program-builder/overlay-versions/" + encodeURIComponent(overlayVersionId) + "/rebase",
         method: "POST",
         data: {
-          resolutions: this.state.overlayRebaseSelections || {}
+          resolutions: Object.assign({}, this.state.overlayRebaseSelections || {}, confirmWarning ? { __confirmWarning__: true } : {})
         }
       }).then(function(response) {
         this.state.overlayPreview = response && response.preview ? response.preview : response;
@@ -1004,21 +1466,26 @@
       }.bind(this));
     }.bind(this);
 
-    if (!hasBlocking) {
-      return runner().catch(this.handleError.bind(this, "Nao foi possivel executar o rebase."));
+    if (hasBlocking || preview && preview.canApply === false) {
+      global.CrudUtils.showMessage("O preview possui conflitos bloqueantes. Ajuste o overlay antes de tentar o rebase.", "error");
+      return Promise.resolve();
+    }
+
+    if (!(preview && preview.requiresConfirmation)) {
+      return runner(false).catch(this.handleError.bind(this, "Nao foi possivel executar o rebase."));
     }
 
     return global.CrudUtils.confirm({
-      title: "Conflitos bloqueantes",
-      message: "Existem conflitos bloqueantes no rebase. Deseja continuar mesmo assim?",
-      confirmText: "Continuar",
+      title: "Confirmar rebase",
+      message: "Existem conflitos leves no rebase. Deseja seguir com o plano de resolucao atual?",
+      confirmText: "Confirmar",
       cancelText: "Cancelar"
     }).then(function(confirmed) {
       if (!confirmed) {
         return null;
       }
-      return runner();
-    }).bind(this).catch(this.handleError.bind(this, "Nao foi possivel executar o rebase."));
+      return runner(true);
+    }.bind(this)).catch(this.handleError.bind(this, "Nao foi possivel executar o rebase."));
   };
 
   ProgramGovernanceAdmin.prototype.renderRebasePreview = function() {
@@ -1030,6 +1497,12 @@
       return;
     }
     $("<p></p>").text("Status: " + String(response.status || "-") + " | Base atual: " + String(response.currentBaseVersion || "-") + " | Base alvo: " + String(response.targetBaseVersion || "-")).appendTo(this.rebaseSummary);
+    if (response.policyDecision) {
+      $("<div class=\"program-governance-admin-row\"></div>")
+        .addClass(response.canApply === false ? "is-error" : (response.requiresConfirmation ? "is-warning" : "is-valid"))
+        .text(String(response.policyDecision))
+        .appendTo(this.rebaseSummary);
+    }
     const counters = { rebased: 0, overlay: 0, base: 0 };
     global.CrudUtils.ensureArray(response.sections).forEach(function(section) {
       const row = $("<div class=\"program-governance-admin-row\"></div>")
@@ -1072,7 +1545,64 @@
     $("<div class=\"program-governance-admin-row is-info\"></div>")
       .text("Plano atual: rebase sugerido " + counters.rebased + " | manter overlay " + counters.overlay + " | usar base " + counters.base)
       .appendTo(this.rebaseSummary);
+    if (response.finalResolutionSummary) {
+      $("<div class=\"program-governance-admin-row is-info\"></div>")
+        .text("Resumo final do plano: sugerido " + String(response.finalResolutionSummary.rebased || 0) + " | overlay " + String(response.finalResolutionSummary.overlay || 0) + " | base " + String(response.finalResolutionSummary.base || 0))
+        .appendTo(this.rebaseSummary);
+    }
+    if (response.runtimeImpactSummary) {
+      $("<div class=\"program-governance-admin-row is-info\"></div>")
+        .text("Impacto no runtime: secoes criticas " + String(response.runtimeImpactSummary.criticalSections || 0) + " | conflitos leves " + String(response.runtimeImpactSummary.warningConflicts || 0) + " | conflitos bloqueantes " + String(response.runtimeImpactSummary.blockingConflicts || 0))
+        .appendTo(this.rebaseSummary);
+    }
+    const localPolicyViolations = this.countLocalRebasePolicyViolations(response.sections);
+    if (response.policySummary) {
+      $("<div class=\"program-governance-admin-row\"></div>")
+        .addClass(localPolicyViolations > 0 || Number(response.policySummary.violationCount || 0) > 0 ? "is-error" : "is-info")
+        .text(String(response.policySummary.message || ""))
+        .appendTo(this.rebaseSummary);
+      global.CrudUtils.ensureArray(response.policySummary.violations).forEach(function(item) {
+        $("<div class=\"program-governance-admin-row is-error\"></div>")
+          .text("Politica critica: " + String(item.path || "-") + " aceita apenas " + global.CrudUtils.ensureArray(item.allowedResolutions).join(", "))
+          .appendTo(this.rebaseSummary);
+      }.bind(this));
+    }
+    if (localPolicyViolations > 0) {
+      $("<div class=\"program-governance-admin-row is-error\"></div>")
+        .text("Escolhas locais atuais violam a politica de rebase em " + String(localPolicyViolations) + " campo(s) critico(s).")
+        .appendTo(this.rebaseSummary);
+    }
+    if (global.CrudUtils.ensureArray(response.finalDiffEntries).length) {
+      $("<h3></h3>").text("Diff final consolidado").appendTo(this.rebaseSummary);
+      const diffTable = $("<table class=\"program-builder-table\"></table>").appendTo(this.rebaseSummary);
+      $("<thead><tr><th>Caminho</th><th>Atual</th><th>Final</th><th>Origem</th></tr></thead>").appendTo(diffTable);
+      const diffBody = $("<tbody></tbody>").appendTo(diffTable);
+      global.CrudUtils.ensureArray(response.finalDiffEntries).forEach(function(entry) {
+        const tr = $("<tr></tr>").appendTo(diffBody);
+        $("<td></td>").append($("<code></code>").text(String(entry.path || "-"))).appendTo(tr);
+        $("<td></td>").append($("<code></code>").text(this.stringifyInlineJson(entry.currentValue))).appendTo(tr);
+        $("<td></td>").append($("<code></code>").text(this.stringifyInlineJson(entry.finalValue))).appendTo(tr);
+        $("<td></td>").text(String(entry.selectedResolution || entry.classification || "-")).appendTo(tr);
+      }.bind(this));
+      if (response.finalDiffDefinition) {
+        $("<pre class=\"program-builder-inline-json\"></pre>").text(JSON.stringify(response.finalDiffDefinition, null, 2)).appendTo(this.rebaseSummary);
+      }
+    }
     this.rebaseJson.text(JSON.stringify(response, null, 2));
+  };
+
+  ProgramGovernanceAdmin.prototype.countLocalRebasePolicyViolations = function(sections) {
+    let count = 0;
+    global.CrudUtils.ensureArray(sections).forEach(function(section) {
+      global.CrudUtils.ensureArray(section && section.entries).forEach(function(entry) {
+        const pathKey = String(entry && entry.path || "");
+        const selected = String((this.state.overlayRebaseSelections[pathKey] || entry && entry.selectedResolution || "rebased")).toLowerCase();
+        if (String(entry && entry.classification || "") === "conflict_warning" && selected === "overlay") {
+          count += 1;
+        }
+      }, this);
+    }, this);
+    return count;
   };
 
   ProgramGovernanceAdmin.prototype.stringifyInlineJson = function(value) {
@@ -1101,6 +1631,112 @@
     global.setTimeout(function() {
       global.URL.revokeObjectURL(url);
     }, 0);
+  };
+
+  ProgramGovernanceAdmin.prototype.formatDateInput = function(value) {
+    if (!value) {
+      return "";
+    }
+    const date = value instanceof Date ? value : new Date(value);
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+      return "";
+    }
+    return date.toISOString().slice(0, 10);
+  };
+
+  ProgramGovernanceAdmin.prototype.resolveTimelineTarget = function(item) {
+    if (!item || !item.type) {
+      return null;
+    }
+    const details = item.details || {};
+    switch (String(item.type)) {
+      case "request":
+        return { tab: "requests", query: { focusRequestCode: details.requestCode || "" } };
+      case "grant":
+        return { tab: "grants", query: { focusGrantId: details.id || "" } };
+      case "approval":
+        return { tab: "approvals", query: { focusApprovalId: details.id || "" } };
+      case "overlay":
+        return { tab: "overlays", query: { overlayId: details.id || "", focusOverlayId: details.id || "" } };
+      case "publish":
+        return { tab: "summary", query: {} };
+      default:
+        return null;
+    }
+  };
+
+  ProgramGovernanceAdmin.prototype.buildGovernanceUrl = function(tab, extraQuery) {
+    const current = String(global.location && global.location.href || "");
+    const next = current
+      .replace(/program-audit\.html/i, "program-governance.html")
+      .replace(/program-grants\.html/i, "program-governance.html")
+      .replace(/program-approvals\.html/i, "program-governance.html")
+      .replace(/program-retention\.html/i, "program-governance.html")
+      .replace(/program-retention-history\.html/i, "program-governance.html")
+      .replace(/program-operations\.html/i, "program-governance.html")
+      .replace(/program-overlays\.html/i, "program-governance.html")
+      .replace(/program-overlay-versions\.html/i, "program-governance.html");
+    let targetUrl;
+    try {
+      targetUrl = new URL(next);
+    } catch (_) {
+      targetUrl = new URL(global.location.href);
+    }
+    targetUrl.searchParams.set("programCode", this.state.currentProgramCode || "");
+    if (this.state.currentVersionId) {
+      targetUrl.searchParams.set("builderProgramVersionId", String(this.state.currentVersionId));
+    }
+    if (tab) {
+      targetUrl.searchParams.set("tab", tab);
+    }
+    Object.keys(extraQuery || {}).forEach(function(key) {
+      const value = extraQuery[key];
+      if (value === null || value === undefined || String(value) === "") {
+        return;
+      }
+      targetUrl.searchParams.set(key, String(value));
+    });
+    return targetUrl.toString();
+  };
+
+  ProgramGovernanceAdmin.prototype.buildFocusedTargetUrl = function(item, target) {
+    const current = String(global.location && global.location.href || "");
+    let next = current;
+    switch (String(item && item.type || "")) {
+      case "grant":
+        next = current.replace(/program-[^/]+\.html/i, "program-grants.html");
+        break;
+      case "approval":
+        next = current.replace(/program-[^/]+\.html/i, "program-approvals.html");
+        break;
+      case "overlay":
+        next = current.replace(/program-[^/]+\.html/i, "program-overlays.html");
+        break;
+      case "retention":
+        next = current.replace(/program-[^/]+\.html/i, "program-retention-history.html");
+        break;
+      default:
+        next = current.replace(/program-[^/]+\.html/i, "program-audit.html");
+        break;
+    }
+    let targetUrl;
+    try {
+      targetUrl = new URL(next);
+    } catch (_) {
+      targetUrl = new URL(global.location.href);
+    }
+    targetUrl.searchParams.set("programCode", this.state.currentProgramCode || "");
+    if (this.state.currentVersionId) {
+      targetUrl.searchParams.set("builderProgramVersionId", String(this.state.currentVersionId));
+    }
+    Object.keys((target && target.query) || {}).forEach(function(key) {
+      const value = target.query[key];
+      if (value === null || value === undefined || String(value) === "") {
+        return;
+      }
+      targetUrl.searchParams.set(key, String(value));
+    });
+    return targetUrl.toString();
   };
 
   ProgramGovernanceAdmin.prototype.afterMutation = function(message) {

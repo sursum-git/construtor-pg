@@ -272,7 +272,8 @@
             cautions: [
               "A troca de assinante nao ocorre no formulario inicial; ocorre depois da credencial.",
               "A recuperacao de senha abre janela Kendo, nao usa prompt nativo.",
-              "O login de producao agora tambem pode carregar literais remotos por locale, com fallback pt-BR local."
+              "O login de producao agora tambem pode carregar literais remotos por locale, com fallback pt-BR local.",
+              "O botao `Limpar sessao local` remove token, assinante, area e ultimo usuario lembrado antes de uma nova tentativa."
             ]
           },
           references: {
@@ -318,6 +319,7 @@
               "No atendimento, escolher o setor e conversar com um atendente online ou abrir uma solicitacao quando nao houver disponibilidade.",
               "Abrir a central de notificacoes quando houver badge no appbar.",
               "Filtrar notificacoes por severidade, exigencia de acao e nao lidas.",
+              "Usar categoria quando quiser reaproveitar um recorte especifico da central; o filtro local agora fica salvo por `screenId`.",
               "Marcar notificacoes como lidas individualmente ou em lote e abrir o programa relacionado.",
               "Usar favoritos e filtros para localizar programas.",
               "Usar o menu do usuario para sair ou abrir preferencias."
@@ -677,6 +679,7 @@
               "Preview antes da execucao.",
               "Execucao manual com retorno de contagens e diagnosticos.",
               "Historico persistido de execucoes e versoes do mapping.",
+              "Filtro do historico por `mapping`, `mode` e `status`, com detalhe da execucao selecionada e exportacao em JSON.",
               "Agendamentos simples e execucao dos vencidos.",
               "Importacao XML declarativa por XPath para carga em entidades."
             ],
@@ -915,7 +918,7 @@
           type: "Painel administrativo",
           route: "../../production/app.html?screenId=admin.programa-retencao-operacao",
           screenId: "admin.programa-retencao-operacao",
-          summary: "Entrada focada para revisar e ajustar a politica de retencao sem ruido das outras operacoes de governanca.",
+          summary: "Entrada focada para revisar e ajustar a politica de retencao sem ruido das outras operacoes de governanca, agora com historico persistido de preview e execucao, agrupamento por execucao, relacao entre preview/aplicacao e comparativo antes/depois por tabela.",
           functional: {
             objective: "Ajustar rapidamente a politica de limpeza do historico de requests, grants, aprovacoes, bundles e notificacoes administrativas, com preview e execucao controlada.",
             scope: [
@@ -952,6 +955,103 @@
             notes: ["Entrada focada: ../../production/app.html?screenId=admin.programa-retencao-operacao", "Exemplo local focado: ../../examples/pages/admin-program-retention.html"]
           }
         },
+        "admin-programa-retencao-historico-operacao": {
+          title: "Historico da retencao da governanca",
+          module: "Administracao",
+          type: "Painel administrativo",
+          route: "../../production/app.html?screenId=admin.programa-retencao-historico-operacao",
+          screenId: "admin.programa-retencao-historico-operacao",
+          summary: "Entrada focada para ler as execucoes persistidas da retencao, agrupando preview e aplicacao por `executionGroup` e comparando o impacto antes/depois.",
+          functional: {
+            objective: "Auditar execucoes da retencao sem depender da tela completa de governanca.",
+            scope: [
+              "Lista de execucoes `preview` e `apply`.",
+              "Agrupamento por `executionGroup`.",
+              "Comparativo entre `pairedRun` antes/depois.",
+              "Exportacao do historico selecionado."
+            ],
+            outputs: [
+              "Trilha operacional clara da limpeza executada ou simulada."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Execucoes de retencao ja registradas."
+            ],
+            steps: [
+              "Abrir a entrada focada de historico.",
+              "Filtrar o periodo ou o programa quando necessario.",
+              "Selecionar a execucao e revisar o comparativo preview x aplicacao.",
+              "Exportar o item selecionado quando precisar anexar a auditoria."
+            ],
+            cautions: [
+              "Preview e aplicacao do mesmo grupo podem ter contagens diferentes se o ambiente mudou entre as duas execucoes."
+            ]
+          },
+          references: {
+            permissions: ["admin.read"],
+            relatedPrograms: ["Retencao da governanca", "Auditoria da governanca"],
+            notes: ["Entrada focada: ../../production/app.html?screenId=admin.programa-retencao-historico-operacao", "Exemplo local focado: ../../examples/pages/admin-program-retention-history.html"]
+          }
+        },
+        "admin-programa-auditoria-operacao": {
+          title: "Auditoria da governanca",
+          module: "Administracao",
+          route: "../../production/app.html?screenId=admin.programa-auditoria-operacao",
+          screenId: "admin.programa-auditoria-operacao",
+          summary: "Entrada focada para revisar timeline, sinais operacionais e historico detalhado da governanca por programa.",
+          tabs: [
+            {
+              id: "funcional",
+              title: "Visao funcional",
+              bullets: [
+                "Filtra por programa e versao em foco.",
+                "Mostra linha do tempo operacional com filtros por tipo, usuario e intervalo real de datas.",
+                "Exibe detalhe JSON do evento selecionado e atalho para abrir o contexto relacionado na governanca completa.",
+                "Facilita triagem sem entrar no dialogo do construtor."
+              ]
+            }
+          ],
+          notes: ["Entrada focada: ../../production/app.html?screenId=admin.programa-auditoria-operacao", "Exemplo local focado: ../../examples/pages/admin-program-audit.html", "Endpoint dedicado: `GET /api/admin/program-builder/governance/audit`"]
+        },
+        "admin-programa-operacoes-operacao": {
+          title: "Operacoes da governanca",
+          module: "Administracao",
+          type: "Painel administrativo",
+          route: "../../production/app.html?screenId=admin.programa-operacoes-operacao",
+          screenId: "admin.programa-operacoes-operacao",
+          summary: "Entrada focada para snapshot operacional, disparo do monitor e execucao unificada da rotina de governanca por programa.",
+          functional: {
+            objective: "Dar uma superficie direta para rodar monitoramento, revisar alertas e executar a rotina consolidada sem abrir a governanca completa.",
+            scope: [
+              "Snapshot operacional por programa.",
+              "Execucao do monitor dedicado.",
+              "Execucao da rotina unificada `app:governance:operations`."
+            ],
+            outputs: [
+              "Resumo atual de integridade, alertas operacionais e limpeza."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa para operacao de governanca."
+            ],
+            steps: [
+              "Abrir a entrada focada de operacoes.",
+              "Atualizar o snapshot do programa.",
+              "Rodar o monitor quando quiser revisar alertas sem limpar historico.",
+              "Rodar a operacao unificada quando a rotina operacional pedir checagem completa."
+            ],
+            cautions: [
+              "A operacao unificada pode acoplar limpeza de historico conforme a configuracao e a chamada feita."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Auditoria da governanca", "Retencao da governanca", "Integridade estrutural"],
+            notes: ["Entrada focada: ../../production/app.html?screenId=admin.programa-operacoes-operacao", "Exemplo local focado: ../../examples/pages/admin-program-operations.html", "Comando relacionado: `php backend/bin/console app:governance:operations`"]
+          }
+        },
         "admin-programa-overlays-operacao": {
           title: "Overlays de programas",
           module: "Administracao",
@@ -977,7 +1077,8 @@
             steps: [
               "Abrir a entrada focada de overlays.",
               "Localizar o assinante e revisar o status do overlay.",
-              "Usar a acao direta para carregar o preview do rebase com `overlayId` e `overlayVersionId` corretos."
+              "Usar a acao direta para carregar o preview do rebase com `overlayId` e `overlayVersionId` corretos.",
+              "Conflitos bloqueantes nao seguem por confirmacao manual; conflitos leves exigem confirmacao explicita do plano."
             ],
             cautions: [
               "Overlay bloqueado exige revisao manual antes da proxima publicacao da base.",
@@ -1018,7 +1119,8 @@
               "Executar `php backend/bin/console app:integrity:check` ou `php backend/bin/console app:integrity:monitor --fail-on-invalid` para atualizar o status dos registros.",
               "Abrir o monitor administrativo e localizar itens invalidos.",
               "Quando houver justificativa tecnica, reassinar o alvo pelo botao da propria tela ou com `php backend/bin/console app:integrity:resign`.",
-              "Aplicar a retencao administrativa com `php backend/bin/console app:governance:cleanup-history --apply` quando o historico antigo puder ser encerrado."
+              "Aplicar a retencao administrativa com `php backend/bin/console app:governance:cleanup-history --apply` quando o historico antigo puder ser encerrado.",
+              "Para rotina operacional unificada, usar `php backend/bin/console app:governance:operations`."
             ],
             cautions: [
               "Registro estrutural invalido pode bloquear builder, publish e runtime.",
@@ -1362,7 +1464,8 @@
               "Integridade estrutural com assinatura obrigatoria sobre programa, versao, entidade, situacoes, transicoes, tela, endpoint, API source, listas/opcoes e artefatos de import/export.",
               "Dialogos dedicados de governanca e rebase assistido de overlay no proprio editor.",
               "Dashboard operacional no dialogo de governanca com acoes diretas sobre requests, grants, bundles e retencao.",
-              "Diff visual no rebase com base antiga, base nova, overrides e definicao rebaseada, com filtro por classificacao, navegacao por secao, detalhe por campo e resolucao assistida `rebased|overlay|base`.",
+              "Diff visual no rebase com base antiga, base nova, overrides e definicao rebaseada, com filtro por classificacao, navegacao por secao, detalhe por campo, resolucao assistida `rebased|overlay|base`, politica explicita e resumo final do impacto.",
+              "Diff final consolidado do rebase antes de aplicar, focado apenas no que muda na definicao resultante.",
               "Gate guiado no proprio preview para apontar pendencias de grant, lock, bundle e aprovacao antes do publish."
             ],
             outputs: [
@@ -1479,6 +1582,9 @@
           { id: "admin-programa-aprovacoes", text: "Aprovacoes de publicacao" },
           { id: "admin-programa-governanca", text: "Governanca de programas" },
           { id: "admin-programa-retencao-operacao", text: "Retencao da governanca" },
+          { id: "admin-programa-retencao-historico-operacao", text: "Historico da retencao" },
+          { id: "admin-programa-auditoria-operacao", text: "Auditoria da governanca" },
+          { id: "admin-programa-operacoes-operacao", text: "Operacoes da governanca" },
           { id: "admin-programa-overlays-operacao", text: "Overlays de programas (operacao)" },
           { id: "admin-integridade", text: "Integridade estrutural" },
           { id: "admin-programa-overlays", text: "Overlays de programas" },

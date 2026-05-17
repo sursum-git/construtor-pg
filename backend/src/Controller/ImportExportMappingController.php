@@ -84,6 +84,8 @@ class ImportExportMappingController extends AbstractController
             $this->sessions->ensureActive();
             return $this->json($this->mappings->listExecutions([
                 'mappingCode' => $request->query->get('mappingCode'),
+                'mode' => $request->query->get('mode'),
+                'status' => $request->query->get('status'),
             ]));
         } catch (\Throwable $error) {
             return $this->error($error);

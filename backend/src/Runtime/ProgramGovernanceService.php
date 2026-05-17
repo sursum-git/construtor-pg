@@ -18,6 +18,7 @@ use App\Repository\ProgramChangeRequestRepository;
 use App\Repository\ProgramPublicationApprovalRepository;
 use App\Repository\ProgramTestExecutionRepository;
 use App\Repository\SystemRecordIntegrityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -37,6 +38,7 @@ class ProgramGovernanceService
         private readonly EntityManagerInterface $entityManager,
         private readonly RuntimeNotificationService $notifications,
         private readonly GovernanceRetentionPolicyService $retentionPolicy,
+        private readonly ProgramGovernanceRetentionHistoryService $retentionHistory,
         private readonly StructuralIntegrityService $structuralIntegrity,
         private readonly Connection $connection,
     ) {
@@ -497,7 +499,7 @@ class ProgramGovernanceService
         ], ['updatedAt' => 'DESC'], 25));
 
         $overlays = $this->listOverlays($programCode);
-        $retentionPreview = $this->previewRetentionCleanup();
+        $retentionPreview = $this->buildRetentionCleanupSummary(false);
         $invalidIntegrityCount = $this->integrities->count(['lastCheckStatus' => 'invalid']);
 
         return [
@@ -517,6 +519,7 @@ class ProgramGovernanceService
             'timeline' => $this->buildTimeline($programCode, $requests, $grants, $tests, $approvals, $currentVersion, $activeLocks, $overlays),
             'retentionPolicy' => $this->retentionPolicy->getPolicy(),
             'retentionPreview' => $retentionPreview,
+            'retentionRuns' => $this->listRetentionRuns(10),
             'integrityCoverage' => [
                 'supportedTables' => $this->structuralIntegrity->supportedTableNames(),
                 'supportedCount' => count($this->structuralIntegrity->supportedTableNames()),
@@ -537,6 +540,42 @@ class ProgramGovernanceService
         ];
     }
 
+    public function audit(string $programCode, ?int $builderProgramVersionId = null, array $filters = []): array
+    {
+        $dashboard = $this->dashboard($programCode, $builderProgramVersionId);
+        $timeline = $this->filterAuditTimeline(
+            is_array($dashboard['timeline'] ?? null) ? $dashboard['timeline'] : [],
+            $filters
+        );
+        $retentionRuns = $this->filterRetentionRuns(
+            is_array($dashboard['retentionRuns'] ?? null) ? $dashboard['retentionRuns'] : [],
+            $filters
+        );
+
+        return [
+            'programCode' => $programCode,
+            'builderProgramVersionId' => $builderProgramVersionId,
+            'filters' => [
+                'eventType' => trim((string) ($filters['eventType'] ?? '')),
+                'userId' => trim((string) ($filters['userId'] ?? '')),
+                'dateFrom' => trim((string) ($filters['dateFrom'] ?? '')),
+                'dateTo' => trim((string) ($filters['dateTo'] ?? '')),
+            ],
+            'timeline' => $timeline,
+            'retentionRuns' => $retentionRuns,
+            'summary' => [
+                'timelineCount' => count($timeline),
+                'retentionRunCount' => count($retentionRuns),
+                'eventTypes' => array_values(array_unique(array_map(static fn (array $item): string => (string) ($item['type'] ?? ''), $timeline))),
+                'users' => array_values(array_unique(array_filter(array_map(static fn (array $item): string => (string) ($item['userId'] ?? ''), $timeline)))),
+                'eventTypeCounts' => $this->summarizeAuditByKey($timeline, 'type'),
+                'userCounts' => $this->summarizeAuditByKey($timeline, 'userId'),
+                'retentionByMode' => $this->summarizeRetentionRunsByMode($retentionRuns),
+            ],
+            'operationalSignals' => $dashboard['operationalSignals'] ?? [],
+        ];
+    }
+
     public function retentionPolicy(): array
     {
         return $this->retentionPolicy->describePolicy();
@@ -549,12 +588,268 @@ class ProgramGovernanceService
 
     public function previewRetentionCleanup(): array
     {
-        return $this->buildRetentionCleanupSummary(false);
+        $report = $this->buildRetentionCleanupSummary(false);
+        $run = $this->retentionHistory->recordRun(
+            $report,
+            'preview',
+            $this->permissions->getUserId(),
+            'ui',
+            $this->generateRetentionExecutionGroup()
+        );
+        $this->entityManager->flush();
+        $report['retentionRunId'] = $run->getId();
+        $report['executionGroup'] = $run->getExecutionGroup();
+
+        return $report;
     }
 
-    public function executeRetentionCleanup(): array
+    public function executeRetentionCleanup(?int $previewRunId = null): array
     {
-        return $this->buildRetentionCleanupSummary(true);
+        $report = $this->buildRetentionCleanupSummary(true);
+        $previewRun = $previewRunId ? $this->retentionHistory->findPreviewRun($previewRunId) : null;
+        $run = $this->retentionHistory->recordRun(
+            $report,
+            'apply',
+            $this->permissions->getUserId(),
+            'ui',
+            $previewRun?->getExecutionGroup() ?: $this->generateRetentionExecutionGroup(),
+            $previewRun?->getId()
+        );
+        $this->entityManager->flush();
+        $report['retentionRunId'] = $run->getId();
+        $report['executionGroup'] = $run->getExecutionGroup();
+        $report['relatedPreviewRunId'] = $previewRun?->getId();
+
+        return $report;
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function listRetentionRuns(int $limit = 20): array
+    {
+        return $this->retentionHistory->listRecent($limit);
+    }
+
+    public function operationsSnapshot(string $programCode, ?int $builderProgramVersionId = null): array
+    {
+        $dashboard = $programCode !== '' ? $this->dashboard($programCode, $builderProgramVersionId) : null;
+        $invalidIntegrity = $this->integrities->count(['lastCheckStatus' => 'invalid']);
+        $publishBlocked = (int) (($dashboard['summary']['approvedPublications'] ?? 0) === 0
+            && ($dashboard['summary']['activeGrants'] ?? 0) > 0
+            && ($dashboard['summary']['passedTests'] ?? 0) > 0
+            ? 1
+            : 0);
+        $blockedOverlays = (int) ($dashboard['summary']['blockedOverlays'] ?? 0);
+        $warningOverlays = (int) ($dashboard['summary']['warningOverlays'] ?? 0);
+        $alertCount = $invalidIntegrity + $publishBlocked + $blockedOverlays + $warningOverlays;
+
+        return [
+            'modeLabel' => 'snapshot',
+            'generatedAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+            'programCode' => $programCode,
+            'builderProgramVersionId' => $builderProgramVersionId,
+            'invalidIntegrity' => $invalidIntegrity,
+            'alertCount' => $alertCount,
+            'publishBlocked' => $publishBlocked,
+            'blockedOverlays' => $blockedOverlays,
+            'warningOverlays' => $warningOverlays,
+            'retentionTotalRecords' => (int) ($dashboard['retentionPreview']['totalRecords'] ?? 0),
+            'cleanupApplied' => false,
+            'cleanupAppliedRecords' => 0,
+            'lastRetentionRun' => $this->listRetentionRuns(1)[0] ?? null,
+            'integrityCoverageCount' => count($this->structuralIntegrity->supportedTableNames()),
+        ];
+    }
+
+    public function runOperationalMonitor(?string $programCode = null): array
+    {
+        $summary = $this->emitOperationalAlerts($programCode);
+
+        return [
+            'modeLabel' => 'monitor',
+            'generatedAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+            'programCode' => $programCode,
+            'invalidIntegrity' => (int) ($summary['invalidIntegrity'] ?? 0),
+            'alertCount' => (int) ($summary['publishBlocked'] ?? 0)
+                + (int) ($summary['blockedOverlays'] ?? 0)
+                + (int) ($summary['frozenOrRevokedGrants'] ?? 0)
+                + (int) ($summary['invalidIntegrity'] ?? 0),
+            'publishBlocked' => (int) ($summary['publishBlocked'] ?? 0),
+            'blockedOverlays' => (int) ($summary['blockedOverlays'] ?? 0),
+            'warningOverlays' => 0,
+            'retentionTotalRecords' => 0,
+            'cleanupApplied' => false,
+            'cleanupAppliedRecords' => 0,
+            'monitorSummary' => $summary,
+        ];
+    }
+
+    public function runOperations(?string $programCode = null, bool $applyCleanup = false): array
+    {
+        $integrityResults = $this->structuralIntegrity->verifyAll();
+        $invalidIntegrity = count(array_filter($integrityResults, static fn (array $item): bool => ($item['status'] ?? '') !== 'valid'));
+        $monitorSummary = $this->emitOperationalAlerts($programCode);
+        $retentionPreview = $this->previewRetentionCleanup();
+        $retentionApply = $applyCleanup
+            ? $this->executeRetentionCleanup((int) ($retentionPreview['retentionRunId'] ?? 0) ?: null)
+            : null;
+
+        return [
+            'modeLabel' => 'operacao-unificada',
+            'generatedAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+            'programCode' => $programCode,
+            'invalidIntegrity' => $invalidIntegrity,
+            'alertCount' => (int) ($monitorSummary['publishBlocked'] ?? 0)
+                + (int) ($monitorSummary['blockedOverlays'] ?? 0)
+                + (int) ($monitorSummary['frozenOrRevokedGrants'] ?? 0)
+                + (int) ($monitorSummary['invalidIntegrity'] ?? 0),
+            'publishBlocked' => (int) ($monitorSummary['publishBlocked'] ?? 0),
+            'blockedOverlays' => (int) ($monitorSummary['blockedOverlays'] ?? 0),
+            'warningOverlays' => 0,
+            'retentionTotalRecords' => (int) ($retentionPreview['totalRecords'] ?? 0),
+            'cleanupApplied' => $retentionApply !== null,
+            'cleanupAppliedRecords' => (int) ($retentionApply['totalRecords'] ?? 0),
+            'monitorSummary' => $monitorSummary,
+            'retentionPreview' => $retentionPreview,
+            'retentionApply' => $retentionApply,
+        ];
+    }
+
+    public function emitOperationalAlerts(?string $programCode = null): array
+    {
+        $programs = $programCode !== null && $programCode !== '' ? [$programCode] : $this->listGovernancePrograms();
+        $summary = [
+            'programs' => count($programs),
+            'publishBlocked' => 0,
+            'blockedOverlays' => 0,
+            'frozenOrRevokedGrants' => 0,
+            'invalidIntegrity' => 0,
+            'notifications' => 0,
+        ];
+
+        $invalidIntegrityCount = $this->integrities->count(['lastCheckStatus' => 'invalid']);
+        $summary['invalidIntegrity'] = $invalidIntegrityCount;
+        if ($invalidIntegrityCount > 0) {
+            $notificationId = $this->notifications->createAdministrativeNotification(
+                'Integridade estrutural com divergencias',
+                sprintf('Foram encontrados %d registros estruturais invalidos no monitoramento mais recente.', $invalidIntegrityCount),
+                [
+                    'code' => 'governanca.monitor.integridade.invalidos',
+                    'category' => 'integridade',
+                    'severity' => 'error',
+                    'actionRequired' => true,
+                    'targetGroups' => ['admin'],
+                    'linkScreenId' => 'admin.integridade',
+                    'metadata' => [
+                        'actionLabel' => 'Abrir integridade',
+                        'actionQuery' => [
+                            'tab' => 'summary',
+                            'actionSuggestion' => 'Existem divergencias estruturais pendentes. Revisar os registros invalidos antes de novas operacoes.',
+                        ],
+                    ],
+                ]
+            );
+            if ($notificationId) {
+                $summary['notifications']++;
+            }
+        }
+
+        foreach ($programs as $currentProgramCode) {
+            $dashboard = $this->dashboard($currentProgramCode, null);
+            $grants = is_array($dashboard['grants'] ?? null) ? $dashboard['grants'] : [];
+            $overlays = is_array($dashboard['overlays'] ?? null) ? $dashboard['overlays'] : [];
+            $tests = is_array($dashboard['tests'] ?? null) ? $dashboard['tests'] : [];
+            $approvals = is_array($dashboard['approvals'] ?? null) ? $dashboard['approvals'] : [];
+            $currentVersion = is_array($dashboard['currentVersion'] ?? null) ? $dashboard['currentVersion'] : null;
+
+            $grantAlerts = array_values(array_filter($grants, static fn (array $item): bool => in_array((string) ($item['status'] ?? ''), ['frozen', 'revoked'], true)));
+            $summary['frozenOrRevokedGrants'] += count($grantAlerts);
+            foreach ($grantAlerts as $grant) {
+                $notificationId = $this->notifications->createAdministrativeNotification(
+                    'Grant exige triagem operacional',
+                    sprintf('O grant #%d do programa %s esta %s.', (int) ($grant['id'] ?? 0), $currentProgramCode, (string) ($grant['status'] ?? '')),
+                    [
+                        'code' => 'governanca.monitor.grant.' . (string) ($grant['id'] ?? '0') . '.' . (string) ($grant['status'] ?? 'unknown'),
+                        'category' => 'governanca',
+                        'severity' => (string) ($grant['status'] ?? '') === 'revoked' ? 'error' : 'warning',
+                        'actionRequired' => true,
+                        'targetGroups' => ['admin'],
+                        'linkScreenId' => 'admin.programa-grants-operacao',
+                        'metadata' => [
+                            'actionLabel' => 'Abrir grant',
+                            'actionQuery' => [
+                                'programCode' => $currentProgramCode,
+                                'focusGrantId' => (string) ($grant['id'] ?? ''),
+                                'tab' => 'grants',
+                            ],
+                        ],
+                    ]
+                );
+                if ($notificationId) {
+                    $summary['notifications']++;
+                }
+            }
+
+            $blockedOverlays = array_values(array_filter($overlays, static fn (array $item): bool => (string) ($item['rebaseStatus'] ?? '') === 'blocked'));
+            $summary['blockedOverlays'] += count($blockedOverlays);
+            foreach ($blockedOverlays as $overlay) {
+                $notificationId = $this->notifications->createAdministrativeNotification(
+                    'Overlay bloqueado para rebase',
+                    sprintf('O overlay #%d do programa %s esta com conflito bloqueante.', (int) ($overlay['id'] ?? 0), $currentProgramCode),
+                    [
+                        'code' => 'governanca.monitor.overlay.blocked.' . (string) ($overlay['id'] ?? '0'),
+                        'category' => 'governanca',
+                        'severity' => 'error',
+                        'actionRequired' => true,
+                        'targetGroups' => ['admin'],
+                        'linkScreenId' => 'admin.programa-overlays-operacao',
+                        'metadata' => [
+                            'actionLabel' => 'Abrir overlay',
+                            'actionQuery' => [
+                                'programCode' => $currentProgramCode,
+                                'overlayId' => (string) ($overlay['id'] ?? ''),
+                                'tab' => 'overlays',
+                            ],
+                        ],
+                    ]
+                );
+                if ($notificationId) {
+                    $summary['notifications']++;
+                }
+            }
+
+            $hasPassedTest = count(array_filter($tests, static fn (array $item): bool => (string) ($item['status'] ?? '') === 'passed')) > 0;
+            $hasApproval = count(array_filter($approvals, static fn (array $item): bool => (string) ($item['status'] ?? '') === 'approved')) > 0;
+            $hasActiveGrant = count(array_filter($grants, static fn (array $item): bool => (string) ($item['status'] ?? '') === 'active')) > 0;
+            if ($currentVersion && (string) ($currentVersion['status'] ?? '') !== 'published' && $hasActiveGrant && $hasPassedTest && !$hasApproval) {
+                $summary['publishBlocked']++;
+                $notificationId = $this->notifications->createAdministrativeNotification(
+                    'Publicacao bloqueada por aprovacao pendente',
+                    sprintf('O programa %s ja possui grant ativo e bundle aprovado, mas ainda nao tem aprovacao final para publicar.', $currentProgramCode),
+                    [
+                        'code' => 'governanca.monitor.publish.blocked.' . strtolower($currentProgramCode),
+                        'category' => 'governanca',
+                        'severity' => 'warning',
+                        'actionRequired' => true,
+                        'targetGroups' => ['admin'],
+                        'linkScreenId' => 'admin.programa-aprovacoes-operacao',
+                        'metadata' => [
+                            'actionLabel' => 'Abrir aprovacoes',
+                            'actionQuery' => [
+                                'programCode' => $currentProgramCode,
+                                'tab' => 'approvals',
+                            ],
+                        ],
+                    ]
+                );
+                if ($notificationId) {
+                    $summary['notifications']++;
+                }
+            }
+        }
+
+        return $summary;
     }
 
     /**
@@ -964,12 +1259,12 @@ class ProgramGovernanceService
                         $this->connection->executeStatement(
                             'DELETE FROM runtime_notification_recipient WHERE notification_id IN (:ids)',
                             ['ids' => $normalizedIds],
-                            ['ids' => Connection::PARAM_INT_ARRAY]
+                            ['ids' => ArrayParameterType::INTEGER]
                         );
                         $this->connection->executeStatement(
                             'DELETE FROM runtime_notification WHERE id IN (:ids)',
                             ['ids' => $normalizedIds],
-                            ['ids' => Connection::PARAM_INT_ARRAY]
+                            ['ids' => ArrayParameterType::INTEGER]
                         );
                     }
                 } else {
@@ -1010,7 +1305,7 @@ class ProgramGovernanceService
                 'dateField' => 'updated_at',
                 'where' => 'status IN (:statuses)',
                 'params' => ['statuses' => ['rejected', 'revoked', 'consumed', 'expired']],
-                'types' => ['statuses' => Connection::PARAM_STR_ARRAY],
+                'types' => ['statuses' => ArrayParameterType::STRING],
                 'cutoffKey' => 'changeRequestsDays',
             ],
             [
@@ -1019,7 +1314,7 @@ class ProgramGovernanceService
                 'dateField' => 'updated_at',
                 'where' => 'status IN (:statuses)',
                 'params' => ['statuses' => ['consumed', 'revoked', 'expired']],
-                'types' => ['statuses' => Connection::PARAM_STR_ARRAY],
+                'types' => ['statuses' => ArrayParameterType::STRING],
                 'cutoffKey' => 'grantsDays',
             ],
             [
@@ -1028,7 +1323,7 @@ class ProgramGovernanceService
                 'dateField' => 'updated_at',
                 'where' => 'status IN (:statuses)',
                 'params' => ['statuses' => ['approved', 'rejected', 'revoked', 'frozen']],
-                'types' => ['statuses' => Connection::PARAM_STR_ARRAY],
+                'types' => ['statuses' => ArrayParameterType::STRING],
                 'cutoffKey' => 'approvalsDays',
             ],
             [
@@ -1046,7 +1341,7 @@ class ProgramGovernanceService
                 'dateField' => 'created_at',
                 'where' => 'category IN (:categories)',
                 'params' => ['categories' => ['governanca', 'integridade']],
-                'types' => ['categories' => Connection::PARAM_STR_ARRAY],
+                'types' => ['categories' => ArrayParameterType::STRING],
                 'cutoffKey' => 'administrativeNotificationsDays',
             ],
         ];
@@ -1082,5 +1377,152 @@ class ProgramGovernanceService
             $lock->release();
             $this->entityManager->persist($lock);
         }
+    }
+
+    /**
+     * @param list<array<string, mixed>> $timeline
+     * @return list<array<string, mixed>>
+     */
+    private function filterAuditTimeline(array $timeline, array $filters): array
+    {
+        $eventType = trim((string) ($filters['eventType'] ?? ''));
+        $userId = mb_strtolower(trim((string) ($filters['userId'] ?? '')));
+        $dateFrom = $this->normalizeAuditDate($filters['dateFrom'] ?? null, false);
+        $dateTo = $this->normalizeAuditDate($filters['dateTo'] ?? null, true);
+
+        return array_values(array_filter($timeline, static function (array $item) use ($eventType, $userId, $dateFrom, $dateTo): bool {
+            if ($eventType !== '' && (string) ($item['type'] ?? '') !== $eventType) {
+                return false;
+            }
+            if ($userId !== '' && mb_stripos((string) ($item['userId'] ?? ''), $userId) === false) {
+                return false;
+            }
+            $timestamp = trim((string) ($item['timestamp'] ?? ''));
+            if ($timestamp !== '') {
+                $currentDate = new \DateTimeImmutable($timestamp);
+                if ($dateFrom && $currentDate < $dateFrom) {
+                    return false;
+                }
+                if ($dateTo && $currentDate > $dateTo) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
+    }
+
+    /**
+     * @param list<array<string, mixed>> $runs
+     * @return list<array<string, mixed>>
+     */
+    private function filterRetentionRuns(array $runs, array $filters): array
+    {
+        $dateFrom = $this->normalizeAuditDate($filters['dateFrom'] ?? null, false);
+        $dateTo = $this->normalizeAuditDate($filters['dateTo'] ?? null, true);
+
+        return array_values(array_filter($runs, static function (array $item) use ($dateFrom, $dateTo): bool {
+            $timestamp = trim((string) ($item['createdAt'] ?? ''));
+            if ($timestamp === '') {
+                return true;
+            }
+            $currentDate = new \DateTimeImmutable($timestamp);
+            if ($dateFrom && $currentDate < $dateFrom) {
+                return false;
+            }
+            if ($dateTo && $currentDate > $dateTo) {
+                return false;
+            }
+
+            return true;
+        }));
+    }
+
+    private function normalizeAuditDate(mixed $value, bool $endOfDay): ?\DateTimeImmutable
+    {
+        $text = trim((string) ($value ?? ''));
+        if ($text === '') {
+            return null;
+        }
+
+        try {
+            $date = new \DateTimeImmutable($text);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return $endOfDay ? $date->setTime(23, 59, 59) : $date->setTime(0, 0, 0);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $items
+     * @return list<array<string, mixed>>
+     */
+    private function summarizeAuditByKey(array $items, string $key): array
+    {
+        $counts = [];
+        foreach ($items as $item) {
+            $value = trim((string) ($item[$key] ?? ''));
+            if ($value === '') {
+                continue;
+            }
+            $counts[$value] = ($counts[$value] ?? 0) + 1;
+        }
+
+        arsort($counts);
+        $rows = [];
+        foreach ($counts as $label => $count) {
+            $rows[] = ['label' => $label, 'count' => $count];
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $runs
+     * @return list<array<string, mixed>>
+     */
+    private function summarizeRetentionRunsByMode(array $runs): array
+    {
+        $counts = [];
+        foreach ($runs as $run) {
+            $mode = trim((string) ($run['mode'] ?? ''));
+            if ($mode === '') {
+                continue;
+            }
+            $counts[$mode] = ($counts[$mode] ?? 0) + 1;
+        }
+
+        $rows = [];
+        foreach ($counts as $mode => $count) {
+            $rows[] = ['label' => $mode, 'count' => $count];
+        }
+
+        return $rows;
+    }
+
+    private function generateRetentionExecutionGroup(): string
+    {
+        return 'ret-' . (new \DateTimeImmutable())->format('YmdHis') . '-' . bin2hex(random_bytes(3));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function listGovernancePrograms(): array
+    {
+        $programs = [];
+        foreach ($this->versions->findAll() as $version) {
+            if (!$this->isStandardProgram($version->getProgramOrigin(), $version->getOwnerScope())) {
+                continue;
+            }
+            $programCode = trim((string) $version->getProgramCode());
+            if ($programCode === '') {
+                continue;
+            }
+            $programs[$programCode] = $programCode;
+        }
+
+        return array_values($programs);
     }
 }

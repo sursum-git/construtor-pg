@@ -6,6 +6,7 @@ use App\Entity\AuthProviderConfig;
 use App\Entity\AuthSubscriber;
 use App\Entity\AuthUserSubscriber;
 use App\Entity\BuilderEntity;
+use App\Entity\BuilderField;
 use App\Entity\BuilderEntitySituation;
 use App\Entity\BuilderEntitySituationTransition;
 use App\Entity\BuilderEntityVersion;
@@ -36,6 +37,7 @@ use App\Repository\AuthProviderConfigRepository;
 use App\Repository\AuthSubscriberRepository;
 use App\Repository\AuthUserSubscriberRepository;
 use App\Repository\BuilderEntityRepository;
+use App\Repository\BuilderFieldRepository;
 use App\Repository\BuilderEntitySituationRepository;
 use App\Repository\BuilderEntitySituationTransitionRepository;
 use App\Repository\BuilderEntityVersionRepository;
@@ -77,6 +79,7 @@ class StructuralIntegrityService
         private readonly BuilderModuleRepository $modules,
         private readonly BuilderProgramVersionRepository $versions,
         private readonly BuilderEntityRepository $entities,
+        private readonly BuilderFieldRepository $fields,
         private readonly BuilderEntitySituationRepository $situations,
         private readonly BuilderEntitySituationTransitionRepository $situationTransitions,
         private readonly BuilderEntityVersionRepository $entityVersions,
@@ -125,6 +128,11 @@ class StructuralIntegrityService
     public function assertBuilderEntity(BuilderEntity $entity): void
     {
         $this->assertEntityIntegrity('builder_entity', $entity->getId(), $this->builderEntityPayload($entity));
+    }
+
+    public function assertBuilderField(BuilderField $field): void
+    {
+        $this->assertEntityIntegrity('builder_field', $field->getId(), $this->builderFieldPayload($field));
     }
 
     public function assertBuilderEntitySituation(BuilderEntitySituation $situation): void
@@ -265,6 +273,11 @@ class StructuralIntegrityService
     public function signBuilderEntity(BuilderEntity $entity, ?array $metadata = null): void
     {
         $this->signEntity('builder_entity', $entity->getId(), $this->builderEntityPayload($entity), $metadata);
+    }
+
+    public function signBuilderField(BuilderField $field, ?array $metadata = null): void
+    {
+        $this->signEntity('builder_field', $field->getId(), $this->builderFieldPayload($field), $metadata);
     }
 
     public function signBuilderEntitySituation(BuilderEntitySituation $situation, ?array $metadata = null): void
@@ -414,6 +427,7 @@ class StructuralIntegrityService
             'builder_api_source',
             'builder_module',
             'builder_entity',
+            'builder_field',
             'builder_entity_situation',
             'builder_entity_situation_transition',
             'builder_entity_version',
@@ -485,6 +499,11 @@ class StructuralIntegrityService
         foreach ($this->entities->findAll() as $entity) {
             if ($entity->getId()) {
                 $this->signBuilderEntity($entity, ['source' => 'backfill']);
+            }
+        }
+        foreach ($this->fields->findAll() as $field) {
+            if ($field->getId()) {
+                $this->signBuilderField($field, ['source' => 'backfill']);
             }
         }
         foreach ($this->situations->findAll() as $situation) {
@@ -909,6 +928,7 @@ class StructuralIntegrityService
             'builder_api_source' => $this->apiSourcePayload($this->requireEntity($this->apiSources->find($recordId), $tableName, $recordId)),
             'builder_module' => $this->builderModulePayload($this->requireEntity($this->modules->find($recordId), $tableName, $recordId)),
             'builder_entity' => $this->builderEntityPayload($this->requireEntity($this->entities->find($recordId), $tableName, $recordId)),
+            'builder_field' => $this->builderFieldPayload($this->requireEntity($this->fields->find($recordId), $tableName, $recordId)),
             'builder_entity_situation' => $this->builderEntitySituationPayload($this->requireEntity($this->situations->find($recordId), $tableName, $recordId)),
             'builder_entity_situation_transition' => $this->builderEntitySituationTransitionPayload($this->requireEntity($this->situationTransitions->find($recordId), $tableName, $recordId)),
             'builder_entity_version' => $this->builderEntityVersionPayload($this->requireEntity($this->entityVersions->find($recordId), $tableName, $recordId)),
@@ -1132,6 +1152,25 @@ class StructuralIntegrityService
             'situationFieldCode' => $entity->getSituationFieldCode(),
             'metadata' => $entity->getMetadata(),
             'fields' => $fields,
+        ];
+    }
+
+    private function builderFieldPayload(BuilderField $field): array
+    {
+        return [
+            'builderEntityId' => $field->getBuilderEntity()?->getId(),
+            'builderEntityCode' => $field->getBuilderEntity()?->getCode(),
+            'code' => $field->getCode(),
+            'label' => $field->getLabel(),
+            'dataType' => $field->getDataType(),
+            'databaseType' => $field->getDatabaseType(),
+            'length' => $field->getLength(),
+            'precisionValue' => $field->getPrecisionValue(),
+            'scaleValue' => $field->getScaleValue(),
+            'required' => $field->isRequired(),
+            'primaryKey' => $field->isPrimaryKey(),
+            'position' => $field->getPosition(),
+            'options' => $field->getOptions(),
         ];
     }
 

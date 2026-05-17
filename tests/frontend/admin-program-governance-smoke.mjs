@@ -8,6 +8,9 @@ const url = "file:///C:/construtor-pg/examples/pages/admin-program-governance.ht
 const grantsUrl = "file:///C:/construtor-pg/examples/pages/admin-program-grants.html?programCode=cd1001&builderProgramVersionId=501";
 const approvalsUrl = "file:///C:/construtor-pg/examples/pages/admin-program-approvals.html?programCode=cd1001&builderProgramVersionId=501";
 const retentionUrl = "file:///C:/construtor-pg/examples/pages/admin-program-retention.html?programCode=cd1001&builderProgramVersionId=501";
+const retentionHistoryUrl = "file:///C:/construtor-pg/examples/pages/admin-program-retention-history.html?programCode=cd1001&builderProgramVersionId=501";
+const auditUrl = "file:///C:/construtor-pg/examples/pages/admin-program-audit.html?programCode=cd1001&builderProgramVersionId=501";
+const operationsUrl = "file:///C:/construtor-pg/examples/pages/admin-program-operations.html?programCode=cd1001&builderProgramVersionId=501";
 const overlaysUrl = "file:///C:/construtor-pg/examples/pages/admin-program-overlays.html?programCode=cd1001&builderProgramVersionId=501";
 const overlayVersionsUrl = "file:///C:/construtor-pg/examples/pages/admin-program-overlay-versions.html?programCode=cd1001&builderProgramVersionId=501&overlayId=700";
 
@@ -28,6 +31,22 @@ async function clickButtonByText(page, text) {
   }, text);
 }
 
+async function clickFirstVisibleButton(page, candidates) {
+  for (const text of candidates) {
+    const exists = await page.evaluate((buttonText) => {
+      return Boolean(window.jQuery("button").filter(function() {
+        const $button = window.jQuery(this);
+        return $button.text().trim() === buttonText && $button.is(":visible") && !$button.prop("disabled");
+      }).get(0));
+    }, text);
+    if (exists) {
+      await clickButtonByText(page, text);
+      return text;
+    }
+  }
+  throw new Error("Nenhum botao visivel encontrado: " + candidates.join(", "));
+}
+
 async function inspectFocusedMode(browser, targetUrl, expectedTitle) {
   const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
   const errors = [];
@@ -39,13 +58,19 @@ async function inspectFocusedMode(browser, targetUrl, expectedTitle) {
     await page.waitForFunction(() => {
       return Boolean(window.jQuery(".program-governance-admin-shell").length);
     }, null, { timeout: 30000 });
+    if (expectedTitle === "Operacoes da governanca") {
+      await page.waitForFunction(() => document.body.innerText.includes("Rodar operacao unificada"), null, { timeout: 10000 });
+    }
     const result = await page.evaluate(() => {
       const text = document.body.innerText;
       return {
         title: window.jQuery(".program-governance-admin-title h1").text().trim(),
+        bodyText: text,
         hasGrantAction: text.includes("Liberar grant"),
         hasApprovalAction: text.includes("Aprovar publicacao"),
         hasRetentionAction: text.includes("Salvar retencao"),
+        hasOperationsAction: text.includes("Rodar operacao unificada"),
+        hasAuditTimeline: text.includes("Linha do tempo"),
         hasOverlayAction: text.includes("Usar no rebase"),
         hasOverlayVersionsAction: text.includes("Carregar versoes")
       };
@@ -65,10 +90,19 @@ async function inspectFocusedMode(browser, targetUrl, expectedTitle) {
     if (expectedTitle === "Retencao da governanca" && (!result.hasRetentionAction || result.hasGrantAction || result.hasApprovalAction)) {
       throw new Error("Modo focado de retencao nao ficou restrito como esperado.");
     }
-    if (expectedTitle === "Overlays de programas" && !result.hasOverlayAction) {
+    if (expectedTitle === "Historico da retencao" && (result.hasGrantAction || result.hasApprovalAction)) {
+      throw new Error("Modo focado de historico da retencao nao ficou restrito como esperado.");
+    }
+    if (expectedTitle === "Auditoria da governanca" && (!result.hasAuditTimeline || result.hasGrantAction || result.hasApprovalAction || result.hasRetentionAction)) {
+      throw new Error("Modo focado de auditoria nao ficou restrito como esperado.");
+    }
+    if (expectedTitle === "Operacoes da governanca" && (!result.hasOperationsAction || result.hasGrantAction || result.hasApprovalAction)) {
+      throw new Error("Modo focado de operacoes nao ficou restrito como esperado.");
+    }
+    if (expectedTitle === "Overlays de programas" && (result.hasGrantAction || result.hasApprovalAction || result.hasRetentionAction)) {
       throw new Error("Modo focado de overlays nao ficou restrito como esperado.");
     }
-    if (expectedTitle === "Versoes de overlay" && !result.hasOverlayVersionsAction) {
+    if (expectedTitle === "Versoes de overlay" && (result.hasGrantAction || result.hasApprovalAction || result.hasRetentionAction)) {
       throw new Error("Modo focado de versoes de overlay nao ficou restrito como esperado.");
     }
     return result;
@@ -136,12 +170,20 @@ async function main() {
     await page.waitForFunction(() => {
       return document.body.innerText.includes("Preview da limpeza carregado.");
     }, null, { timeout: 10000 });
+    await page.waitForFunction(() => {
+      return document.body.innerText.includes("Historico da retencao");
+        }, null, { timeout: 10000 });
     const retentionDownload = page.waitForEvent("download");
     await clickButtonByText(page, "Exportar JSON");
     const retentionJson = await retentionDownload;
     if (!/governanca-retencao-.*\.json$/i.test(retentionJson.suggestedFilename())) {
       throw new Error("Download JSON da retencao nao foi gerado como esperado.");
     }
+    await clickButtonByText(page, "Executar limpeza");
+    await page.waitForTimeout(500);
+    await clickFirstVisibleButton(page, ["Executar", "Confirmar"]);
+    await page.waitForFunction(() => document.body.innerText.includes("Limpeza executada."), null, { timeout: 10000 });
+    await page.waitForTimeout(1000);
 
     await page.evaluate(() => {
       const widget = window.jQuery(".program-governance-admin-tabs").data("kendoTabStrip");
@@ -176,6 +218,16 @@ async function main() {
       }
     });
     await clickButtonByText(page, "Executar rebase");
+    await page.waitForTimeout(500);
+    const hasRebaseConfirm = await page.evaluate(() => {
+      return Boolean(window.jQuery("button").filter(function() {
+        const text = window.jQuery(this).text().trim();
+        return window.jQuery(this).is(":visible") && (text === "Confirmar" || text === "Continuar");
+      }).get(0));
+    });
+    if (hasRebaseConfirm) {
+      await clickFirstVisibleButton(page, ["Confirmar", "Continuar"]);
+    }
     await page.waitForFunction(() => document.body.innerText.includes("Rebase executado."), null, { timeout: 10000 });
     await page.screenshot({ path: path.join(outputDir, "admin-program-governance-rebase.png"), fullPage: true });
 
@@ -215,15 +267,43 @@ async function main() {
         hasGrant: json.includes("\"grants\""),
         rebaseLoaded: document.body.innerText.includes("Status: warning"),
         overlayVersionsLoaded: document.body.innerText.includes("Versao #2"),
-        retentionExportJson: true
+        retentionExportJson: true,
+        retentionApplyLinked: Boolean(window.programGovernanceAdminApp && window.programGovernanceAdminApp.state && Array.isArray(window.programGovernanceAdminApp.state.retentionRuns) && window.programGovernanceAdminApp.state.retentionRuns.some((item) => item.mode === "apply" && Number(item.relatedRunId || 0) > 0))
       };
     });
 
     const grantsMode = await inspectFocusedMode(browser, grantsUrl, "Grants de programas");
     const approvalsMode = await inspectFocusedMode(browser, approvalsUrl, "Aprovacoes de publicacao");
     const retentionMode = await inspectFocusedMode(browser, retentionUrl, "Retencao da governanca");
+    const retentionHistoryMode = await inspectFocusedMode(browser, retentionHistoryUrl, "Historico da retencao");
+    const auditMode = await inspectFocusedMode(browser, auditUrl, "Auditoria da governanca");
+    const operationsMode = await inspectFocusedMode(browser, operationsUrl, "Operacoes da governanca");
     const overlaysMode = await inspectFocusedMode(browser, overlaysUrl, "Overlays de programas");
     const overlayVersionsMode = await inspectFocusedMode(browser, overlayVersionsUrl, "Versoes de overlay");
+    const auditPage = await browser.newPage({ viewport: { width: 1440, height: 960 } });
+    await auditPage.goto(auditUrl);
+    await auditPage.waitForFunction(() => Boolean(window.jQuery(".program-governance-admin-shell").length), null, { timeout: 30000 });
+    await auditPage.evaluate(() => {
+      window.jQuery(".program-builder-field").each(function() {
+        const label = window.jQuery(this).find("label").text().trim();
+        const input = window.jQuery(this).find("input").first();
+        const textBox = input.data("kendoTextBox");
+        const dropDown = input.data("kendoDropDownList");
+        if (label === "Usuario" && textBox) {
+          textBox.value("analista");
+        }
+        if (label === "Tipo" && dropDown) {
+          dropDown.value("grant");
+        }
+      });
+    });
+    await clickButtonByText(auditPage, "Aplicar filtro");
+    await auditPage.waitForFunction(() => document.body.innerText.includes("Resumo da auditoria"), null, { timeout: 10000 });
+    const auditFilterResult = await auditPage.evaluate(() => ({
+      hasGrantOnlySummary: document.body.innerText.includes("Eventos por tipo"),
+      filteredTimelineCount: window.jQuery(".program-governance-admin-timeline-item").length
+    }));
+    await auditPage.close();
 
     if (pageErrors.length) {
       throw new Error("Erros JavaScript: " + pageErrors.join(" | "));
@@ -234,6 +314,10 @@ async function main() {
       grantsMode: grantsMode,
       approvalsMode: approvalsMode,
       retentionMode: retentionMode,
+      retentionHistoryMode: retentionHistoryMode,
+      auditMode: auditMode,
+      operationsMode: operationsMode,
+      auditFilterResult: auditFilterResult,
       overlaysMode: overlaysMode,
       overlayVersionsMode: overlayVersionsMode
     };

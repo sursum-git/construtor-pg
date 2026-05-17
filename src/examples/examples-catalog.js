@@ -271,6 +271,30 @@
       page: pagePath + "admin-program-retention.html"
     },
     {
+      id: "admin-program-retention-history",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Historico da retencao",
+      summary: "Entrada focada para comparar preview e aplicacao da retencao por grupo de execucao.",
+      page: pagePath + "admin-program-retention-history.html"
+    },
+    {
+      id: "admin-program-audit",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Auditoria da governanca",
+      summary: "Entrada focada da governanca para revisar timeline, sinais operacionais e historico detalhado por programa.",
+      page: pagePath + "admin-program-audit.html"
+    },
+    {
+      id: "admin-program-operations",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Operacoes da governanca",
+      summary: "Entrada focada para monitoramento, integridade e preview operacional da retencao em uma unica superficie.",
+      page: pagePath + "admin-program-operations.html"
+    },
+    {
       id: "admin-program-overlays",
       engine: "program-builder",
       category: "Administracao",

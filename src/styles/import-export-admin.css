@@ -113,6 +113,26 @@
   flex-wrap: wrap;
 }
 
+.import-export-admin-inline-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.import-export-admin-inline-field {
+  display: grid;
+  gap: 4px;
+  min-width: 160px;
+}
+
+.import-export-admin-inline-field > span {
+  color: var(--crud-muted, #6b7280);
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .import-export-admin-designer-meta {
   margin-bottom: 12px;
 }
@@ -232,6 +252,10 @@
   background: #0f172a;
   color: #e2e8f0;
   font-size: 12px;
+}
+
+.import-export-admin-pre-compact {
+  min-height: 180px;
 }
 
 .import-export-admin-execution-body {

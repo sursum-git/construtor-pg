@@ -118,6 +118,7 @@
         this.definition = this.normalizeDefinition(definition);
         this.validator.validate(this.definition, { securityPolicy: this.securityPolicy });
         this.applyDefinitionSecurity(this.definition);
+        this.loadNotificationFilterState();
         this.loadUserFavoriteState();
         this.modules = this.buildModuleList();
         this.currentModuleId = this.resolveInitialModuleId();
@@ -302,6 +303,53 @@
 
     getHomeScreenId() {
       return String(this.definition && this.definition.screenId || this.definition && this.definition.app && this.definition.app.id || "home").trim();
+    }
+
+    getHomePreferenceStorageKey(suffix) {
+      const screenId = this.getHomeScreenId() || "home";
+      return "homeEngine." + screenId + "." + String(suffix || "state");
+    }
+
+    loadNotificationFilterState() {
+      if (!global.localStorage) {
+        return;
+      }
+      try {
+        const raw = global.localStorage.getItem(this.getHomePreferenceStorageKey("notificationFilters"));
+        if (!raw) {
+          return;
+        }
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") {
+          return;
+        }
+        this.notificationListFilters = Object.assign({}, this.notificationListFilters, {
+          severity: String(parsed.severity || ""),
+          category: String(parsed.category || ""),
+          actionRequired: parsed.actionRequired === true,
+          unreadOnly: parsed.unreadOnly !== false,
+          includeRead: parsed.includeRead === true
+        });
+      } catch (_) {
+        return;
+      }
+    }
+
+    saveNotificationFilterState() {
+      if (!global.localStorage) {
+        return;
+      }
+      try {
+        global.localStorage.setItem(this.getHomePreferenceStorageKey("notificationFilters"), JSON.stringify({
+          severity: this.notificationListFilters.severity || "",
+          category: this.notificationListFilters.category || "",
+          actionRequired: this.notificationListFilters.actionRequired === true,
+          unreadOnly: this.notificationListFilters.unreadOnly !== false,
+          includeRead: this.notificationListFilters.includeRead === true
+        }));
+      } catch (_) {
+        return;
+      }
     }
 
     normalizeConfig(config) {
@@ -2154,9 +2202,7 @@
 
     loadAppbarListItems(kind, endpoint, content) {
       content.empty();
-      if (kind === "notifications") {
-        this.renderNotificationToolbar(content, endpoint);
-      }
+      const toolbarHost = $("<div class=\"home-appbar-list-toolbar-host\"></div>").appendTo(content);
       const listHost = $("<div class=\"home-appbar-list-host\"></div>").appendTo(content);
       $("<div class=\"home-appbar-list-loading\"></div>").text("Carregando...").appendTo(listHost);
       const request = kind === "notifications" && !endpoint
@@ -2169,11 +2215,13 @@
         const defaults = this.getAppbarListDefaults(kind);
         let items = this.normalizeAppbarListItems(response, kind);
         if (kind === "notifications") {
+          this.renderNotificationToolbar(toolbarHost, endpoint, items);
           items = this.filterNotificationItems(items);
         }
         listHost.empty();
         this.renderAppbarListItems(listHost, items, defaults.emptyText, kind, endpoint);
       }).catch(() => {
+        toolbarHost.empty();
         listHost.empty();
         $("<div class=\"home-appbar-list-empty\"></div>")
           .text("Nao foi possivel carregar as informacoes.")
@@ -2281,7 +2329,24 @@
       };
     }
 
-    renderNotificationToolbar(container, endpoint) {
+    buildNotificationCategoryOptions(items) {
+      const seen = {};
+      const options = [{ value: "", text: "Todas as categorias" }];
+      global.CrudUtils.ensureArray(items).forEach(function(item) {
+        const value = String(item && (item.sourceKind || item.type || item.status || "") || "").trim();
+        if (!value || seen[value]) {
+          return;
+        }
+        seen[value] = true;
+        options.push({
+          value: value,
+          text: value
+        });
+      });
+      return options;
+    }
+
+    renderNotificationToolbar(container, endpoint, items) {
       const toolbar = $("<div class=\"home-appbar-list-toolbar\"></div>").appendTo(container);
       const severitySelect = $("<input type=\"text\">").appendTo(toolbar);
       severitySelect.kendoDropDownList({
@@ -2297,6 +2362,22 @@
         ],
         change: () => {
           this.notificationListFilters.severity = String(severitySelect.data("kendoDropDownList").value() || "");
+          this.saveNotificationFilterState();
+          this.reloadNotificationsList(endpoint, container.closest(".home-appbar-list-window-content"));
+        }
+      });
+      const categorySelect = $("<input type=\"text\">").appendTo(toolbar);
+      categorySelect.kendoComboBox({
+        clearButton: false,
+        filter: "contains",
+        suggest: true,
+        dataTextField: "text",
+        dataValueField: "value",
+        value: this.notificationListFilters.category || "",
+        dataSource: this.buildNotificationCategoryOptions(items),
+        change: () => {
+          this.notificationListFilters.category = String(categorySelect.data("kendoComboBox").value() || "");
+          this.saveNotificationFilterState();
           this.reloadNotificationsList(endpoint, container.closest(".home-appbar-list-window-content"));
         }
       });
@@ -2306,12 +2387,14 @@
         actionInput.kendoCheckBox({
           change: () => {
             this.notificationListFilters.actionRequired = actionInput.is(":checked");
+            this.saveNotificationFilterState();
             this.reloadNotificationsList(endpoint, container.closest(".home-appbar-list-window-content"));
           }
         });
       } else {
         actionInput.on("change", () => {
           this.notificationListFilters.actionRequired = actionInput.is(":checked");
+          this.saveNotificationFilterState();
           this.reloadNotificationsList(endpoint, container.closest(".home-appbar-list-window-content"));
         });
       }
@@ -2324,6 +2407,7 @@
             const checked = unreadInput.is(":checked");
             this.notificationListFilters.unreadOnly = checked;
             this.notificationListFilters.includeRead = !checked;
+            this.saveNotificationFilterState();
             this.reloadNotificationsList(endpoint, container.closest(".home-appbar-list-window-content"));
           }
         });
@@ -2332,10 +2416,25 @@
           const checked = unreadInput.is(":checked");
           this.notificationListFilters.unreadOnly = checked;
           this.notificationListFilters.includeRead = !checked;
+          this.saveNotificationFilterState();
           this.reloadNotificationsList(endpoint, container.closest(".home-appbar-list-window-content"));
         });
       }
       $("<span></span>").text("Somente nao lidas").appendTo(unreadToggle);
+      const clearFiltersButton = $("<button type=\"button\"></button>").appendTo(toolbar);
+      clearFiltersButton.kendoButton({ icon: "filter-clear" });
+      clearFiltersButton.data("kendoButton").element.text("Limpar filtros");
+      clearFiltersButton.on("click", () => {
+        this.notificationListFilters = {
+          severity: "",
+          category: "",
+          actionRequired: false,
+          unreadOnly: true,
+          includeRead: false
+        };
+        this.saveNotificationFilterState();
+        this.reloadNotificationsList(endpoint, container.closest(".home-appbar-list-window-content"));
+      });
       const markAllButton = $("<button type=\"button\"></button>").appendTo(toolbar);
       markAllButton.kendoButton({ icon: "check" });
       markAllButton.data("kendoButton").element.text("Marcar todas");
@@ -2348,6 +2447,7 @@
           if (!acknowledged) {
             return;
           }
+          this.saveNotificationFilterState();
           this.reloadNotificationsList(endpoint, container.closest(".home-appbar-list-window-content"));
         });
       });

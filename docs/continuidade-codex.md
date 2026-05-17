@@ -134,25 +134,89 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - `production/app.html?screenId=admin.programa-grants-operacao`;
   - `production/app.html?screenId=admin.programa-aprovacoes-operacao`;
   - `production/app.html?screenId=admin.programa-retencao-operacao`;
+  - `production/app.html?screenId=admin.programa-retencao-historico-operacao`;
+  - `production/app.html?screenId=admin.programa-auditoria-operacao`;
+  - `production/app.html?screenId=admin.programa-operacoes-operacao`;
   - `production/app.html?screenId=admin.programa-overlays-operacao`;
   - `production/app.html?screenId=admin.programa-overlay-versoes-operacao`;
   - paginas locais:
     - `examples/pages/admin-program-grants.html`
     - `examples/pages/admin-program-approvals.html`
     - `examples/pages/admin-program-retention.html`
+    - `examples/pages/admin-program-retention-history.html`
+    - `examples/pages/admin-program-audit.html`
+    - `examples/pages/admin-program-operations.html`
     - `examples/pages/admin-program-overlays.html`
     - `examples/pages/admin-program-overlay-versions.html`
   - usadas por notificacoes/contexto e validadas no smoke de governanca.
+- a retencao da governanca agora tambem persiste historico operacional em `program_governance_retention_run`:
+  - modo `preview|apply`;
+  - origem `ui|cli`;
+  - usuario;
+  - ambiente/base;
+  - total de registros, delta por tabela, `executionGroup`, relacao entre preview/aplicacao e payload resumido da execucao.
+  - agora tambem exibe comparativo antes/depois por `pairedRun`, incluindo total anterior e delta por tabela.
+  - existe entrada focada para esse historico, com agrupamento por execucao e exportacao do item selecionado.
+- existe endpoint dedicado para auditoria:
+  - `GET /api/admin/program-builder/governance/audit`;
+  - filtros suportados:
+    - `programCode`
+    - `builderProgramVersionId`
+    - `eventType`
+    - `userId`
+    - `dateFrom`
+    - `dateTo`
+- existe comando operacional novo:
+  - `php backend/bin/console app:governance:monitor`
+  - `php backend/bin/console app:governance:monitor --fail-on-alert`
+  - `php backend/bin/console app:governance:operations`
+  - objetivo:
+    - revisar grants congelados/revogados;
+    - identificar overlays bloqueados;
+    - detectar publicacoes padrao travadas por aprovacao pendente;
+    - consolidar notificacoes administrativas idempotentes;
+    - opcionalmente acoplar preview/aplicacao da limpeza operacional.
+- existe agora tambem a UI focada `admin.programa-operacoes-operacao`:
+  - consulta snapshot operacional por programa;
+  - roda monitor dedicado;
+  - roda operacao unificada;
+  - mostra contagens de integridade, alertas e limpeza.
 - o smoke de governanca agora valida tambem:
   - revogacao e nova liberacao de grant antes do publish governado;
   - o modo focado de retencao na tela administrativa dedicada;
   - o modo focado de overlays com abertura do preview de rebase;
   - o modo focado de versoes de overlay com carga, comparacao e publish.
+- existe tambem o E2E `npm run test:program-governance-full`, que percorre builder governado, publish, rebase, retencao e auditoria em sequencia.
 - a Home agora consegue abrir notificacoes com contexto seguro:
   - `screenId` ou `programId`;
   - `navigation.query` serializado na URL interna;
   - filtros aplicados na tela administrativa de destino;
   - grants e aprovacoes podem abrir direto nas entradas focadas de operacao.
+- a auditoria dedicada agora salva localmente o ultimo filtro aplicado por tipo/usuario/data e reaplica esse recorte ao reabrir a tela focada.
+- o filtro salvo da auditoria agora usa chave por `programCode`, evitando misturar contexto de programas diferentes.
+- o preview de rebase agora tambem devolve diff final consolidado:
+  - `finalDiffEntries`
+  - `finalDiffDefinition`
+  - usado tanto no builder quanto na tela dedicada de governanca.
+- a Home agora tambem salva o filtro local da central de notificacoes por `screenId`:
+  - severidade;
+  - categoria;
+  - exige acao;
+  - somente nao lidas;
+  - com botao `Limpar filtros`.
+- `admin.integracoes` agora tambem:
+  - filtra execucoes por `mappingCode`, `mode` e `status`;
+  - mostra detalhe da execucao selecionada;
+  - exporta a execucao selecionada em JSON.
+- o login web agora tambem:
+  - preenche o ultimo usuario usado;
+  - limpa sessao local por botao proprio;
+  - ignora `rememberToken` expirado antes do auto-login.
+- existem smokes novos desta frente:
+  - `npm run test:admin-program-audit`
+  - `npm run test:program-governance-full`
+  - `npm run test:home-notifications`
+  - `npm run test:login-demo`
 - validacao real mais recente desta frente:
   - mock Odoo local em `tmp/mock-odoo-router.php`;
   - `XML-RPC` e `JSON-RPC` com sucesso no teste de conexao;
@@ -233,6 +297,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - locks de autoria reaproveitando `builder_editor_lock` com `grantId` e `lockCategory`;
   - rastreabilidade ampliada em `runtime_transaction` e `runtime_transaction_log` com `programVersion`, `builderProgramVersionId`, `builderEntityVersionId`, `screenDefinitionVersion`, `schemaFingerprint`, `databaseIdentity`, `databaseEnvironment`, `customizationKind`, `grantId`, `requestCode`, `approvalId` e `testExecutionBundleId`;
   - integridade estrutural em `system_record_integrity`, com assinatura por HMAC para `builder_program`, `builder_program_version`, `builder_entity`, `builder_entity_version`, `screen_definition`, `runtime_endpoint`, overlays e versoes de overlay;
+  - cobertura estrutural ampliada tambem para `builder_field`;
   - monitor administrativo `admin.integridade` para acompanhar ultimo status, horario, erro da verificacao estrutural e disparar reassinatura controlada;
   - comandos operacionais `app:integrity:check`, `app:integrity:monitor` e `app:integrity:resign`;
   - politica inicial de retencao e limpeza por `app:governance:cleanup-history`;
@@ -241,6 +306,10 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - `rebased` para manter o merge sugerido;
   - `overlay` para preservar o valor customizado;
   - `base` para usar o valor da nova base;
+- conflitos bloqueantes nao seguem mais por confirmacao manual;
+- conflitos leves exigem confirmacao explicita;
+- escolhas `overlay` em conflitos leves agora sao rejeitadas por politica;
+- o preview agora devolve `policyDecision`, `policySummary`, `runtimeImpactSummary` e `finalResolutionSummary`.
 - tela dedicada `admin.programa-governanca` para operar o mesmo fluxo fora do editor, inclusive retencao com preview/execucao e rebase assistido;
 - entrada focada `admin.programa-overlays-operacao` para listar overlays do programa, revisar congelamento e abrir o preview do rebase com o ID correto;
   - gate guiado no proprio editor para apontar pendencias de grant, lock, bundle e aprovacao antes do publish.

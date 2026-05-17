@@ -2,6 +2,7 @@
 
 namespace App\Runtime;
 
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 
 class RuntimeNotificationService
@@ -279,7 +280,7 @@ class RuntimeNotificationService
             ->andWhere('(n.expires_at IS NULL OR n.expires_at > :now)')
             ->setParameter('tenantId', $tenantId)
             ->setParameter('userId', $userId)
-            ->setParameter('statuses', $statuses, Connection::PARAM_STR_ARRAY)
+            ->setParameter('statuses', $statuses, ArrayParameterType::STRING)
             ->setParameter('notificationStatus', 'published')
             ->setParameter('now', (new \DateTimeImmutable())->format('Y-m-d H:i:s'))
             ->orderBy('n.created_at', 'DESC')
@@ -371,7 +372,7 @@ class RuntimeNotificationService
             $this->connection->executeStatement(
                 'UPDATE runtime_notification_recipient SET status = :status, delivered_at = COALESCE(delivered_at, :now), updated_at = :now WHERE id IN (:ids)',
                 ['status' => 'delivered', 'now' => $now, 'ids' => $pendingIds],
-                ['ids' => Connection::PARAM_INT_ARRAY],
+                ['ids' => ArrayParameterType::INTEGER],
             );
         }
 
@@ -400,7 +401,7 @@ class RuntimeNotificationService
                     'userId' => $this->permissions->getUserId(),
                     'ids' => $normalizedIds,
                 ],
-                ['ids' => Connection::PARAM_INT_ARRAY],
+                ['ids' => ArrayParameterType::INTEGER],
             );
         }
 
@@ -611,7 +612,7 @@ class RuntimeNotificationService
                     'userId' => $this->permissions->getUserId(),
                     'statuses' => ['pending', 'delivered'],
                 ],
-                ['statuses' => Connection::PARAM_STR_ARRAY],
+                ['statuses' => ArrayParameterType::STRING],
             );
         }
 
@@ -626,7 +627,7 @@ class RuntimeNotificationService
             ->andWhere('(n.expires_at IS NULL OR n.expires_at > :filterNow)')
             ->setParameter('tenantId', $this->permissions->getTenantId())
             ->setParameter('userId', $this->permissions->getUserId())
-            ->setParameter('statuses', ['pending', 'delivered'], Connection::PARAM_STR_ARRAY)
+            ->setParameter('statuses', ['pending', 'delivered'], ArrayParameterType::STRING)
             ->setParameter('notificationStatus', 'published')
             ->setParameter('filterNow', $now);
 
@@ -659,7 +660,7 @@ class RuntimeNotificationService
                 'now' => $now,
                 'ids' => $ids,
             ],
-            ['ids' => Connection::PARAM_INT_ARRAY],
+            ['ids' => ArrayParameterType::INTEGER],
         );
     }
 

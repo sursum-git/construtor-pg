@@ -4,6 +4,7 @@ namespace App\Tests\Runtime;
 
 use App\Entity\BuilderApiSource;
 use App\Entity\BuilderModule;
+use App\Repository\BuilderFieldRepository;
 use App\Entity\Program;
 use App\Entity\SystemRecordIntegrity;
 use App\Repository\BuilderApiSourceRepository;
@@ -199,6 +200,12 @@ class StructuralIntegrityServiceTest extends TestCase
         self::assertTrue($service->supportsTableName('auth_subscriber'));
         self::assertTrue($service->supportsTableName('auth_user_subscriber'));
         self::assertTrue($service->supportsTableName('system_literal_translation'));
+        self::assertTrue($service->supportsTableName('builder_api_source'));
+        self::assertTrue($service->supportsTableName('builder_module'));
+        self::assertTrue($service->supportsTableName('builder_field'));
+        self::assertTrue($service->supportsTableName('import_export_mapping'));
+        self::assertTrue($service->supportsTableName('import_export_mapping_version'));
+        self::assertTrue($service->supportsTableName('import_export_schedule'));
     }
 
     private function service(EntityManagerInterface $entityManager, SystemRecordIntegrityRepository $integrities): StructuralIntegrityService
@@ -214,6 +221,7 @@ class StructuralIntegrityServiceTest extends TestCase
             $this->createStub(BuilderModuleRepository::class),
             $this->createStub(BuilderProgramVersionRepository::class),
             $this->createStub(BuilderEntityRepository::class),
+            $this->createStub(BuilderFieldRepository::class),
             $this->createStub(BuilderEntitySituationRepository::class),
             $this->createStub(BuilderEntitySituationTransitionRepository::class),
             $this->createStub(BuilderEntityVersionRepository::class),

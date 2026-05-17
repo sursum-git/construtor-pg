@@ -3,7 +3,10 @@
 namespace App\Command;
 
 use App\Runtime\GovernanceRetentionPolicyService;
+use App\Runtime\ProgramGovernanceRetentionHistoryService;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -17,6 +20,8 @@ class CleanupGovernanceHistoryCommand extends Command
     public function __construct(
         private readonly Connection $connection,
         private readonly GovernanceRetentionPolicyService $retention,
+        private readonly ProgramGovernanceRetentionHistoryService $history,
+        private readonly EntityManagerInterface $entityManager,
     ) {
         parent::__construct();
     }
@@ -39,7 +44,7 @@ class CleanupGovernanceHistoryCommand extends Command
                 'dateField' => 'updated_at',
                 'where' => 'status IN (:statuses)',
                 'params' => ['statuses' => ['rejected', 'revoked', 'consumed', 'expired']],
-                'types' => ['statuses' => Connection::PARAM_STR_ARRAY],
+                'types' => ['statuses' => ArrayParameterType::STRING],
                 'cutoffKey' => 'changeRequestsDays',
             ],
             [
@@ -48,7 +53,7 @@ class CleanupGovernanceHistoryCommand extends Command
                 'dateField' => 'updated_at',
                 'where' => 'status IN (:statuses)',
                 'params' => ['statuses' => ['consumed', 'revoked', 'expired']],
-                'types' => ['statuses' => Connection::PARAM_STR_ARRAY],
+                'types' => ['statuses' => ArrayParameterType::STRING],
                 'cutoffKey' => 'grantsDays',
             ],
             [
@@ -57,7 +62,7 @@ class CleanupGovernanceHistoryCommand extends Command
                 'dateField' => 'updated_at',
                 'where' => 'status IN (:statuses)',
                 'params' => ['statuses' => ['approved', 'rejected', 'revoked', 'frozen']],
-                'types' => ['statuses' => Connection::PARAM_STR_ARRAY],
+                'types' => ['statuses' => ArrayParameterType::STRING],
                 'cutoffKey' => 'approvalsDays',
             ],
             [
@@ -75,7 +80,7 @@ class CleanupGovernanceHistoryCommand extends Command
                 'dateField' => 'created_at',
                 'where' => 'category IN (:categories)',
                 'params' => ['categories' => ['governanca', 'integridade']],
-                'types' => ['categories' => Connection::PARAM_STR_ARRAY],
+                'types' => ['categories' => ArrayParameterType::STRING],
                 'cutoffKey' => 'administrativeNotificationsDays',
             ],
         ];
@@ -103,12 +108,12 @@ class CleanupGovernanceHistoryCommand extends Command
                         $this->connection->executeStatement(
                             'DELETE FROM runtime_notification_recipient WHERE notification_id IN (:ids)',
                             ['ids' => $normalizedIds],
-                            ['ids' => Connection::PARAM_INT_ARRAY]
+                            ['ids' => ArrayParameterType::INTEGER]
                         );
                         $this->connection->executeStatement(
                             'DELETE FROM runtime_notification WHERE id IN (:ids)',
                             ['ids' => $normalizedIds],
-                            ['ids' => Connection::PARAM_INT_ARRAY]
+                            ['ids' => ArrayParameterType::INTEGER]
                         );
                     }
                 } else {
@@ -122,13 +127,31 @@ class CleanupGovernanceHistoryCommand extends Command
 
             $summary[] = [
                 'alvo' => $target['label'],
+                'tabela' => $target['table'],
                 'dias' => (string) $policy[$target['cutoffKey']],
                 'corte' => $cutoff,
                 'registros' => (string) $count,
             ];
         }
 
-        $io->table(['Alvo', 'Dias', 'Data de corte', 'Registros'], $summary);
+        $report = [
+            'mode' => $apply ? 'apply' : 'preview',
+            'policy' => $this->retention->describePolicy(),
+            'items' => array_map(static function (array $item): array {
+                return [
+                    'label' => $item['alvo'],
+                    'table' => $item['tabela'],
+                    'days' => (int) $item['dias'],
+                    'cutoff' => $item['corte'],
+                    'records' => (int) $item['registros'],
+                ];
+            }, $summary),
+            'totalRecords' => array_sum(array_map(static fn (array $item): int => (int) $item['registros'], $summary)),
+        ];
+        $this->history->recordRun($report, $apply ? 'apply' : 'preview', 'system', 'cli');
+        $this->entityManager->flush();
+
+        $io->table(['Alvo', 'Tabela', 'Dias', 'Data de corte', 'Registros'], $summary);
         $io->success($apply ? 'Limpeza aplicada conforme a politica de retencao.' : 'Analise concluida sem aplicar exclusoes.');
 
         return Command::SUCCESS;

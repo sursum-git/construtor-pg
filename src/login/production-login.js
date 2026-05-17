@@ -30,6 +30,10 @@
     }).data("kendoNotification");
 
     $("#login-user").kendoTextBox({ placeholder: t("login.placeholder.username_short", "usuario") });
+    const rememberedUsername = readLocalValue("crudEngine.lastUsername");
+    if (rememberedUsername) {
+      $("#login-user").val(rememberedUsername);
+    }
     const passwordInput = $("#login-password");
     passwordInput.kendoTextBox({ placeholder: t("login.placeholder.password", "Senha") });
     const passwordToggle = $("#login-toggle-password").kendoButton({
@@ -94,6 +98,13 @@
 
     $("#login-forgot").on("click", function() {
       openPasswordResetWindow("");
+    });
+    $("#login-clear-session").on("click", function() {
+      clearLocalSession();
+      $("#login-user").val("");
+      $("#login-password").val("");
+      $("#login-remember").prop("checked", false);
+      show("Sessao local removida.");
     });
 
     $("#login-toggle-password").on("click", function() {
@@ -171,6 +182,11 @@
 
     function tryRememberLogin() {
       if (skipRememberLogin()) {
+        return;
+      }
+      const expiry = readLocalValue("crudEngine.rememberTokenExpiresAt");
+      if (isRememberTokenExpired(expiry)) {
+        clearRememberTokenState();
         return;
       }
       const rememberToken = readLocalValue("crudEngine.rememberToken");
@@ -446,6 +462,7 @@
         removeLocalValue("crudEngine.rememberTokenExpiresAt");
       }
       if (response.user) {
+        saveLocalValue("crudEngine.lastUsername", response.user.username || response.user.id || "");
         saveLocalValue("crudEngine.runtimeUserId", response.user.id || response.user.username || "");
         saveLocalValue("crudEngine.runtimeUserName", response.user.name || response.user.username || "");
         saveLocalValue("crudEngine.runtimeUserGroups", JSON.stringify(ensureArray(response.user.groups)));
@@ -511,6 +528,40 @@
         ? "home.html?screenId=home&accessArea=admin&initialProgramId=admin-parametros"
         : safeReturnUrl(returnUrl) || "home.html?screenId=home";
       global.location.href = target;
+    }
+
+    function isRememberTokenExpired(value) {
+      const text = String(value || "").trim();
+      if (!text) {
+        return false;
+      }
+      const date = new Date(text);
+      if (Number.isNaN(date.getTime())) {
+        return false;
+      }
+      return date.getTime() <= Date.now();
+    }
+
+    function clearRememberTokenState() {
+      removeLocalValue("crudEngine.rememberToken");
+      removeLocalValue("crudEngine.rememberTokenExpiresAt");
+    }
+
+    function clearLocalSession() {
+      [
+        "crudEngine.authToken",
+        "crudEngine.runtimeTenantId",
+        "crudEngine.runtimeSessionId",
+        "crudEngine.currentSubscriber",
+        "crudEngine.availableSubscribers",
+        "crudEngine.runtimeUserId",
+        "crudEngine.runtimeUserName",
+        "crudEngine.runtimeUserGroups",
+        "crudEngine.runtimeUserPermissions",
+        "crudEngine.accessArea",
+        "crudEngine.lastUsername"
+      ].forEach(removeLocalValue);
+      clearRememberTokenState();
     }
 
     function safeReturnUrl(value) {
