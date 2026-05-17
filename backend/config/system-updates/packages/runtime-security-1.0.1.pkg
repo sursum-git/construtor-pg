@@ -1,0 +1,6 @@
+runtime-security-1.0.1
+passos:
+- migrate
+- seed_runtime_metadata
+- publish_runtime_defaults
+- integrity_monitor

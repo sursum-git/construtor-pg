@@ -750,6 +750,7 @@
               "No on-premise, extrair o zip em Ubuntu 24.04 e executar `install.sh`."
             ],
             cautions: [
+              "Esta tela existe apenas no sistema central SaaS.",
               "Sem worker ativo, o job fica enfileirado e nao conclui.",
               "A tela tenta SSE primeiro e cai para polling quando o stream nao estiver disponivel.",
               "O pacote on-premise foi pensado para Ubuntu 24.04 e nao substitui validacao operacional do host.",
@@ -760,6 +761,99 @@
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Usuarios", "Usuarios por assinante", "Integridade estrutural"],
             notes: ["Tela de producao: ../../production/app.html?screenId=admin.assinante-ambientes", "Entrada custom local: ../../production/admin/subscriber-provisioning.html", "Exemplo local: ../../examples/pages/admin-subscriber-provisioning.html", "Scripts: `scripts/provision-saas-subscriber.sh|ps1` e `scripts/install-onprem.sh|ps1`", "Comandos base: `app:install:bootstrap`, `app:subscriber:create` e `app:runtime:publish-defaults`"]
+          }
+        },
+        "admin-atualizacoes": {
+          title: "Atualizacoes do sistema",
+          module: "Administracao",
+          type: "Custom administrativo",
+          route: "../../production/admin/system-updates.html",
+          screenId: "admin.atualizacoes",
+          summary: "Tela administrativa para consultar releases, enfileirar aplicacoes e acompanhar impacto em programas padrao, overlays e variantes especificas congeladas.",
+          functional: {
+            objective: "Controlar o ciclo de atualizacao do ambiente sem quebrar a politica atual de programas padrao e customizados.",
+            scope: [
+              "Leitura do manifesto oficial de releases.",
+              "Classificacao da release por severidade, dependencia e anuencia.",
+              "Aplicacao controlada por job runtime.",
+              "Analise de impacto em programas padrao, overlays e variantes completas do assinante.",
+              "Exportacao do plano de rollout SaaS para orquestracao externa."
+            ],
+            outputs: [
+              "Resumo do ambiente e das releases pendentes.",
+              "Execucao de atualizacao enfileirada e acompanhada por SSE/polling.",
+              "Impacto visivel por programa, respeitando as regras de substituicao ja acordadas."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa.",
+              "Manifesto de releases disponivel em `backend/config/system-updates/manifest.json` ou fonte remota configurada por `APP_UPDATE_MANIFEST_URL`.",
+              "Worker de jobs ativo para consumir `system.update.apply`."
+            ],
+            steps: [
+              "Abrir a tela central para consultar versao atual, releases pendentes e execucoes anteriores.",
+              "Selecionar o assinante alvo antes de registrar anuencia, plano SaaS ou apply da release.",
+              "Usar `Atualizar manifesto` para reavaliar releases e dependencias.",
+              "Quando a release exigir aprovacao, registrar a anuencia antes do apply.",
+              "Selecionar a release pendente e usar `Aplicar release` quando a politica permitir.",
+              "Usar `Plano SaaS` para exportar o roteiro de rollout do container/ambiente controlado externamente.",
+              "Acompanhar o job ate `succeeded` ou `failed` pelo detalhe da tela."
+            ],
+            cautions: [
+              "Esta tela existe apenas no sistema central SaaS; no assinante fica apenas a parte local necessaria de verificacao/aplicacao.",
+              "Release `security_critical` pode ser autoenfileirada quando a politica do ambiente permitir.",
+              "Release `required_structural` bloqueia atualizacoes posteriores enquanto a cadeia obrigatoria nao for aplicada.",
+              "Atualizacao de programa padrao nao sobrescreve `customer_overlay` nem `customer_custom`: overlays entram em analise de rebase e variantes completas permanecem congeladas.",
+              "Manifesto remoto sem assinatura confiavel nao deve seguir como release pendente aplicavel.",
+              "Em outros ambientes, publicar a tela exige rodar `php backend/bin/console app:seed-runtime-metadata --no-interaction`."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Provisionamento de assinantes", "Atualizacoes por assinante", "Governanca de programas", "Integridade estrutural"],
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.atualizacoes", "Entrada custom local: ../../production/admin/system-updates.html", "Exemplo local: ../../examples/pages/admin-system-updates.html", "Comandos: `app:update:check`, `app:update:download <versao>`, `app:update:apply <versao>`, `app:update:run-pending` e `app:update:rollout-plan <versao>`", "Jobs envolvidos: `system.update.apply` e avaliacao automatica ao abrir a Home em ambiente autenticado", "Runner on-premise: `scripts/update-onprem.sh|ps1` ou `./update.sh` no pacote zip"]
+          }
+        },
+        "admin-atualizacoes-assinantes": {
+          title: "Atualizacoes por assinante",
+          module: "Administracao",
+          type: "Custom administrativo",
+          route: "../../production/admin/system-update-subscriber-log.html",
+          screenId: "admin.atualizacoes-assinantes",
+          summary: "Tela central para consultar, por assinante, o historico do que foi aplicado em cada ambiente SaaS.",
+          functional: {
+            objective: "Dar visibilidade rapida do historico de atualizacao por assinante no sistema central.",
+            scope: [
+              "Filtro por assinante alvo.",
+              "Consulta do historico aplicado por release.",
+              "Detalhe tecnico com base alvo, horario e origem da execucao."
+            ],
+            outputs: [
+              "Lista de execucoes por assinante.",
+              "Detalhe do que foi aplicado em cada ambiente SaaS."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa.",
+              "Sistema identificado como central SaaS.",
+              "Historico de atualizacoes preenchido pelas execucoes do updater."
+            ],
+            steps: [
+              "Abrir a tela e selecionar o assinante desejado.",
+              "Consultar as releases aplicadas e o status de cada execucao.",
+              "Abrir o detalhe para revisar base alvo, origem e resumo da execucao."
+            ],
+            cautions: [
+              "Esta tela existe apenas no sistema central SaaS.",
+              "Ela nao substitui o resumo local da instalacao do assinante ou o runner on-premise."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Atualizacoes do sistema", "Provisionamento de assinantes"],
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.atualizacoes-assinantes", "Entrada custom local: ../../production/admin/system-update-subscriber-log.html", "Exemplo local: ../../examples/pages/admin-system-update-subscriber-log.html"]
           }
         },
         "admin-programa-solicitacoes": {
@@ -1624,6 +1718,8 @@
           { id: "admin-notificacao-destinatarios", text: "Destinatarios de notificacoes" },
           { id: "admin-integracoes", text: "Importacao e exportacao" },
           { id: "admin-assinante-ambientes", text: "Provisionamento de assinantes" },
+          { id: "admin-atualizacoes", text: "Atualizacoes do sistema" },
+          { id: "admin-atualizacoes-assinantes", text: "Atualizacoes por assinante" },
           { id: "admin-programa-solicitacoes", text: "Solicitacoes de alteracao de programas" },
           { id: "admin-programa-grants", text: "Grants de programas" },
           { id: "admin-programa-testes", text: "Testes de programas" },

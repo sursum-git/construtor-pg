@@ -46,12 +46,23 @@ Paginas principais:
   - `php backend/bin/console app:install:bootstrap`
   - `php backend/bin/console app:subscriber:create`
   - `php backend/bin/console app:runtime:publish-defaults`
+  - `php backend/bin/console app:update:check`
+  - `php backend/bin/console app:update:apply <versao>`
   - `scripts/install-onprem.ps1`
   - `scripts/install-onprem.sh`
   - `scripts/provision-saas-subscriber.ps1`
   - `scripts/provision-saas-subscriber.sh`
   - o objetivo e automatizar banco, migrations, seed, validacao do catalogo padrao e criacao do assinante/admin inicial.
   - existe tambem a tela `admin.assinante-ambientes`, que salva o assinante, enfileira o provisionamento SaaS em job runtime, acompanha o status por SSE/polling e gera o pacote zip on-premise com `install.sh` para Ubuntu 24.04.
+- existe tambem a tela `admin.atualizacoes`, que le o manifesto de releases, avalia dependencias, aplica atualizacoes por job e mostra o impacto em programas padrao e customizados.
+- provisionamento e gestao administrativa de atualizacoes ficam apenas no sistema central SaaS, identificado por `APP_SYSTEM_ROLE=saas_central` ou `APP_CENTRAL_CONTROL_ENABLED=1`.
+- existe tambem a tela `admin.atualizacoes-assinantes`, que facilita consultar no sistema central o historico do que foi aplicado em cada assinante.
+  - a frente agora tambem cobre anuencia formal por release, plano de rollout SaaS exportavel e runner on-premise (`update-onprem.sh|ps1` / `update.sh` no pacote).
+  - o updater agora tambem suporta download e validacao do pacote da release, usando manifesto remoto em `APP_UPDATE_MANIFEST_URL`, assinatura do manifesto por `APP_UPDATE_MANIFEST_SIGNING_KEY` e assinatura do pacote por `APP_UPDATE_PACKAGE_SIGNING_KEY`.
+  - a politica de atualizacao respeita o modelo atual de programas:
+    - `standard`: pode receber a nova release;
+    - `customer_overlay`: entra em analise de rebase/compatibilidade, sem sobrescrita automatica;
+    - `customer_custom`: permanece congelado e so recebe sinalizacao de impacto.
 - os registros estruturais principais do builder/runtime agora podem ser protegidos por assinatura de integridade em `system_record_integrity`, com checagem no backend para detectar alteracao fora do fluxo oficial. A cobertura inclui programa, versao, entidade, campos de entidade (`builder_field`), revisao da entidade, situacoes e transicoes da entidade, tela, endpoint, overlay, versao de overlay, `builder_api_source`, `builder_module`, `runtime_lock_policy`, `system_parameter`, `system_parameter_value`, `system_option_list`, `system_option`, `import_export_mapping`, `import_export_mapping_version`, `import_export_schedule`, `auth_provider_config`, `auth_subscriber`, `auth_user_subscriber` e `system_literal_translation`. A reassinatura controlada registra `auditTrail` com motivo, usuario, horario, hash anterior e status antes/depois.
 - o frontend CRUD agora tambem possui catalogo interno de literais pt-BR para mensagens operacionais e de validacao, com suporte a `titleKey/titleParams` e `messageKey/messageParams` retornados pelo backend, preservando fallback para textos legados.
 - `import_export_mapping`: catalogo inicial de integracoes entre entidades e arquivos, com preview, execucao manual, historico persistido, versionamento do proprio mapping e agendamento basico. A primeira entrega suporta origem em entidade `persistence`, `api` generica, `api` Odoo readonly e arquivo XML declarativo; destino em entidade local, API generica JSON previsivel, `csv`, `xml` e `txt_layout`. No TXT agora existem tres formas de estruturar os registros: posicional fixo (`lineMode="fixed"`), por separador (`lineMode="delimited"`) e arvore hierarquica com `nodeType=record|group|totalizer`, adequada para leiautes com pai, filho e totalizadores. Em XML, a engine agora tambem aceita raiz com namespaces/atributos, nos hierarquicos em `xmlLayouts[]`, atributos por no, filhos repetitivos por `sourceAlias`, vinculo pai/filho por `linkBy` e importacao por `recordPath + fields[].xpath`.

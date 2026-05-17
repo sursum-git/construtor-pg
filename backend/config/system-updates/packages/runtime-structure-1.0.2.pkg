@@ -1,0 +1,8 @@
+runtime-structure-1.0.2
+passos:
+- migrate
+- seed_runtime_metadata
+- publish_runtime_defaults
+- integrity_monitor
+observacao:
+- exige cadeia estrutural anterior aplicada

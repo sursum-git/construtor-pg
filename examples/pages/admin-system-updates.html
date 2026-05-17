@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Provisionamento de assinantes (demo local)</title>
+  <title>Atualizacoes do sistema (demo local)</title>
   <link rel="stylesheet" href="../../kendo/styles/default-urban.css">
   <link rel="stylesheet" href="../../src/styles/crud-engine.css">
   <link rel="stylesheet" href="../../src/styles/program-builder.css">
@@ -16,13 +16,11 @@
       background: var(--crud-readonly-bg);
       color: var(--crud-text);
     }
-
     .subscriber-provisioning-notes h2 {
       margin: 0 0 8px;
       font-size: 16px;
       color: var(--crud-title);
     }
-
     .subscriber-provisioning-notes ul {
       margin: 0;
       padding-left: 18px;
@@ -33,16 +31,16 @@
   <section class="subscriber-provisioning-notes" aria-label="Observacoes operacionais">
     <h2>Observacoes operacionais</h2>
     <ul>
-      <li>Esta pagina usa demo em memoria e nao executa Docker, banco real ou worker.</li>
-      <li>No sistema real, esta tela existe apenas no sistema central SaaS identificado por <code>APP_SYSTEM_ROLE=saas_central</code> ou <code>APP_CENTRAL_CONTROL_ENABLED=1</code>.</li>
-      <li>Na producao, o botao <code>Criar ambiente</code> enfileira o job <code>subscriber.environment.provision</code> e depende de worker ativo.</li>
-      <li>Na producao, o acompanhamento prefere SSE e cai para polling quando necessario.</li>
-      <li>O pacote on-premise foi pensado para Ubuntu 24.04 e entrega <code>install.sh</code> como ponto de entrada.</li>
+      <li>Esta pagina local usa demo em memoria para a tela central de atualizacoes.</li>
+      <li>No sistema real, a tela existe apenas no sistema central SaaS identificado por <code>APP_SYSTEM_ROLE=saas_central</code> ou <code>APP_CENTRAL_CONTROL_ENABLED=1</code>.</li>
+      <li>O historico por assinante fica na tela <code>admin.atualizacoes-assinantes</code>.</li>
+      <li>No sistema do assinante, a parte local deve ficar restrita a verificacao e aplicacao necessaria da propria instalacao.</li>
       <li>Em outros ambientes reais, publique a tela com <code>php backend/bin/console app:seed-runtime-metadata --no-interaction</code>.</li>
-      <li>Sem a marcacao de sistema central e sem worker, o ambiente real nao deve expor esta operacao.</li>
+      <li>Sem worker e sem marcacao de sistema central, o updater administrativo nao deve ser tratado como operacional.</li>
+      <li>Manifesto remoto: <code>APP_UPDATE_MANIFEST_URL</code>; assinatura do manifesto: <code>APP_UPDATE_MANIFEST_SIGNING_KEY</code>; assinatura do pacote: <code>APP_UPDATE_PACKAGE_SIGNING_KEY</code>.</li>
     </ul>
   </section>
-  <main id="subscriber-provisioning-admin-root" class="program-builder-root"></main>
+  <main id="system-updates-admin-root" class="program-builder-root"></main>
 
   <script src="../../vendor/jquery/jquery-4.0.0.min.js"></script>
   <script src="../../kendo/js/kendo.all.min.js"></script>
@@ -51,8 +49,8 @@
   <script src="../../kendo/js/messages/kendo.messages.pt-BR.min.js"></script>
   <script src="../../src/bootstrap/kendo-ptbr.js"></script>
   <script src="../../src/crud-engine/CrudUtils.js"></script>
-  <script src="../../src/provisioning/subscriber-provisioning-admin.js"></script>
-  <script src="../../src/demo/subscriber-provisioning-demo.js"></script>
-  <script src="../../src/provisioning/subscriber-provisioning-admin.boot.js"></script>
+  <script src="../../src/system-updates/system-updates-admin.js"></script>
+  <script src="../../src/demo/system-updates-demo.js"></script>
+  <script src="../../src/system-updates/system-updates-admin.boot.js"></script>
 </body>
 </html>

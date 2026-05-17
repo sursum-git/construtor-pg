@@ -51,8 +51,10 @@ class OnPremPackageBuilderService
         $this->addFile($zip, $projectRoot . '/theme-builder.html', $rootFolder . '/theme-builder.html');
         $this->addFile($zip, $projectRoot . '/docs/provisionamento-saas-onprem.md', $rootFolder . '/docs/provisionamento-saas-onprem.md');
         $this->addFile($zip, $projectRoot . '/scripts/install-onprem.sh', $rootFolder . '/scripts/install-onprem.sh');
+        $this->addFile($zip, $projectRoot . '/scripts/update-onprem.sh', $rootFolder . '/scripts/update-onprem.sh');
 
         $zip->addFromString($rootFolder . '/install.sh', $this->installEntrypoint());
+        $zip->addFromString($rootFolder . '/update.sh', $this->updateEntrypoint());
         $zip->addFromString($rootFolder . '/.env.template', $this->buildEnvTemplate($context));
         $zip->addFromString($rootFolder . '/README-INSTALACAO.txt', $this->buildReadme($context));
 
@@ -68,6 +70,11 @@ class OnPremPackageBuilderService
     private function installEntrypoint(): string
     {
         return "#!/usr/bin/env bash\nset -euo pipefail\ncd \"$(dirname \"$0\")\"\nchmod +x scripts/install-onprem.sh\nexec ./scripts/install-onprem.sh \"$@\"\n";
+    }
+
+    private function updateEntrypoint(): string
+    {
+        return "#!/usr/bin/env bash\nset -euo pipefail\ncd \"$(dirname \"$0\")\"\nchmod +x scripts/update-onprem.sh\nexec ./scripts/update-onprem.sh \"$@\"\n";
     }
 
     private function buildEnvTemplate(array $context): string
@@ -96,6 +103,7 @@ class OnPremPackageBuilderService
             '2. ajuste .env.template ou deixe o install.sh gerar backend/.env.local;',
             '3. rode ./install.sh;',
             '4. acompanhe a saida ate o bootstrap concluir.',
+            '5. para atualizacoes futuras, use ./update.sh com o manifesto adequado.',
             '',
             'Referencia completa: docs/provisionamento-saas-onprem.md',
         ]) . "\n";

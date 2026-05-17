@@ -17,6 +17,25 @@ Scripts operacionais:
 - [C:\construtor-pg\scripts\provision-saas-subscriber.ps1](C:/construtor-pg/scripts/provision-saas-subscriber.ps1)
 - [C:\construtor-pg\scripts\provision-saas-subscriber.sh](C:/construtor-pg/scripts/provision-saas-subscriber.sh)
 
+Atualizacao operacional:
+
+- `php backend/bin/console app:update:check`
+- `php backend/bin/console app:update:apply <versao>`
+- `php backend/bin/console app:update:run-pending`
+- `php backend/bin/console app:update:rollout-plan <versao>`
+- `screenId=admin.atualizacoes`
+- pagina de producao: [C:\construtor-pg\production\admin\system-updates.html](C:/construtor-pg/production/admin/system-updates.html)
+- pagina local: [C:\construtor-pg\examples\pages\admin-system-updates.html](C:/construtor-pg/examples/pages/admin-system-updates.html)
+- [C:\construtor-pg\scripts\update-onprem.sh](C:/construtor-pg/scripts/update-onprem.sh)
+- [C:\construtor-pg\scripts\update-onprem.ps1](C:/construtor-pg/scripts/update-onprem.ps1)
+- o manifesto remoto pode ser configurado por `APP_UPDATE_MANIFEST_URL`;
+- a validacao de assinatura do manifesto usa `APP_UPDATE_MANIFEST_SIGNING_KEY`;
+- a validacao de assinatura do pacote usa `APP_UPDATE_PACKAGE_SIGNING_KEY`;
+- as telas administrativas de provisionamento e atualizacao ficam apenas no sistema central SaaS, identificado por `APP_SYSTEM_ROLE=saas_central` ou `APP_CENTRAL_CONTROL_ENABLED=1`;
+- o sistema do assinante fica apenas com o necessario para verificacao/aplicacao local, como `GET /api/runtime/system-updates/summary` e o runner on-premise;
+- existe a tela `screenId=admin.atualizacoes-assinantes` para consultar, por assinante, o historico do que foi aplicado pelo sistema central.
+- existe tambem o download/validacao do pacote por release, com registro local em `var/system-updates/<versao>/`.
+
 Tela administrativa:
 
 - `screenId=admin.assinante-ambientes`
@@ -168,6 +187,48 @@ Ele so automatiza:
 - seeds;
 - criacao de assinante;
 - validacao do catalogo padrao.
+
+## Atualizacao do ambiente
+
+O mesmo grupo operacional agora cobre a leitura e aplicacao de releases do sistema, sem alterar a arquitetura atual.
+
+Regras fechadas:
+
+- `security_critical` pode ser autoenfileirada conforme a politica do ambiente.
+- `required_structural` bloqueia atualizacoes posteriores enquanto a cadeia obrigatoria nao for aplicada.
+- releases com `requiresSubscriberConsent=true` exigem anuencia formal antes da aplicacao normal.
+- atualizacoes de programas padrao respeitam a politica atual de customizacao:
+  - `standard`: atualiza pelo pacote da release;
+  - `customer_overlay`: apenas gera impacto e fluxo de rebase, sem sobrescrita direta;
+  - `customer_custom`: permanece congelado e nao sofre substituicao automatica.
+- manifesto remoto sem confianca nao deve seguir como release aplicavel; a verificacao pode usar `APP_UPDATE_MANIFEST_SIGNING_KEY` com `hmac-sha256`.
+
+### Runner on-premise
+
+Depois da instalacao inicial, o pacote on-premise tambem entrega `update.sh`, que delega para `scripts/update-onprem.sh`.
+
+Exemplo:
+
+```bash
+./update.sh --manifest-source="https://servidor.exemplo/manifest.json" --fail-on-pending-critical
+```
+
+O runner:
+
+1. valida Ubuntu 24.04;
+2. consulta o manifesto;
+3. aplica releases autoaplicaveis ou com anuencia ja registrada;
+4. revalida integridade estrutural ao final.
+
+### Plano de rollout SaaS
+
+Para ambientes SaaS controlados por orquestrador externo:
+
+```powershell
+php backend/bin/console app:update:rollout-plan 1.0.2
+```
+
+O plano informa backup, janela de manutencao, acao sugerida do orquestrador e impacto em overlays/variantes congeladas.
 
 ## Pos-validacao recomendada
 

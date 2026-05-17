@@ -1,0 +1,118 @@
+{
+  "meta": {
+    "channel": "stable",
+    "signatureAlgorithm": "hmac-sha256",
+    "generatedAt": "2026-05-17T12:00:00Z"
+  },
+  "signature": "",
+  "releases": [
+    {
+      "version": "1.0.1",
+      "title": "Correcao critica de seguranca do runtime",
+      "category": "security_critical",
+      "severity": "critical",
+      "description": "Atualiza metadados e validacoes obrigatorias do runtime. Em SaaS entra automatico; em on-premise pode aplicar ao abrir o sistema quando o manifesto remoto estiver disponivel.",
+      "autoApplySaas": true,
+      "autoApplyOnPrem": true,
+      "requiresSubscriberConsent": false,
+      "blocksNextUpdates": true,
+      "internetRequired": false,
+      "requiresVersionMin": "1.0.0",
+      "requiresAppliedUpdates": [],
+      "steps": [
+        "migrate",
+        "seed_runtime_metadata",
+        "publish_runtime_defaults",
+        "integrity_monitor"
+      ],
+      "programUpdates": [
+        {
+          "programCode": "admin-assinante-ambientes",
+          "targetPublishedVersion": "1.0.0",
+          "policy": "respect_customizations"
+        }
+      ],
+      "metadata": {
+        "requiresBackup": false,
+        "requiresMaintenanceMode": false,
+        "orchestratorAction": "rolling-restart",
+        "packageUrl": "backend/config/system-updates/packages/runtime-security-1.0.1.pkg",
+        "packageHash": "eeecb51286c326a573f4ea12be46281263f430e6503bef033ccebcf4fe77cbc9",
+        "blockOnCustomizationConflict": false
+      }
+    },
+    {
+      "version": "1.0.2",
+      "title": "Ajuste estrutural obrigatorio para novas publicacoes",
+      "category": "required_structural",
+      "severity": "high",
+      "description": "Padroniza estruturas necessarias para publicacoes posteriores. Nao deve ser pulada antes da proxima leva de releases.",
+      "autoApplySaas": true,
+      "autoApplyOnPrem": false,
+      "requiresSubscriberConsent": true,
+      "blocksNextUpdates": true,
+      "internetRequired": false,
+      "requiresVersionMin": "1.0.0",
+      "requiresAppliedUpdates": [
+        "1.0.1"
+      ],
+      "steps": [
+        "migrate",
+        "seed_runtime_metadata",
+        "publish_runtime_defaults",
+        "integrity_monitor"
+      ],
+      "programUpdates": [
+        {
+          "programCode": "admin-programa-governanca",
+          "targetPublishedVersion": "1.0.0",
+          "policy": "respect_customizations"
+        }
+      ],
+      "metadata": {
+        "requiresBackup": true,
+        "requiresMaintenanceMode": true,
+        "orchestratorAction": "maintenance-rollout",
+        "packageUrl": "backend/config/system-updates/packages/runtime-structure-1.0.2.pkg",
+        "packageHash": "567f900373d19e34357a526b20c632f0c514a7107181c75b345cb706c23ad84c",
+        "blockOnCustomizationConflict": true
+      }
+    },
+    {
+      "version": "1.0.3",
+      "title": "Melhoria visual opcional das telas administrativas",
+      "category": "optional_visual",
+      "severity": "low",
+      "description": "Melhoria visual que pode aguardar anuencia do assinante, mas continua dependente das releases estruturais anteriores.",
+      "autoApplySaas": false,
+      "autoApplyOnPrem": false,
+      "requiresSubscriberConsent": true,
+      "blocksNextUpdates": false,
+      "internetRequired": false,
+      "requiresVersionMin": "1.0.0",
+      "requiresAppliedUpdates": [
+        "1.0.1",
+        "1.0.2"
+      ],
+      "steps": [
+        "seed_runtime_metadata",
+        "publish_runtime_defaults"
+      ],
+      "programUpdates": [
+        {
+          "programCode": "admin-integracoes",
+          "targetPublishedVersion": "1.0.0",
+          "policy": "respect_customizations"
+        }
+      ],
+      "metadata": {
+        "requiresBackup": false,
+        "requiresMaintenanceMode": false,
+        "orchestratorAction": "frontend-refresh",
+        "packageUrl": "backend/config/system-updates/packages/admin-visual-1.0.3.pkg",
+        "packageHash": "39d177016b851521590920bf4b6a7cd41a0fa68233f713ec3d467f4ef8934b2f",
+        "blockOnCustomizationConflict": false
+      }
+    }
+  ]
+}

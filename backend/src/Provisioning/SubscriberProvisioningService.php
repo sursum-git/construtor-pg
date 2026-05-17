@@ -8,6 +8,7 @@ use App\Repository\AuthSubscriberRepository;
 use App\Repository\RuntimeAsyncJobRepository;
 use App\Runtime\PermissionResolver;
 use App\Runtime\RuntimeAsyncJobService;
+use App\Runtime\CentralControlResolver;
 use App\Runtime\RuntimeEnvironmentIdentityResolver;
 use App\Runtime\StructuralIntegrityService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -21,6 +22,7 @@ class SubscriberProvisioningService
         private readonly RuntimeAsyncJobService $asyncJobs,
         private readonly StructuralIntegrityService $integrity,
         private readonly PermissionResolver $permissions,
+        private readonly CentralControlResolver $central,
         private readonly RuntimeEnvironmentIdentityResolver $environmentIdentity,
         private readonly OnPremPackageBuilderService $packages,
     ) {
@@ -29,9 +31,10 @@ class SubscriberProvisioningService
     public function bootstrap(): array
     {
         return [
+            'centralControl' => $this->central->resolve(),
             'environment' => $this->environmentIdentity->resolve(),
-            'subscribers' => $this->listSubscribers(),
-            'jobs' => $this->listProvisionJobs(),
+            'subscribers' => $this->central->isCentralControl() ? $this->listSubscribers() : [],
+            'jobs' => $this->central->isCentralControl() ? $this->listProvisionJobs() : [],
         ];
     }
 

@@ -38,9 +38,48 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `POST /api/admin/subscriber-provisioning/provision`
     - `GET /api/admin/subscriber-provisioning/jobs`
     - `GET /api/admin/subscriber-provisioning/jobs/{jobId}`
-    - `GET /api/admin/subscriber-provisioning/jobs/{jobId}/events`
-    - `GET /api/admin/subscriber-provisioning/onprem-package`
+  - `GET /api/admin/subscriber-provisioning/jobs/{jobId}/events`
+  - `GET /api/admin/subscriber-provisioning/onprem-package`
   - o provisionamento SaaS roda no job `subscriber.environment.provision`.
+  - existe agora tambem a frente de atualizacao operacional:
+  - manifesto inicial em `backend/config/system-updates/manifest.json`;
+  - comandos:
+    - `php backend/bin/console app:update:check`
+    - `php backend/bin/console app:update:download <versao>`
+    - `php backend/bin/console app:update:apply <versao>`
+    - `php backend/bin/console app:update:run-pending`
+    - `php backend/bin/console app:update:rollout-plan <versao>`
+  - tela administrativa:
+    - `production/app.html?screenId=admin.atualizacoes`
+    - pagina local: `examples/pages/admin-system-updates.html`
+  - endpoints:
+    - `GET /api/admin/system-updates/bootstrap`
+    - `POST /api/admin/system-updates/check`
+    - `POST /api/admin/system-updates/apply`
+    - `GET /api/admin/system-updates/jobs/{jobId}`
+    - `GET /api/admin/system-updates/jobs/{jobId}/events`
+    - `GET /api/runtime/system-updates/summary`
+  - job envolvido:
+    - `system.update.apply`
+  - compatibilizacao com programas:
+    - `standard` pode receber a release;
+    - `customer_overlay` so entra em analise de impacto/rebase;
+    - `customer_custom` continua congelado e nao sofre sobrescrita.
+  - existe agora anuencia formal por release:
+    - `POST /api/admin/system-updates/consent`
+  - existe tambem exportacao do plano de rollout SaaS:
+    - `GET /api/admin/system-updates/rollout-plan?version=...`
+  - e o runner on-premise:
+    - `scripts/update-onprem.sh`
+    - `scripts/update-onprem.ps1`
+  - o sistema central SaaS agora e identificado por `APP_SYSTEM_ROLE=saas_central` ou `APP_CENTRAL_CONTROL_ENABLED=1`;
+  - `admin.assinante-ambientes`, `admin.atualizacoes` e `admin.atualizacoes-assinantes` devem ficar apenas nesse sistema central;
+  - existe a consulta focada:
+    - `production/app.html?screenId=admin.atualizacoes-assinantes`
+    - pagina local: `examples/pages/admin-system-update-subscriber-log.html`
+  - o manifesto remoto pode ser configurado por `APP_UPDATE_MANIFEST_URL`;
+  - a verificacao do manifesto usa `APP_UPDATE_MANIFEST_SIGNING_KEY`;
+  - a verificacao do pacote usa `APP_UPDATE_PACKAGE_SIGNING_KEY`;
 
 ## Estado atual do program-builder
 

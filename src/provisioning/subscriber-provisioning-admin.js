@@ -10,6 +10,7 @@
     this.activePollTimer = 0;
     this.subscribers = [];
     this.jobs = [];
+    this.centralControl = {};
   }
 
   SubscriberProvisioningAdmin.prototype.init = function() {
@@ -74,8 +75,12 @@
   SubscriberProvisioningAdmin.prototype.loadBootstrap = function(preferredSubscriberCode) {
     this.setStatus("Carregando");
     return this.request("GET", "/api/admin/subscriber-provisioning/bootstrap").then((payload) => {
+      this.centralControl = payload.centralControl || {};
       this.subscribers = global.CrudUtils.ensureArray(payload.subscribers);
       this.jobs = global.CrudUtils.ensureArray(payload.jobs);
+      if (this.centralControl.centralControl !== true) {
+        global.CrudUtils.showMessage("Esta tela existe apenas no sistema central SaaS.", "warning");
+      }
       this.renderSubscribersGrid(preferredSubscriberCode || this.currentSubscriberCode || "");
       this.renderJobsGrid();
       this.setStatus("Pronto");

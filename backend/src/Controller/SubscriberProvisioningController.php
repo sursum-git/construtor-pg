@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Provisioning\SubscriberProvisioningService;
+use App\Runtime\CentralControlGuard;
 use App\Runtime\RuntimeHttpException;
 use App\Runtime\RuntimeSessionGuard;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -18,6 +19,7 @@ class SubscriberProvisioningController extends AbstractController
     public function __construct(
         private readonly SubscriberProvisioningService $provisioning,
         private readonly RuntimeSessionGuard $sessions,
+        private readonly CentralControlGuard $central,
     ) {
     }
 
@@ -37,6 +39,7 @@ class SubscriberProvisioningController extends AbstractController
     {
         try {
             $this->sessions->ensureActive();
+            $this->central->ensureCentral();
             $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
             return $this->json($this->provisioning->saveSubscriber(is_array($payload) ? $payload : []));
         } catch (\Throwable $error) {
@@ -49,6 +52,7 @@ class SubscriberProvisioningController extends AbstractController
     {
         try {
             $this->sessions->ensureActive();
+            $this->central->ensureCentral();
             return $this->json([
                 'items' => $this->provisioning->listProvisionJobs(
                     trim((string) $request->query->get('subscriberCode')),
@@ -65,6 +69,7 @@ class SubscriberProvisioningController extends AbstractController
     {
         try {
             $this->sessions->ensureActive();
+            $this->central->ensureCentral();
             $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
             return $this->json($this->provisioning->queueProvision(is_array($payload) ? $payload : []));
         } catch (\Throwable $error) {
@@ -77,6 +82,7 @@ class SubscriberProvisioningController extends AbstractController
     {
         try {
             $this->sessions->ensureActive();
+            $this->central->ensureCentral();
             return $this->json($this->provisioning->getProvisionJob($jobId));
         } catch (\Throwable $error) {
             return $this->error($error);
@@ -88,6 +94,7 @@ class SubscriberProvisioningController extends AbstractController
     {
         try {
             $this->sessions->ensureActive();
+            $this->central->ensureCentral();
             $maxSeconds = max(5, min(180, (int) $request->query->get('timeout', 120)));
             $intervalSeconds = max(1, min(5, (int) $request->query->get('interval', 2)));
 
@@ -135,6 +142,7 @@ class SubscriberProvisioningController extends AbstractController
     {
         try {
             $this->sessions->ensureActive();
+            $this->central->ensureCentral();
             $package = $this->provisioning->buildOnPremPackage([
                 'subscriberCode' => $request->query->get('subscriberCode'),
                 'databaseEnvironment' => $request->query->get('databaseEnvironment'),

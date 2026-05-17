@@ -1,0 +1,6 @@
+admin-visual-1.0.3
+passos:
+- seed_runtime_metadata
+- publish_runtime_defaults
+observacao:
+- melhoria visual opcional dependente da cadeia anterior

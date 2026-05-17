@@ -319,6 +319,22 @@
       page: pagePath + "admin-subscriber-provisioning.html"
     },
     {
+      id: "admin-system-updates",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Atualizacoes do sistema",
+      summary: "Tela administrativa para consultar releases, aplicar atualizacoes e revisar impacto em programas padrao, overlays e variantes congeladas.",
+      page: pagePath + "admin-system-updates.html"
+    },
+    {
+      id: "admin-system-update-subscriber-log",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Atualizacoes por assinante",
+      summary: "Tela administrativa central para consultar o historico do que foi aplicado em cada assinante SaaS.",
+      page: pagePath + "admin-system-update-subscriber-log.html"
+    },
+    {
       id: "programa-ajuda-logs",
       category: "Programa",
       title: "Cabecalho com ajuda e logs",

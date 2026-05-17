@@ -46,6 +46,20 @@ class BuilderProgramOverlayVersionRepository extends ServiceEntityRepository
             ->getOneOrNullResult();
     }
 
+    public function findPublishedByOverlayId(int $overlayId): ?BuilderProgramOverlayVersion
+    {
+        return $this->createQueryBuilder('v')
+            ->andWhere('v.overlay = :overlayId')
+            ->andWhere('v.status = :status')
+            ->setParameter('overlayId', $overlayId)
+            ->setParameter('status', 'published')
+            ->orderBy('v.versionNumber', 'DESC')
+            ->addOrderBy('v.updatedAt', 'DESC')
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
+
     /**
      * @return BuilderProgramOverlayVersion[]
      */

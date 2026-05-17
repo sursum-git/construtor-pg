@@ -37,6 +37,7 @@ use App\Repository\ScreenDefinitionRepository;
 use App\Repository\SystemParameterRepository;
 use App\Repository\SystemParameterValueRepository;
 use App\Repository\SystemLiteralTranslationRepository;
+use App\Runtime\CentralControlResolver;
 use App\Runtime\StructuralIntegrityService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -155,6 +156,7 @@ class SeedRuntimeMetadataCommand extends Command
         private readonly SystemParameterRepository $systemParameters,
         private readonly SystemParameterValueRepository $systemParameterValues,
         private readonly SystemLiteralTranslationRepository $systemLiteralTranslations,
+        private readonly CentralControlResolver $central,
         private readonly StructuralIntegrityService $integrity,
     ) {
         parent::__construct();
@@ -346,6 +348,38 @@ class SeedRuntimeMetadataCommand extends Command
                 'frameTitle' => 'Provisionamento de assinantes',
             ],
         ];
+        $systemUpdatesAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.atualizacoes',
+            'program' => [
+                'id' => 'admin-atualizacoes',
+                'title' => 'Atualizacoes do sistema',
+                'subtitle' => 'Catalogo de releases, aplicacao e impacto em programas padrao/customizados',
+                'version' => '1.0.0',
+                'screenId' => 'admin.atualizacoes',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/system-updates.html',
+                'frameTitle' => 'Atualizacoes do sistema',
+            ],
+        ];
+        $systemUpdateSubscriberLogAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.atualizacoes-assinantes',
+            'program' => [
+                'id' => 'admin-atualizacoes-assinantes',
+                'title' => 'Atualizacoes por assinante',
+                'subtitle' => 'Consulta central do que foi aplicado em cada assinante SaaS',
+                'version' => '1.0.0',
+                'screenId' => 'admin.atualizacoes-assinantes',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/system-update-subscriber-log.html',
+                'frameTitle' => 'Atualizacoes por assinante',
+            ],
+        ];
 
         $clientesDefinition['screenId'] = 'cadastros.clientes';
         $clientesDefinition['program']['screenId'] = 'cadastros.clientes';
@@ -370,7 +404,11 @@ class SeedRuntimeMetadataCommand extends Command
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-operacoes-operacao', 'Operacoes da governanca', 'Operacao administrativa unificada', 'admin.programa-operacoes-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-overlays-operacao', 'Overlays de programas', 'Operacao focada em overlays e rebase', 'admin.programa-overlays-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-overlay-versoes-operacao', 'Versoes de overlay', 'Operacao focada em versoes de overlay', 'admin.programa-overlay-versoes-operacao');
-        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-assinante-ambientes', 'Provisionamento de assinantes', 'Criacao do assinante, SaaS e pacote on-premise', 'admin.assinante-ambientes');
+        if ($this->central->isCentralControl()) {
+            $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-assinante-ambientes', 'Provisionamento de assinantes', 'Criacao do assinante, SaaS e pacote on-premise', 'admin.assinante-ambientes');
+            $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-atualizacoes', 'Atualizacoes do sistema', 'Releases, anuencia e aplicacao de atualizacoes', 'admin.atualizacoes');
+            $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-atualizacoes-assinantes', 'Atualizacoes por assinante', 'Consulta central do historico aplicado em cada assinante', 'admin.atualizacoes-assinantes');
+        }
 
         foreach (($homeDefinition['programs'] ?? []) as $index => $program) {
             if (($program['id'] ?? '') === 'clientes-crud') {
@@ -392,6 +430,8 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertProgram('admin-programa-overlays-operacao', 'Overlays de programas', 'administracao', 'custom', 'admin.programa-overlays-operacao');
         $this->upsertProgram('admin-programa-overlay-versoes-operacao', 'Versoes de overlay', 'administracao', 'custom', 'admin.programa-overlay-versoes-operacao');
         $this->upsertProgram('admin-assinante-ambientes', 'Provisionamento de assinantes', 'administracao', 'custom', 'admin.assinante-ambientes');
+        $this->upsertProgram('admin-atualizacoes', 'Atualizacoes do sistema', 'administracao', 'custom', 'admin.atualizacoes');
+        $this->upsertProgram('admin-atualizacoes-assinantes', 'Atualizacoes por assinante', 'administracao', 'custom', 'admin.atualizacoes-assinantes');
         $this->upsertProgram('processamento-clientes', 'Processamento de Clientes', 'operacional', 'process', 'processamento.relatorio-clientes');
         $this->upsertProgram('home', 'Home', 'global', 'home', 'home');
         foreach ($adminScreens as $screen) {
@@ -415,6 +455,8 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertScreen('admin.programa-overlays-operacao', 'custom', $programOverlaysAdminDefinition);
         $this->upsertScreen('admin.programa-overlay-versoes-operacao', 'custom', $programOverlayVersionsAdminDefinition);
         $this->upsertScreen('admin.assinante-ambientes', 'custom', $subscriberProvisioningAdminDefinition);
+        $this->upsertScreen('admin.atualizacoes', 'custom', $systemUpdatesAdminDefinition);
+        $this->upsertScreen('admin.atualizacoes-assinantes', 'custom', $systemUpdateSubscriberLogAdminDefinition);
         $this->upsertScreen('processamento.relatorio-clientes', 'process', $processDefinition);
         $this->upsertScreen('assistente.codificacao.produto-pdm', 'process', $customCodePdmDefinition);
         foreach ($adminScreens as $screen) {

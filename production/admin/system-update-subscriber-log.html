@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
-  <title>Provisionamento de assinantes - Construtor PG</title>
+  <title>Atualizacoes por assinante - Construtor PG</title>
   <link rel="stylesheet" href="../../kendo/styles/default-urban.css">
   <link rel="stylesheet" href="../../src/styles/crud-engine.css">
   <link rel="stylesheet" href="../../src/styles/program-builder.css">
@@ -17,13 +17,11 @@
       background: var(--crud-readonly-bg);
       color: var(--crud-text);
     }
-
     .subscriber-provisioning-notes h2 {
       margin: 0 0 8px;
       font-size: 16px;
       color: var(--crud-title);
     }
-
     .subscriber-provisioning-notes ul {
       margin: 0;
       padding-left: 18px;
@@ -35,15 +33,12 @@
     <h2>Observacoes operacionais</h2>
     <ul>
       <li>Esta tela existe apenas no sistema central SaaS identificado por <code>APP_SYSTEM_ROLE=saas_central</code> ou <code>APP_CENTRAL_CONTROL_ENABLED=1</code>.</li>
-      <li>O provisionamento SaaS depende de worker de jobs ativo para processar <code>subscriber.environment.provision</code>.</li>
-      <li>O acompanhamento usa SSE quando disponivel e cai para polling quando necessario.</li>
-      <li>O pacote on-premise foi pensado para Ubuntu 24.04 e entrega <code>install.sh</code> como ponto de entrada.</li>
+      <li>Ela consulta o historico do que foi aplicado em cada assinante a partir do log de execucao do updater.</li>
       <li>Em outros ambientes, publicar esta tela exige rodar <code>php backend/bin/console app:seed-runtime-metadata --no-interaction</code>.</li>
-      <li>Em outros ambientes centrais, tambem configure <code>APP_SYSTEM_ROLE=saas_central</code> ou <code>APP_CENTRAL_CONTROL_ENABLED=1</code> antes de expor a tela.</li>
-      <li>Sem a marcacao de sistema central e sem worker ativo, o provisionamento nao deve ser considerado operacional.</li>
+      <li>Para haver historico util, o sistema central precisa manter o worker do updater ativo e registrar as execucoes por assinante.</li>
     </ul>
   </section>
-  <main id="subscriber-provisioning-admin-root" class="program-builder-root"></main>
+  <main id="system-update-subscriber-log-admin-root" class="program-builder-root"></main>
 
   <script src="../../vendor/jquery/jquery-4.0.0.min.js"></script>
   <script src="../../kendo/js/kendo.all.min.js"></script>
@@ -53,7 +48,7 @@
   <script src="../../src/bootstrap/kendo-ptbr.js"></script>
   <script src="../../src/crud-engine/CrudUtils.js"></script>
   <script src="../../src/crud-engine/CrudHttpClient.js"></script>
-  <script src="../../src/provisioning/subscriber-provisioning-admin.js"></script>
-  <script src="../../src/provisioning/subscriber-provisioning-admin.boot.js"></script>
+  <script src="../../src/system-updates/system-update-subscriber-log-admin.js"></script>
+  <script src="../../src/system-updates/system-update-subscriber-log-admin.boot.js"></script>
 </body>
 </html>

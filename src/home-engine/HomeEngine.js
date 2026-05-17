@@ -127,7 +127,7 @@
         this.startRuntimeMessagePolling();
         return this.openInitialProgram().then(() => {
           this.restoreAppbarPanelContext();
-          return this;
+          return this.maybeCheckSystemUpdatesSummary().then(() => this);
         });
       }).catch((error) => {
         this.renderError(global.CrudUtils.unwrapError(error, "Erro ao carregar pagina inicial."));
@@ -367,6 +367,48 @@
         sidebarCollapsed: this.shell ? this.shell.hasClass("home-sidebar-collapsed") : this.savedSidebarCollapsed === true,
         appbarPanelKind: this.savedAppbarPanelKind || ""
       }, { version: 2 });
+    }
+
+    maybeCheckSystemUpdatesSummary() {
+      if (!this.httpClient || typeof this.httpClient.request !== "function") {
+        return Promise.resolve(null);
+      }
+      if (!global.location || global.location.protocol === "file:") {
+        return Promise.resolve(null);
+      }
+      return this.httpClient.request({
+        method: "GET",
+        url: "/api/runtime/system-updates/summary"
+      }).then((summary) => {
+        this.handleSystemUpdatesSummary(summary || {});
+        return summary || {};
+      }).catch(() => null);
+    }
+
+    handleSystemUpdatesSummary(summary) {
+      const normalized = summary && typeof summary === "object" ? summary : {};
+      const autoQueuedVersion = normalized.autoQueuedRelease && normalized.autoQueuedRelease.version
+        ? String(normalized.autoQueuedRelease.version)
+        : "";
+      const nextState = {
+        currentVersion: String(normalized.currentVersion || ""),
+        pendingCount: Number(normalized.pendingCount || 0),
+        criticalPendingCount: Number(normalized.criticalPendingCount || 0),
+        autoQueuedVersion: autoQueuedVersion
+      };
+      const stored = global.CrudUtils.readLocalStateValue(this.getHomePreferenceStorageKey("systemUpdatesNotice"), null, { version: 1 }) || {};
+      const lastState = stored && typeof stored === "object" ? stored : {};
+
+      if (autoQueuedVersion && lastState.autoQueuedVersion !== autoQueuedVersion) {
+        global.CrudUtils.showMessage("Atualizacao automatica enfileirada ao abrir o sistema: " + autoQueuedVersion + ".", "info");
+      } else if (
+        nextState.criticalPendingCount > 0 &&
+        (Number(lastState.criticalPendingCount || 0) !== nextState.criticalPendingCount || lastState.currentVersion !== nextState.currentVersion)
+      ) {
+        global.CrudUtils.showMessage("Existe atualizacao critica pendente. Revise `admin.atualizacoes`.", "warning");
+      }
+
+      global.CrudUtils.saveLocalStateValue(this.getHomePreferenceStorageKey("systemUpdatesNotice"), nextState, { version: 1 });
     }
 
     normalizeConfig(config) {
