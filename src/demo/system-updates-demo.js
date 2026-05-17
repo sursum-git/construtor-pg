@@ -138,6 +138,9 @@
     if (method === "GET" && url === "/api/admin/system-updates/subscriber-log/bootstrap") {
       return Promise.resolve(this.subscriberLogPayload(String(data.subscriberCode || "")));
     }
+    if (method === "GET" && url === "/api/admin/system-updates/executions") {
+      return Promise.resolve(this.executionHistoryPayload(data || {}));
+    }
     if (method === "POST" && url === "/api/admin/system-updates/check") {
       return Promise.resolve(this.bootstrapPayload(String(data.subscriberCode || "")));
     }
@@ -365,6 +368,78 @@
       subscribers: this.subscribers.slice(),
       selectedSubscriber: this.findSubscriber(subscriberCode) || null,
       executions: this.filterExecutions(subscriberCode)
+    };
+  };
+
+  SystemUpdatesDemoHttpClient.prototype.executionHistoryPayload = function(filters) {
+    const subscriberCode = String(filters.subscriberCode || "");
+    const status = String(filters.status || "");
+    const category = String(filters.category || "");
+    const dateFrom = String(filters.dateFrom || "");
+    const dateTo = String(filters.dateTo || "");
+    const rows = this.filterExecutions(subscriberCode).filter(function(item) {
+      if (status && String(item.status || "") !== status) {
+        return false;
+      }
+      if (category && String(item.category || "") !== category) {
+        return false;
+      }
+      const createdAt = String(item.createdAt || "");
+      if (dateFrom && createdAt && createdAt < dateFrom) {
+        return false;
+      }
+      if (dateTo && createdAt && createdAt > (dateTo + "T99:99:99")) {
+        return false;
+      }
+      return true;
+    });
+    const byStatus = {};
+    const byCategory = {};
+    const overlayPipeline = {
+      draftCreated: 0,
+      draftExists: 0,
+      reviewRequired: 0,
+      blocked: 0,
+      frozen: 0,
+      missingVersion: 0,
+      pipelineFailed: 0
+    };
+    rows.forEach(function(item) {
+      const itemStatus = String(item.status || "");
+      const itemCategory = String(item.category || "");
+      if (itemStatus) {
+        byStatus[itemStatus] = Number(byStatus[itemStatus] || 0) + 1;
+      }
+      if (itemCategory) {
+        byCategory[itemCategory] = Number(byCategory[itemCategory] || 0) + 1;
+      }
+      const pipeline = item.summary && item.summary.overlayPipeline || item.impactReport && item.impactReport.overlayPipelineSummary || {};
+      overlayPipeline.draftCreated += Number(pipeline.draftCreated || 0);
+      overlayPipeline.draftExists += Number(pipeline.draftExists || 0);
+      overlayPipeline.reviewRequired += Number(pipeline.reviewRequired || 0);
+      overlayPipeline.blocked += Number(pipeline.blocked || 0);
+      overlayPipeline.frozen += Number(pipeline.frozen || 0);
+      overlayPipeline.missingVersion += Number(pipeline.missingVersion || 0);
+      overlayPipeline.pipelineFailed += Number(pipeline.pipelineFailed || 0);
+    });
+    return {
+      items: rows,
+      summary: {
+        total: rows.length,
+        succeeded: rows.filter((item) => item.status === "succeeded").length,
+        failed: rows.filter((item) => item.status === "failed").length,
+        queued: rows.filter((item) => item.status === "queued" || item.status === "running").length,
+        byStatus: byStatus,
+        byCategory: byCategory,
+        overlayPipeline: overlayPipeline,
+        filters: {
+          subscriberCode: subscriberCode,
+          status: status,
+          category: category,
+          dateFrom: dateFrom,
+          dateTo: dateTo
+        }
+      }
     };
   };
 

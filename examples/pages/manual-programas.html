@@ -827,13 +827,15 @@
             objective: "Dar visibilidade rapida do historico de atualizacao por assinante no sistema central.",
             scope: [
               "Filtro por assinante alvo.",
+              "Filtro adicional por status, categoria e periodo.",
               "Consulta do historico aplicado por release.",
               "Detalhe tecnico com base alvo, horario, origem da execucao e resultado da esteira de overlays."
             ],
             outputs: [
               "Lista de execucoes por assinante.",
               "Detalhe do que foi aplicado em cada ambiente SaaS.",
-              "Resumo de drafts de rebase criados, revisoes pendentes e overlays bloqueados por release."
+              "Resumo de drafts de rebase criados, revisoes pendentes e overlays bloqueados por release.",
+              "Exportacao JSON/CSV do recorte atual."
             ]
           },
           operational: {
@@ -844,6 +846,7 @@
             ],
             steps: [
               "Abrir a tela e selecionar o assinante desejado.",
+              "Aplicar filtros de status, categoria ou periodo quando precisar reduzir o recorte.",
               "Consultar as releases aplicadas e o status de cada execucao.",
               "Abrir o detalhe para revisar base alvo, origem, resumo da execucao e o pipeline de overlays."
             ],

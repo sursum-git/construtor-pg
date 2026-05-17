@@ -10,7 +10,11 @@
     this.executions = [];
     this.currentSubscriberCode = "";
     this.currentStatus = "";
+    this.currentCategory = "";
+    this.currentDateFrom = "";
+    this.currentDateTo = "";
     this.currentExecution = null;
+    this.historySummary = {};
   }
 
   SystemUpdateSubscriberLogAdmin.prototype.init = function() {
@@ -36,6 +40,22 @@
     const subscriberField = global.jQuery("<label class=\"program-builder-field\" style=\"min-width:320px\"></label>").appendTo(toolbar);
     global.jQuery("<span></span>").text("Assinante").appendTo(subscriberField);
     this.subscriberInput = global.jQuery("<input>").appendTo(subscriberField);
+    const statusField = global.jQuery("<label class=\"program-builder-field\" style=\"min-width:180px\"></label>").appendTo(toolbar);
+    global.jQuery("<span></span>").text("Status").appendTo(statusField);
+    this.statusInput = global.jQuery("<input class=\"system-update-filter-status\">").appendTo(statusField);
+    const categoryField = global.jQuery("<label class=\"program-builder-field\" style=\"min-width:200px\"></label>").appendTo(toolbar);
+    global.jQuery("<span></span>").text("Categoria").appendTo(categoryField);
+    this.categoryInput = global.jQuery("<input class=\"system-update-filter-category\">").appendTo(categoryField);
+    const dateFromField = global.jQuery("<label class=\"program-builder-field\"></label>").appendTo(toolbar);
+    global.jQuery("<span></span>").text("De").appendTo(dateFromField);
+    this.dateFromInput = global.jQuery("<input type=\"date\">").appendTo(dateFromField);
+    const dateToField = global.jQuery("<label class=\"program-builder-field\"></label>").appendTo(toolbar);
+    global.jQuery("<span></span>").text("Ate").appendTo(dateToField);
+    this.dateToInput = global.jQuery("<input type=\"date\">").appendTo(dateToField);
+    this.createButton(toolbar, "Aplicar filtros", "filter", this.handleApplyFilters.bind(this));
+    this.createButton(toolbar, "Limpar filtros", "reset", this.handleResetFilters.bind(this));
+    this.createButton(toolbar, "Exportar JSON", "download", this.handleExport.bind(this, "json"));
+    this.createButton(toolbar, "Exportar CSV", "download", this.handleExport.bind(this, "csv"));
     this.createButton(toolbar, "Atualizar", "reload", this.loadBootstrap.bind(this));
 
     const grid = global.jQuery("<div class=\"program-governance-admin-grid\"></div>").appendTo(shell);
@@ -56,7 +76,6 @@
     }).then((payload) => {
       this.centralControl = payload.centralControl || {};
       this.subscribers = global.CrudUtils.ensureArray(payload.subscribers);
-      this.executions = global.CrudUtils.ensureArray(payload.executions);
       this.currentSubscriberCode = payload.selectedSubscriber && payload.selectedSubscriber.code || this.currentSubscriberCode || "";
       if (this.centralControl.centralControl === true && !this.currentSubscriberCode && this.subscribers.length) {
         this.currentSubscriberCode = this.subscribers[0].code || "";
@@ -64,10 +83,11 @@
       }
       this.renderSummary(payload.selectedSubscriber || null);
       this.renderSubscriberSelector();
-      this.renderExecutionsGrid();
-      this.renderSelectedExecution();
-      this.setStatus("Pronto");
-      return payload;
+      this.renderFilters();
+      return this.loadExecutionHistory().then(() => {
+        this.setStatus("Pronto");
+        return payload;
+      });
     }).catch((error) => {
       this.setStatus("Falha");
       this.showError(error, "Nao foi possivel carregar o historico por assinante.");
@@ -89,19 +109,26 @@
       : "Selecione um assinante para consultar o historico aplicado.";
     global.jQuery("<p class=\"manual-summary\"></p>").text(text).appendTo(this.summaryBody);
     const executionSummary = this.summarizeExecutions();
+    const historySummary = this.historySummary || {};
     const badges = global.jQuery("<div class=\"manual-meta\"></div>").appendTo(this.summaryBody);
-    this.appendBadge(badges, "Execucoes: " + String(executionSummary.total));
-    this.appendBadge(badges, "Sucesso: " + String(executionSummary.succeeded));
-    this.appendBadge(badges, "Falha: " + String(executionSummary.failed));
-    this.appendBadge(badges, "Fila: " + String(executionSummary.queued));
-    if (executionSummary.overlayPipeline.draftCreated > 0) {
-      this.appendBadge(badges, "Rebases gerados: " + String(executionSummary.overlayPipeline.draftCreated));
+    this.appendBadge(badges, "Execucoes: " + String(historySummary.total != null ? historySummary.total : executionSummary.total));
+    this.appendBadge(badges, "Sucesso: " + String(historySummary.succeeded != null ? historySummary.succeeded : executionSummary.succeeded));
+    this.appendBadge(badges, "Falha: " + String(historySummary.failed != null ? historySummary.failed : executionSummary.failed));
+    this.appendBadge(badges, "Fila: " + String(historySummary.queued != null ? historySummary.queued : executionSummary.queued));
+    const pipelineSummary = historySummary.overlayPipeline || executionSummary.overlayPipeline;
+    if (pipelineSummary.draftCreated > 0) {
+      this.appendBadge(badges, "Rebases gerados: " + String(pipelineSummary.draftCreated));
     }
-    if (executionSummary.overlayPipeline.reviewRequired > 0) {
-      this.appendBadge(badges, "Revisao overlay: " + String(executionSummary.overlayPipeline.reviewRequired));
+    if (pipelineSummary.reviewRequired > 0) {
+      this.appendBadge(badges, "Revisao overlay: " + String(pipelineSummary.reviewRequired));
     }
-    if (executionSummary.overlayPipeline.blocked > 0) {
-      this.appendBadge(badges, "Overlay bloqueado: " + String(executionSummary.overlayPipeline.blocked));
+    if (pipelineSummary.blocked > 0) {
+      this.appendBadge(badges, "Overlay bloqueado: " + String(pipelineSummary.blocked));
+    }
+    if ((historySummary.byCategory && Object.keys(historySummary.byCategory).length) || (historySummary.byStatus && Object.keys(historySummary.byStatus).length)) {
+      global.jQuery("<p class=\"manual-summary\"></p>")
+        .text("Recorte atual: status " + this.describeMap(historySummary.byStatus) + " | categorias " + this.describeMap(historySummary.byCategory) + ".")
+        .appendTo(this.summaryBody);
     }
   };
 
@@ -129,18 +156,14 @@
     this.subscriberDropDown = this.subscriberInput.data("kendoDropDownList");
   };
 
-  SystemUpdateSubscriberLogAdmin.prototype.renderExecutionsGrid = function() {
-    const self = this;
-    if (this.executionStatusDropDown && typeof this.executionStatusDropDown.destroy === "function") {
-      this.executionStatusDropDown.destroy();
+  SystemUpdateSubscriberLogAdmin.prototype.renderFilters = function() {
+    if (this.statusDropDown && typeof this.statusDropDown.destroy === "function") {
+      this.statusDropDown.destroy();
     }
-    if (!this.executionFilterToolbar || !this.executionFilterToolbar.length) {
-      this.executionFilterToolbar = global.jQuery("<div class=\"program-builder-toolbar\"></div>").insertBefore(this.executionsGridElement);
-      const statusLabel = global.jQuery("<label class=\"program-builder-field\" style=\"min-width:180px\"></label>").appendTo(this.executionFilterToolbar);
-      global.jQuery("<span></span>").text("Status").appendTo(statusLabel);
-      this.executionStatusSelect = global.jQuery("<input>").appendTo(statusLabel);
+    if (this.categoryDropDown && typeof this.categoryDropDown.destroy === "function") {
+      this.categoryDropDown.destroy();
     }
-    this.executionStatusSelect.kendoDropDownList({
+    this.statusInput.kendoDropDownList({
       optionLabel: "Todos",
       valuePrimitive: true,
       dataSource: [
@@ -152,14 +175,59 @@
       ],
       dataTextField: "text",
       dataValueField: "value",
-      value: this.currentStatus || "",
-      change: () => {
-        this.currentStatus = this.executionStatusDropDown.value() || "";
-        this.renderExecutionsGrid();
-      }
+      value: this.currentStatus || ""
     });
-    this.executionStatusDropDown = this.executionStatusSelect.data("kendoDropDownList");
-    const rows = this.executions.filter((item) => !this.currentStatus || String(item.status || "") === this.currentStatus);
+    this.statusDropDown = this.statusInput.data("kendoDropDownList");
+    this.categoryInput.kendoDropDownList({
+      optionLabel: "Todas",
+      valuePrimitive: true,
+      dataSource: [
+        { text: "Todas", value: "" },
+        { text: "security_critical", value: "security_critical" },
+        { text: "required_structural", value: "required_structural" },
+        { text: "recommended", value: "recommended" },
+        { text: "optional_visual", value: "optional_visual" }
+      ],
+      dataTextField: "text",
+      dataValueField: "value",
+      value: this.currentCategory || ""
+    });
+    this.categoryDropDown = this.categoryInput.data("kendoDropDownList");
+    this.dateFromInput.val(this.currentDateFrom || "");
+    this.dateToInput.val(this.currentDateTo || "");
+  };
+
+  SystemUpdateSubscriberLogAdmin.prototype.loadExecutionHistory = function() {
+    return this.request("GET", "/api/admin/system-updates/executions", {
+      subscriberCode: this.currentSubscriberCode || "",
+      status: this.currentStatus || "",
+      category: this.currentCategory || "",
+      dateFrom: this.currentDateFrom || "",
+      dateTo: this.currentDateTo || "",
+      limit: 120
+    }).then((payload) => {
+      this.executions = global.CrudUtils.ensureArray(payload.items);
+      this.historySummary = payload.summary || {};
+      this.renderSummary(this.findSelectedSubscriber());
+      this.renderExecutionsGrid();
+      this.renderSelectedExecution();
+      return payload;
+    });
+  };
+
+  SystemUpdateSubscriberLogAdmin.prototype.findSelectedSubscriber = function() {
+    const code = String(this.currentSubscriberCode || "");
+    if (!code) {
+      return null;
+    }
+    return this.subscribers.find(function(item) {
+      return String(item.code || "") === code;
+    }) || null;
+  };
+
+  SystemUpdateSubscriberLogAdmin.prototype.renderExecutionsGrid = function() {
+    const self = this;
+    const rows = this.executions.slice();
     if (this.executionsGrid) {
       this.executionsGrid.destroy();
       this.executionsGridElement.empty();
@@ -190,6 +258,77 @@
     this.currentExecution = rows.length
       ? (this.executions.find((item) => String(item.id || "") === String(rows[0].id || "")) || null)
       : null;
+  };
+
+  SystemUpdateSubscriberLogAdmin.prototype.handleApplyFilters = function() {
+    this.currentStatus = this.statusDropDown ? (this.statusDropDown.value() || "") : "";
+    this.currentCategory = this.categoryDropDown ? (this.categoryDropDown.value() || "") : "";
+    this.currentDateFrom = String(this.dateFromInput.val() || "").trim();
+    this.currentDateTo = String(this.dateToInput.val() || "").trim();
+    this.setStatus("Filtrando");
+    return this.loadExecutionHistory().then(() => {
+      this.setStatus("Pronto");
+    }).catch((error) => {
+      this.setStatus("Falha");
+      this.showError(error, "Nao foi possivel aplicar os filtros.");
+      throw error;
+    });
+  };
+
+  SystemUpdateSubscriberLogAdmin.prototype.handleResetFilters = function() {
+    this.currentStatus = "";
+    this.currentCategory = "";
+    this.currentDateFrom = "";
+    this.currentDateTo = "";
+    this.renderFilters();
+    return this.handleApplyFilters();
+  };
+
+  SystemUpdateSubscriberLogAdmin.prototype.handleExport = function(format) {
+    if (!this.executions.length) {
+      global.CrudUtils.showMessage("Nenhuma execucao carregada para exportar.", "warning");
+      return;
+    }
+    const payload = {
+      filters: {
+        subscriberCode: this.currentSubscriberCode || "",
+        status: this.currentStatus || "",
+        category: this.currentCategory || "",
+        dateFrom: this.currentDateFrom || "",
+        dateTo: this.currentDateTo || ""
+      },
+      summary: this.historySummary || {},
+      items: this.executions
+    };
+    const fileName = global.CrudUtils.buildExportFileName("atualizacoes-assinante", format === "csv" ? "csv" : "json", [
+      this.currentSubscriberCode || "global",
+      this.currentStatus || "todos",
+      this.currentCategory || "todas"
+    ]);
+    if (format === "csv") {
+      const lines = ["releaseVersion,status,category,severity,subscriberCode,databaseIdentity,createdAt,finishedAt,overlayDraftCreated,overlayReviewRequired,overlayBlocked"];
+      this.executions.forEach((item) => {
+        const pipeline = this.resolveOverlayPipelineSummary(item);
+        lines.push([
+          item.releaseVersion,
+          item.status,
+          item.category,
+          item.severity,
+          item.targetSubscriberCode,
+          item.targetDatabaseIdentity,
+          item.createdAt,
+          item.finishedAt,
+          pipeline.draftCreated,
+          pipeline.reviewRequired,
+          pipeline.blocked
+        ].map(function(value) {
+          return "\"" + String(value == null ? "" : value).replace(/"/g, "\"\"") + "\"";
+        }).join(","));
+      });
+      this.downloadFile(fileName.replace(/\.json$/i, ".csv"), "text/csv;charset=utf-8", lines.join("\n"));
+      return;
+    }
+    this.downloadFile(fileName, "application/json;charset=utf-8", JSON.stringify(payload, null, 2));
   };
 
   SystemUpdateSubscriberLogAdmin.prototype.renderSelectedExecution = function() {
@@ -330,6 +469,30 @@
     global.jQuery("<dt></dt>").text(title || "").appendTo(wrapper);
     global.jQuery("<dd></dd>").text(value == null ? "" : String(value)).appendTo(wrapper);
     return wrapper;
+  };
+
+  SystemUpdateSubscriberLogAdmin.prototype.describeMap = function(values) {
+    const entries = Object.entries(values || {});
+    if (!entries.length) {
+      return "sem itens";
+    }
+    return entries.map(function(item) {
+      return String(item[0]) + ": " + String(item[1]);
+    }).join(", ");
+  };
+
+  SystemUpdateSubscriberLogAdmin.prototype.downloadFile = function(fileName, mimeType, content) {
+    const blob = new Blob([content], { type: mimeType });
+    const url = global.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    global.setTimeout(function() {
+      global.URL.revokeObjectURL(url);
+    }, 0);
   };
 
   SystemUpdateSubscriberLogAdmin.prototype.request = function(method, url, data) {

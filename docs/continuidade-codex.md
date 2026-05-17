@@ -82,6 +82,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `production/app.html?screenId=admin.atualizacoes-assinantes`
     - pagina local: `examples/pages/admin-system-update-subscriber-log.html`
   - a esteira da release agora tambem cria draft de rebase para overlay limpo (`rebase_ok`), mantendo `review_required` para conflito leve e bloqueio total para conflito critico;
+  - a consulta por assinante agora tambem usa `GET /api/admin/system-updates/executions` com filtros por status, categoria e periodo, alem de exportacao local JSON/CSV;
   - o manifesto remoto pode ser configurado por `APP_UPDATE_MANIFEST_URL`;
   - a verificacao do manifesto usa `APP_UPDATE_MANIFEST_SIGNING_KEY`;
   - a verificacao do pacote usa `APP_UPDATE_PACKAGE_SIGNING_KEY`;

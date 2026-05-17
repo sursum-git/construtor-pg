@@ -36,6 +36,13 @@ async function main() {
       const rows = grid.dataSource.view();
       return rows && rows.length > 0 && String(rows[0].targetSubscriberCode || "") === "empresa-a";
     }, null, { timeout: 10000 });
+    await page.locator(".k-dropdownlist.system-update-filter-status").click();
+    await page.getByRole("option", { name: "succeeded" }).click();
+    await page.locator(".k-dropdownlist.system-update-filter-category").click();
+    await page.getByRole("option", { name: "recommended" }).click();
+    await page.getByRole("button", { name: /Aplicar filtros/i }).click();
+
+    await page.waitForFunction(() => document.body.innerText.includes("categorias recommended: 1"), null, { timeout: 10000 });
 
     await page.locator(".k-grid tbody tr").first().click();
     await page.waitForFunction(() => {

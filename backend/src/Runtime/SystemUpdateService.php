@@ -583,6 +583,38 @@ class SystemUpdateService
             return true;
         }));
 
+        $byStatus = [];
+        $byCategory = [];
+        $overlayPipeline = [
+            'draftCreated' => 0,
+            'draftExists' => 0,
+            'reviewRequired' => 0,
+            'blocked' => 0,
+            'frozen' => 0,
+            'missingVersion' => 0,
+            'pipelineFailed' => 0,
+        ];
+        foreach ($rows as $row) {
+            $rowStatus = (string) ($row['status'] ?? '');
+            $rowCategory = (string) ($row['category'] ?? '');
+            if ($rowStatus !== '') {
+                $byStatus[$rowStatus] = (int) ($byStatus[$rowStatus] ?? 0) + 1;
+            }
+            if ($rowCategory !== '') {
+                $byCategory[$rowCategory] = (int) ($byCategory[$rowCategory] ?? 0) + 1;
+            }
+            $pipelineSummary = is_array($row['summary']['overlayPipeline'] ?? null)
+                ? $row['summary']['overlayPipeline']
+                : (is_array($row['impactReport']['overlayPipelineSummary'] ?? null) ? $row['impactReport']['overlayPipelineSummary'] : []);
+            $overlayPipeline['draftCreated'] += (int) ($pipelineSummary['draftCreated'] ?? 0);
+            $overlayPipeline['draftExists'] += (int) ($pipelineSummary['draftExists'] ?? 0);
+            $overlayPipeline['reviewRequired'] += (int) ($pipelineSummary['reviewRequired'] ?? 0);
+            $overlayPipeline['blocked'] += (int) ($pipelineSummary['blocked'] ?? 0);
+            $overlayPipeline['frozen'] += (int) ($pipelineSummary['frozen'] ?? 0);
+            $overlayPipeline['missingVersion'] += (int) ($pipelineSummary['missingVersion'] ?? 0);
+            $overlayPipeline['pipelineFailed'] += (int) ($pipelineSummary['pipelineFailed'] ?? 0);
+        }
+
         return [
             'items' => $rows,
             'summary' => [
@@ -590,6 +622,16 @@ class SystemUpdateService
                 'succeeded' => count(array_filter($rows, static fn (array $row): bool => ($row['status'] ?? '') === 'succeeded')),
                 'failed' => count(array_filter($rows, static fn (array $row): bool => ($row['status'] ?? '') === 'failed')),
                 'queued' => count(array_filter($rows, static fn (array $row): bool => in_array((string) ($row['status'] ?? ''), ['queued', 'running'], true))),
+                'byStatus' => $byStatus,
+                'byCategory' => $byCategory,
+                'overlayPipeline' => $overlayPipeline,
+                'filters' => [
+                    'subscriberCode' => $subscriberCode,
+                    'status' => $status,
+                    'category' => $category,
+                    'dateFrom' => $dateFrom,
+                    'dateTo' => $dateTo,
+                ],
             ],
         ];
     }
