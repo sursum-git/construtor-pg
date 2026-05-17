@@ -144,6 +144,32 @@
         suggestedSequence: ["validar impacto", "executar rollout controlado", "validar integridade"]
       });
     }
+    if (method === "POST" && url === "/api/admin/system-updates/dispatch-rollout") {
+      const version = String(data.version || "");
+      const subscriberCode = String(data.subscriberCode || "");
+      return Promise.resolve({
+        releaseVersion: version,
+        targetSubscriber: this.findSubscriber(subscriberCode) || null,
+        dispatch: {
+          status: "dispatched",
+          message: "Rollout despachado para o orquestrador demo.",
+          endpoint: "https://orchestrator.demo.local/system-update",
+          httpStatus: 202,
+          responseHeaders: {
+            "x-request-id": "demo-rollout-" + version
+          },
+          responseBody: {
+            queued: true,
+            version: version
+          }
+        },
+        payload: {
+          event: "system.update.rollout",
+          releaseVersion: version,
+          targetSubscriber: this.findSubscriber(subscriberCode) || null
+        }
+      });
+    }
     if (method === "POST" && url === "/api/admin/system-updates/apply") {
       const version = String(data.version || "");
       const subscriberCode = String(data.subscriberCode || "");

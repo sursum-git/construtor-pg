@@ -49,6 +49,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `php backend/bin/console app:update:apply <versao>`
     - `php backend/bin/console app:update:run-pending`
     - `php backend/bin/console app:update:rollout-plan <versao>`
+    - `php backend/bin/console app:update:dispatch-rollout <versao>`
   - tela administrativa:
     - `production/app.html?screenId=admin.atualizacoes`
     - pagina local: `examples/pages/admin-system-updates.html`
@@ -80,6 +81,11 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - o manifesto remoto pode ser configurado por `APP_UPDATE_MANIFEST_URL`;
   - a verificacao do manifesto usa `APP_UPDATE_MANIFEST_SIGNING_KEY`;
   - a verificacao do pacote usa `APP_UPDATE_PACKAGE_SIGNING_KEY`;
+  - o rollout externo do SaaS pode ser integrado por:
+    - `APP_UPDATE_ORCHESTRATOR_URL`
+    - `APP_UPDATE_ORCHESTRATOR_TOKEN`
+    - `APP_UPDATE_ORCHESTRATOR_SIGNING_KEY`
+    - `APP_UPDATE_ORCHESTRATOR_TIMEOUT`
 
 ## Estado atual do program-builder
 

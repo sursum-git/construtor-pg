@@ -812,7 +812,7 @@
           references: {
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Provisionamento de assinantes", "Atualizacoes por assinante", "Governanca de programas", "Integridade estrutural"],
-            notes: ["Tela de producao: ../../production/app.html?screenId=admin.atualizacoes", "Entrada custom local: ../../production/admin/system-updates.html", "Exemplo local: ../../examples/pages/admin-system-updates.html", "Comandos: `app:update:check`, `app:update:download <versao>`, `app:update:apply <versao>`, `app:update:run-pending` e `app:update:rollout-plan <versao>`", "Jobs envolvidos: `system.update.apply` e avaliacao automatica ao abrir a Home em ambiente autenticado", "Runner on-premise: `scripts/update-onprem.sh|ps1` ou `./update.sh` no pacote zip"]
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.atualizacoes", "Entrada custom local: ../../production/admin/system-updates.html", "Exemplo local: ../../examples/pages/admin-system-updates.html", "Comandos: `app:update:check`, `app:update:download <versao>`, `app:update:apply <versao>`, `app:update:run-pending`, `app:update:rollout-plan <versao>` e `app:update:dispatch-rollout <versao>`", "Jobs envolvidos: `system.update.apply` e avaliacao automatica ao abrir a Home em ambiente autenticado", "Runner on-premise: `scripts/update-onprem.sh|ps1` ou `./update.sh` no pacote zip", "Rollout externo do SaaS: `APP_UPDATE_ORCHESTRATOR_URL`, `APP_UPDATE_ORCHESTRATOR_TOKEN`, `APP_UPDATE_ORCHESTRATOR_SIGNING_KEY` e `APP_UPDATE_ORCHESTRATOR_TIMEOUT`"]
           }
         },
         "admin-atualizacoes-assinantes": {

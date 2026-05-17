@@ -31,10 +31,16 @@ Atualizacao operacional:
 - o manifesto remoto pode ser configurado por `APP_UPDATE_MANIFEST_URL`;
 - a validacao de assinatura do manifesto usa `APP_UPDATE_MANIFEST_SIGNING_KEY`;
 - a validacao de assinatura do pacote usa `APP_UPDATE_PACKAGE_SIGNING_KEY`;
+- o rollout externo do SaaS pode ser integrado por:
+  - `APP_UPDATE_ORCHESTRATOR_URL`
+  - `APP_UPDATE_ORCHESTRATOR_TOKEN`
+  - `APP_UPDATE_ORCHESTRATOR_SIGNING_KEY`
+  - `APP_UPDATE_ORCHESTRATOR_TIMEOUT`
 - as telas administrativas de provisionamento e atualizacao ficam apenas no sistema central SaaS, identificado por `APP_SYSTEM_ROLE=saas_central` ou `APP_CENTRAL_CONTROL_ENABLED=1`;
 - o sistema do assinante fica apenas com o necessario para verificacao/aplicacao local, como `GET /api/runtime/system-updates/summary` e o runner on-premise;
 - existe a tela `screenId=admin.atualizacoes-assinantes` para consultar, por assinante, o historico do que foi aplicado pelo sistema central.
 - existe tambem o download/validacao do pacote por release, com registro local em `var/system-updates/<versao>/`.
+- existe tambem o despacho do rollout do SaaS para orquestrador externo por HTTP assinado; o app nao executa Docker diretamente.
 
 Tela administrativa:
 

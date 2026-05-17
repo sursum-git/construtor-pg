@@ -39,6 +39,7 @@
     this.consentButton = this.createButton(actions, "Registrar anuencia", "check", this.handleConsent.bind(this));
     this.applyButton = this.createButton(actions, "Aplicar release", "play", this.handleApply.bind(this));
     this.rolloutButton = this.createButton(actions, "Plano SaaS", "track-changes-enable", this.handleRolloutPlan.bind(this));
+    this.dispatchRolloutButton = this.createButton(actions, "Despachar rollout", "upload", this.handleDispatchRollout.bind(this));
 
     this.summaryPanel = global.jQuery("<div class=\"program-builder-governance-card\"></div>").appendTo(shell);
     global.jQuery("<div class=\"program-builder-governance-card-title\"></div>").text("Resumo").appendTo(this.summaryPanel);
@@ -416,6 +417,25 @@
       this.renderDetail(plan);
       global.CrudUtils.showMessage("Plano de rollout carregado.", "info");
     }).catch((error) => this.showError(error, "Nao foi possivel carregar o plano de rollout."));
+  };
+
+  SystemUpdatesAdmin.prototype.handleDispatchRollout = function() {
+    if (this.centralControl.centralControl === true && !this.currentSubscriberCode) {
+      global.CrudUtils.showMessage("Selecione o assinante alvo do rollout.", "warning");
+      return;
+    }
+    if (!this.currentRelease) {
+      global.CrudUtils.showMessage("Selecione uma release.", "warning");
+      return;
+    }
+    this.request("POST", "/api/admin/system-updates/dispatch-rollout", {
+      version: this.currentRelease.version,
+      subscriberCode: this.currentSubscriberCode || ""
+    }).then((payload) => {
+      this.currentExecution = null;
+      this.renderDetail(payload);
+      global.CrudUtils.showMessage("Rollout SaaS despachado.", "success");
+    }).catch((error) => this.showError(error, "Nao foi possivel despachar o rollout SaaS."));
   };
 
   SystemUpdatesAdmin.prototype.followJob = function(jobId) {

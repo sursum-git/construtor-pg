@@ -39,6 +39,7 @@ class SystemUpdateService
         private readonly CentralControlResolver $central,
         private readonly SystemUpdateStepRunner $steps,
         private readonly SystemUpdatePackageDownloader $packages,
+        private readonly SystemUpdateOrchestratorClient $orchestrator,
     ) {
     }
 
@@ -178,6 +179,28 @@ class SystemUpdateService
         ];
     }
 
+    public function dispatchRollout(string $version, ?string $targetSubscriberCode = null): array
+    {
+        $targetSubscriber = $this->resolveTargetSubscriber($targetSubscriberCode, $this->central->isCentralControl());
+        $release = $this->requireRelease($version);
+        $evaluation = $this->evaluateReleaseEntity($release, $targetSubscriber?->getCode());
+        $package = null;
+        $resolvedRelease = $this->resolveReleasePayload($release);
+        if (trim((string) (($resolvedRelease['metadata']['packageUrl'] ?? ''))) !== '') {
+            $package = $this->packages->download($resolvedRelease);
+        }
+
+        $payload = $this->buildOrchestratorPayload($release, $evaluation, $targetSubscriber, $package);
+        $dispatch = $this->orchestrator->dispatch($payload);
+
+        return [
+            'releaseVersion' => $release->getVersion(),
+            'targetSubscriber' => $targetSubscriber ? $this->formatTargetSubscriber($targetSubscriber) : null,
+            'dispatch' => $dispatch,
+            'payload' => $payload,
+        ];
+    }
+
     public function applyRelease(string $version, ?int $executionId = null, bool $forceConsent = false, string $mode = 'manual', string $source = 'job', ?string $targetSubscriberCode = null): array
     {
         $targetSubscriber = $this->resolveTargetSubscriber($targetSubscriberCode, $this->central->isCentralControl());
@@ -264,12 +287,44 @@ class SystemUpdateService
             }
         }
 
+        $orchestratorDispatch = null;
+        if ($this->shouldDispatchRollout($release)) {
+            try {
+                $orchestratorDispatch = $this->orchestrator->dispatch(
+                    $this->buildOrchestratorPayload($release, $evaluation, $targetSubscriber, $packageInfo, $execution)
+                );
+            } catch (\Throwable $error) {
+                $execution
+                    ->setStatus('failed')
+                    ->setErrorMessage($error->getMessage())
+                    ->setSummary([
+                        'message' => 'Falha ao despachar rollout SaaS para o orquestrador.',
+                        'releaseVersion' => $release->getVersion(),
+                        'steps' => $stepResults,
+                        'package' => $packageInfo,
+                    ])
+                    ->setFinishedAt(new \DateTimeImmutable());
+                $this->entityManager->flush();
+
+                return [
+                    'status' => 'failed',
+                    'releaseVersion' => $release->getVersion(),
+                    'package' => $packageInfo,
+                    'steps' => $stepResults,
+                    'orchestratorDispatch' => null,
+                    'impactReport' => $execution->getImpactReport(),
+                ];
+            }
+        }
+
         $execution
             ->setStatus('succeeded')
             ->setErrorMessage(null)
             ->setSummary([
                 'message' => 'Atualizacao aplicada com sucesso.',
                 'steps' => $stepResults,
+                'package' => $packageInfo,
+                'orchestratorDispatch' => $orchestratorDispatch,
             ])
             ->setFinishedAt(new \DateTimeImmutable());
         $this->entityManager->flush();
@@ -279,6 +334,7 @@ class SystemUpdateService
             'releaseVersion' => $release->getVersion(),
             'package' => $packageInfo,
             'steps' => $stepResults,
+            'orchestratorDispatch' => $orchestratorDispatch,
             'impactReport' => $execution->getImpactReport(),
         ];
     }
@@ -647,6 +703,8 @@ class SystemUpdateService
             'programUpdates' => array_values((array) ($release['programUpdates'] ?? [])),
             'packageAvailable' => $packageUrl !== '',
             'packageUrl' => $packageUrl !== '' ? $packageUrl : null,
+            'orchestratorEnabled' => $this->orchestrator->isEnabled(),
+            'orchestratorEndpoint' => $this->orchestrator->getEndpoint(),
         ];
     }
 
@@ -970,5 +1028,47 @@ class SystemUpdateService
         }
 
         return $subscriber;
+    }
+
+    private function shouldDispatchRollout(SystemUpdateRelease $release): bool
+    {
+        if ($this->deploymentMode->resolve() !== 'saas') {
+            return false;
+        }
+        if (!$this->central->isCentralControl()) {
+            return false;
+        }
+
+        $metadata = $release->getMetadata();
+        if (($metadata['orchestratorDispatchEnabled'] ?? true) !== true) {
+            return false;
+        }
+
+        return $this->orchestrator->isEnabled();
+    }
+
+    private function buildOrchestratorPayload(SystemUpdateRelease $release, array $evaluation, ?AuthSubscriber $targetSubscriber = null, ?array $package = null, ?SystemUpdateExecution $execution = null): array
+    {
+        $environment = $this->environmentIdentity->resolve();
+        $metadata = $release->getMetadata();
+
+        return [
+            'event' => 'system.update.rollout',
+            'releaseVersion' => $release->getVersion(),
+            'releaseTitle' => $release->getTitle(),
+            'category' => $release->getCategory(),
+            'severity' => $release->getSeverity(),
+            'deploymentMode' => $this->deploymentMode->resolve(),
+            'databaseEnvironment' => (string) ($environment['databaseEnvironment'] ?? 'dev'),
+            'databaseIdentity' => (string) ($environment['databaseIdentity'] ?? 'db:dev'),
+            'targetSubscriber' => $targetSubscriber ? $this->formatTargetSubscriber($targetSubscriber) : null,
+            'executionId' => $execution?->getId(),
+            'orchestratorAction' => (string) ($metadata['orchestratorAction'] ?? 'rolling-restart'),
+            'requiresMaintenanceMode' => ($metadata['requiresMaintenanceMode'] ?? false) === true,
+            'requiresBackup' => ($metadata['requiresBackup'] ?? false) === true,
+            'steps' => $release->getSteps(),
+            'package' => $package,
+            'impactReport' => $evaluation['impactReport'] ?? [],
+        ];
     }
 }

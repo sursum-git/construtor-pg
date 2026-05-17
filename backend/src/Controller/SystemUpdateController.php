@@ -124,6 +124,22 @@ class SystemUpdateController extends AbstractController
         }
     }
 
+    #[Route('/dispatch-rollout', methods: ['POST'])]
+    public function dispatchRollout(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $this->central->ensureCentral();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->updates->dispatchRollout(
+                trim((string) ($payload['version'] ?? '')),
+                trim((string) ($payload['subscriberCode'] ?? '')) ?: null
+            ));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
     #[Route('/subscriber-log/bootstrap', methods: ['GET'])]
     public function subscriberLogBootstrap(Request $request): JsonResponse
     {
