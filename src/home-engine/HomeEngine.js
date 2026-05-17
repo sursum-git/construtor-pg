@@ -12,6 +12,9 @@
       this.config = this.normalizeConfig(this.options.config);
       this.securityPolicy = global.CrudUtils.normalizeSecurityPolicy(this.config, this.options);
       this.currentTheme = this.resolveInitialTheme();
+      this.systemUpdatesSummary = null;
+      this.systemUpdatesBlockWindow = null;
+      this.systemUpdatesBlocked = false;
       this.currentProgram = null;
       this.currentProgramEngine = null;
       this.currentProgramFrame = null;
@@ -125,9 +128,14 @@
         this.currentModuleId = this.resolveInitialModuleId();
         this.render();
         this.startRuntimeMessagePolling();
-        return this.openInitialProgram().then(() => {
-          this.restoreAppbarPanelContext();
-          return this.maybeCheckSystemUpdatesSummary().then(() => this);
+        return this.maybeCheckSystemUpdatesSummary().then(() => {
+          if (this.systemUpdatesBlocked) {
+            return this;
+          }
+          return this.openInitialProgram().then(() => {
+            this.restoreAppbarPanelContext();
+            return this;
+          });
         });
       }).catch((error) => {
         this.renderError(global.CrudUtils.unwrapError(error, "Erro ao carregar pagina inicial."));
@@ -387,6 +395,8 @@
 
     handleSystemUpdatesSummary(summary) {
       const normalized = summary && typeof summary === "object" ? summary : {};
+      this.systemUpdatesSummary = normalized;
+      this.systemUpdatesBlocked = String(normalized.accessMode || "") === "blocked";
       const autoQueuedVersion = normalized.autoQueuedRelease && normalized.autoQueuedRelease.version
         ? String(normalized.autoQueuedRelease.version)
         : "";
@@ -408,7 +418,106 @@
         global.CrudUtils.showMessage("Existe atualizacao critica pendente. Revise `admin.atualizacoes`.", "warning");
       }
 
+      if (this.systemUpdatesBlocked) {
+        this.openSystemUpdateBlockWindow(normalized);
+      } else {
+        this.closeSystemUpdateBlockWindow();
+        if (!this.currentProgram && this.definition) {
+          this.openInitialProgram().then(() => {
+            this.restoreAppbarPanelContext();
+          });
+        }
+      }
+
       global.CrudUtils.saveLocalStateValue(this.getHomePreferenceStorageKey("systemUpdatesNotice"), nextState, { version: 1 });
+    }
+
+    openSystemUpdateBlockWindow(summary) {
+      const normalized = summary && typeof summary === "object" ? summary : {};
+      if (this.systemUpdatesBlockWindow && this.systemUpdatesBlockWindow.wrapper && this.systemUpdatesBlockWindow.window) {
+        this.systemUpdatesBlockWindow.message.text(normalized.criticalActionMessage || "Atualizacao critica obrigatoria pendente.");
+        this.systemUpdatesBlockWindow.runButton.toggle(normalized.canRunPendingLocally === true && !normalized.autoQueuedRelease);
+        return;
+      }
+
+      const wrapper = $("<div></div>").appendTo(document.body);
+      const content = $("<div class=\"crud-confirm-content crud-blocking-message\"></div>").appendTo(wrapper);
+      $("<p></p>").text(normalized.criticalActionMessage || "Atualizacao critica obrigatoria pendente.").appendTo(content);
+      const actions = $("<div class=\"crud-form-actions\"></div>").appendTo(content);
+      const runButton = $("<button type=\"button\">Executar atualizacao local</button>").appendTo(actions);
+      const refreshButton = $("<button type=\"button\">Verificar novamente</button>").appendTo(actions);
+      const exitButton = $("<button type=\"button\">Sair</button>").appendTo(actions);
+      runButton.kendoButton({ themeColor: "primary", icon: "play" });
+      refreshButton.kendoButton({ icon: "reload" });
+      exitButton.kendoButton({ icon: "logout" });
+
+      wrapper.kendoWindow({
+        title: normalized.criticalActionTitle || "Atualizacao critica obrigatoria",
+        modal: true,
+        actions: [],
+        resizable: false,
+        width: Math.min(560, Math.max(320, window.innerWidth - 24)),
+        visible: false
+      });
+
+      const windowWidget = wrapper.data("kendoWindow");
+      const state = {
+        wrapper: wrapper,
+        window: windowWidget,
+        message: content.find("p").first(),
+        runButton: runButton,
+        refreshButton: refreshButton,
+        exitButton: exitButton
+      };
+      this.systemUpdatesBlockWindow = state;
+      runButton.toggle(normalized.canRunPendingLocally === true && !normalized.autoQueuedRelease);
+      runButton.on("click", () => this.runPendingSystemUpdatesFromHome());
+      refreshButton.on("click", () => this.maybeCheckSystemUpdatesSummary());
+      exitButton.on("click", () => this.handleLogoutRequest());
+      windowWidget.center().open();
+    }
+
+    closeSystemUpdateBlockWindow() {
+      if (!this.systemUpdatesBlockWindow || !this.systemUpdatesBlockWindow.window) {
+        return;
+      }
+      const wrapper = this.systemUpdatesBlockWindow.wrapper;
+      const windowWidget = this.systemUpdatesBlockWindow.window;
+      this.systemUpdatesBlockWindow = null;
+      windowWidget.destroy();
+      wrapper.remove();
+    }
+
+    runPendingSystemUpdatesFromHome() {
+      const summary = this.systemUpdatesSummary || {};
+      const endpoint = String(summary.runtimeRunPendingEndpoint || "").trim();
+      if (!endpoint || !this.httpClient || typeof this.httpClient.request !== "function") {
+        global.CrudUtils.showMessage("A aplicacao local da atualizacao nao esta disponivel neste ambiente.", "warning");
+        return;
+      }
+      if (this.systemUpdatesBlockWindow && this.systemUpdatesBlockWindow.runButton) {
+        this.systemUpdatesBlockWindow.runButton.prop("disabled", true);
+      }
+      this.httpClient.request({
+        method: "POST",
+        url: endpoint,
+        data: {}
+      }).then((payload) => {
+        const runtimeSummary = payload && payload.runtimeSummary ? payload.runtimeSummary : null;
+        global.CrudUtils.showMessage("Rotina local de atualizacao executada.", "success");
+        if (runtimeSummary) {
+          this.handleSystemUpdatesSummary(runtimeSummary);
+        } else {
+          this.maybeCheckSystemUpdatesSummary();
+        }
+      }).catch((error) => {
+        const message = error && error.error && error.error.message || error && error.message || "Falha ao executar a atualizacao local.";
+        global.CrudUtils.showMessage(message, "error");
+      }).finally(() => {
+        if (this.systemUpdatesBlockWindow && this.systemUpdatesBlockWindow.runButton) {
+          this.systemUpdatesBlockWindow.runButton.prop("disabled", false);
+        }
+      });
     }
 
     normalizeConfig(config) {
@@ -4010,6 +4119,10 @@
     openProgram(programId, options) {
       const openOptions = options || {};
       if (this.sessionRevoked) {
+        return Promise.resolve();
+      }
+      if (this.systemUpdatesBlocked) {
+        this.openSystemUpdateBlockWindow(this.systemUpdatesSummary || {});
         return Promise.resolve();
       }
       if (!openOptions.skipUnsavedCheck) {

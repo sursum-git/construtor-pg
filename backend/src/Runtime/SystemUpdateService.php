@@ -400,6 +400,7 @@ class SystemUpdateService
     {
         $result = $this->check(null, true, $autoQueue);
         $summary = $result['summary'];
+        $deploymentMode = (string) ($summary['deploymentMode'] ?? $this->deploymentMode->resolve());
         $criticalPending = array_values(array_map(
             static fn (array $item): string => (string) ($item['version'] ?? ''),
             array_filter((array) ($result['releases'] ?? []), static fn (array $item): bool => ($item['status'] ?? '') === 'pending' && ($item['severity'] ?? '') === 'critical')
@@ -407,8 +408,43 @@ class SystemUpdateService
         $summary['criticalActionRequired'] = count($criticalPending) > 0;
         $summary['pendingCriticalVersions'] = $criticalPending;
         $summary['recommendedScreenId'] = 'admin.atualizacoes';
+        $summary['criticalPolicy'] = $deploymentMode === 'onprem' ? $this->resolveOnPremCriticalPolicy() : 'warn';
+        $summary['canRunPendingLocally'] = $deploymentMode === 'onprem';
+        $summary['runtimeRunPendingEndpoint'] = $deploymentMode === 'onprem' ? '/api/runtime/system-updates/run-pending' : null;
+        $summary['accessMode'] = 'ready';
+        $summary['criticalActionTitle'] = '';
+        $summary['criticalActionMessage'] = '';
+        if ($summary['criticalActionRequired'] === true) {
+            $message = 'Existe atualizacao critica pendente: ' . implode(', ', $criticalPending) . '.';
+            if ($deploymentMode === 'onprem' && $summary['criticalPolicy'] === 'block') {
+                $summary['accessMode'] = 'blocked';
+                $summary['criticalActionTitle'] = 'Atualizacao critica obrigatoria';
+                $summary['criticalActionMessage'] = $message . ' O acesso operacional deve aguardar a aplicacao local da atualizacao.';
+            } else {
+                $summary['accessMode'] = 'warning';
+                $summary['criticalActionTitle'] = 'Atualizacao critica pendente';
+                $summary['criticalActionMessage'] = $message . ' Revise a politica de atualizacao antes de continuar.';
+            }
+            if (!empty($summary['autoQueuedRelease']['version'])) {
+                $summary['criticalActionMessage'] .= ' A release ' . (string) $summary['autoQueuedRelease']['version'] . ' foi enfileirada automaticamente.';
+            }
+        }
 
         return $summary;
+    }
+
+    public function runPendingRuntime(bool $autoOnly = true): array
+    {
+        if ($this->deploymentMode->resolve() !== 'onprem') {
+            throw new RuntimeHttpException('SYSTEM_UPDATE_RUNTIME_MODE_INVALID', 'A aplicacao local de updates runtime existe apenas no modo on-premise.', 422, [
+                'deploymentMode' => $this->deploymentMode->resolve(),
+            ]);
+        }
+
+        $result = $this->runPending(null, $autoOnly, true);
+        $result['runtimeSummary'] = $this->runtimeSummary(false);
+
+        return $result;
     }
 
     public function registerConsent(string $version, string $status = 'approved', ?string $reason = null, string $source = 'ui', ?string $targetSubscriberCode = null): array
@@ -744,6 +780,12 @@ class SystemUpdateService
     private function isManifestTrusted(string $signatureStatus): bool
     {
         return in_array($signatureStatus, ['verified', 'local-unsigned'], true);
+    }
+
+    private function resolveOnPremCriticalPolicy(): string
+    {
+        $value = strtolower(trim((string) ($_SERVER['APP_UPDATE_ONPREM_CRITICAL_POLICY'] ?? $_ENV['APP_UPDATE_ONPREM_CRITICAL_POLICY'] ?? getenv('APP_UPDATE_ONPREM_CRITICAL_POLICY') ?: 'warn')));
+        return in_array($value, ['warn', 'block'], true) ? $value : 'warn';
     }
 
     private function requireRelease(string $version): SystemUpdateRelease

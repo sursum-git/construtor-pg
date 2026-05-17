@@ -62,6 +62,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `GET /api/admin/system-updates/jobs/{jobId}`
     - `GET /api/admin/system-updates/jobs/{jobId}/events`
     - `GET /api/runtime/system-updates/summary`
+    - `POST /api/runtime/system-updates/run-pending`
   - job envolvido:
     - `system.update.apply`
   - compatibilizacao com programas:
@@ -83,6 +84,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - o manifesto remoto pode ser configurado por `APP_UPDATE_MANIFEST_URL`;
   - a verificacao do manifesto usa `APP_UPDATE_MANIFEST_SIGNING_KEY`;
   - a verificacao do pacote usa `APP_UPDATE_PACKAGE_SIGNING_KEY`;
+  - o endurecimento do on-premise ao abrir o sistema usa `APP_UPDATE_ONPREM_CRITICAL_POLICY=warn|block`;
   - a publicacao oficial dos artefatos usa:
     - `APP_UPDATE_DISTRIBUTION_DIR`
     - `APP_UPDATE_PUBLIC_BASE_URL`

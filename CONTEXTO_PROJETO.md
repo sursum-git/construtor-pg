@@ -54,13 +54,14 @@ Paginas principais:
   - `scripts/provision-saas-subscriber.sh`
   - o objetivo e automatizar banco, migrations, seed, validacao do catalogo padrao e criacao do assinante/admin inicial.
   - existe tambem a tela `admin.assinante-ambientes`, que salva o assinante, enfileira o provisionamento SaaS em job runtime, acompanha o status por SSE/polling e gera o pacote zip on-premise com `install.sh` para Ubuntu 24.04.
-- existe tambem a tela `admin.atualizacoes`, que le o manifesto de releases, avalia dependencias, aplica atualizacoes por job e mostra o impacto em programas padrao e customizados.
+  - existe tambem a tela `admin.atualizacoes`, que le o manifesto de releases, avalia dependencias, aplica atualizacoes por job e mostra o impacto em programas padrao e customizados.
 - provisionamento e gestao administrativa de atualizacoes ficam apenas no sistema central SaaS, identificado por `APP_SYSTEM_ROLE=saas_central` ou `APP_CENTRAL_CONTROL_ENABLED=1`.
 - existe tambem a tela `admin.atualizacoes-assinantes`, que facilita consultar no sistema central o historico do que foi aplicado em cada assinante.
   - a frente agora tambem cobre anuencia formal por release, plano de rollout SaaS exportavel e runner on-premise (`update-onprem.sh|ps1` / `update.sh` no pacote).
   - o updater agora tambem suporta download e validacao do pacote da release, usando manifesto remoto em `APP_UPDATE_MANIFEST_URL`, assinatura do manifesto por `APP_UPDATE_MANIFEST_SIGNING_KEY` e assinatura do pacote por `APP_UPDATE_PACKAGE_SIGNING_KEY`.
   - existe tambem a publicacao oficial de manifesto e pacotes assinados por `app:update:publish-artifacts [versao]`, usando `APP_UPDATE_DISTRIBUTION_DIR` e `APP_UPDATE_PUBLIC_BASE_URL`.
   - o rollout externo do SaaS agora pode ser despachado por HTTP assinado usando `APP_UPDATE_ORCHESTRATOR_URL`, `APP_UPDATE_ORCHESTRATOR_TOKEN`, `APP_UPDATE_ORCHESTRATOR_SIGNING_KEY` e `APP_UPDATE_ORCHESTRATOR_TIMEOUT`.
+  - no on-premise, a abertura da Home pode endurecer atualizacao critica pendente por `APP_UPDATE_ONPREM_CRITICAL_POLICY=warn|block`, com bloqueio modal e endpoint runtime local `POST /api/runtime/system-updates/run-pending`.
   - a politica de atualizacao respeita o modelo atual de programas:
     - `standard`: pode receber a nova release;
     - `customer_overlay`: entra em analise de rebase/compatibilidade, sem sobrescrita automatica;

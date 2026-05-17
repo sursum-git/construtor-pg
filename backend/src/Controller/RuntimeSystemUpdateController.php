@@ -69,4 +69,30 @@ class RuntimeSystemUpdateController extends AbstractController
             ], 500);
         }
     }
+
+    #[Route('/run-pending', methods: ['POST'])]
+    public function runPending(): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->updates->runPendingRuntime(true));
+        } catch (\Throwable $error) {
+            if ($error instanceof RuntimeHttpException) {
+                return $this->json([
+                    'error' => [
+                        'code' => $error->getErrorCode(),
+                        'message' => $error->getMessage(),
+                        'details' => $error->getDetails(),
+                    ],
+                ], $error->getStatusCode());
+            }
+
+            return $this->json([
+                'error' => [
+                    'code' => 'RUNTIME_SYSTEM_UPDATE_RUN_ERROR',
+                    'message' => $error->getMessage() !== '' ? $error->getMessage() : 'Falha ao aplicar atualizacoes locais.',
+                ],
+            ], 500);
+        }
+    }
 }

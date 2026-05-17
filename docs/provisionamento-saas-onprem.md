@@ -208,6 +208,7 @@ Regras fechadas:
 - `security_critical` pode ser autoenfileirada conforme a politica do ambiente.
 - `required_structural` bloqueia atualizacoes posteriores enquanto a cadeia obrigatoria nao for aplicada.
 - releases com `requiresSubscriberConsent=true` exigem anuencia formal antes da aplicacao normal.
+- no on-premise, o comportamento ao abrir o sistema pode ser endurecido por `APP_UPDATE_ONPREM_CRITICAL_POLICY=warn|block`.
 - atualizacoes de programas padrao respeitam a politica atual de customizacao:
   - `standard`: atualiza pelo pacote da release;
   - `customer_overlay`: apenas gera impacto e fluxo de rebase, sem sobrescrita direta;
@@ -230,6 +231,27 @@ O runner:
 2. consulta o manifesto;
 3. aplica releases autoaplicaveis ou com anuencia ja registrada;
 4. revalida integridade estrutural ao final.
+
+Quando `APP_UPDATE_ONPREM_CRITICAL_POLICY=block`, a Home passa a tratar release critica pendente como bloqueante e o runner assume `--fail-on-pending-critical` por padrao.
+
+### Runtime local no on-premise
+
+Ao abrir o sistema autenticado, a Home consulta:
+
+- `GET /api/runtime/system-updates/summary`
+
+Quando o deployment for `onprem` e a politica estiver em `block`, o resumo passa a devolver:
+
+- `accessMode=blocked`
+- `criticalPolicy=block`
+- `criticalActionRequired=true`
+- `runtimeRunPendingEndpoint=/api/runtime/system-updates/run-pending`
+
+O endpoint local:
+
+- `POST /api/runtime/system-updates/run-pending`
+
+executa apenas a esteira local de updates pendentes e reavalia o resumo runtime sem depender da tela central SaaS.
 
 ### Plano de rollout SaaS
 

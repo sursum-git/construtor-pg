@@ -4,8 +4,17 @@ set -euo pipefail
 BACKEND_DIR="${BACKEND_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../backend" && pwd)}"
 MANIFEST_SOURCE="${MANIFEST_SOURCE:-}"
 AUTO_ONLY="${AUTO_ONLY:-0}"
-FAIL_ON_PENDING_CRITICAL="${FAIL_ON_PENDING_CRITICAL:-1}"
+CRITICAL_POLICY="${APP_UPDATE_ONPREM_CRITICAL_POLICY:-warn}"
+FAIL_ON_PENDING_CRITICAL="${FAIL_ON_PENDING_CRITICAL:-}"
 ALLOW_CONSENTED="${ALLOW_CONSENTED:-1}"
+
+if [[ -z "${FAIL_ON_PENDING_CRITICAL}" ]]; then
+  if [[ "${CRITICAL_POLICY}" == "block" ]]; then
+    FAIL_ON_PENDING_CRITICAL="1"
+  else
+    FAIL_ON_PENDING_CRITICAL="0"
+  fi
+fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

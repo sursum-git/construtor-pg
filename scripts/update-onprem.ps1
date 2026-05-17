@@ -7,7 +7,8 @@ if ([string]::IsNullOrWhiteSpace($BackendDir)) {
 $ManifestSource = $env:MANIFEST_SOURCE
 $AutoOnly = $false
 $DisallowConsented = $false
-$FailOnPendingCritical = $true
+$CriticalPolicy = [string]::IsNullOrWhiteSpace($env:APP_UPDATE_ONPREM_CRITICAL_POLICY) ? 'warn' : $env:APP_UPDATE_ONPREM_CRITICAL_POLICY
+$FailOnPendingCritical = if ($CriticalPolicy -eq 'block') { $true } else { $false }
 
 foreach ($arg in $args) {
   if ($arg -like '--backend-dir=*') { $BackendDir = $arg.Substring(14); continue }
