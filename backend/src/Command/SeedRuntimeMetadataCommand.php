@@ -330,6 +330,22 @@ class SeedRuntimeMetadataCommand extends Command
                 'frameTitle' => 'Versoes de overlay',
             ],
         ];
+        $subscriberProvisioningAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.assinante-ambientes',
+            'program' => [
+                'id' => 'admin-assinante-ambientes',
+                'title' => 'Provisionamento de assinantes',
+                'subtitle' => 'Cadastro do assinante, provisionamento SaaS e pacote on-premise',
+                'version' => '1.0.0',
+                'screenId' => 'admin.assinante-ambientes',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/subscriber-provisioning.html',
+                'frameTitle' => 'Provisionamento de assinantes',
+            ],
+        ];
 
         $clientesDefinition['screenId'] = 'cadastros.clientes';
         $clientesDefinition['program']['screenId'] = 'cadastros.clientes';
@@ -354,6 +370,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-operacoes-operacao', 'Operacoes da governanca', 'Operacao administrativa unificada', 'admin.programa-operacoes-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-overlays-operacao', 'Overlays de programas', 'Operacao focada em overlays e rebase', 'admin.programa-overlays-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-overlay-versoes-operacao', 'Versoes de overlay', 'Operacao focada em versoes de overlay', 'admin.programa-overlay-versoes-operacao');
+        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-assinante-ambientes', 'Provisionamento de assinantes', 'Criacao do assinante, SaaS e pacote on-premise', 'admin.assinante-ambientes');
 
         foreach (($homeDefinition['programs'] ?? []) as $index => $program) {
             if (($program['id'] ?? '') === 'clientes-crud') {
@@ -374,6 +391,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertProgram('admin-programa-operacoes-operacao', 'Operacoes da governanca', 'administracao', 'custom', 'admin.programa-operacoes-operacao');
         $this->upsertProgram('admin-programa-overlays-operacao', 'Overlays de programas', 'administracao', 'custom', 'admin.programa-overlays-operacao');
         $this->upsertProgram('admin-programa-overlay-versoes-operacao', 'Versoes de overlay', 'administracao', 'custom', 'admin.programa-overlay-versoes-operacao');
+        $this->upsertProgram('admin-assinante-ambientes', 'Provisionamento de assinantes', 'administracao', 'custom', 'admin.assinante-ambientes');
         $this->upsertProgram('processamento-clientes', 'Processamento de Clientes', 'operacional', 'process', 'processamento.relatorio-clientes');
         $this->upsertProgram('home', 'Home', 'global', 'home', 'home');
         foreach ($adminScreens as $screen) {
@@ -396,6 +414,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertScreen('admin.programa-operacoes-operacao', 'custom', $programOperationsAdminDefinition);
         $this->upsertScreen('admin.programa-overlays-operacao', 'custom', $programOverlaysAdminDefinition);
         $this->upsertScreen('admin.programa-overlay-versoes-operacao', 'custom', $programOverlayVersionsAdminDefinition);
+        $this->upsertScreen('admin.assinante-ambientes', 'custom', $subscriberProvisioningAdminDefinition);
         $this->upsertScreen('processamento.relatorio-clientes', 'process', $processDefinition);
         $this->upsertScreen('assistente.codificacao.produto-pdm', 'process', $customCodePdmDefinition);
         foreach ($adminScreens as $screen) {

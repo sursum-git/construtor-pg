@@ -36,7 +36,8 @@ try {
     persistedCurrentCode: "",
     persistedVersionNumber: "",
     persistedScheduleCode: "",
-    persistedDesignerPath: ""
+    persistedDesignerPath: "",
+    persistedPreviewPath: ""
   };
 
   await page.goto(pageUrl);
@@ -67,6 +68,19 @@ try {
   await page.locator('button:has-text("Preview")').click();
   await waitForTreeItems(page, ".import-export-admin-preview-splitter .import-export-admin-tree");
   result.previewTreeItems = await page.locator(".import-export-admin-preview-splitter .import-export-admin-tree .k-treeview-item, .import-export-admin-preview-splitter .import-export-admin-tree .k-item").count();
+  await page.evaluate(() => {
+    const app = window.importExportAdminDemoApp;
+    const treeView = app && app.previewStructureTree ? app.previewStructureTree.data("kendoTreeView") : null;
+    if (!treeView || !app.previewStructureTree) {
+      return;
+    }
+    const rows = app.previewStructureTree.find(".k-item, .k-treeview-item");
+    const target = rows.length > 1 ? rows.eq(1) : rows.eq(0);
+    if (target && target.length) {
+      treeView.select(target);
+      app.handlePreviewStructureSelect({ node: target.get(0) });
+    }
+  });
   await screenshot(page, "admin-integracoes-smoke-txt-preview.png");
 
   await page.getByRole("button", { name: "Executar", exact: true }).click();
@@ -109,7 +123,7 @@ try {
   await page.waitForFunction(() => !!window.importExportAdminDemoApp, null, { timeout: 15000 });
   await page.waitForFunction(() => {
     const app = window.importExportAdminDemoApp;
-    return !!(app && app.state && app.state.current && app.state.current.code);
+    return !!(app && app.codeInput && String(app.codeInput.value() || "").trim());
   }, null, { timeout: 15000 });
   result.persistedTabIndex = await page.evaluate(() => {
     const app = window.importExportAdminDemoApp;
@@ -121,7 +135,7 @@ try {
   });
   result.persistedCurrentCode = await page.evaluate(() => {
     const app = window.importExportAdminDemoApp;
-    return app && app.state && app.state.current ? String(app.state.current.code || "") : "";
+    return app && app.codeInput ? String(app.codeInput.value() || "") : "";
   });
   result.persistedVersionNumber = await page.evaluate(() => {
     const app = window.importExportAdminDemoApp;
@@ -134,6 +148,13 @@ try {
   result.persistedDesignerPath = await page.evaluate(() => {
     const app = window.importExportAdminDemoApp;
     return app && app.designerState ? String(app.designerState.selectedPath || "") : "";
+  });
+  await page.locator(".k-tabstrip-items li").nth(1).click();
+  await page.locator('button:has-text("Preview")').click();
+  await waitForTreeItems(page, ".import-export-admin-preview-splitter .import-export-admin-tree");
+  result.persistedPreviewPath = await page.evaluate(() => {
+    const app = window.importExportAdminDemoApp;
+    return app && app.previewState ? String(app.previewState.selectedPath || "") : "";
   });
 
   await page.locator(".k-tabstrip-items li").first().click();

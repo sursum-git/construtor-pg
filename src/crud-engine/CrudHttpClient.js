@@ -177,10 +177,18 @@
       if (code !== "AUTH_REQUIRED" && code !== "INVALID_AUTH_TOKEN" && code !== "SESSION_REVOKED") {
         return;
       }
-      this.clearAuth();
-      if (code === "SESSION_REVOKED") {
-        this.clearRememberToken();
+      if (global.CrudUtils && typeof global.CrudUtils.clearRuntimeSessionContext === "function") {
+        global.CrudUtils.clearRuntimeSessionContext({
+          preserveLastUsername: true,
+          clearRememberToken: code === "SESSION_REVOKED"
+        });
+      } else {
+        this.clearAuth();
+        if (code === "SESSION_REVOKED") {
+          this.clearRememberToken();
+        }
       }
+      this.authToken = "";
       this.redirectToLogin(true);
     }
 

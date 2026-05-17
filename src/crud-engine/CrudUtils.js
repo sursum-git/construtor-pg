@@ -277,6 +277,34 @@
       return true;
     },
 
+    normalizeLocalStateEnvelope(value, options) {
+      const settings = options && typeof options === "object" ? options : {};
+      return {
+        version: Number(settings.version || 1),
+        updatedAt: settings.updatedAt || new Date().toISOString(),
+        data: value == null ? null : value
+      };
+    },
+
+    readLocalStateValue(key, fallbackValue, options) {
+      const settings = options && typeof options === "object" ? options : {};
+      const raw = this.readLocalJsonValue(key, null);
+      if (raw == null) {
+        return fallbackValue == null ? null : fallbackValue;
+      }
+      if (raw && typeof raw === "object" && Object.prototype.hasOwnProperty.call(raw, "data") && Object.prototype.hasOwnProperty.call(raw, "version")) {
+        if (settings.version && Number(raw.version || 0) > Number(settings.version || 0)) {
+          return fallbackValue == null ? null : fallbackValue;
+        }
+        return raw.data == null ? (fallbackValue == null ? null : fallbackValue) : raw.data;
+      }
+      return raw;
+    },
+
+    saveLocalStateValue(key, value, options) {
+      return this.saveLocalJsonValue(key, this.normalizeLocalStateEnvelope(value, options));
+    },
+
     removeLocalValue(key) {
       try {
         if (!global.localStorage) {
@@ -337,6 +365,59 @@
         return false;
       }
       return true;
+    },
+
+    getRuntimeSessionStoragePrefixes(extraPrefixes) {
+      return [
+        "homeEngine.",
+        "importExportAdmin.",
+        "program-governance-audit-filters:"
+      ].concat(this.ensureArray(extraPrefixes));
+    },
+
+    clearRuntimeSessionContext(options) {
+      const settings = options && typeof options === "object" ? options : {};
+      const preserveLastUsername = settings.preserveLastUsername === true;
+      const clearRememberToken = settings.clearRememberToken === true;
+      const keys = [
+        "crudEngine.authToken",
+        "crudEngine.runtimeTenantId",
+        "crudEngine.runtimeSessionId",
+        "crudEngine.currentSubscriber",
+        "crudEngine.availableSubscribers",
+        "crudEngine.runtimeUserId",
+        "crudEngine.runtimeUserName",
+        "crudEngine.runtimeUserGroups",
+        "crudEngine.runtimeUserPermissions",
+        "crudEngine.accessArea"
+      ];
+      if (clearRememberToken) {
+        keys.push("crudEngine.rememberToken");
+        keys.push("crudEngine.rememberTokenExpiresAt");
+      }
+      if (!preserveLastUsername) {
+        keys.push("crudEngine.lastUsername");
+      }
+      this.clearLocalKeys(keys);
+      this.clearLocalKeysByPrefix(this.getRuntimeSessionStoragePrefixes(settings.extraPrefixes));
+      return true;
+    },
+
+    buildExportFileName(prefix, extension, context) {
+      const safePrefix = String(prefix || "export")
+        .trim()
+        .replace(/[^A-Za-z0-9._-]+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "") || "export";
+      const extra = this.ensureArray(context).map(function(item) {
+        return String(item || "")
+          .trim()
+          .replace(/[^A-Za-z0-9._-]+/g, "-")
+          .replace(/-+/g, "-")
+          .replace(/^-|-$/g, "");
+      }).filter(Boolean);
+      const stamp = new Date().toISOString().replace(/[:]/g, "-").replace(/\.\d{3}Z$/, "Z");
+      return [safePrefix].concat(extra).concat(stamp).join("-") + "." + String(extension || "txt").replace(/^\./, "");
     },
 
     makeError(code, message, details) {

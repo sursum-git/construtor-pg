@@ -715,6 +715,53 @@
             notes: ["Tela de producao: ../../production/app.html?screenId=admin.integracoes", "Entrada custom local: ../../production/admin/import-export-mappings.html", "Demo local de smoke: ../../examples/pages/import-export-admin-demo.html", "Comando de agenda: php backend/bin/console app:import-export:run-schedules"]
           }
         },
+        "admin-assinante-ambientes": {
+          title: "Provisionamento de assinantes",
+          module: "Administracao",
+          type: "Custom administrativo",
+          route: "../../production/admin/subscriber-provisioning.html",
+          screenId: "admin.assinante-ambientes",
+          summary: "Tela administrativa para cadastrar o assinante, disparar o provisionamento SaaS por job e gerar o pacote on-premise com instalador principal.",
+          functional: {
+            objective: "Automatizar a preparacao do ambiente do assinante sem alterar a arquitetura atual do sistema.",
+            scope: [
+              "Cadastro e atualizacao do assinante.",
+              "Disparo do job `subscriber.environment.provision`.",
+              "Acompanhamento do processamento por SSE quando disponivel, com fallback por polling.",
+              "Geracao do pacote zip on-premise com `install.sh`."
+            ],
+            outputs: [
+              "Assinante salvo com metadados de provisionamento.",
+              "Job de provisionamento enfileirado e acompanhado pela tela.",
+              "Pacote on-premise pronto para download."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa.",
+              "Worker de jobs ativo para consumir `subscriber.environment.provision` no ambiente SaaS.",
+              "Metadados da tela publicados por `app:seed-runtime-metadata`."
+            ],
+            steps: [
+              "Cadastrar ou localizar o assinante e preencher os dados de provisionamento.",
+              "Salvar o assinante antes de iniciar o ambiente.",
+              "Usar `Criar ambiente` para enfileirar o job SaaS e acompanhar o detalhe do processamento.",
+              "Usar `Baixar pacote on-premise` quando precisar entregar uma instalacao nova com bootstrap automatico.",
+              "No on-premise, extrair o zip em Ubuntu 24.04 e executar `install.sh`."
+            ],
+            cautions: [
+              "Sem worker ativo, o job fica enfileirado e nao conclui.",
+              "A tela tenta SSE primeiro e cai para polling quando o stream nao estiver disponivel.",
+              "O pacote on-premise foi pensado para Ubuntu 24.04 e nao substitui validacao operacional do host.",
+              "Em outros ambientes, publicar a tela exige rodar `php backend/bin/console app:seed-runtime-metadata --no-interaction`."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Usuarios", "Usuarios por assinante", "Integridade estrutural"],
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.assinante-ambientes", "Entrada custom local: ../../production/admin/subscriber-provisioning.html", "Exemplo local: ../../examples/pages/admin-subscriber-provisioning.html", "Scripts: `scripts/provision-saas-subscriber.sh|ps1` e `scripts/install-onprem.sh|ps1`", "Comandos base: `app:install:bootstrap`, `app:subscriber:create` e `app:runtime:publish-defaults`"]
+          }
+        },
         "admin-programa-solicitacoes": {
           title: "Solicitacoes de alteracao de programas",
           module: "Administracao",
@@ -1576,6 +1623,7 @@
           { id: "admin-notificacoes", text: "Administracao de notificacoes" },
           { id: "admin-notificacao-destinatarios", text: "Destinatarios de notificacoes" },
           { id: "admin-integracoes", text: "Importacao e exportacao" },
+          { id: "admin-assinante-ambientes", text: "Provisionamento de assinantes" },
           { id: "admin-programa-solicitacoes", text: "Solicitacoes de alteracao de programas" },
           { id: "admin-programa-grants", text: "Grants de programas" },
           { id: "admin-programa-testes", text: "Testes de programas" },

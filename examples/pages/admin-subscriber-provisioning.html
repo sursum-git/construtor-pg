@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Provisionamento de assinantes (demo local)</title>
+  <link rel="stylesheet" href="../../kendo/styles/default-urban.css">
+  <link rel="stylesheet" href="../../src/styles/crud-engine.css">
+  <link rel="stylesheet" href="../../src/styles/program-builder.css">
+  <style>
+    .subscriber-provisioning-notes {
+      margin: 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--crud-border);
+      border-radius: 6px;
+      background: var(--crud-readonly-bg);
+      color: var(--crud-text);
+    }
+
+    .subscriber-provisioning-notes h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      color: var(--crud-title);
+    }
+
+    .subscriber-provisioning-notes ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+  </style>
+</head>
+<body>
+  <section class="subscriber-provisioning-notes" aria-label="Observacoes operacionais">
+    <h2>Observacoes operacionais</h2>
+    <ul>
+      <li>Esta pagina usa demo em memoria e nao executa Docker, banco real ou worker.</li>
+      <li>Na producao, o botao <code>Criar ambiente</code> enfileira o job <code>subscriber.environment.provision</code> e depende de worker ativo.</li>
+      <li>Na producao, o acompanhamento prefere SSE e cai para polling quando necessario.</li>
+      <li>O pacote on-premise foi pensado para Ubuntu 24.04 e entrega <code>install.sh</code> como ponto de entrada.</li>
+    </ul>
+  </section>
+  <main id="subscriber-provisioning-admin-root" class="program-builder-root"></main>
+
+  <script src="../../vendor/jquery/jquery-4.0.0.min.js"></script>
+  <script src="../../kendo/js/kendo.all.min.js"></script>
+  <script src="../../kendo/kendo-license.js"></script>
+  <script src="../../kendo/js/cultures/kendo.culture.pt-BR.min.js"></script>
+  <script src="../../kendo/js/messages/kendo.messages.pt-BR.min.js"></script>
+  <script src="../../src/bootstrap/kendo-ptbr.js"></script>
+  <script src="../../src/crud-engine/CrudUtils.js"></script>
+  <script src="../../src/provisioning/subscriber-provisioning-admin.js"></script>
+  <script src="../../src/demo/subscriber-provisioning-demo.js"></script>
+  <script src="../../src/provisioning/subscriber-provisioning-admin.boot.js"></script>
+</body>
+</html>

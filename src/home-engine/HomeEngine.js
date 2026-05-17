@@ -321,7 +321,7 @@
     }
 
     loadNotificationFilterState() {
-      const parsed = global.CrudUtils.readLocalJsonValue(this.getHomePreferenceStorageKey("notificationFilters"), null);
+      const parsed = global.CrudUtils.readLocalStateValue(this.getHomePreferenceStorageKey("notificationFilters"), null, { version: 1 });
       if (!parsed || typeof parsed !== "object") {
         return;
       }
@@ -335,17 +335,17 @@
     }
 
     saveNotificationFilterState() {
-      global.CrudUtils.saveLocalJsonValue(this.getHomePreferenceStorageKey("notificationFilters"), {
+      global.CrudUtils.saveLocalStateValue(this.getHomePreferenceStorageKey("notificationFilters"), {
         severity: this.notificationListFilters.severity || "",
         category: this.notificationListFilters.category || "",
         actionRequired: this.notificationListFilters.actionRequired === true,
         unreadOnly: this.notificationListFilters.unreadOnly !== false,
         includeRead: this.notificationListFilters.includeRead === true
-      });
+      }, { version: 1 });
     }
 
     loadNavigationState() {
-      const parsed = global.CrudUtils.readLocalJsonValue(this.getHomePreferenceStorageKey("navigationState"), null);
+      const parsed = global.CrudUtils.readLocalStateValue(this.getHomePreferenceStorageKey("navigationState"), null, { version: 2 });
       if (!parsed || typeof parsed !== "object") {
         return;
       }
@@ -359,14 +359,14 @@
     }
 
     saveNavigationState() {
-      global.CrudUtils.saveLocalJsonValue(this.getHomePreferenceStorageKey("navigationState"), {
+      global.CrudUtils.saveLocalStateValue(this.getHomePreferenceStorageKey("navigationState"), {
         currentModuleId: this.currentModuleId || "",
         menuSearchText: this.menuSearchText || "",
         showOnlyFavorites: this.showOnlyFavorites === true,
         currentProgramId: this.currentProgram && this.currentProgram.id ? String(this.currentProgram.id) : (this.savedProgramId || ""),
         sidebarCollapsed: this.shell ? this.shell.hasClass("home-sidebar-collapsed") : this.savedSidebarCollapsed === true,
         appbarPanelKind: this.savedAppbarPanelKind || ""
-      });
+      }, { version: 2 });
     }
 
     normalizeConfig(config) {
@@ -3495,29 +3495,10 @@
     }
 
     clearLocalSessionContext(preserveLastUsername) {
-      const keys = [
-        "crudEngine.authToken",
-        "crudEngine.runtimeTenantId",
-        "crudEngine.runtimeSessionId",
-        "crudEngine.currentSubscriber",
-        "crudEngine.availableSubscribers",
-        "crudEngine.runtimeUserId",
-        "crudEngine.runtimeUserName",
-        "crudEngine.runtimeUserGroups",
-        "crudEngine.runtimeUserPermissions",
-        "crudEngine.accessArea",
-        "crudEngine.rememberToken",
-        "crudEngine.rememberTokenExpiresAt"
-      ];
-      if (preserveLastUsername !== true) {
-        keys.push("crudEngine.lastUsername");
-      }
-      global.CrudUtils.clearLocalKeys(keys);
-      global.CrudUtils.clearLocalKeysByPrefix([
-        "homeEngine.",
-        "importExportAdmin.",
-        "program-governance-audit-filters:"
-      ]);
+      global.CrudUtils.clearRuntimeSessionContext({
+        preserveLastUsername: preserveLastUsername === true,
+        clearRememberToken: true
+      });
     }
 
     renderMain(shell) {
@@ -5032,6 +5013,7 @@
         return;
       }
       this.sessionRevoked = true;
+      this.clearLocalSessionContext(true);
       this.stopRuntimeMessagePolling();
       if (this.currentProgramEngine && typeof this.currentProgramEngine.handleSessionRevoked === "function") {
         this.currentProgramEngine.handleSessionRevoked(message, details || {});

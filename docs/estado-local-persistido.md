@@ -7,9 +7,11 @@ Este arquivo resume o que hoje fica em `localStorage`, com foco operacional.
 - persistir apenas contexto de uso e conveniencia;
 - nao persistir permissao efetiva, decisao de backend ou dado sensivel em claro fora do necessario;
 - limpar contexto operacional no logout;
+- limpar o mesmo contexto tambem em `SESSION_REVOKED`, `SESSION_EXPIRED` e `force_logout`;
 - separar:
   - `lembrar usuario`
   - `manter sessao`
+- usar envelope versionado para estados JSON persistidos, com fallback para chaves antigas.
 
 ## Chaves principais
 
@@ -49,6 +51,7 @@ Hoje `navigationState` guarda:
 - filtro de favoritos
 - programa atual
 - estado expandido/recolhido da lateral
+- ultimo painel contextual reaberto quando aplicavel
 
 Favoritos do usuario:
 
@@ -68,6 +71,8 @@ Hoje guarda:
 - execucao selecionada
 - versao selecionada do mapping
 - agendamento selecionado
+- no selecionado do editor visual
+- no selecionado do preview estrutural
 
 ### Auditoria de governanca
 
@@ -83,6 +88,13 @@ No logout/limpeza de sessao, alem das chaves de autenticacao, tambem devem ser l
 - `importExportAdmin.`
 - `program-governance-audit-filters:`
 
+Essa mesma limpeza agora e reutilizada em:
+
+- logout explicito;
+- token invalido;
+- sessao revogada;
+- logout forcado por mensagem runtime.
+
 ## O que nao deve persistir
 
 - grant ativo como autorizacao confiavel;
@@ -90,3 +102,17 @@ No logout/limpeza de sessao, alem das chaves de autenticacao, tambem devem ser l
 - resultado de validacao de integridade;
 - definicao runtime sensivel;
 - senha em claro.
+
+## Referencia de suporte
+
+Quando limpar estado local:
+
+- usuario trocou de sessao e a UI continua mostrando contexto antigo;
+- logout forcado encerrou a sessao no backend;
+- demo local ficou com selecao antiga que nao faz mais sentido.
+
+Quando tende a ser bug real:
+
+- estado salvo nao reaparece apos reload no mesmo `screenId`;
+- logout nao remove chaves operacionais;
+- contexto de outro assinante reaparece depois de trocar a sessao.

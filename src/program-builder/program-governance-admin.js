@@ -965,11 +965,7 @@
     if (this.timelineEndDateInput) {
       this.timelineEndDateInput.value(null);
     }
-    try {
-      stored = JSON.parse(global.localStorage.getItem(this.auditFilterStorageKey()) || "null");
-    } catch (_) {
-      stored = null;
-    }
+    stored = global.CrudUtils.readLocalStateValue(this.auditFilterStorageKey(), null, { version: 1 });
     this.state.savedAuditFilters = stored;
     if (!stored || typeof stored !== "object") {
       return;
@@ -990,11 +986,7 @@
 
   ProgramGovernanceAdmin.prototype.persistAuditFilters = function(filters) {
     this.state.savedAuditFilters = filters || null;
-    try {
-      global.localStorage.setItem(this.auditFilterStorageKey(), JSON.stringify(filters || {}));
-    } catch (_) {
-      // ambiente sem localStorage
-    }
+    global.CrudUtils.saveLocalStateValue(this.auditFilterStorageKey(), filters || {}, { version: 1 });
   };
 
   ProgramGovernanceAdmin.prototype.loadOperationsSnapshot = function() {
@@ -1069,7 +1061,9 @@
       global.CrudUtils.showMessage("Selecione uma execucao do historico para exportar.", "warning");
       return;
     }
-    const stamp = String(run.createdAt || new Date().toISOString()).replace(/[:T]/g, "-").slice(0, 19);
+    const fileBase = global.CrudUtils.buildExportFileName("governanca-retencao-historico", format === "csv" ? "csv" : "json", [
+      this.auditFilterScopeProgramCode() || "global"
+    ]);
     if (format === "csv") {
       const lines = ["label,table,records,previousRecords,deltaRecords"];
       global.CrudUtils.ensureArray(run.deltaByTable).forEach(function(item) {
@@ -1083,10 +1077,10 @@
           return "\"" + String(value == null ? "" : value).replace(/"/g, "\"\"") + "\"";
         }).join(","));
       });
-      this.downloadFile("governanca-retencao-historico-" + stamp + ".csv", "text/csv;charset=utf-8", lines.join("\n"));
+      this.downloadFile(fileBase.replace(/\.json$/i, ".csv"), "text/csv;charset=utf-8", lines.join("\n"));
       return;
     }
-    this.downloadFile("governanca-retencao-historico-" + stamp + ".json", "application/json;charset=utf-8", JSON.stringify(run, null, 2));
+    this.downloadFile(fileBase, "application/json;charset=utf-8", JSON.stringify(run, null, 2));
   };
 
   ProgramGovernanceAdmin.prototype.handleExportAuditData = function(format) {
@@ -1096,7 +1090,9 @@
       timeline: this.filteredTimeline(),
       retentionRuns: global.CrudUtils.ensureArray(this.state.retentionRuns)
     };
-    const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
+    const fileBase = global.CrudUtils.buildExportFileName("governanca-auditoria", format === "csv" ? "csv" : "json", [
+      this.auditFilterScopeProgramCode() || "global"
+    ]);
     if (format === "csv") {
       const lines = ["type,userId,at,status,summary"];
       global.CrudUtils.ensureArray(payload.timeline).forEach(function(item) {
@@ -1110,10 +1106,10 @@
           return "\"" + String(value == null ? "" : value).replace(/"/g, "\"\"") + "\"";
         }).join(","));
       });
-      this.downloadFile("governanca-auditoria-" + stamp + ".csv", "text/csv;charset=utf-8", lines.join("\n"));
+      this.downloadFile(fileBase.replace(/\.json$/i, ".csv"), "text/csv;charset=utf-8", lines.join("\n"));
       return;
     }
-    this.downloadFile("governanca-auditoria-" + stamp + ".json", "application/json;charset=utf-8", JSON.stringify(payload, null, 2));
+    this.downloadFile(fileBase, "application/json;charset=utf-8", JSON.stringify(payload, null, 2));
   };
 
   ProgramGovernanceAdmin.prototype.renderOverlays = function(items) {
@@ -1353,7 +1349,9 @@
       global.CrudUtils.showMessage("Gere um preview ou execute a limpeza antes de exportar o relatorio.", "warning");
       return;
     }
-    const now = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
+    const fileBase = global.CrudUtils.buildExportFileName("governanca-retencao", format === "csv" ? "csv" : "json", [
+      this.auditFilterScopeProgramCode() || "global"
+    ]);
     if (format === "csv") {
       const lines = ["label,table,days,cutoff,records"];
       global.CrudUtils.ensureArray(report.items).forEach(function(item) {
@@ -1367,10 +1365,10 @@
           return "\"" + String(value == null ? "" : value).replace(/"/g, "\"\"") + "\"";
         }).join(","));
       });
-      this.downloadFile("governanca-retencao-" + now + ".csv", "text/csv;charset=utf-8", lines.join("\n"));
+      this.downloadFile(fileBase.replace(/\.json$/i, ".csv"), "text/csv;charset=utf-8", lines.join("\n"));
       return;
     }
-    this.downloadFile("governanca-retencao-" + now + ".json", "application/json;charset=utf-8", JSON.stringify(report, null, 2));
+    this.downloadFile(fileBase, "application/json;charset=utf-8", JSON.stringify(report, null, 2));
   };
 
   ProgramGovernanceAdmin.prototype.handleLoadOverlayVersions = function() {

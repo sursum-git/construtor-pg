@@ -22,6 +22,9 @@
       type: null,
       selectedPath: null
     };
+    this.previewState = {
+      selectedPath: null
+    };
     this.persistedState = this.loadPersistedState();
   }
 
@@ -218,6 +221,7 @@
     const rightPanel = $("<div class=\"import-export-admin-result-panel\"></div>").appendTo(right);
     $("<h3></h3>").text("Estrutura").appendTo(rightPanel);
     this.previewStructureMeta = $("<div class=\"import-export-admin-node-summary\"></div>").appendTo(rightPanel);
+    this.previewStructureSelection = $("<div class=\"import-export-admin-node-summary\"></div>").appendTo(rightPanel);
     this.previewStructureTree = $("<div class=\"import-export-admin-tree\"></div>").appendTo(rightPanel);
     splitterHost.kendoSplitter({
       orientation: "horizontal",
@@ -843,12 +847,12 @@
   };
 
   ImportExportAdmin.prototype.loadPersistedState = function() {
-    const parsed = global.CrudUtils.readLocalJsonValue(this.getPersistenceKey(), {});
+    const parsed = global.CrudUtils.readLocalStateValue(this.getPersistenceKey(), {}, { version: 2 });
     return parsed && typeof parsed === "object" ? parsed : {};
   };
 
   ImportExportAdmin.prototype.savePersistedState = function() {
-    global.CrudUtils.saveLocalJsonValue(this.getPersistenceKey(), this.persistedState || {});
+    global.CrudUtils.saveLocalStateValue(this.getPersistenceKey(), this.persistedState || {}, { version: 2 });
   };
 
   ImportExportAdmin.prototype.persistTabIndex = function(index) {
@@ -897,6 +901,15 @@
     return String(this.persistedState.designerSelectedPath || "");
   };
 
+  ImportExportAdmin.prototype.persistPreviewStructureSelectedPath = function(path) {
+    this.persistedState.previewStructureSelectedPath = String(path || "");
+    this.savePersistedState();
+  };
+
+  ImportExportAdmin.prototype.resolvePersistedPreviewStructurePath = function() {
+    return String(this.persistedState.previewStructureSelectedPath || "");
+  };
+
   ImportExportAdmin.prototype.restoreSelectedExecution = function() {
     const selectedId = String(this.persistedState.selectedExecutionId || "").trim();
     if (!selectedId || !this.executionsGrid) {
@@ -933,12 +946,14 @@
       return;
     }
     const node = this.treeElement.find(".k-item, .k-treeview-item").filter(function() {
+      const current = $(this);
+      if (String(current.attr("data-node-path") || "") === selectedPath) {
+        return true;
+      }
       const dataItem = treeView.dataItem(this);
-      return dataItem && String(dataItem.path || "") === selectedPath;
-    }).first();
+      return this.resolveTreeItemPath(dataItem, current) === selectedPath;
+    }.bind(this)).first();
     if (!node.length) {
-      this.persistDesignerSelectedPath("");
-      this.designerState.selectedPath = null;
       this.renderSelectedDesignerNode();
       return;
     }
@@ -948,6 +963,9 @@
 
   ImportExportAdmin.prototype.persistPreviewState = function() {
     this.persistedState.lastPreviewCounts = this.state.preview && this.state.preview.counts ? this.state.preview.counts : null;
+    if (String(this.previewState.selectedPath || "").trim()) {
+      this.persistedState.previewStructureSelectedPath = String(this.previewState.selectedPath || "");
+    }
     this.savePersistedState();
   };
 
@@ -1064,7 +1082,10 @@
       return;
     }
     const payload = this.stringifyJson(this.state.selectedExecution, true);
-    const fileName = "import-export-execution-" + String(this.state.selectedExecution.id || "selecionada") + ".json";
+    const fileName = global.CrudUtils.buildExportFileName("import-export-execution", "json", [
+      this.state.selectedExecution.mappingCode || "mapping",
+      this.state.selectedExecution.id || "selecionada"
+    ]);
     this.downloadTextFile(fileName, payload, "application/json;charset=utf-8");
     global.CrudUtils.showMessage("Execucao exportada.", "success");
   };
@@ -1156,7 +1177,9 @@
 
   ImportExportAdmin.prototype.renderPreviewStructure = function(result) {
     this.previewStructureMeta.empty();
+    this.previewStructureSelection.empty();
     this.previewStructureTree.empty();
+    this.previewState.selectedPath = this.resolvePersistedPreviewStructurePath();
     if (!result || result.type !== "file") {
       $("<p class=\"import-export-admin-empty\"></p>").text("Sem estrutura de arquivo para exibir.").appendTo(this.previewStructureMeta);
       return;
@@ -1175,8 +1198,11 @@
     }
     this.previewStructureTree.kendoTreeView({
       dataSource: treeData,
-      dataTextField: "text"
+      dataTextField: "text",
+      select: this.handlePreviewStructureSelect.bind(this)
     });
+    this.decorateTreeViewPaths(this.previewStructureTree);
+    this.restorePreviewStructureSelection();
   };
 
   ImportExportAdmin.prototype.buildResultStructureTree = function(result) {
@@ -1202,13 +1228,13 @@
       if (hasError) {
         return [];
       }
-      return [this.xmlElementToTreeNode(doc.documentElement)];
+      return [this.xmlElementToTreeNode(doc.documentElement, [0])];
     } catch (_) {
       return [];
     }
   };
 
-  ImportExportAdmin.prototype.xmlElementToTreeNode = function(element) {
+  ImportExportAdmin.prototype.xmlElementToTreeNode = function(element, path) {
     const attrs = [];
     if (element && element.attributes) {
       for (let index = 0; index < element.attributes.length; index++) {
@@ -1219,18 +1245,20 @@
     const text = attrs.length ? element.nodeName + " [" + attrs.join(", ") + "]" : element.nodeName;
     const items = [];
     const children = element && element.childNodes ? element.childNodes : [];
+    let childIndex = 0;
     for (let index = 0; index < children.length; index++) {
       const child = children[index];
       if (child.nodeType === 1) {
-        items.push(this.xmlElementToTreeNode(child));
+        items.push(this.xmlElementToTreeNode(child, global.CrudUtils.ensureArray(path).concat(childIndex)));
+        childIndex += 1;
       } else if (child.nodeType === 3) {
         const value = String(child.nodeValue || "").trim();
         if (value) {
-          items.push({ text: value });
+          items.push({ text: value, path: global.CrudUtils.ensureArray(path).concat("text-" + String(items.length)).join(".") });
         }
       }
     }
-    return { text: text, items: items };
+    return { text: text, items: items, path: global.CrudUtils.ensureArray(path).join(".") };
   };
 
   ImportExportAdmin.prototype.buildDelimitedPreviewTree = function(text) {
@@ -1238,11 +1266,124 @@
     return lines.slice(0, 40).map(function(line, index) {
       return {
         text: "Linha " + (index + 1),
+        path: String(index),
         items: [
-          { text: line }
+          { text: line, path: index + ".0" }
         ]
       };
     });
+  };
+
+  ImportExportAdmin.prototype.handlePreviewStructureSelect = function(event) {
+    const treeView = this.previewStructureTree.data("kendoTreeView");
+    const item = event && event.node ? $(event.node) : $();
+    const dataItem = treeView && item.length ? treeView.dataItem(item) : null;
+    if (!dataItem) {
+      return;
+    }
+    this.previewState.selectedPath = this.resolveTreeItemPath(dataItem, item);
+    this.persistPreviewStructureSelectedPath(this.previewState.selectedPath);
+    this.renderPreviewStructureSelection(dataItem);
+  };
+
+  ImportExportAdmin.prototype.restorePreviewStructureSelection = function() {
+    const selectedPath = String(this.previewState.selectedPath || "").trim();
+    const treeView = this.previewStructureTree.data("kendoTreeView");
+    if (!treeView) {
+      return;
+    }
+    if (!selectedPath) {
+      this.renderPreviewStructureSelection(null);
+      return;
+    }
+    const node = this.previewStructureTree.find(".k-item, .k-treeview-item").filter(function() {
+      const current = $(this);
+      if (String(current.attr("data-node-path") || "") === selectedPath) {
+        return true;
+      }
+      const dataItem = treeView.dataItem(this);
+      return this.resolveTreeItemPath(dataItem, current) === selectedPath;
+    }.bind(this)).first();
+    if (!node.length) {
+      this.renderPreviewStructureSelection(null);
+      return;
+    }
+    treeView.select(node);
+    this.renderPreviewStructureSelection(treeView.dataItem(node));
+  };
+
+  ImportExportAdmin.prototype.renderPreviewStructureSelection = function(dataItem) {
+    this.previewStructureSelection.empty();
+    if (!dataItem) {
+      $("<p class=\"import-export-admin-empty\"></p>").text("Selecione um no do preview estrutural para ver o contexto.").appendTo(this.previewStructureSelection);
+      return;
+    }
+    this.renderDefinitionList(this.previewStructureSelection, [
+      { label: "No", value: String(this.readTreeItemValue(dataItem, "text") || "-") },
+      { label: "Caminho", value: String(this.resolveTreeItemPath(dataItem, null) || this.previewState.selectedPath || "-") },
+      { label: "Filhos", value: String(global.CrudUtils.ensureArray(this.readTreeItemValue(dataItem, "items")).length) }
+    ]);
+  };
+
+  ImportExportAdmin.prototype.readTreeItemValue = function(dataItem, field) {
+    if (!dataItem || !field) {
+      return null;
+    }
+    if (typeof dataItem.get === "function") {
+      const value = dataItem.get(field);
+      if (value !== undefined) {
+        return value;
+      }
+    }
+    return dataItem[field];
+  };
+
+  ImportExportAdmin.prototype.resolveTreeItemPath = function(dataItem, element) {
+    const path = this.readTreeItemValue(dataItem, "path");
+    if (path != null && String(path).trim()) {
+      return String(path).trim();
+    }
+    const domPath = this.buildTreeNodePath(element);
+    if (domPath) {
+      return domPath;
+    }
+    if (element && typeof element.attr === "function") {
+      return String(element.attr("data-node-path") || "").trim();
+    }
+    return "";
+  };
+
+  ImportExportAdmin.prototype.buildTreeNodePath = function(element) {
+    const item = element && element.jquery ? element : $(element || null);
+    if (!item || !item.length) {
+      return "";
+    }
+    const node = item.closest(".k-item, .k-treeview-item");
+    if (!node.length) {
+      return "";
+    }
+    const indexes = [];
+    let current = node;
+    while (current && current.length) {
+      const siblings = current.parent().children(".k-item, .k-treeview-item");
+      indexes.unshift(Math.max(0, siblings.index(current)));
+      current = current.parent().closest(".k-item, .k-treeview-item");
+    }
+    return indexes.join(".");
+  };
+
+  ImportExportAdmin.prototype.decorateTreeViewPaths = function(host) {
+    const element = host && host.jquery ? host : $(host);
+    if (!element.length || !element.data("kendoTreeView")) {
+      return;
+    }
+    element.find(".k-item, .k-treeview-item").each(function(_, node) {
+      const item = $(node);
+      const path = this.buildTreeNodePath(item);
+      if (path) {
+        item.attr("data-node-path", path);
+      }
+    }.bind(this));
   };
 
   ImportExportAdmin.prototype.syncDesignerFromJson = function() {
@@ -1316,6 +1457,7 @@
       dataTextField: "text",
       select: this.handleDesignerSelect.bind(this)
     });
+    this.decorateTreeViewPaths(this.treeElement);
     this.restoreDesignerSelection();
   };
 
@@ -1366,7 +1508,7 @@
     if (!dataItem) {
       return;
     }
-    const path = String(dataItem.path || "");
+    const path = this.resolveTreeItemPath(dataItem, item);
     this.designerState.selectedPath = path;
     this.persistDesignerSelectedPath(path);
     this.renderSelectedDesignerNode();

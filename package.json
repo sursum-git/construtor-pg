@@ -18,8 +18,10 @@
     "test:admin-program-audit": "node tests/frontend/admin-program-audit-smoke.mjs",
     "test:admin-integridade": "node tests/frontend/admin-integridade-smoke.mjs",
     "test:admin-integridade-production": "node tests/frontend/admin-integridade-production-smoke.mjs",
+    "test:admin-subscriber-provisioning": "node tests/frontend/admin-subscriber-provisioning-smoke.mjs",
     "test:home-notifications": "node tests/frontend/home-notifications-smoke.mjs",
-    "test:login-demo": "node tests/frontend/login-demo-smoke.mjs"
+    "test:login-demo": "node tests/frontend/login-demo-smoke.mjs",
+    "test:context-resume-full": "node tests/frontend/context-resume-full-e2e.mjs"
   },
   "repository": {
     "type": "git",

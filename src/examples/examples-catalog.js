@@ -311,6 +311,14 @@
       page: pagePath + "admin-program-overlay-versions.html"
     },
     {
+      id: "admin-subscriber-provisioning",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Provisionamento de assinantes",
+      summary: "Tela administrativa para criar o assinante, enfileirar o provisionamento SaaS por job e baixar o pacote on-premise.",
+      page: pagePath + "admin-subscriber-provisioning.html"
+    },
+    {
       id: "programa-ajuda-logs",
       category: "Programa",
       title: "Cabecalho com ajuda e logs",

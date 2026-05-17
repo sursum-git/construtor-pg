@@ -548,28 +548,10 @@
     }
 
     function clearLocalSession(preserveLastUsername) {
-      const keys = [
-        "crudEngine.authToken",
-        "crudEngine.runtimeTenantId",
-        "crudEngine.runtimeSessionId",
-        "crudEngine.currentSubscriber",
-        "crudEngine.availableSubscribers",
-        "crudEngine.runtimeUserId",
-        "crudEngine.runtimeUserName",
-        "crudEngine.runtimeUserGroups",
-        "crudEngine.runtimeUserPermissions",
-        "crudEngine.accessArea"
-      ];
-      if (preserveLastUsername !== true) {
-        keys.push("crudEngine.lastUsername");
-      }
-      global.CrudUtils.clearLocalKeys(keys);
-      global.CrudUtils.clearLocalKeysByPrefix([
-        "homeEngine.",
-        "importExportAdmin.",
-        "program-governance-audit-filters:"
-      ]);
-      clearRememberTokenState();
+      global.CrudUtils.clearRuntimeSessionContext({
+        preserveLastUsername: preserveLastUsername === true,
+        clearRememberToken: true
+      });
     }
 
     function safeReturnUrl(value) {

@@ -31,6 +31,7 @@ Paginas principais:
 - a Home agora tambem preserva o contexto local da navegacao lateral por `screenId`, incluindo modulo atual, texto de busca e filtro de favoritos.
 - a Home agora tambem restaura o ultimo programa aberto e o estado expandido/recolhido do menu lateral, respeitando o mesmo `screenId`.
 - a Home agora tambem pode reabrir automaticamente a janela contextual de notificacoes ou jobs quando esse for o ultimo painel salvo do appbar.
+- a Home, o CRUD runtime e o login agora reutilizam a mesma limpeza de contexto local para logout, token invalido, `SESSION_REVOKED`, `SESSION_EXPIRED` e `force_logout`, preservando apenas o ultimo usuario quando fizer sentido.
 - `login.html`: demo visual de login com appbar, logo, lembrar acesso, selecao simulada de assinante, escolha de area para administrador e recuperacao de senha. O login agora tambem sabe carregar o bundle runtime de literais por locale, com fallback pt-BR embutido.
 - o login web agora tambem limpa sessao local por botao proprio, preenche o ultimo usuario usado e ignora `rememberToken` expirado antes de tentar auto-login.
 - `index.html`: demo principal de clientes.
@@ -41,6 +42,16 @@ Paginas principais:
 - existe agora a tela administrativa `admin.integridade`, baseada em `system_record_integrity`, para monitorar o ultimo status de verificacao das assinaturas estruturais, disparar reassinatura controlada pela UI administrativa por `endpointId` seguro e operar em conjunto com os comandos `app:integrity:check`, `app:integrity:monitor` e `app:integrity:resign`.
 - existe tambem a politica inicial de retencao de historico de governanca, com comando `app:governance:cleanup-history` para avaliar/aplicar limpeza de requests, grants, aprovacoes, bundles de teste e notificacoes administrativas antigas. A retencao agora pode ser parametrizada por `admin.parametros` e tambem ajustada no dialogo de governanca do `program-builder`.
 - existe tambem o comando `app:governance:monitor`, que revisa grants congelados/revogados, overlays bloqueados, publicacoes padrao travadas por aprovacao pendente e integridade invalida, emitindo notificacoes administrativas idempotentes para a triagem operacional. O comando aceita `--fail-on-alert` para esteiras que precisem falhar quando houver pendencias relevantes. Para rodadas operacionais unificadas existe ainda `app:governance:operations`, combinando integridade, monitoramento e limpeza opcional da retencao, com leitura do ultimo snapshot pela UI focada de operacoes.
+- existe agora tambem uma camada de provisionamento operacional, sem mudar a arquitetura atual do produto:
+  - `php backend/bin/console app:install:bootstrap`
+  - `php backend/bin/console app:subscriber:create`
+  - `php backend/bin/console app:runtime:publish-defaults`
+  - `scripts/install-onprem.ps1`
+  - `scripts/install-onprem.sh`
+  - `scripts/provision-saas-subscriber.ps1`
+  - `scripts/provision-saas-subscriber.sh`
+  - o objetivo e automatizar banco, migrations, seed, validacao do catalogo padrao e criacao do assinante/admin inicial.
+  - existe tambem a tela `admin.assinante-ambientes`, que salva o assinante, enfileira o provisionamento SaaS em job runtime, acompanha o status por SSE/polling e gera o pacote zip on-premise com `install.sh` para Ubuntu 24.04.
 - os registros estruturais principais do builder/runtime agora podem ser protegidos por assinatura de integridade em `system_record_integrity`, com checagem no backend para detectar alteracao fora do fluxo oficial. A cobertura inclui programa, versao, entidade, campos de entidade (`builder_field`), revisao da entidade, situacoes e transicoes da entidade, tela, endpoint, overlay, versao de overlay, `builder_api_source`, `builder_module`, `runtime_lock_policy`, `system_parameter`, `system_parameter_value`, `system_option_list`, `system_option`, `import_export_mapping`, `import_export_mapping_version`, `import_export_schedule`, `auth_provider_config`, `auth_subscriber`, `auth_user_subscriber` e `system_literal_translation`. A reassinatura controlada registra `auditTrail` com motivo, usuario, horario, hash anterior e status antes/depois.
 - o frontend CRUD agora tambem possui catalogo interno de literais pt-BR para mensagens operacionais e de validacao, com suporte a `titleKey/titleParams` e `messageKey/messageParams` retornados pelo backend, preservando fallback para textos legados.
 - `import_export_mapping`: catalogo inicial de integracoes entre entidades e arquivos, com preview, execucao manual, historico persistido, versionamento do proprio mapping e agendamento basico. A primeira entrega suporta origem em entidade `persistence`, `api` generica, `api` Odoo readonly e arquivo XML declarativo; destino em entidade local, API generica JSON previsivel, `csv`, `xml` e `txt_layout`. No TXT agora existem tres formas de estruturar os registros: posicional fixo (`lineMode="fixed"`), por separador (`lineMode="delimited"`) e arvore hierarquica com `nodeType=record|group|totalizer`, adequada para leiautes com pai, filho e totalizadores. Em XML, a engine agora tambem aceita raiz com namespaces/atributos, nos hierarquicos em `xmlLayouts[]`, atributos por no, filhos repetitivos por `sourceAlias`, vinculo pai/filho por `linkBy` e importacao por `recordPath + fields[].xpath`.
@@ -55,6 +66,7 @@ Paginas principais:
 - `examples/pages/admin-program-audit.html`: pagina local de smoke da operacao focada em auditoria da governanca.
 - `examples/pages/admin-program-overlays.html`: pagina local de smoke da operacao focada em overlays e rebase por assinante.
 - `examples/pages/admin-program-overlay-versions.html`: pagina local de smoke da operacao focada em historico, comparacao e publicacao de versoes de overlay.
+- `examples/pages/admin-subscriber-provisioning.html`: pagina local de smoke do provisionamento de assinantes.
 - `examples/pages/program-builder-governance.html`: pagina local de smoke do fluxo governado do construtor, com solicitacao, grant, bundle de testes, aprovacao, publish e rebase de overlay.
 - `production/app.html`: entrada de producao para CRUD por `screenId`.
 - `production/app.html`: entrada de producao por `screenId`, cobrindo `crud`, `process` e `custom`.
@@ -69,6 +81,7 @@ Paginas principais:
 - `production/app.html?screenId=admin.integracoes`: a tela agora tambem restaura aba ativa, mapping em edicao, filtros do historico persistido e a ultima execucao selecionada ao recarregar a pagina.
 - `production/app.html?screenId=admin.integracoes`: a restauracao operacional agora inclui tambem a ultima versao selecionada do mapping e o agendamento selecionado.
 - `production/app.html?screenId=admin.integracoes`: a tela agora tambem preserva a selecao do no do editor visual entre recargas e mostra um comparativo simples entre preview e execucao quando ambos existem.
+- `production/app.html?screenId=admin.integracoes`: a tela agora tambem preserva a selecao do no do preview estrutural entre recargas.
 - `production/app.html?screenId=admin.programa-solicitacoes`: tela administrativa para solicitacoes formais de alteracao em programas padrao.
 - `production/app.html?screenId=admin.programa-grants`: tela administrativa para grants temporarios de edicao/publicacao.
 - `production/app.html?screenId=admin.programa-testes`: tela administrativa para bundles e execucoes de roteiros obrigatorios.
@@ -106,6 +119,8 @@ Documentos importantes:
 - `docs/desktop-builder-mvp-wpf.md`: escopo e limites do MVP desktop em WPF.
 - `docs/paridade-demo-producao.md`: controle do que mudou na demo e precisa, ou nao, ser levado para producao.
 - `docs/estado-local-persistido.md`: guia operacional do que fica salvo localmente, por contexto, e o que deve ser limpo no logout.
+- `docs/provisionamento-saas-onprem.md`: guia operacional do provisionamento SaaS e on-premise sem alterar a estrutura atual.
+- os estados JSON persistidos localmente agora usam envelope versionado, com compatibilidade de leitura para chaves antigas.
 - `docs/guia-ia-padrao-kendo-grids-formularios.pdf`: guia para IA padronizar outro projeto Kendo/PHP/Symfony.
 - `docs/guia-ia-padrao-kendo-grids-formularios.html`: fonte do PDF.
 

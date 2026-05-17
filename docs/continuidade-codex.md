@@ -12,6 +12,36 @@ Use este arquivo para retomar o trabalho em outra sessao.
 6. Para alteracoes em demo, exemplos ou mocks, execute a skill `construtor-pg-demo-production-parity` e atualize `docs/paridade-demo-producao.md`.
 7. Nao reverta alteracoes existentes sem pedido explicito do usuario.
 
+## Provisionamento operacional
+
+- existe agora uma camada de automacao, sem alterar o modelo atual de tenant/runtime/programas:
+  - `php backend/bin/console app:install:bootstrap`
+  - `php backend/bin/console app:subscriber:create`
+  - `php backend/bin/console app:runtime:publish-defaults`
+  - `scripts/install-onprem.ps1`
+  - `scripts/install-onprem.sh`
+  - `scripts/provision-saas-subscriber.ps1`
+  - `scripts/provision-saas-subscriber.sh`
+- a documentacao operacional desta frente fica em `docs/provisionamento-saas-onprem.md`.
+- essa automacao so encadeia:
+  - criacao opcional do banco;
+  - migrations;
+  - seed runtime;
+  - validacao do catalogo padrao;
+  - criacao/atualizacao do assinante e do admin inicial.
+- existe agora uma tela administrativa propria:
+  - `production/app.html?screenId=admin.assinante-ambientes`
+  - pagina local: `examples/pages/admin-subscriber-provisioning.html`
+  - backend:
+    - `GET /api/admin/subscriber-provisioning/bootstrap`
+    - `POST /api/admin/subscriber-provisioning/subscribers`
+    - `POST /api/admin/subscriber-provisioning/provision`
+    - `GET /api/admin/subscriber-provisioning/jobs`
+    - `GET /api/admin/subscriber-provisioning/jobs/{jobId}`
+    - `GET /api/admin/subscriber-provisioning/jobs/{jobId}/events`
+    - `GET /api/admin/subscriber-provisioning/onprem-package`
+  - o provisionamento SaaS roda no job `subscriber.environment.provision`.
+
 ## Estado atual do program-builder
 
 - o clique direto na arvore lateral ficou deterministico apos corrigir o layout do painel de navegacao:
@@ -200,6 +230,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - programa aberto;
   - estado expandido/recolhido da lateral.
 - a Home agora tambem pode reabrir automaticamente o ultimo painel contextual do appbar quando ele for `notifications` ou `jobs`.
+- a limpeza de contexto local agora foi centralizada em `CrudUtils.clearRuntimeSessionContext(...)`, usada por login, Home, `CrudHttpClient` e `CrudEngine` para logout, token invalido e sessao revogada.
 - a auditoria dedicada agora salva localmente o ultimo filtro aplicado por tipo/usuario/data e reaplica esse recorte ao reabrir a tela focada.
 - o filtro salvo da auditoria agora usa chave por `programCode`, evitando misturar contexto de programas diferentes.
 - o preview de rebase agora tambem devolve diff final consolidado:
@@ -227,15 +258,19 @@ Use este arquivo para retomar o trabalho em outra sessao.
 - `admin.integracoes` agora tambem restaura:
   - no selecionado do editor visual;
   - e mostra comparativo simples entre preview e execucao quando os dois resultados existem.
+- `admin.integracoes` agora tambem restaura:
+  - no selecionado do preview estrutural.
 - o login web agora tambem:
   - preenche o ultimo usuario usado;
   - limpa sessao local por botao proprio;
   - ignora `rememberToken` expirado antes do auto-login.
+- os estados locais JSON da Home, Integracoes e auditoria agora usam envelope versionado salvo pelo `CrudUtils`, com fallback para formato antigo.
 - existem smokes novos desta frente:
   - `npm run test:admin-program-audit`
   - `npm run test:program-governance-full`
   - `npm run test:home-notifications`
   - `npm run test:login-demo`
+- existe tambem o E2E `npm run test:context-resume-full`, cobrindo login, Home, sessao revogada, Integracoes com reload e limpeza final da sessao local.
 - os smokes `npm run test:home-notifications` e `npm run test:admin-integracoes` agora tambem validam persistencia de estado apos `reload`.
 - existe tambem o guia [docs/estado-local-persistido.md](C:/construtor-pg/docs/estado-local-persistido.md) para revisar o que persiste, por chave e por contexto, e o que deve ser limpo no logout.
 - validacao real mais recente desta frente:

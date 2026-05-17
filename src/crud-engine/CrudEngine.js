@@ -2106,6 +2106,12 @@
         return;
       }
       this.sessionRevoked = true;
+      if (global.CrudUtils && typeof global.CrudUtils.clearRuntimeSessionContext === "function") {
+        global.CrudUtils.clearRuntimeSessionContext({
+          preserveLastUsername: true,
+          clearRememberToken: true
+        });
+      }
       this.stopRuntimeHeartbeat();
       this.stopRuntimeMessagePolling();
       this.root.addClass("crud-session-revoked");
