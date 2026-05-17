@@ -42,6 +42,9 @@ async function main() {
       const detail = window.jQuery(".program-builder-json-preview").text() || "";
       return detail.includes("\"targetSubscriberCode\": \"empresa-a\"");
     }, null, { timeout: 10000 });
+    await page.waitForFunction(() => document.body.innerText.includes("Pipeline de overlays"), null, { timeout: 10000 });
+    await page.waitForFunction(() => document.body.innerText.includes("Drafts criados: 1"), null, { timeout: 10000 });
+    await page.waitForFunction(() => document.body.innerText.includes("review_required"), null, { timeout: 10000 });
 
     if (errors.length) {
       throw new Error("Erros JavaScript: " + errors.join(" | "));

@@ -287,6 +287,13 @@ class SystemUpdateService
             }
         }
 
+        $pipelineImpactReport = $this->processOverlayUpdatePipeline(
+            (array) ($evaluation['impactReport'] ?? []),
+            $release->getVersion()
+        );
+        $execution->setImpactReport($pipelineImpactReport);
+        $this->entityManager->flush();
+
         $orchestratorDispatch = null;
         if ($this->shouldDispatchRollout($release)) {
             try {
@@ -302,6 +309,7 @@ class SystemUpdateService
                         'releaseVersion' => $release->getVersion(),
                         'steps' => $stepResults,
                         'package' => $packageInfo,
+                        'overlayPipeline' => $pipelineImpactReport['overlayPipelineSummary'] ?? [],
                     ])
                     ->setFinishedAt(new \DateTimeImmutable());
                 $this->entityManager->flush();
@@ -325,6 +333,7 @@ class SystemUpdateService
                 'steps' => $stepResults,
                 'package' => $packageInfo,
                 'orchestratorDispatch' => $orchestratorDispatch,
+                'overlayPipeline' => $pipelineImpactReport['overlayPipelineSummary'] ?? [],
             ])
             ->setFinishedAt(new \DateTimeImmutable());
         $this->entityManager->flush();
@@ -970,6 +979,87 @@ class SystemUpdateService
                 return count(array_filter((array) ($program['overlayImpacts'] ?? []), static fn (array $impact): bool => in_array((string) ($impact['status'] ?? ''), ['rebase_blocked', 'custom_frozen'], true)));
             }, $items)),
         ];
+    }
+
+    private function processOverlayUpdatePipeline(array $impactReport, string $releaseVersion): array
+    {
+        $programs = array_values(array_map(function (array $program) use ($releaseVersion): array {
+            $impacts = array_values(array_map(function (array $impact) use ($releaseVersion): array {
+                $status = (string) ($impact['status'] ?? '');
+                $overlayId = (int) ($impact['overlayId'] ?? 0);
+                if ($overlayId <= 0) {
+                    $impact['pipelineStatus'] = 'ignored';
+                    return $impact;
+                }
+
+                if ($status === 'rebase_ok') {
+                    try {
+                        $draft = $this->overlayService->ensureRebaseDraftForPublishedOverlay($overlayId, $releaseVersion);
+                        $impact['pipelineStatus'] = (string) ($draft['status'] ?? 'draft_created');
+                        $impact['pipelineMessage'] = ($draft['status'] ?? '') === 'draft_exists'
+                            ? 'Rascunho de rebase ja existente para esta release.'
+                            : 'Rascunho de rebase criado pela esteira do update.';
+                        $impact['pipelineDraftOverlayVersionId'] = $draft['draftOverlayVersionId'] ?? null;
+                        $impact['pipelinePreview'] = $draft['preview'] ?? null;
+                    } catch (\Throwable $error) {
+                        $impact['pipelineStatus'] = 'pipeline_failed';
+                        $impact['pipelineMessage'] = $error->getMessage();
+                    }
+                    return $impact;
+                }
+
+                $impact['pipelineStatus'] = match ($status) {
+                    'rebase_warning' => 'review_required',
+                    'rebase_blocked' => 'blocked',
+                    'custom_frozen' => 'frozen',
+                    'missing_published_overlay' => 'missing_version',
+                    default => 'ignored',
+                };
+                $impact['pipelineMessage'] = match ($impact['pipelineStatus']) {
+                    'review_required' => 'Overlay exige revisao humana antes do rebase.',
+                    'blocked' => 'Overlay bloqueado para rebase automatico nesta release.',
+                    'frozen' => 'Variante completa continua congelada.',
+                    'missing_version' => 'Overlay sem versao publicada para gerar rascunho.',
+                    default => 'Sem acao automatica nesta release.',
+                };
+
+                return $impact;
+            }, (array) ($program['overlayImpacts'] ?? [])));
+
+            $program['overlayImpacts'] = $impacts;
+
+            return $program;
+        }, (array) ($impactReport['programs'] ?? [])));
+
+        $summary = [
+            'draftCreated' => 0,
+            'draftExists' => 0,
+            'reviewRequired' => 0,
+            'blocked' => 0,
+            'frozen' => 0,
+            'missingVersion' => 0,
+            'pipelineFailed' => 0,
+        ];
+        foreach ($programs as $program) {
+            foreach ((array) ($program['overlayImpacts'] ?? []) as $impact) {
+                $pipelineStatus = (string) ($impact['pipelineStatus'] ?? '');
+                match ($pipelineStatus) {
+                    'draft_created' => $summary['draftCreated']++,
+                    'draft_exists' => $summary['draftExists']++,
+                    'review_required' => $summary['reviewRequired']++,
+                    'blocked' => $summary['blocked']++,
+                    'frozen' => $summary['frozen']++,
+                    'missing_version' => $summary['missingVersion']++,
+                    'pipeline_failed' => $summary['pipelineFailed']++,
+                    default => null,
+                };
+            }
+        }
+
+        $impactReport['programs'] = $programs;
+        $impactReport['overlayPipelineSummary'] = $summary;
+
+        return $impactReport;
     }
 
     private function analyzeOverlayImpact(BuilderProgramOverlay $overlay): array

@@ -805,6 +805,7 @@
               "Release `security_critical` pode ser autoenfileirada quando a politica do ambiente permitir.",
               "Release `required_structural` bloqueia atualizacoes posteriores enquanto a cadeia obrigatoria nao for aplicada.",
               "Atualizacao de programa padrao nao sobrescreve `customer_overlay` nem `customer_custom`: overlays entram em analise de rebase e variantes completas permanecem congeladas.",
+              "Quando o impacto do overlay vier como `rebase_ok`, a propria esteira da release gera rascunho de rebase para a base publicada; conflito leve fica em revisao e conflito bloqueante segue sem automacao.",
               "Manifesto remoto sem assinatura confiavel nao deve seguir como release pendente aplicavel.",
               "Em outros ambientes, publicar a tela exige rodar `php backend/bin/console app:seed-runtime-metadata --no-interaction`."
             ]
@@ -827,11 +828,12 @@
             scope: [
               "Filtro por assinante alvo.",
               "Consulta do historico aplicado por release.",
-              "Detalhe tecnico com base alvo, horario e origem da execucao."
+              "Detalhe tecnico com base alvo, horario, origem da execucao e resultado da esteira de overlays."
             ],
             outputs: [
               "Lista de execucoes por assinante.",
-              "Detalhe do que foi aplicado em cada ambiente SaaS."
+              "Detalhe do que foi aplicado em cada ambiente SaaS.",
+              "Resumo de drafts de rebase criados, revisoes pendentes e overlays bloqueados por release."
             ]
           },
           operational: {
@@ -843,11 +845,12 @@
             steps: [
               "Abrir a tela e selecionar o assinante desejado.",
               "Consultar as releases aplicadas e o status de cada execucao.",
-              "Abrir o detalhe para revisar base alvo, origem e resumo da execucao."
+              "Abrir o detalhe para revisar base alvo, origem, resumo da execucao e o pipeline de overlays."
             ],
             cautions: [
               "Esta tela existe apenas no sistema central SaaS.",
-              "Ela nao substitui o resumo local da instalacao do assinante ou o runner on-premise."
+              "Ela nao substitui o resumo local da instalacao do assinante ou o runner on-premise.",
+              "Overlay com conflito leve ainda exige revisao manual antes de publicar o rebase gerado ou recomendado pela release."
             ]
           },
           references: {

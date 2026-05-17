@@ -213,6 +213,7 @@ Regras fechadas:
   - `standard`: atualiza pelo pacote da release;
   - `customer_overlay`: apenas gera impacto e fluxo de rebase, sem sobrescrita direta;
   - `customer_custom`: permanece congelado e nao sofre substituicao automatica.
+- quando o impacto do overlay vier limpo (`rebase_ok`), a aplicacao da release ja cria um draft de rebase sobre a base publicada e registra isso no historico por assinante; conflito leve fica em revisao e conflito bloqueante continua fora da automacao.
 - manifesto remoto sem confianca nao deve seguir como release aplicavel; a verificacao pode usar `APP_UPDATE_MANIFEST_SIGNING_KEY` com `hmac-sha256`.
 
 ### Runner on-premise

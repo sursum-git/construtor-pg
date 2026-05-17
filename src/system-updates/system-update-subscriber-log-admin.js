@@ -10,6 +10,7 @@
     this.executions = [];
     this.currentSubscriberCode = "";
     this.currentStatus = "";
+    this.currentExecution = null;
   }
 
   SystemUpdateSubscriberLogAdmin.prototype.init = function() {
@@ -64,6 +65,7 @@
       this.renderSummary(payload.selectedSubscriber || null);
       this.renderSubscriberSelector();
       this.renderExecutionsGrid();
+      this.renderSelectedExecution();
       this.setStatus("Pronto");
       return payload;
     }).catch((error) => {
@@ -75,6 +77,7 @@
 
   SystemUpdateSubscriberLogAdmin.prototype.renderSummary = function(selectedSubscriber) {
     this.summaryBody.find(".manual-summary").remove();
+    this.summaryBody.find(".manual-meta").remove();
     if (this.centralControl.centralControl !== true) {
       global.jQuery("<p class=\"manual-summary\"></p>")
         .text("Esta consulta existe apenas no sistema central SaaS.")
@@ -85,6 +88,21 @@
       ? "Consultando historico de " + selectedSubscriber.code + " - " + selectedSubscriber.name + "."
       : "Selecione um assinante para consultar o historico aplicado.";
     global.jQuery("<p class=\"manual-summary\"></p>").text(text).appendTo(this.summaryBody);
+    const executionSummary = this.summarizeExecutions();
+    const badges = global.jQuery("<div class=\"manual-meta\"></div>").appendTo(this.summaryBody);
+    this.appendBadge(badges, "Execucoes: " + String(executionSummary.total));
+    this.appendBadge(badges, "Sucesso: " + String(executionSummary.succeeded));
+    this.appendBadge(badges, "Falha: " + String(executionSummary.failed));
+    this.appendBadge(badges, "Fila: " + String(executionSummary.queued));
+    if (executionSummary.overlayPipeline.draftCreated > 0) {
+      this.appendBadge(badges, "Rebases gerados: " + String(executionSummary.overlayPipeline.draftCreated));
+    }
+    if (executionSummary.overlayPipeline.reviewRequired > 0) {
+      this.appendBadge(badges, "Revisao overlay: " + String(executionSummary.overlayPipeline.reviewRequired));
+    }
+    if (executionSummary.overlayPipeline.blocked > 0) {
+      this.appendBadge(badges, "Overlay bloqueado: " + String(executionSummary.overlayPipeline.blocked));
+    }
   };
 
   SystemUpdateSubscriberLogAdmin.prototype.renderSubscriberSelector = function() {
@@ -162,10 +180,156 @@
       ],
       change: function() {
         const selected = this.dataItem(this.select());
-        self.detailElement.text(JSON.stringify(selected || {}, null, 2));
+        self.currentExecution = self.executions.find(function(item) {
+          return String(item.id || "") === String(selected && selected.id || "");
+        }) || null;
+        self.renderSelectedExecution();
       }
     });
     this.executionsGrid = this.executionsGridElement.data("kendoGrid");
+    this.currentExecution = rows.length
+      ? (this.executions.find((item) => String(item.id || "") === String(rows[0].id || "")) || null)
+      : null;
+  };
+
+  SystemUpdateSubscriberLogAdmin.prototype.renderSelectedExecution = function() {
+    const execution = this.currentExecution;
+    this.detailElement.empty();
+    if (!execution) {
+      this.detailElement.text("Selecione uma execucao.");
+      return;
+    }
+    const host = global.jQuery("<div class=\"manual-section\"></div>").appendTo(this.detailElement);
+    const header = global.jQuery("<div class=\"manual-card\"></div>").appendTo(host);
+    global.jQuery("<h4></h4>").text("Resumo da execucao").appendTo(header);
+    const badges = global.jQuery("<div class=\"manual-meta\"></div>").appendTo(header);
+    this.appendBadge(badges, "Release " + String(execution.releaseVersion || "-"));
+    this.appendBadge(badges, "Status " + String(execution.status || "-"));
+    this.appendBadge(badges, "Assinante " + String(execution.targetSubscriberCode || "-"));
+    if (execution.finishedAt) {
+      this.appendBadge(badges, "Finalizado");
+    }
+
+    const definition = global.jQuery("<dl class=\"manual-definition\"></dl>").appendTo(header);
+    this.appendDefinition(definition, "Titulo", execution.releaseTitle || "-");
+    this.appendDefinition(definition, "Base alvo", execution.targetDatabaseIdentity || "-");
+    this.appendDefinition(definition, "Modo", execution.mode || "-");
+    this.appendDefinition(definition, "Origem", execution.initiatedSource || "-");
+    this.appendDefinition(definition, "Job runtime", execution.runtimeJobId || "-");
+
+    const pipelineSummary = this.resolveOverlayPipelineSummary(execution);
+    if (pipelineSummary.total > 0) {
+      const pipelineCard = global.jQuery("<div class=\"manual-card\"></div>").appendTo(host);
+      global.jQuery("<h4></h4>").text("Pipeline de overlays").appendTo(pipelineCard);
+      const pipelineBadges = global.jQuery("<div class=\"manual-meta\"></div>").appendTo(pipelineCard);
+      this.appendBadge(pipelineBadges, "Drafts criados: " + String(pipelineSummary.draftCreated));
+      this.appendBadge(pipelineBadges, "Drafts existentes: " + String(pipelineSummary.draftExists));
+      this.appendBadge(pipelineBadges, "Revisao: " + String(pipelineSummary.reviewRequired));
+      this.appendBadge(pipelineBadges, "Bloqueados: " + String(pipelineSummary.blocked));
+      this.appendBadge(pipelineBadges, "Congelados: " + String(pipelineSummary.frozen));
+      this.appendBadge(pipelineBadges, "Falha pipeline: " + String(pipelineSummary.pipelineFailed));
+
+      const overlayRows = this.collectOverlayPipelineRows(execution);
+      if (overlayRows.length) {
+        const table = global.jQuery("<table class=\"k-grid k-widget\" style=\"width:100%;border-collapse:collapse\"></table>").appendTo(pipelineCard);
+        const thead = global.jQuery("<thead><tr><th>Programa</th><th>Overlay</th><th>Status base</th><th>Pipeline</th><th>Mensagem</th></tr></thead>").appendTo(table);
+        void thead;
+        const tbody = global.jQuery("<tbody></tbody>").appendTo(table);
+        overlayRows.forEach(function(row) {
+          const tr = global.jQuery("<tr></tr>").appendTo(tbody);
+          global.jQuery("<td></td>").text(row.programCode || "-").appendTo(tr);
+          global.jQuery("<td></td>").text(String(row.overlayId || "-")).appendTo(tr);
+          global.jQuery("<td></td>").text(row.status || "-").appendTo(tr);
+          global.jQuery("<td></td>").text(row.pipelineStatus || "-").appendTo(tr);
+          global.jQuery("<td></td>").text(row.pipelineMessage || row.message || "-").appendTo(tr);
+        });
+      }
+    }
+
+    const payloadCard = global.jQuery("<div class=\"manual-card\"></div>").appendTo(host);
+    global.jQuery("<h4></h4>").text("Payload tecnico").appendTo(payloadCard);
+    global.jQuery("<pre class=\"program-builder-json-preview\"></pre>")
+      .text(JSON.stringify(execution || {}, null, 2))
+      .appendTo(payloadCard);
+  };
+
+  SystemUpdateSubscriberLogAdmin.prototype.collectOverlayPipelineRows = function(execution) {
+    const report = execution && execution.impactReport || {};
+    const programs = global.CrudUtils.ensureArray(report.programs);
+    const rows = [];
+    programs.forEach(function(program) {
+      global.CrudUtils.ensureArray(program && program.overlayImpacts).forEach(function(item) {
+        rows.push({
+          programCode: program.programCode || "",
+          overlayId: item.overlayId || "",
+          status: item.status || "",
+          pipelineStatus: item.pipelineStatus || "",
+          pipelineMessage: item.pipelineMessage || "",
+          message: item.message || ""
+        });
+      });
+    });
+    return rows;
+  };
+
+  SystemUpdateSubscriberLogAdmin.prototype.resolveOverlayPipelineSummary = function(execution) {
+    const summary = execution && execution.summary && execution.summary.overlayPipeline;
+    const reportSummary = execution && execution.impactReport && execution.impactReport.overlayPipelineSummary;
+    const source = summary || reportSummary || {};
+    return {
+      draftCreated: Number(source.draftCreated || 0),
+      draftExists: Number(source.draftExists || 0),
+      reviewRequired: Number(source.reviewRequired || 0),
+      blocked: Number(source.blocked || 0),
+      frozen: Number(source.frozen || 0),
+      pipelineFailed: Number(source.pipelineFailed || 0),
+      total: Number(source.draftCreated || 0)
+        + Number(source.draftExists || 0)
+        + Number(source.reviewRequired || 0)
+        + Number(source.blocked || 0)
+        + Number(source.frozen || 0)
+        + Number(source.pipelineFailed || 0)
+    };
+  };
+
+  SystemUpdateSubscriberLogAdmin.prototype.summarizeExecutions = function() {
+    const summary = {
+      total: this.executions.length,
+      succeeded: 0,
+      failed: 0,
+      queued: 0,
+      overlayPipeline: {
+        draftCreated: 0,
+        reviewRequired: 0,
+        blocked: 0
+      }
+    };
+    this.executions.forEach((item) => {
+      const status = String(item.status || "");
+      if (status === "succeeded") {
+        summary.succeeded += 1;
+      } else if (status === "failed") {
+        summary.failed += 1;
+      } else if (status === "queued" || status === "running") {
+        summary.queued += 1;
+      }
+      const pipeline = this.resolveOverlayPipelineSummary(item);
+      summary.overlayPipeline.draftCreated += pipeline.draftCreated;
+      summary.overlayPipeline.reviewRequired += pipeline.reviewRequired;
+      summary.overlayPipeline.blocked += pipeline.blocked;
+    });
+    return summary;
+  };
+
+  SystemUpdateSubscriberLogAdmin.prototype.appendBadge = function(container, text) {
+    return global.jQuery("<span class=\"manual-badge\"></span>").text(text || "").appendTo(container);
+  };
+
+  SystemUpdateSubscriberLogAdmin.prototype.appendDefinition = function(container, title, value) {
+    const wrapper = global.jQuery("<div></div>").appendTo(container);
+    global.jQuery("<dt></dt>").text(title || "").appendTo(wrapper);
+    global.jQuery("<dd></dd>").text(value == null ? "" : String(value)).appendTo(wrapper);
+    return wrapper;
   };
 
   SystemUpdateSubscriberLogAdmin.prototype.request = function(method, url, data) {

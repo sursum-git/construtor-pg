@@ -22,7 +22,8 @@
             {
               programCode: "admin-integracoes",
               overlayImpacts: [
-                { overlayId: 11, status: "rebase_warning", message: "A base e o overlay alteraram a mesma secao do contrato." },
+                { overlayId: 11, status: "rebase_ok", message: "A nova base pode gerar rascunho de rebase automaticamente." },
+                { overlayId: 14, status: "rebase_warning", message: "A base e o overlay alteraram a mesma secao do contrato." },
                 { overlayId: 12, status: "custom_frozen", message: "Variante completa permanece congelada." }
               ]
             }
@@ -65,8 +66,57 @@
         initiatedBy: "admin",
         initiatedSource: "seed",
         runtimeJobId: null,
-        summary: { message: "Base inicial aplicada." },
-        impactReport: {},
+        summary: {
+          message: "Base inicial aplicada.",
+          overlayPipeline: {
+            draftCreated: 1,
+            draftExists: 0,
+            reviewRequired: 1,
+            blocked: 0,
+            frozen: 1,
+            missingVersion: 0,
+            pipelineFailed: 0
+          }
+        },
+        impactReport: {
+          overlayPipelineSummary: {
+            draftCreated: 1,
+            draftExists: 0,
+            reviewRequired: 1,
+            blocked: 0,
+            frozen: 1,
+            missingVersion: 0,
+            pipelineFailed: 0
+          },
+          programs: [
+            {
+              programCode: "admin-integracoes",
+              overlayImpacts: [
+                {
+                  overlayId: 11,
+                  status: "rebase_ok",
+                  message: "Rascunho de rebase gerado pela esteira.",
+                  pipelineStatus: "draft_created",
+                  pipelineMessage: "Novo draft criado para a base publicada."
+                },
+                {
+                  overlayId: 14,
+                  status: "rebase_warning",
+                  message: "Conflito leve entre a base e o overlay.",
+                  pipelineStatus: "review_required",
+                  pipelineMessage: "Release aplicada, mas o overlay exige revisao manual antes de publicar."
+                },
+                {
+                  overlayId: 12,
+                  status: "custom_frozen",
+                  message: "Variante completa congelada.",
+                  pipelineStatus: "frozen",
+                  pipelineMessage: "Atualizacao registrada sem sobrescrever a variante do assinante."
+                }
+              ]
+            }
+          ]
+        },
         createdAt: "2026-05-17T12:00:00.000Z",
         updatedAt: "2026-05-17T12:00:00.000Z",
         finishedAt: "2026-05-17T12:00:00.000Z"
@@ -254,7 +304,11 @@
         execution.status = "succeeded";
         execution.updatedAt = job.updatedAt;
         execution.finishedAt = job.updatedAt;
-        execution.summary = { message: "Atualizacao aplicada com sucesso." };
+        execution.impactReport = this.decorateImpactReportForExecution(release.impactReport || {}, release.version);
+        execution.summary = {
+          message: "Atualizacao aplicada com sucesso.",
+          overlayPipeline: execution.impactReport.overlayPipelineSummary || {}
+        };
         const original = this.releases.find((item) => item.version === release.version);
         if (original) {
           original.status = "applied";
@@ -312,6 +366,52 @@
       selectedSubscriber: this.findSubscriber(subscriberCode) || null,
       executions: this.filterExecutions(subscriberCode)
     };
+  };
+
+  SystemUpdatesDemoHttpClient.prototype.decorateImpactReportForExecution = function(impactReport, releaseVersion) {
+    const cloned = JSON.parse(JSON.stringify(impactReport || {}));
+    const summary = {
+      draftCreated: 0,
+      draftExists: 0,
+      reviewRequired: 0,
+      blocked: 0,
+      frozen: 0,
+      missingVersion: 0,
+      pipelineFailed: 0
+    };
+    (cloned.programs || []).forEach(function(program) {
+      (program.overlayImpacts || []).forEach(function(item) {
+        if (item.status === "rebase_ok") {
+          item.pipelineStatus = "draft_created";
+          item.pipelineMessage = "Rascunho de rebase criado para a release " + releaseVersion + ".";
+          item.pipelineDraftOverlayVersionId = Number(item.overlayId || 0) + 100;
+          summary.draftCreated += 1;
+          return;
+        }
+        if (item.status === "rebase_warning") {
+          item.pipelineStatus = "review_required";
+          item.pipelineMessage = "Overlay exige revisao manual antes da publicacao.";
+          summary.reviewRequired += 1;
+          return;
+        }
+        if (item.status === "rebase_blocked") {
+          item.pipelineStatus = "blocked";
+          item.pipelineMessage = "Conflito bloqueante impede a continuidade automatica.";
+          summary.blocked += 1;
+          return;
+        }
+        if (item.status === "custom_frozen") {
+          item.pipelineStatus = "frozen";
+          item.pipelineMessage = "Variante especifica permanece congelada na release.";
+          summary.frozen += 1;
+          return;
+        }
+        item.pipelineStatus = "ignored";
+        item.pipelineMessage = "Sem acao automatica para este overlay.";
+      });
+    });
+    cloned.overlayPipelineSummary = summary;
+    return cloned;
   };
 
   SystemUpdatesDemoHttpClient.prototype.resolveReleases = function(subscriberCode) {

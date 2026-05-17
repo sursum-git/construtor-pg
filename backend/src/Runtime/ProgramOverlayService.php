@@ -148,6 +148,94 @@ class ProgramOverlayService
         ];
     }
 
+    public function ensureRebaseDraftForPublishedOverlay(int $overlayId, string $releaseVersion = ''): array
+    {
+        $overlay = $this->overlays->find($overlayId);
+        if (!$overlay) {
+            throw new RuntimeHttpException('PROGRAM_OVERLAY_NOT_FOUND', 'Overlay de programa nao encontrado.', 404, ['overlayId' => $overlayId]);
+        }
+        $this->integrity->assertOverlay($overlay);
+
+        $publishedVersion = $this->overlayVersions->findPublishedByOverlayId($overlayId);
+        if (!$publishedVersion) {
+            throw new RuntimeHttpException('PROGRAM_OVERLAY_VERSION_NOT_FOUND', 'Overlay sem versao publicada para gerar rascunho de rebase.', 404, ['overlayId' => $overlayId]);
+        }
+        $this->integrity->assertOverlayVersion($publishedVersion);
+
+        $preview = $this->buildRebasePreview($publishedVersion);
+        if (($preview['status'] ?? '') === 'blocked' || ($preview['requiresConfirmation'] ?? false) === true) {
+            return [
+                'status' => (string) ($preview['status'] ?? 'blocked'),
+                'draftCreated' => false,
+                'preview' => $preview,
+                'overlayId' => $overlay->getId(),
+                'overlayVersionId' => $publishedVersion->getId(),
+            ];
+        }
+
+        $latestVersion = $this->overlayVersions->findLatestByOverlayId($overlayId);
+        if (
+            $latestVersion
+            && $latestVersion->getId()
+            && $latestVersion->getStatus() === 'draft'
+            && (int) $overlay->getBaseProgramVersionId() === (int) ($preview['targetBaseVersionId'] ?? 0)
+        ) {
+            $snapshot = $latestVersion->getSnapshot();
+            $pipeline = is_array($snapshot['systemUpdatePipeline'] ?? null) ? $snapshot['systemUpdatePipeline'] : [];
+            if (($pipeline['releaseVersion'] ?? '') === $releaseVersion && $releaseVersion !== '') {
+                return [
+                    'status' => 'draft_exists',
+                    'draftCreated' => false,
+                    'preview' => $preview,
+                    'overlayId' => $overlay->getId(),
+                    'overlayVersionId' => $publishedVersion->getId(),
+                    'draftOverlayVersionId' => $latestVersion->getId(),
+                ];
+            }
+        }
+
+        $result = $this->rebase((int) $publishedVersion->getId(), []);
+        $draftVersionId = (int) ($result['newOverlayVersionId'] ?? 0);
+        $draftVersion = $draftVersionId > 0 ? $this->overlayVersions->find($draftVersionId) : null;
+        if ($draftVersion) {
+            $snapshot = $draftVersion->getSnapshot();
+            $snapshot['systemUpdatePipeline'] = [
+                'releaseVersion' => $releaseVersion,
+                'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+                'source' => 'systemUpdate',
+                'targetBaseVersion' => $preview['targetBaseVersion'] ?? null,
+                'targetBaseVersionId' => $preview['targetBaseVersionId'] ?? null,
+            ];
+            $draftVersion->setSnapshot($snapshot);
+            $this->entityManager->persist($draftVersion);
+        }
+
+        $metadata = $overlay->getMetadata();
+        $metadata['lastSystemUpdateRebase'] = [
+            'releaseVersion' => $releaseVersion,
+            'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+            'draftOverlayVersionId' => $draftVersion?->getId(),
+            'targetBaseVersion' => $preview['targetBaseVersion'] ?? null,
+            'targetBaseVersionId' => $preview['targetBaseVersionId'] ?? null,
+        ];
+        $overlay->setMetadata($metadata);
+        $this->entityManager->persist($overlay);
+        $this->entityManager->flush();
+        $this->integrity->signOverlay($overlay, ['source' => 'overlayRebaseDraft']);
+        if ($draftVersion) {
+            $this->integrity->signOverlayVersion($draftVersion, ['source' => 'overlayRebaseDraft']);
+        }
+
+        return [
+            'status' => 'draft_created',
+            'draftCreated' => true,
+            'preview' => $preview,
+            'overlayId' => $overlay->getId(),
+            'overlayVersionId' => $publishedVersion->getId(),
+            'draftOverlayVersionId' => $draftVersion?->getId(),
+        ];
+    }
+
     public function compareVersions(int $leftVersionId, int $rightVersionId): array
     {
         $left = $this->overlayVersions->find($leftVersionId);

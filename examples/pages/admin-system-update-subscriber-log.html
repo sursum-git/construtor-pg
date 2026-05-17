@@ -34,6 +34,7 @@
       <li>Esta pagina local usa demo em memoria para a consulta central por assinante.</li>
       <li>No sistema real, ela so deve ficar disponivel no sistema central identificado por <code>APP_SYSTEM_ROLE=saas_central</code> ou <code>APP_CENTRAL_CONTROL_ENABLED=1</code>.</li>
       <li>No sistema real, o historico depende do log de execucao preenchido pelo updater central.</li>
+      <li>O detalhe da execucao tambem deve mostrar quando a release gerou draft de rebase para overlay limpo, deixou overlay em revisao ou bloqueou por conflito/customizacao.</li>
       <li>Em outros ambientes reais, publique a tela com <code>php backend/bin/console app:seed-runtime-metadata --no-interaction</code>.</li>
       <li>Para ter historico util no ambiente real, o sistema central precisa manter o worker do updater ativo e registrar as execucoes por assinante.</li>
       <li>No sistema do assinante, esta consulta nao deve aparecer.</li>

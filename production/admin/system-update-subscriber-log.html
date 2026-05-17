@@ -34,6 +34,7 @@
     <ul>
       <li>Esta tela existe apenas no sistema central SaaS identificado por <code>APP_SYSTEM_ROLE=saas_central</code> ou <code>APP_CENTRAL_CONTROL_ENABLED=1</code>.</li>
       <li>Ela consulta o historico do que foi aplicado em cada assinante a partir do log de execucao do updater.</li>
+      <li>Quando a release atingir programas com overlay, o detalhe mostra se a esteira criou rascunho de rebase, deixou o overlay em revisao ou bloqueou por conflito/customizacao.</li>
       <li>Em outros ambientes, publicar esta tela exige rodar <code>php backend/bin/console app:seed-runtime-metadata --no-interaction</code>.</li>
       <li>Para haver historico util, o sistema central precisa manter o worker do updater ativo e registrar as execucoes por assinante.</li>
     </ul>
