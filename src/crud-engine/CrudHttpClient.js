@@ -207,33 +207,21 @@
     }
 
     readLocalValue(key) {
-      try {
-        return global.localStorage ? global.localStorage.getItem(key) : "";
-      } catch (_) {
-        return "";
-      }
+      return global.CrudUtils && typeof global.CrudUtils.readLocalValue === "function"
+        ? global.CrudUtils.readLocalValue(key, "")
+        : "";
     }
 
     saveLocalValue(key, value) {
-      try {
-        if (global.localStorage) {
-          global.localStorage.setItem(key, String(value));
-        }
-      } catch (_) {
-        return false;
-      }
-      return true;
+      return global.CrudUtils && typeof global.CrudUtils.saveLocalValue === "function"
+        ? global.CrudUtils.saveLocalValue(key, value)
+        : false;
     }
 
     removeLocalValue(key) {
-      try {
-        if (global.localStorage) {
-          global.localStorage.removeItem(key);
-        }
-      } catch (_) {
-        return false;
-      }
-      return true;
+      return global.CrudUtils && typeof global.CrudUtils.removeLocalValue === "function"
+        ? global.CrudUtils.removeLocalValue(key)
+        : false;
     }
   }
 

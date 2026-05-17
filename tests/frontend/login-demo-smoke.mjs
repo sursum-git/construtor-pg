@@ -24,6 +24,8 @@ try {
     localStorage.setItem("crudEngine.lastUsername", "analista.demo");
     localStorage.setItem("crudEngine.currentSubscriber", JSON.stringify({ id: "empresa-a", name: "Empresa A" }));
     localStorage.setItem("crudEngine.accessArea", "admin");
+    localStorage.setItem("homeEngine.home.navigationState", JSON.stringify({ currentProgramId: "clientes-crud" }));
+    localStorage.setItem("importExportAdmin.import-export-admin.state", JSON.stringify({ currentMappingCode: "clientes_txt_sped" }));
   });
   await page.goto(pageUrl);
   await page.waitForSelector("#login-user", { timeout: 15000 });
@@ -32,7 +34,11 @@ try {
   await page.waitForTimeout(200);
   result.clearedUser = await page.locator("#login-user").inputValue();
   result.sessionCleared = await page.evaluate(() => {
-    return !localStorage.getItem("crudEngine.currentSubscriber") && !localStorage.getItem("crudEngine.accessArea") && !localStorage.getItem("crudEngine.lastUsername");
+    return !localStorage.getItem("crudEngine.currentSubscriber") &&
+      !localStorage.getItem("crudEngine.accessArea") &&
+      !localStorage.getItem("crudEngine.lastUsername") &&
+      !localStorage.getItem("homeEngine.home.navigationState") &&
+      !localStorage.getItem("importExportAdmin.import-export-admin.state");
   });
   await page.screenshot({ path: path.join(outputDir, "login-demo-smoke.png"), fullPage: true });
   await fs.writeFile(path.join(outputDir, "login-demo-smoke-result.json"), JSON.stringify(result, null, 2), "utf8");

@@ -71,7 +71,7 @@
       openPasswordResetDemo();
     });
     $("#login-clear-session").on("click", function() {
-      clearLocalSession();
+      clearLocalSession(false);
       $("#login-user").val("");
       $("#login-password").val("");
       $("#login-remember").prop("checked", false);
@@ -263,37 +263,19 @@
   }
 
   function saveLocalValue(key, value) {
-    try {
-      if (global.localStorage) {
-        global.localStorage.setItem(key, String(value || ""));
-      }
-    } catch (_) {
-      return false;
-    }
-    return true;
+    return global.CrudUtils.saveLocalValue(key, value);
   }
 
   function readLocalValue(key) {
-    try {
-      return global.localStorage ? global.localStorage.getItem(key) || "" : "";
-    } catch (_) {
-      return "";
-    }
+    return global.CrudUtils.readLocalValue(key, "");
   }
 
   function removeLocalValue(key) {
-    try {
-      if (global.localStorage) {
-        global.localStorage.removeItem(key);
-      }
-    } catch (_) {
-      return false;
-    }
-    return true;
+    return global.CrudUtils.removeLocalValue(key);
   }
 
-  function clearLocalSession() {
-    [
+  function clearLocalSession(preserveLastUsername) {
+    const keys = [
       "crudEngine.authToken",
       "crudEngine.runtimeTenantId",
       "crudEngine.runtimeSessionId",
@@ -304,9 +286,17 @@
       "crudEngine.runtimeUserGroups",
       "crudEngine.runtimeUserPermissions",
       "crudEngine.accessArea",
-      "crudEngine.lastUsername",
       "crudEngine.rememberToken",
       "crudEngine.rememberTokenExpiresAt"
-    ].forEach(removeLocalValue);
+    ];
+    if (preserveLastUsername !== true) {
+      keys.push("crudEngine.lastUsername");
+    }
+    global.CrudUtils.clearLocalKeys(keys);
+    global.CrudUtils.clearLocalKeysByPrefix([
+      "homeEngine.",
+      "importExportAdmin.",
+      "program-governance-audit-filters:"
+    ]);
   }
 })(window, jQuery);

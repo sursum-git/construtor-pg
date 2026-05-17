@@ -28,6 +28,9 @@ Paginas principais:
 - a Home agora tambem pode exibir central de notificacoes no appbar, com endpoint proprio ou agregacao de `alerts`, `requests` e `jobs`. Quando houver endpoint dedicado, o backend ja suporta notificacoes por usuario/grupo, marcacao de leitura por destinatario e navegacao contextual direta para a tela de destino com filtros/querystring segura.
 - a Home tambem ja possui backend real para chat entre usuarios e atendimento: contatos por sessoes ativas, historico de conversa em `runtime_user_message`, atendentes online por grupos `support`/`support.<setor>`, solicitacoes persistidas em `runtime_support_request` e canal SSE proprio para novas mensagens, presenca e atualizacao de protocolo. O envio continua por `POST`; consultas de lista/status usam `GET` na mesma rota runtime (`/api/runtime/screens/{screenId}/endpoints/{endpointId}`) e o stream usa `?stream=1`.
 - a central de notificacoes da Home agora tambem salva o ultimo recorte local por `screenId`, incluindo severidade, categoria, exigencia de acao e somente nao lidas, com botao dedicado para limpar filtros e reaplicar o estado ao reabrir a janela.
+- a Home agora tambem preserva o contexto local da navegacao lateral por `screenId`, incluindo modulo atual, texto de busca e filtro de favoritos.
+- a Home agora tambem restaura o ultimo programa aberto e o estado expandido/recolhido do menu lateral, respeitando o mesmo `screenId`.
+- a Home agora tambem pode reabrir automaticamente a janela contextual de notificacoes ou jobs quando esse for o ultimo painel salvo do appbar.
 - `login.html`: demo visual de login com appbar, logo, lembrar acesso, selecao simulada de assinante, escolha de area para administrador e recuperacao de senha. O login agora tambem sabe carregar o bundle runtime de literais por locale, com fallback pt-BR embutido.
 - o login web agora tambem limpa sessao local por botao proprio, preenche o ultimo usuario usado e ignora `rememberToken` expirado antes de tentar auto-login.
 - `index.html`: demo principal de clientes.
@@ -63,6 +66,9 @@ Paginas principais:
 - `production/app.html?screenId=admin.notificacao-destinatarios`: tela administrativa para acompanhar entrega e leitura por destinatario.
 - `production/app.html?screenId=admin.integracoes`: tela administrativa para cadastro, preview e execucao manual de importacao/exportacao. A tela agora possui editor visual com `TreeView` para TXT/XML, inspetor de no, preview estrutural lado a lado, historico persistido de execucoes, historico de versoes do mapping e aba de agendamentos.
 - `production/app.html?screenId=admin.integracoes`: a mesma tela agora tambem filtra o historico persistido por mapping/modo/status, mostra detalhe da execucao selecionada e permite exportar o payload da execucao em JSON pela propria UI.
+- `production/app.html?screenId=admin.integracoes`: a tela agora tambem restaura aba ativa, mapping em edicao, filtros do historico persistido e a ultima execucao selecionada ao recarregar a pagina.
+- `production/app.html?screenId=admin.integracoes`: a restauracao operacional agora inclui tambem a ultima versao selecionada do mapping e o agendamento selecionado.
+- `production/app.html?screenId=admin.integracoes`: a tela agora tambem preserva a selecao do no do editor visual entre recargas e mostra um comparativo simples entre preview e execucao quando ambos existem.
 - `production/app.html?screenId=admin.programa-solicitacoes`: tela administrativa para solicitacoes formais de alteracao em programas padrao.
 - `production/app.html?screenId=admin.programa-grants`: tela administrativa para grants temporarios de edicao/publicacao.
 - `production/app.html?screenId=admin.programa-testes`: tela administrativa para bundles e execucoes de roteiros obrigatorios.
@@ -99,6 +105,7 @@ Documentos importantes:
 - `docs/roteiro-teste-web.md`: roteiro funcional para validar as telas web em demo e producao local.
 - `docs/desktop-builder-mvp-wpf.md`: escopo e limites do MVP desktop em WPF.
 - `docs/paridade-demo-producao.md`: controle do que mudou na demo e precisa, ou nao, ser levado para producao.
+- `docs/estado-local-persistido.md`: guia operacional do que fica salvo localmente, por contexto, e o que deve ser limpo no logout.
 - `docs/guia-ia-padrao-kendo-grids-formularios.pdf`: guia para IA padronizar outro projeto Kendo/PHP/Symfony.
 - `docs/guia-ia-padrao-kendo-grids-formularios.html`: fonte do PDF.
 

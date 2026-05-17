@@ -192,6 +192,14 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - `navigation.query` serializado na URL interna;
   - filtros aplicados na tela administrativa de destino;
   - grants e aprovacoes podem abrir direto nas entradas focadas de operacao.
+- a Home agora tambem persiste por `screenId`:
+  - modulo atual;
+  - texto da busca lateral;
+  - filtro "somente favoritos".
+- a Home agora tambem restaura:
+  - programa aberto;
+  - estado expandido/recolhido da lateral.
+- a Home agora tambem pode reabrir automaticamente o ultimo painel contextual do appbar quando ele for `notifications` ou `jobs`.
 - a auditoria dedicada agora salva localmente o ultimo filtro aplicado por tipo/usuario/data e reaplica esse recorte ao reabrir a tela focada.
 - o filtro salvo da auditoria agora usa chave por `programCode`, evitando misturar contexto de programas diferentes.
 - o preview de rebase agora tambem devolve diff final consolidado:
@@ -208,6 +216,17 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - filtra execucoes por `mappingCode`, `mode` e `status`;
   - mostra detalhe da execucao selecionada;
   - exporta a execucao selecionada em JSON.
+- `admin.integracoes` agora tambem restaura:
+  - aba ativa;
+  - mapping atualmente aberto;
+  - filtros do historico persistido;
+  - ultima execucao selecionada.
+- `admin.integracoes` agora tambem restaura:
+  - versao selecionada do mapping;
+  - agendamento selecionado.
+- `admin.integracoes` agora tambem restaura:
+  - no selecionado do editor visual;
+  - e mostra comparativo simples entre preview e execucao quando os dois resultados existem.
 - o login web agora tambem:
   - preenche o ultimo usuario usado;
   - limpa sessao local por botao proprio;
@@ -217,6 +236,8 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - `npm run test:program-governance-full`
   - `npm run test:home-notifications`
   - `npm run test:login-demo`
+- os smokes `npm run test:home-notifications` e `npm run test:admin-integracoes` agora tambem validam persistencia de estado apos `reload`.
+- existe tambem o guia [docs/estado-local-persistido.md](C:/construtor-pg/docs/estado-local-persistido.md) para revisar o que persiste, por chave e por contexto, e o que deve ser limpo no logout.
 - validacao real mais recente desta frente:
   - mock Odoo local em `tmp/mock-odoo-router.php`;
   - `XML-RPC` e `JSON-RPC` com sucesso no teste de conexao;

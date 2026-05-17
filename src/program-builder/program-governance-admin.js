@@ -199,6 +199,8 @@
       this.persistAuditFilters(this.currentAuditFilters());
       this.handleApplyAuditFilters();
     }.bind(this));
+    this.createButton(timelineFilterActions, "Exportar auditoria JSON", "download", this.handleExportAuditData.bind(this, "json"));
+    this.createButton(timelineFilterActions, "Exportar auditoria CSV", "file-csv", this.handleExportAuditData.bind(this, "csv"));
     this.timelineHost = $("<div class=\"program-governance-admin-timeline\"></div>").appendTo(timelinePanel);
     this.timelineSummaryHost = $("<div class=\"program-governance-admin-list\"></div>").appendTo(timelinePanel);
     this.timelineDetailHost = $("<pre class=\"program-builder-inline-json\"></pre>").appendTo(timelinePanel);
@@ -1085,6 +1087,33 @@
       return;
     }
     this.downloadFile("governanca-retencao-historico-" + stamp + ".json", "application/json;charset=utf-8", JSON.stringify(run, null, 2));
+  };
+
+  ProgramGovernanceAdmin.prototype.handleExportAuditData = function(format) {
+    const payload = {
+      filters: this.currentAuditFilters(),
+      summary: this.state.auditSummary || {},
+      timeline: this.filteredTimeline(),
+      retentionRuns: global.CrudUtils.ensureArray(this.state.retentionRuns)
+    };
+    const stamp = new Date().toISOString().replace(/[:T]/g, "-").slice(0, 19);
+    if (format === "csv") {
+      const lines = ["type,userId,at,status,summary"];
+      global.CrudUtils.ensureArray(payload.timeline).forEach(function(item) {
+        lines.push([
+          item.type,
+          item.userId,
+          item.at,
+          item.status,
+          item.summary || item.message || ""
+        ].map(function(value) {
+          return "\"" + String(value == null ? "" : value).replace(/"/g, "\"\"") + "\"";
+        }).join(","));
+      });
+      this.downloadFile("governanca-auditoria-" + stamp + ".csv", "text/csv;charset=utf-8", lines.join("\n"));
+      return;
+    }
+    this.downloadFile("governanca-auditoria-" + stamp + ".json", "application/json;charset=utf-8", JSON.stringify(payload, null, 2));
   };
 
   ProgramGovernanceAdmin.prototype.renderOverlays = function(items) {

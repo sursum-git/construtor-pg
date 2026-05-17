@@ -13,13 +13,16 @@
       executionHistory: [],
       currentExecutions: [],
       currentSchedules: [],
-      selectedExecution: null
+      selectedExecution: null,
+      selectedSchedule: null,
+      selectedVersion: null
     };
     this.locale = "pt-BR";
     this.designerState = {
       type: null,
       selectedPath: null
     };
+    this.persistedState = this.loadPersistedState();
   }
 
   ImportExportAdmin.prototype.init = function() {
@@ -125,8 +128,14 @@
     this.renderHistoryTab(historyTab);
     this.renderSchedulesTab(schedulesTab);
 
-    tabs.kendoTabStrip({ animation: false });
+    tabs.kendoTabStrip({
+      animation: false,
+      activate: function(event) {
+        this.persistTabIndex($(event.item).index());
+      }.bind(this)
+    });
     this.tabs = tabs.data("kendoTabStrip");
+    this.restoreSelectedTab();
   };
 
   ImportExportAdmin.prototype.renderEditTab = function(parent) {
@@ -229,6 +238,7 @@
     const left = $("<div class=\"import-export-admin-result-panel\"></div>").appendTo(body);
     $("<h3></h3>").text("Resultado").appendTo(left);
     this.executionResult = $("<pre class=\"import-export-admin-pre\"></pre>").appendTo(left);
+    this.executionCompareSummary = $("<div class=\"import-export-admin-node-summary\"></div>").appendTo(left);
     const right = $("<div class=\"import-export-admin-result-panel\"></div>").appendTo(body);
     $("<h3></h3>").text("Historico local").appendTo(right);
     this.executionHistoryElement = $("<div class=\"import-export-admin-history\"></div>").appendTo(right);
@@ -254,6 +264,9 @@
       { value: "succeeded", text: "Sucesso" },
       { value: "failed", text: "Falha" }
     ]);
+    this.executionFilterMappingInput.value(this.persistedState.executionFilterMapping || "");
+    this.executionFilterModeInput.value(this.persistedState.executionFilterMode || "");
+    this.executionFilterStatusInput.value(this.persistedState.executionFilterStatus || "");
     this.applyExecutionFiltersButton = this.createButton(filters, "Aplicar filtro", "filter", null, this.loadExecutions.bind(this));
     const body = $("<div class=\"import-export-admin-execution-body\"></div>").appendTo(panel);
     const left = $("<div class=\"import-export-admin-result-panel\"></div>").appendTo(body);
@@ -286,6 +299,7 @@
       selectable: "row",
       sortable: true,
       pageable: false,
+      change: this.handleVersionSelection.bind(this),
       columns: [
         { field: "versionNumber", title: "Versao", width: 90 },
         { field: "createdAt", title: "Criada em", width: 180 },
@@ -449,6 +463,15 @@
       this.banner.text("Selecione um mapeamento existente ou crie um novo.");
       this.loadExecutions();
       this.loadSchedules();
+      const preferredCode = this.resolvePreferredMappingCode();
+      if (preferredCode) {
+        const preferred = this.state.items.find(function(item) {
+          return item && item.code === preferredCode;
+        });
+        if (preferred) {
+          return this.loadMapping(preferred.code);
+        }
+      }
       if (this.state.current && this.state.current.code) {
         const current = this.state.items.find(function(item) { return item.code === this.state.current.code; }.bind(this));
         if (current) {
@@ -478,6 +501,7 @@
     }).then(function(response) {
       this.state.current = response && response.mapping ? response.mapping : null;
       this.state.currentVersions = global.CrudUtils.ensureArray(response && response.versions);
+      this.persistCurrentMappingCode(this.state.current && this.state.current.code);
       this.bindCurrent();
       this.renderVersionHistory();
       this.banner.text("Mapeamento carregado para edicao.");
@@ -498,6 +522,7 @@
     this.renderPreview(null);
     this.renderExecution(null);
     this.renderVersionHistory();
+    this.persistCurrentMappingCode("");
     this.banner.text("Novo mapeamento. Informe os dados e salve.");
   };
 
@@ -597,6 +622,7 @@
       }
     }).then(function(response) {
       this.state.preview = response;
+      this.persistPreviewState();
       this.renderPreview(response);
       this.tabs.select(1);
       this.banner.text("Preview gerado.");
@@ -631,6 +657,7 @@
         }
       }).then(function(response) {
         this.state.execution = response;
+        this.persistExecutionState();
         this.pushExecutionHistory(payload, response);
         this.renderExecution(response);
         this.loadExecutions(payload.code);
@@ -653,11 +680,33 @@
 
   ImportExportAdmin.prototype.renderPreview = function(response) {
     this.renderResult(response, this.previewSummary, this.previewDiagnostics, this.previewResult, true);
+    this.renderPreviewExecutionComparison();
   };
 
   ImportExportAdmin.prototype.renderExecution = function(response) {
     this.renderResult(response, this.executionSummary, this.executionDiagnostics, this.executionResult, false);
     this.renderExecutionHistory();
+    this.renderPreviewExecutionComparison();
+  };
+
+  ImportExportAdmin.prototype.renderPreviewExecutionComparison = function() {
+    if (!this.executionCompareSummary) {
+      return;
+    }
+    this.executionCompareSummary.empty();
+    if (!this.state.preview || !this.state.execution) {
+      $("<p class=\"import-export-admin-empty\"></p>").text("Gere preview e execucao para comparar os totais.").appendTo(this.executionCompareSummary);
+      return;
+    }
+    const previewCounts = this.state.preview.counts || {};
+    const executionCounts = this.state.execution.counts || {};
+    this.renderDefinitionList(this.executionCompareSummary, [
+      { label: "Preview lidos", value: String(previewCounts.read == null ? 0 : previewCounts.read) },
+      { label: "Execucao lidos", value: String(executionCounts.read == null ? 0 : executionCounts.read) },
+      { label: "Preview gravados", value: String(previewCounts.written == null ? 0 : previewCounts.written) },
+      { label: "Execucao gravados", value: String(executionCounts.written == null ? 0 : executionCounts.written) },
+      { label: "Delta erros", value: String((executionCounts.errors == null ? 0 : executionCounts.errors) - (previewCounts.errors == null ? 0 : previewCounts.errors)) }
+    ]);
   };
 
   ImportExportAdmin.prototype.renderResult = function(response, summaryHost, diagnosticsHost, resultHost, isPreview) {
@@ -714,6 +763,7 @@
     const selectedMapping = String(mappingCode || this.executionFilterMappingInput && this.executionFilterMappingInput.value() || "").trim();
     const selectedMode = String(this.executionFilterModeInput && this.executionFilterModeInput.value() || "").trim();
     const selectedStatus = String(this.executionFilterStatusInput && this.executionFilterStatusInput.value() || "").trim();
+    this.persistExecutionFilters(selectedMapping, selectedMode, selectedStatus);
     if (selectedMapping) {
       filters.push("mappingCode=" + encodeURIComponent(selectedMapping));
     }
@@ -733,6 +783,7 @@
       this.state.selectedExecution = null;
       this.executionsGrid.dataSource.data(items);
       this.renderSelectedExecution(null);
+      this.restoreSelectedExecution();
       return items;
     }.bind(this)).catch(function() {
       return [];
@@ -751,6 +802,7 @@
       { label: "Versoes", value: String(items.length) },
       { label: "Atual", value: String(items[0].versionNumber || "-") }
     ]);
+    this.restoreSelectedVersion();
   };
 
   ImportExportAdmin.prototype.loadSchedules = function() {
@@ -762,17 +814,220 @@
       this.state.currentSchedules = items;
       this.schedulesGrid.dataSource.data(items);
       this.renderScheduleSummary(null);
+      this.restoreSelectedSchedule();
       return items;
     }.bind(this)).catch(function() {
       return [];
     });
   };
 
+  ImportExportAdmin.prototype.handleVersionSelection = function() {
+    const selected = this.versionsGrid.select();
+    const item = selected && selected.length ? this.versionsGrid.dataItem(selected) : null;
+    this.state.selectedVersion = item ? item.toJSON ? item.toJSON() : item : null;
+    this.persistSelectedVersionNumber(this.state.selectedVersion && this.state.selectedVersion.versionNumber);
+    this.renderVersionSelectionSummary(this.state.selectedVersion);
+  };
+
   ImportExportAdmin.prototype.handleExecutionSelection = function() {
     const selected = this.executionsGrid.select();
     const item = selected && selected.length ? this.executionsGrid.dataItem(selected) : null;
     this.state.selectedExecution = item ? item.toJSON ? item.toJSON() : item : null;
+    this.persistSelectedExecutionId(this.state.selectedExecution && this.state.selectedExecution.id);
     this.renderSelectedExecution(this.state.selectedExecution);
+  };
+
+  ImportExportAdmin.prototype.getPersistenceKey = function() {
+    const screenId = String(this.options.screenId || this.root.data("screenId") || "import-export-admin").trim();
+    return "importExportAdmin." + screenId + ".state";
+  };
+
+  ImportExportAdmin.prototype.loadPersistedState = function() {
+    const parsed = global.CrudUtils.readLocalJsonValue(this.getPersistenceKey(), {});
+    return parsed && typeof parsed === "object" ? parsed : {};
+  };
+
+  ImportExportAdmin.prototype.savePersistedState = function() {
+    global.CrudUtils.saveLocalJsonValue(this.getPersistenceKey(), this.persistedState || {});
+  };
+
+  ImportExportAdmin.prototype.persistTabIndex = function(index) {
+    this.persistedState.activeTabIndex = typeof index === "number" && index >= 0 ? index : 0;
+    this.savePersistedState();
+  };
+
+  ImportExportAdmin.prototype.restoreSelectedTab = function() {
+    if (!this.tabs) {
+      return;
+    }
+    const index = parseInt(this.persistedState.activeTabIndex, 10);
+    if (isNaN(index) || index < 0) {
+      return;
+    }
+    this.tabs.select(index);
+  };
+
+  ImportExportAdmin.prototype.persistCurrentMappingCode = function(code) {
+    this.persistedState.currentMappingCode = String(code || "").trim();
+    this.savePersistedState();
+  };
+
+  ImportExportAdmin.prototype.resolvePreferredMappingCode = function() {
+    return String(this.persistedState.currentMappingCode || "").trim();
+  };
+
+  ImportExportAdmin.prototype.persistExecutionFilters = function(mappingCode, mode, status) {
+    this.persistedState.executionFilterMapping = String(mappingCode || "").trim();
+    this.persistedState.executionFilterMode = String(mode || "").trim();
+    this.persistedState.executionFilterStatus = String(status || "").trim();
+    this.savePersistedState();
+  };
+
+  ImportExportAdmin.prototype.persistSelectedExecutionId = function(id) {
+    this.persistedState.selectedExecutionId = id == null ? "" : String(id);
+    this.savePersistedState();
+  };
+
+  ImportExportAdmin.prototype.persistDesignerSelectedPath = function(path) {
+    this.persistedState.designerSelectedPath = String(path || "");
+    this.savePersistedState();
+  };
+
+  ImportExportAdmin.prototype.resolvePersistedDesignerPath = function() {
+    return String(this.persistedState.designerSelectedPath || "");
+  };
+
+  ImportExportAdmin.prototype.restoreSelectedExecution = function() {
+    const selectedId = String(this.persistedState.selectedExecutionId || "").trim();
+    if (!selectedId || !this.executionsGrid) {
+      return;
+    }
+    const rows = this.executionsGrid.tbody ? this.executionsGrid.tbody.children("tr") : $();
+    let restored = false;
+    rows.each(function(_, row) {
+      if (restored) {
+        return;
+      }
+      const item = this.executionsGrid.dataItem(row);
+      if (!item || String(item.id || "") !== selectedId) {
+        return;
+      }
+      this.executionsGrid.select(row);
+      this.state.selectedExecution = item.toJSON ? item.toJSON() : item;
+      this.renderSelectedExecution(this.state.selectedExecution);
+      restored = true;
+    }.bind(this));
+    if (!restored) {
+      this.persistSelectedExecutionId("");
+    }
+  };
+
+  ImportExportAdmin.prototype.restoreDesignerSelection = function() {
+    const selectedPath = String(this.designerState.selectedPath || "").trim();
+    if (!selectedPath) {
+      this.renderSelectedDesignerNode();
+      return;
+    }
+    const treeView = this.treeElement.data("kendoTreeView");
+    if (!treeView) {
+      return;
+    }
+    const node = this.treeElement.find(".k-item, .k-treeview-item").filter(function() {
+      const dataItem = treeView.dataItem(this);
+      return dataItem && String(dataItem.path || "") === selectedPath;
+    }).first();
+    if (!node.length) {
+      this.persistDesignerSelectedPath("");
+      this.designerState.selectedPath = null;
+      this.renderSelectedDesignerNode();
+      return;
+    }
+    treeView.select(node);
+    this.renderSelectedDesignerNode();
+  };
+
+  ImportExportAdmin.prototype.persistPreviewState = function() {
+    this.persistedState.lastPreviewCounts = this.state.preview && this.state.preview.counts ? this.state.preview.counts : null;
+    this.savePersistedState();
+  };
+
+  ImportExportAdmin.prototype.persistExecutionState = function() {
+    this.persistedState.lastExecutionCounts = this.state.execution && this.state.execution.counts ? this.state.execution.counts : null;
+    this.savePersistedState();
+  };
+
+  ImportExportAdmin.prototype.persistSelectedVersionNumber = function(versionNumber) {
+    this.persistedState.selectedVersionNumber = versionNumber == null ? "" : String(versionNumber);
+    this.savePersistedState();
+  };
+
+  ImportExportAdmin.prototype.restoreSelectedVersion = function() {
+    const selectedVersionNumber = String(this.persistedState.selectedVersionNumber || "").trim();
+    if (!selectedVersionNumber || !this.versionsGrid) {
+      this.renderVersionSelectionSummary(null);
+      return;
+    }
+    const rows = this.versionsGrid.tbody ? this.versionsGrid.tbody.children("tr") : $();
+    let restored = false;
+    rows.each(function(_, row) {
+      if (restored) {
+        return;
+      }
+      const item = this.versionsGrid.dataItem(row);
+      if (!item || String(item.versionNumber || "") !== selectedVersionNumber) {
+        return;
+      }
+      this.versionsGrid.select(row);
+      this.state.selectedVersion = item.toJSON ? item.toJSON() : item;
+      this.renderVersionSelectionSummary(this.state.selectedVersion);
+      restored = true;
+    }.bind(this));
+    if (!restored) {
+      this.persistSelectedVersionNumber("");
+      this.renderVersionSelectionSummary(null);
+    }
+  };
+
+  ImportExportAdmin.prototype.renderVersionSelectionSummary = function(item) {
+    if (!item) {
+      return;
+    }
+    this.renderDefinitionList(this.versionsSummary, [
+      { label: "Versoes", value: String(global.CrudUtils.ensureArray(this.state.currentVersions).length) },
+      { label: "Atual", value: String(this.state.currentVersions && this.state.currentVersions[0] && this.state.currentVersions[0].versionNumber || "-") },
+      { label: "Selecionada", value: String(item.versionNumber || "-") },
+      { label: "Por", value: String(item.createdBy || "-") }
+    ]);
+  };
+
+  ImportExportAdmin.prototype.persistSelectedScheduleCode = function(code) {
+    this.persistedState.selectedScheduleCode = String(code || "").trim();
+    this.savePersistedState();
+  };
+
+  ImportExportAdmin.prototype.restoreSelectedSchedule = function() {
+    const selectedCode = String(this.persistedState.selectedScheduleCode || "").trim();
+    if (!selectedCode || !this.schedulesGrid) {
+      return;
+    }
+    const rows = this.schedulesGrid.tbody ? this.schedulesGrid.tbody.children("tr") : $();
+    let restored = false;
+    rows.each(function(_, row) {
+      if (restored) {
+        return;
+      }
+      const item = this.schedulesGrid.dataItem(row);
+      if (!item || String(item.code || "") !== selectedCode) {
+        return;
+      }
+      this.schedulesGrid.select(row);
+      this.state.selectedSchedule = item.toJSON ? item.toJSON() : item;
+      this.renderScheduleSummary(this.state.selectedSchedule);
+      restored = true;
+    }.bind(this));
+    if (!restored) {
+      this.persistSelectedScheduleCode("");
+    }
   };
 
   ImportExportAdmin.prototype.renderSelectedExecution = function(item) {
@@ -817,7 +1072,9 @@
   ImportExportAdmin.prototype.handleScheduleSelection = function() {
     const selected = this.schedulesGrid.select();
     const item = selected && selected.length ? this.schedulesGrid.dataItem(selected) : null;
-    this.renderScheduleSummary(item ? (item.toJSON ? item.toJSON() : item) : null);
+    this.state.selectedSchedule = item ? (item.toJSON ? item.toJSON() : item) : null;
+    this.persistSelectedScheduleCode(this.state.selectedSchedule && this.state.selectedSchedule.code);
+    this.renderScheduleSummary(this.state.selectedSchedule);
   };
 
   ImportExportAdmin.prototype.renderScheduleSummary = function(item) {
@@ -994,7 +1251,7 @@
       const mapping = payload.mapping || {};
       const type = this.resolveDesignerType(payload.format, mapping);
       this.designerState.type = type;
-      this.designerState.selectedPath = null;
+      this.designerState.selectedPath = this.resolvePersistedDesignerPath();
       this.renderDesignerMeta(type, mapping);
       this.renderDesignerTree(type, mapping);
     } catch (error) {
@@ -1059,6 +1316,7 @@
       dataTextField: "text",
       select: this.handleDesignerSelect.bind(this)
     });
+    this.restoreDesignerSelection();
   };
 
   ImportExportAdmin.prototype.getDesignerNodes = function(type, mapping) {
@@ -1110,6 +1368,7 @@
     }
     const path = String(dataItem.path || "");
     this.designerState.selectedPath = path;
+    this.persistDesignerSelectedPath(path);
     this.renderSelectedDesignerNode();
   };
 

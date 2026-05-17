@@ -120,11 +120,15 @@
         this.applyDefinitionSecurity(this.definition);
         this.loadNotificationFilterState();
         this.loadUserFavoriteState();
+        this.loadNavigationState();
         this.modules = this.buildModuleList();
         this.currentModuleId = this.resolveInitialModuleId();
         this.render();
         this.startRuntimeMessagePolling();
-        return this.openInitialProgram().then(() => this);
+        return this.openInitialProgram().then(() => {
+          this.restoreAppbarPanelContext();
+          return this;
+        });
       }).catch((error) => {
         this.renderError(global.CrudUtils.unwrapError(error, "Erro ao carregar pagina inicial."));
         throw error;
@@ -233,6 +237,12 @@
       }, source.layout.appbar || {});
       source.currentUser = source.currentUser || source.user || {};
       source.currentSubscriber = source.currentSubscriber || source.currentTenant || source.tenant || source.subscriber || {};
+      const storedSubscriber = global.CrudUtils.readLocalJsonValue("crudEngine.currentSubscriber", null);
+      if (storedSubscriber && typeof storedSubscriber === "object" && !Array.isArray(storedSubscriber)) {
+        source.currentSubscriber = Object.assign({}, source.currentSubscriber || {}, storedSubscriber);
+        source.currentTenant = source.currentSubscriber;
+        source.tenant = source.currentSubscriber;
+      }
       source.navigation = source.navigation || {};
       source.permissions = source.permissions || {};
       return source;
@@ -311,45 +321,52 @@
     }
 
     loadNotificationFilterState() {
-      if (!global.localStorage) {
+      const parsed = global.CrudUtils.readLocalJsonValue(this.getHomePreferenceStorageKey("notificationFilters"), null);
+      if (!parsed || typeof parsed !== "object") {
         return;
       }
-      try {
-        const raw = global.localStorage.getItem(this.getHomePreferenceStorageKey("notificationFilters"));
-        if (!raw) {
-          return;
-        }
-        const parsed = JSON.parse(raw);
-        if (!parsed || typeof parsed !== "object") {
-          return;
-        }
-        this.notificationListFilters = Object.assign({}, this.notificationListFilters, {
-          severity: String(parsed.severity || ""),
-          category: String(parsed.category || ""),
-          actionRequired: parsed.actionRequired === true,
-          unreadOnly: parsed.unreadOnly !== false,
-          includeRead: parsed.includeRead === true
-        });
-      } catch (_) {
-        return;
-      }
+      this.notificationListFilters = Object.assign({}, this.notificationListFilters, {
+        severity: String(parsed.severity || ""),
+        category: String(parsed.category || ""),
+        actionRequired: parsed.actionRequired === true,
+        unreadOnly: parsed.unreadOnly !== false,
+        includeRead: parsed.includeRead === true
+      });
     }
 
     saveNotificationFilterState() {
-      if (!global.localStorage) {
+      global.CrudUtils.saveLocalJsonValue(this.getHomePreferenceStorageKey("notificationFilters"), {
+        severity: this.notificationListFilters.severity || "",
+        category: this.notificationListFilters.category || "",
+        actionRequired: this.notificationListFilters.actionRequired === true,
+        unreadOnly: this.notificationListFilters.unreadOnly !== false,
+        includeRead: this.notificationListFilters.includeRead === true
+      });
+    }
+
+    loadNavigationState() {
+      const parsed = global.CrudUtils.readLocalJsonValue(this.getHomePreferenceStorageKey("navigationState"), null);
+      if (!parsed || typeof parsed !== "object") {
         return;
       }
-      try {
-        global.localStorage.setItem(this.getHomePreferenceStorageKey("notificationFilters"), JSON.stringify({
-          severity: this.notificationListFilters.severity || "",
-          category: this.notificationListFilters.category || "",
-          actionRequired: this.notificationListFilters.actionRequired === true,
-          unreadOnly: this.notificationListFilters.unreadOnly !== false,
-          includeRead: this.notificationListFilters.includeRead === true
-        }));
-      } catch (_) {
-        return;
-      }
+      this.currentModuleId = String(parsed.currentModuleId || "").trim();
+      this.menuSearchText = String(parsed.menuSearchText || "");
+      this.showOnlyFavorites = parsed.showOnlyFavorites === true;
+      this.hasSavedSidebarState = Object.prototype.hasOwnProperty.call(parsed, "sidebarCollapsed");
+      this.savedSidebarCollapsed = parsed.sidebarCollapsed === true;
+      this.savedProgramId = String(parsed.currentProgramId || "").trim();
+      this.savedAppbarPanelKind = String(parsed.appbarPanelKind || "").trim();
+    }
+
+    saveNavigationState() {
+      global.CrudUtils.saveLocalJsonValue(this.getHomePreferenceStorageKey("navigationState"), {
+        currentModuleId: this.currentModuleId || "",
+        menuSearchText: this.menuSearchText || "",
+        showOnlyFavorites: this.showOnlyFavorites === true,
+        currentProgramId: this.currentProgram && this.currentProgram.id ? String(this.currentProgram.id) : (this.savedProgramId || ""),
+        sidebarCollapsed: this.shell ? this.shell.hasClass("home-sidebar-collapsed") : this.savedSidebarCollapsed === true,
+        appbarPanelKind: this.savedAppbarPanelKind || ""
+      });
     }
 
     normalizeConfig(config) {
@@ -2186,6 +2203,10 @@
           }
           wrapper.remove();
           delete this.appbarPanelWindows[kind];
+          if (this.savedAppbarPanelKind === kind) {
+            this.savedAppbarPanelKind = "";
+            this.saveNavigationState();
+          }
           if (sourceButton) {
             sourceButton.trigger("focus");
           }
@@ -2196,6 +2217,10 @@
         element: wrapper,
         window: windowWidget
       };
+      if (kind === "notifications" || kind === "jobs") {
+        this.savedAppbarPanelKind = kind;
+        this.saveNavigationState();
+      }
       windowWidget.center().open();
       this.loadAppbarListItems(kind, endpoint, content);
     }
@@ -2800,6 +2825,10 @@
       if (!entry) {
         return;
       }
+      if (this.savedAppbarPanelKind === kind) {
+        this.savedAppbarPanelKind = "";
+        this.saveNavigationState();
+      }
       if (entry.window) {
         entry.window.destroy();
       }
@@ -2807,6 +2836,19 @@
         entry.element.remove();
       }
       delete this.appbarPanelWindows[kind];
+    }
+
+    restoreAppbarPanelContext() {
+      const kind = String(this.savedAppbarPanelKind || "").trim();
+      if (!kind || (kind !== "notifications" && kind !== "jobs")) {
+        return;
+      }
+      if (!this.shouldShowAppbarListButton(kind)) {
+        this.savedAppbarPanelKind = "";
+        this.saveNavigationState();
+        return;
+      }
+      this.openAppbarListWindow(kind, null);
     }
 
     renderSidebarToggle(container) {
@@ -3140,6 +3182,7 @@
       this.definition.currentSubscriber = subscriber;
       this.definition.currentTenant = subscriber;
       this.definition.tenant = subscriber;
+      global.CrudUtils.saveLocalJsonValue("crudEngine.currentSubscriber", subscriber || {});
       this.updateCurrentSubscriberBadge();
     }
 
@@ -3435,6 +3478,7 @@
       this.loggingOut = true;
       const done = () => {
         this.loggingOut = false;
+        this.clearLocalSessionContext(true);
         if (this.httpClient && typeof this.httpClient.redirectToLogin === "function") {
           this.httpClient.redirectToLogin(false);
           return;
@@ -3448,6 +3492,32 @@
       }
 
       done();
+    }
+
+    clearLocalSessionContext(preserveLastUsername) {
+      const keys = [
+        "crudEngine.authToken",
+        "crudEngine.runtimeTenantId",
+        "crudEngine.runtimeSessionId",
+        "crudEngine.currentSubscriber",
+        "crudEngine.availableSubscribers",
+        "crudEngine.runtimeUserId",
+        "crudEngine.runtimeUserName",
+        "crudEngine.runtimeUserGroups",
+        "crudEngine.runtimeUserPermissions",
+        "crudEngine.accessArea",
+        "crudEngine.rememberToken",
+        "crudEngine.rememberTokenExpiresAt"
+      ];
+      if (preserveLastUsername !== true) {
+        keys.push("crudEngine.lastUsername");
+      }
+      global.CrudUtils.clearLocalKeys(keys);
+      global.CrudUtils.clearLocalKeysByPrefix([
+        "homeEngine.",
+        "importExportAdmin.",
+        "program-governance-audit-filters:"
+      ]);
     }
 
     renderMain(shell) {
@@ -3508,6 +3578,7 @@
       }
       search.on("input", () => {
         this.menuSearchText = search.val();
+        this.saveNavigationState();
         this.refreshTreeView();
       });
 
@@ -3523,6 +3594,7 @@
       favoriteButton.on("click", () => {
         this.showOnlyFavorites = !this.showOnlyFavorites;
         this.updateFavoritesFilterButton();
+        this.saveNavigationState();
         this.refreshTreeView();
       });
       this.menuSearchInput = search;
@@ -3669,43 +3741,31 @@
 
     loadUserFavoriteState() {
       const key = this.getFavoriteStorageKey();
-      if (!key || !global.localStorage) {
+      if (!key) {
         return;
       }
-      try {
-        const raw = global.localStorage.getItem(key);
-        if (!raw) {
-          return;
-        }
-        const state = JSON.parse(raw);
-        if (!state || typeof state !== "object") {
-          return;
-        }
-        const user = this.getCurrentUser();
-        if (Array.isArray(state.favoritePrograms)) {
-          user.favoritePrograms = state.favoritePrograms.map(String);
-        }
-        if (Array.isArray(state.unfavoritePrograms)) {
-          user.unfavoritePrograms = state.unfavoritePrograms.map(String);
-        }
-      } catch (_) {
+      const state = global.CrudUtils.readLocalJsonValue(key, null);
+      if (!state || typeof state !== "object") {
         return;
+      }
+      const user = this.getCurrentUser();
+      if (Array.isArray(state.favoritePrograms)) {
+        user.favoritePrograms = state.favoritePrograms.map(String);
+      }
+      if (Array.isArray(state.unfavoritePrograms)) {
+        user.unfavoritePrograms = state.unfavoritePrograms.map(String);
       }
     }
 
     saveUserFavoriteState() {
       const key = this.getFavoriteStorageKey();
-      if (!key || !global.localStorage) {
+      if (!key) {
         return;
       }
-      try {
-        global.localStorage.setItem(key, JSON.stringify({
-          favoritePrograms: this.getFavoriteProgramIds(),
-          unfavoritePrograms: this.getUnfavoriteProgramIds()
-        }));
-      } catch (_) {
-        return;
-      }
+      global.CrudUtils.saveLocalJsonValue(key, {
+        favoritePrograms: this.getFavoriteProgramIds(),
+        unfavoritePrograms: this.getUnfavoriteProgramIds()
+      });
     }
 
     getFavoriteStorageKey() {
@@ -3767,6 +3827,10 @@
       if (requestedModuleId && this.findModule(requestedModuleId)) {
         return requestedModuleId;
       }
+      const savedModuleId = String(this.currentModuleId || "").trim();
+      if (savedModuleId && this.findModule(savedModuleId)) {
+        return savedModuleId;
+      }
       const navigation = this.definition.navigation || {};
       const configuredInitialId = String(navigation.initialModuleId || "").trim() || this.allModulesId;
       if (this.findModule(configuredInitialId)) {
@@ -3823,6 +3887,7 @@
         return;
       }
       this.currentModuleId = module.id;
+      this.saveNavigationState();
       this.refreshTreeView();
     }
 
@@ -3897,9 +3962,18 @@
 
     openInitialProgram() {
       const initialId = this.getRequestedInitialProgramId() ||
+        this.getSavedInitialProgramId() ||
         this.definition.layout.initialProgramId ||
         (this.definition.programs[0] && this.definition.programs[0].id);
       return this.openProgram(initialId, { syncModule: false });
+    }
+
+    getSavedInitialProgramId() {
+      const savedProgramId = String(this.savedProgramId || "").trim();
+      if (!savedProgramId) {
+        return "";
+      }
+      return this.findProgram(savedProgramId) ? savedProgramId : "";
     }
 
     getRequestedInitialProgramId() {
@@ -3935,12 +4009,14 @@
 
       this.destroyCurrentProgram();
       this.currentProgram = program;
+      this.savedProgramId = String(program.id || "");
       if (openOptions.syncModule !== false) {
         this.syncModuleWithProgram(program.id);
       }
       this.updateProgramHeader(program);
       this.updateActiveMenu(program.id);
       this.renderContentMessage("Carregando...");
+      this.saveNavigationState();
 
       if (program.type === "crud") {
         return this.renderCrudProgram(program);
@@ -4619,6 +4695,7 @@
       if (this.moduleSelector) {
         this.moduleSelector.value(moduleId);
       }
+      this.saveNavigationState();
       if (this.treeHost && this.treeHost.length) {
         this.refreshTreeView();
       }
@@ -4631,6 +4708,7 @@
       }
       this.shell.toggleClass("home-sidebar-collapsed");
       this.updateSidebarToggleState();
+      this.saveNavigationState();
     }
 
     updateSidebarToggleState() {
@@ -4652,7 +4730,13 @@
     }
 
     shouldStartSidebarCollapsed() {
-      return Boolean(this.definition.layout.sidebar.collapsed || this.isMobileViewport());
+      if (this.isMobileViewport()) {
+        return true;
+      }
+      if (this.hasSavedSidebarState) {
+        return this.savedSidebarCollapsed === true;
+      }
+      return Boolean(this.definition.layout.sidebar.collapsed);
     }
 
     isMobileViewport() {
@@ -4666,6 +4750,7 @@
       }
       this.shell.addClass("home-sidebar-collapsed");
       this.updateSidebarToggleState();
+      this.saveNavigationState();
     }
 
     confirmCurrentProgramNavigation() {

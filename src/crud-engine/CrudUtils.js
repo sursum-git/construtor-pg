@@ -253,6 +253,92 @@
       });
     },
 
+    readLocalValue(key, fallbackValue) {
+      try {
+        if (!global.localStorage) {
+          return fallbackValue == null ? "" : fallbackValue;
+        }
+        const value = global.localStorage.getItem(String(key || ""));
+        return value == null ? (fallbackValue == null ? "" : fallbackValue) : value;
+      } catch (_) {
+        return fallbackValue == null ? "" : fallbackValue;
+      }
+    },
+
+    saveLocalValue(key, value) {
+      try {
+        if (!global.localStorage) {
+          return false;
+        }
+        global.localStorage.setItem(String(key || ""), String(value == null ? "" : value));
+      } catch (_) {
+        return false;
+      }
+      return true;
+    },
+
+    removeLocalValue(key) {
+      try {
+        if (!global.localStorage) {
+          return false;
+        }
+        global.localStorage.removeItem(String(key || ""));
+      } catch (_) {
+        return false;
+      }
+      return true;
+    },
+
+    readLocalJsonValue(key, fallbackValue) {
+      const raw = this.readLocalValue(key, "");
+      if (!raw) {
+        return fallbackValue == null ? null : fallbackValue;
+      }
+      try {
+        return JSON.parse(raw);
+      } catch (_) {
+        return fallbackValue == null ? null : fallbackValue;
+      }
+    },
+
+    saveLocalJsonValue(key, value) {
+      try {
+        return this.saveLocalValue(key, JSON.stringify(value == null ? null : value));
+      } catch (_) {
+        return false;
+      }
+    },
+
+    clearLocalKeys(keys) {
+      this.ensureArray(keys).forEach((key) => this.removeLocalValue(key));
+      return true;
+    },
+
+    clearLocalKeysByPrefix(prefixes) {
+      try {
+        if (!global.localStorage) {
+          return false;
+        }
+        const list = this.ensureArray(prefixes).map(function(item) {
+          return String(item || "");
+        }).filter(Boolean);
+        if (!list.length) {
+          return true;
+        }
+        const keysToRemove = [];
+        for (let index = 0; index < global.localStorage.length; index += 1) {
+          const key = String(global.localStorage.key(index) || "");
+          if (list.some(function(prefix) { return key.indexOf(prefix) === 0; })) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach((key) => global.localStorage.removeItem(key));
+      } catch (_) {
+        return false;
+      }
+      return true;
+    },
+
     makeError(code, message, details) {
       const error = new Error(message);
       error.payload = { error: { code, message, details: details || {} } };
