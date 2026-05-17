@@ -23,6 +23,7 @@ Atualizacao operacional:
 - `php backend/bin/console app:update:apply <versao>`
 - `php backend/bin/console app:update:run-pending`
 - `php backend/bin/console app:update:rollout-plan <versao>`
+- `php backend/bin/console app:update:publish-artifacts [versao]`
 - `screenId=admin.atualizacoes`
 - pagina de producao: [C:\construtor-pg\production\admin\system-updates.html](C:/construtor-pg/production/admin/system-updates.html)
 - pagina local: [C:\construtor-pg\examples\pages\admin-system-updates.html](C:/construtor-pg/examples/pages/admin-system-updates.html)
@@ -31,6 +32,9 @@ Atualizacao operacional:
 - o manifesto remoto pode ser configurado por `APP_UPDATE_MANIFEST_URL`;
 - a validacao de assinatura do manifesto usa `APP_UPDATE_MANIFEST_SIGNING_KEY`;
 - a validacao de assinatura do pacote usa `APP_UPDATE_PACKAGE_SIGNING_KEY`;
+- a publicacao oficial dos artefatos usa:
+  - `APP_UPDATE_DISTRIBUTION_DIR`
+  - `APP_UPDATE_PUBLIC_BASE_URL`
 - o rollout externo do SaaS pode ser integrado por:
   - `APP_UPDATE_ORCHESTRATOR_URL`
   - `APP_UPDATE_ORCHESTRATOR_TOKEN`
@@ -40,6 +44,7 @@ Atualizacao operacional:
 - o sistema do assinante fica apenas com o necessario para verificacao/aplicacao local, como `GET /api/runtime/system-updates/summary` e o runner on-premise;
 - existe a tela `screenId=admin.atualizacoes-assinantes` para consultar, por assinante, o historico do que foi aplicado pelo sistema central.
 - existe tambem o download/validacao do pacote por release, com registro local em `var/system-updates/<versao>/`.
+- existe tambem a publicacao oficial de manifesto e pacote assinados em `var/system-updates/distribution/<versao-ou-catalog>/`.
 - existe tambem o despacho do rollout do SaaS para orquestrador externo por HTTP assinado; o app nao executa Docker diretamente.
 
 Tela administrativa:

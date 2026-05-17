@@ -323,7 +323,7 @@
       engine: "program-builder",
       category: "Administracao",
       title: "Atualizacoes do sistema",
-      summary: "Tela administrativa para consultar releases, aplicar atualizacoes e revisar impacto em programas padrao, overlays e variantes congeladas.",
+      summary: "Tela administrativa para consultar releases, publicar manifesto/pacote assinados, aplicar atualizacoes e revisar impacto em programas padrao, overlays e variantes congeladas.",
       page: pagePath + "admin-system-updates.html"
     },
     {

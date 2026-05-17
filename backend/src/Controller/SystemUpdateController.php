@@ -5,6 +5,7 @@ namespace App\Controller;
 use App\Runtime\RuntimeHttpException;
 use App\Runtime\RuntimeSessionGuard;
 use App\Runtime\CentralControlGuard;
+use App\Runtime\SystemUpdatePublicationService;
 use App\Runtime\SystemUpdateService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,6 +18,7 @@ class SystemUpdateController extends AbstractController
 {
     public function __construct(
         private readonly SystemUpdateService $updates,
+        private readonly SystemUpdatePublicationService $publication,
         private readonly RuntimeSessionGuard $sessions,
         private readonly CentralControlGuard $central,
     ) {
@@ -134,6 +136,26 @@ class SystemUpdateController extends AbstractController
             return $this->json($this->updates->dispatchRollout(
                 trim((string) ($payload['version'] ?? '')),
                 trim((string) ($payload['subscriberCode'] ?? '')) ?: null
+            ));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/publish-artifacts', methods: ['POST'])]
+    public function publishArtifacts(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $this->central->ensureCentral();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+
+            return $this->json($this->publication->publish(
+                trim((string) ($payload['version'] ?? '')) ?: null,
+                trim((string) ($payload['source'] ?? '')) ?: null,
+                trim((string) ($payload['outputDirectory'] ?? '')) ?: null,
+                trim((string) ($payload['baseUrl'] ?? '')) ?: null,
+                trim((string) ($payload['channel'] ?? '')) ?: null
             ));
         } catch (\Throwable $error) {
             return $this->error($error);

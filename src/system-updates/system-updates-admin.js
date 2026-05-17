@@ -36,6 +36,7 @@
     const actions = global.jQuery("<div class=\"program-builder-toolbar\"></div>").appendTo(header);
     this.createButton(actions, "Atualizar manifesto", "reload", this.handleCheck.bind(this));
     this.downloadButton = this.createButton(actions, "Baixar pacote", "download", this.handleDownload.bind(this));
+    this.publishArtifactsButton = this.createButton(actions, "Publicar artefatos", "folder-up", this.handlePublishArtifacts.bind(this));
     this.consentButton = this.createButton(actions, "Registrar anuencia", "check", this.handleConsent.bind(this));
     this.applyButton = this.createButton(actions, "Aplicar release", "play", this.handleApply.bind(this));
     this.rolloutButton = this.createButton(actions, "Plano SaaS", "track-changes-enable", this.handleRolloutPlan.bind(this));
@@ -398,6 +399,20 @@
         return this.loadBootstrap();
       }).catch((error) => this.showError(error, "Nao foi possivel registrar a anuencia."));
     });
+  };
+
+  SystemUpdatesAdmin.prototype.handlePublishArtifacts = function() {
+    if (!this.currentRelease) {
+      global.CrudUtils.showMessage("Selecione uma release.", "warning");
+      return;
+    }
+    this.request("POST", "/api/admin/system-updates/publish-artifacts", {
+      version: this.currentRelease.version
+    }).then((payload) => {
+      this.currentExecution = null;
+      this.renderDetail(payload);
+      global.CrudUtils.showMessage("Artefatos oficiais publicados.", "success");
+    }).catch((error) => this.showError(error, "Nao foi possivel publicar os artefatos oficiais."));
   };
 
   SystemUpdatesAdmin.prototype.handleRolloutPlan = function() {

@@ -40,6 +40,7 @@
       <li>No sistema central, configure <code>APP_SYSTEM_ROLE=saas_central</code> ou <code>APP_CENTRAL_CONTROL_ENABLED=1</code> para liberar anuencia, rollout e aplicacao.</li>
       <li>Sem worker e sem marcacao de sistema central, o updater administrativo nao deve ser tratado como operacional.</li>
       <li>Manifesto remoto: <code>APP_UPDATE_MANIFEST_URL</code>; assinatura do manifesto: <code>APP_UPDATE_MANIFEST_SIGNING_KEY</code>; assinatura do pacote: <code>APP_UPDATE_PACKAGE_SIGNING_KEY</code>.</li>
+      <li>Publicacao oficial de artefatos: <code>app:update:publish-artifacts [versao]</code>, com distribuicao em <code>APP_UPDATE_DISTRIBUTION_DIR</code> e reescrita opcional por <code>APP_UPDATE_PUBLIC_BASE_URL</code>.</li>
       <li>Rollout externo do SaaS: <code>APP_UPDATE_ORCHESTRATOR_URL</code>, <code>APP_UPDATE_ORCHESTRATOR_TOKEN</code>, <code>APP_UPDATE_ORCHESTRATOR_SIGNING_KEY</code> e <code>APP_UPDATE_ORCHESTRATOR_TIMEOUT</code>.</li>
     </ul>
   </section>

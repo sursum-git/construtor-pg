@@ -15,13 +15,11 @@ class SystemUpdatePackageDownloader
 
     public function download(array $release, bool $persist = true): array
     {
-        $metadata = is_array($release['metadata'] ?? null) ? $release['metadata'] : [];
-        $packageUrl = trim((string) ($metadata['packageUrl'] ?? ''));
-        if ($packageUrl === '') {
-            throw new \RuntimeException('Release sem pacote configurado para download.');
-        }
-
-        $content = $this->readSource($packageUrl);
+        $loaded = $this->loadRawPackage($release);
+        $content = $loaded['content'];
+        $metadata = $loaded['metadata'];
+        $packageUrl = $loaded['packageUrl'];
+        $filename = $loaded['fileName'];
         $hash = hash('sha256', $content);
         $expectedHash = strtolower(trim((string) ($metadata['packageHash'] ?? '')));
         if ($expectedHash !== '' && !hash_equals($expectedHash, $hash)) {
@@ -29,10 +27,6 @@ class SystemUpdatePackageDownloader
         }
 
         $signatureStatus = $this->verifySignature($content, $metadata);
-        $filename = trim((string) ($metadata['packageFileName'] ?? ''));
-        if ($filename === '') {
-            $filename = 'system-update-' . preg_replace('/[^a-z0-9._-]+/i', '-', (string) ($release['version'] ?? 'unknown')) . '.pkg';
-        }
 
         $savedPath = null;
         if ($persist) {
@@ -48,6 +42,30 @@ class SystemUpdatePackageDownloader
             'savedPath' => $savedPath,
             'signatureStatus' => $signatureStatus['status'],
             'signatureMessage' => $signatureStatus['message'],
+        ];
+    }
+
+    public function loadRawPackage(array $release): array
+    {
+        $metadata = is_array($release['metadata'] ?? null) ? $release['metadata'] : [];
+        $packageUrl = trim((string) ($metadata['packageUrl'] ?? ''));
+        if ($packageUrl === '') {
+            throw new \RuntimeException('Release sem pacote configurado para download.');
+        }
+
+        $fileName = trim((string) ($metadata['packageFileName'] ?? ''));
+        if ($fileName === '') {
+            $fileName = basename(parse_url($packageUrl, PHP_URL_PATH) ?: '');
+        }
+        if ($fileName === '') {
+            $fileName = 'system-update-' . preg_replace('/[^a-z0-9._-]+/i', '-', (string) ($release['version'] ?? 'unknown')) . '.pkg';
+        }
+
+        return [
+            'metadata' => $metadata,
+            'packageUrl' => $packageUrl,
+            'fileName' => $fileName,
+            'content' => $this->readSource($packageUrl),
         ];
     }
 

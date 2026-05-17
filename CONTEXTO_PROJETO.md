@@ -59,6 +59,7 @@ Paginas principais:
 - existe tambem a tela `admin.atualizacoes-assinantes`, que facilita consultar no sistema central o historico do que foi aplicado em cada assinante.
   - a frente agora tambem cobre anuencia formal por release, plano de rollout SaaS exportavel e runner on-premise (`update-onprem.sh|ps1` / `update.sh` no pacote).
   - o updater agora tambem suporta download e validacao do pacote da release, usando manifesto remoto em `APP_UPDATE_MANIFEST_URL`, assinatura do manifesto por `APP_UPDATE_MANIFEST_SIGNING_KEY` e assinatura do pacote por `APP_UPDATE_PACKAGE_SIGNING_KEY`.
+  - existe tambem a publicacao oficial de manifesto e pacotes assinados por `app:update:publish-artifacts [versao]`, usando `APP_UPDATE_DISTRIBUTION_DIR` e `APP_UPDATE_PUBLIC_BASE_URL`.
   - o rollout externo do SaaS agora pode ser despachado por HTTP assinado usando `APP_UPDATE_ORCHESTRATOR_URL`, `APP_UPDATE_ORCHESTRATOR_TOKEN`, `APP_UPDATE_ORCHESTRATOR_SIGNING_KEY` e `APP_UPDATE_ORCHESTRATOR_TIMEOUT`.
   - a politica de atualizacao respeita o modelo atual de programas:
     - `standard`: pode receber a nova release;

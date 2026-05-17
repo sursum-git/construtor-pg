@@ -50,6 +50,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `php backend/bin/console app:update:run-pending`
     - `php backend/bin/console app:update:rollout-plan <versao>`
     - `php backend/bin/console app:update:dispatch-rollout <versao>`
+    - `php backend/bin/console app:update:publish-artifacts [versao]`
   - tela administrativa:
     - `production/app.html?screenId=admin.atualizacoes`
     - pagina local: `examples/pages/admin-system-updates.html`
@@ -57,6 +58,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `GET /api/admin/system-updates/bootstrap`
     - `POST /api/admin/system-updates/check`
     - `POST /api/admin/system-updates/apply`
+    - `POST /api/admin/system-updates/publish-artifacts`
     - `GET /api/admin/system-updates/jobs/{jobId}`
     - `GET /api/admin/system-updates/jobs/{jobId}/events`
     - `GET /api/runtime/system-updates/summary`
@@ -81,6 +83,9 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - o manifesto remoto pode ser configurado por `APP_UPDATE_MANIFEST_URL`;
   - a verificacao do manifesto usa `APP_UPDATE_MANIFEST_SIGNING_KEY`;
   - a verificacao do pacote usa `APP_UPDATE_PACKAGE_SIGNING_KEY`;
+  - a publicacao oficial dos artefatos usa:
+    - `APP_UPDATE_DISTRIBUTION_DIR`
+    - `APP_UPDATE_PUBLIC_BASE_URL`
   - o rollout externo do SaaS pode ser integrado por:
     - `APP_UPDATE_ORCHESTRATOR_URL`
     - `APP_UPDATE_ORCHESTRATOR_TOKEN`

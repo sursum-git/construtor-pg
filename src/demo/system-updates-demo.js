@@ -125,6 +125,29 @@
         }
       });
     }
+    if (method === "POST" && url === "/api/admin/system-updates/publish-artifacts") {
+      const version = String(data.version || "");
+      return Promise.resolve({
+        status: "published",
+        distributionDirectory: "C:/construtor-pg/var/system-updates/distribution/" + (version || "catalog"),
+        manifestPath: "C:/construtor-pg/var/system-updates/distribution/" + (version || "catalog") + "/manifest.json",
+        manifestSignature: "demo-signature-" + (version || "catalog"),
+        channel: "stable",
+        releaseCount: 1,
+        versions: [version || "1.0.1"],
+        baseUrl: "https://updates.demo.local/stable",
+        packages: [
+          {
+            version: version || "1.0.1",
+            fileName: "system-update-" + (version || "1.0.1") + ".pkg",
+            path: "C:/construtor-pg/var/system-updates/distribution/" + (version || "catalog") + "/packages/system-update-" + (version || "1.0.1") + ".pkg",
+            hash: "demo-publish-hash-" + (version || "1.0.1"),
+            signature: "demo-package-signature-" + (version || "1.0.1"),
+            url: "https://updates.demo.local/stable/packages/system-update-" + (version || "1.0.1") + ".pkg"
+          }
+        ]
+      });
+    }
     if (method === "GET" && url === "/api/admin/system-updates/rollout-plan") {
       const version = String(data.version || "");
       const release = this.resolveReleases(String(data.subscriberCode || "")).find((item) => item.version === version);

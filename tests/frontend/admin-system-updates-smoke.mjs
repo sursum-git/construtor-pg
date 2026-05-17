@@ -37,6 +37,20 @@ async function main() {
 
     await page.evaluate(() => {
       const button = window.jQuery("button").filter(function() {
+        return window.jQuery(this).text().trim() === "Publicar artefatos";
+      }).get(0);
+      if (!button) {
+        throw new Error("Botao publicar artefatos nao encontrado.");
+      }
+      button.click();
+    });
+    await page.waitForFunction(() => {
+      const detail = window.jQuery(".program-builder-json-preview").text() || "";
+      return detail.includes("\"distributionDirectory\"");
+    }, null, { timeout: 10000 });
+
+    await page.evaluate(() => {
+      const button = window.jQuery("button").filter(function() {
         return window.jQuery(this).text().trim() === "Aplicar release";
       }).get(0);
       if (!button) {
