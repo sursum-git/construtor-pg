@@ -80,12 +80,32 @@ async function main() {
       }
       return String(rows[0].status || "").toLowerCase() === "succeeded";
     }, null, { timeout: 20000 });
+    await page.evaluate(() => {
+      const executionGrid = window.jQuery(".k-grid").last().data("kendoGrid");
+      if (!executionGrid) {
+        throw new Error("Grid de execucoes nao encontrado.");
+      }
+      const firstRow = executionGrid.tbody.find("tr").first();
+      if (!firstRow.length) {
+        throw new Error("Nenhuma execucao encontrada para selecionar.");
+      }
+      executionGrid.select(firstRow);
+      executionGrid.trigger("change");
+    });
+    await page.waitForFunction(() => {
+      const detail = window.jQuery(".program-builder-json-preview").text() || "";
+      return detail.includes("\"standardProgramPipelineSummary\"") || detail.includes("\"standardProgramPipeline\"");
+    }, null, { timeout: 10000 });
 
     const result = await page.evaluate(() => ({
       summaryVisible: document.body.innerText.includes("Criticas:"),
       detailText: window.jQuery(".program-builder-json-preview").text(),
-      executionRows: window.jQuery(".k-grid").last().find("tbody tr").length
+      executionRows: window.jQuery(".k-grid").last().find("tbody tr").length,
+      hasStandardProgramPipeline: (window.jQuery(".program-builder-json-preview").text() || "").includes("\"standardProgramPipeline\"")
     }));
+    if (!result.hasStandardProgramPipeline) {
+      throw new Error("Resumo de pipeline de programas padrao nao apareceu na tela.");
+    }
 
     await page.evaluate(() => {
       const grid = window.jQuery(".k-grid").first().data("kendoGrid");

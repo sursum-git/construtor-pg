@@ -18,6 +18,11 @@
         requiresAppliedUpdates: [],
         replaces: [],
         breakingLevel: "security_forced",
+        autoApplySaas: true,
+        autoApplyOnPrem: true,
+        requiresSubscriberConsent: false,
+        blocksNextUpdates: true,
+        internetRequired: false,
         requiresConsent: false,
         autoApplicable: true,
         channels: ["stable", "pilot", "canary"],
@@ -30,6 +35,8 @@
           { code: "integrity_monitor", title: "Verificar integridade estrutural", timeoutSeconds: 180, idempotent: true }
         ],
         metadata: {
+          requiresBackup: false,
+          requiresMaintenanceMode: false,
           channels: ["stable", "pilot", "canary"],
           changelog: [
             {
@@ -54,9 +61,29 @@
           ]
         },
         impactReport: {
+          standardProgramSummary: {
+            install: 1,
+            update: 0,
+            verify: 0,
+            aheadOfTarget: 0
+          },
           programs: [
             {
+              programCode: "admin-assinante-ambientes",
+              targetPublishedVersion: "1.0.0",
+              currentPublishedVersion: null,
+              standardProgramAction: "install",
+              standardProgramStatus: "install_new_standard",
+              standardProgramMessage: "Programa padrao novo aguardando instalacao controlada pela esteira da release.",
+              overlayImpacts: []
+            },
+            {
               programCode: "admin-integracoes",
+              targetPublishedVersion: "1.0.1",
+              currentPublishedVersion: "1.0.0",
+              standardProgramAction: "update",
+              standardProgramStatus: "update_standard",
+              standardProgramMessage: "Programa padrao admin-integracoes precisa subir de 1.0.0 para 1.0.1.",
               overlayImpacts: [
                 { overlayId: 11, status: "rebase_ok", message: "A nova base pode gerar rascunho de rebase automaticamente." },
                 { overlayId: 14, status: "rebase_warning", message: "A base e o overlay alteraram a mesma secao do contrato." },
@@ -75,6 +102,11 @@
         requiresAppliedUpdates: ["1.0.1"],
         replaces: [],
         breakingLevel: "structural_breaking",
+        autoApplySaas: true,
+        autoApplyOnPrem: false,
+        requiresSubscriberConsent: true,
+        blocksNextUpdates: true,
+        internetRequired: false,
         requiresConsent: true,
         autoApplicable: false,
         channels: ["stable", "pilot"],
@@ -87,6 +119,25 @@
           { code: "integrity_monitor", title: "Verificar integridade estrutural", timeoutSeconds: 180, idempotent: true }
         ],
         dependencyIssues: ["Atualizacao obrigatoria pendente: 1.0.1."],
+        impactReport: {
+          standardProgramSummary: {
+            install: 0,
+            update: 1,
+            verify: 0,
+            aheadOfTarget: 0
+          },
+          programs: [
+            {
+              programCode: "admin-programa-governanca",
+              targetPublishedVersion: "1.0.0",
+              currentPublishedVersion: "0.9.0",
+              standardProgramAction: "update",
+              standardProgramStatus: "update_standard",
+              standardProgramMessage: "Programa padrao admin-programa-governanca precisa subir de 0.9.0 para 1.0.0.",
+              overlayImpacts: []
+            }
+          ]
+        },
         metadata: {
           channels: ["stable", "pilot"],
           changelog: [
@@ -128,6 +179,11 @@
         requiresAppliedUpdates: ["1.0.1", "1.0.2"],
         replaces: [],
         breakingLevel: "non_breaking",
+        autoApplySaas: false,
+        autoApplyOnPrem: false,
+        requiresSubscriberConsent: true,
+        blocksNextUpdates: false,
+        internetRequired: false,
         requiresConsent: true,
         autoApplicable: false,
         channels: ["pilot", "canary"],
@@ -138,6 +194,29 @@
           { code: "publish_runtime_defaults", title: "Publicar catalogo padrao", timeoutSeconds: 300, idempotent: true }
         ],
         dependencyIssues: ["Atualizacao obrigatoria pendente: 1.0.2."],
+        impactReport: {
+          standardProgramSummary: {
+            install: 0,
+            update: 1,
+            verify: 0,
+            aheadOfTarget: 0
+          },
+          programs: [
+            {
+              programCode: "admin-integracoes",
+              targetPublishedVersion: "1.1.0",
+              currentPublishedVersion: "1.0.0",
+              standardProgramAction: "update",
+              standardProgramStatus: "update_standard",
+              standardProgramMessage: "Programa padrao admin-integracoes precisa subir de 1.0.0 para 1.1.0.",
+              overlayImpacts: [
+                { overlayId: 11, status: "rebase_ok", message: "A nova base pode gerar rascunho de rebase automaticamente." },
+                { overlayId: 14, status: "rebase_warning", message: "A base e o overlay alteraram a mesma secao do contrato." },
+                { overlayId: 12, status: "custom_frozen", message: "Variante completa permanece congelada." }
+              ]
+            }
+          ]
+        },
         metadata: {
           channels: ["pilot", "canary"],
           changelog: [
@@ -183,6 +262,28 @@
         runtimeJobId: null,
         summary: {
           message: "Base inicial aplicada.",
+          applicationPolicy: {
+            requiresBackup: false,
+            requiresMaintenanceMode: false,
+            autoApplySaas: false,
+            autoApplyOnPrem: false,
+            requiresSubscriberConsent: true,
+            blocksNextUpdates: false,
+            internetRequired: false
+          },
+          structuralPipeline: {
+            migrationsApplied: true,
+            metadataSeeded: true,
+            runtimeDefaultsPublished: true,
+            integrityChecked: true
+          },
+          standardProgramPipeline: {
+            installed: 1,
+            updated: 1,
+            verified: 0,
+            aheadOfTarget: 0,
+            failed: 0
+          },
           overlayPipeline: {
             draftCreated: 1,
             draftExists: 0,
@@ -194,6 +295,13 @@
           }
         },
         impactReport: {
+          standardProgramPipelineSummary: {
+            installed: 1,
+            updated: 1,
+            verified: 0,
+            aheadOfTarget: 0,
+            failed: 0
+          },
           overlayPipelineSummary: {
             draftCreated: 1,
             draftExists: 0,
@@ -205,7 +313,17 @@
           },
           programs: [
             {
+              programCode: "admin-assinante-ambientes",
+              standardProgramPipelineStatus: "installed",
+              standardProgramPipelineMessage: "Programa padrao novo instalado pela esteira da release.",
+              appliedPublishedVersion: "1.0.0",
+              overlayImpacts: []
+            },
+            {
               programCode: "admin-integracoes",
+              standardProgramPipelineStatus: "updated",
+              standardProgramPipelineMessage: "Nova versao padrao aplicada pela release.",
+              appliedPublishedVersion: "1.0.1",
               overlayImpacts: [
                 {
                   overlayId: 11,
@@ -426,6 +544,7 @@
           runtimeJobId: null,
           summary: {
             message: "Rollout despachado para o orquestrador demo.",
+            applicationPolicy: this.buildApplicationPolicy(release),
             rolloutAudit: {
               stage: "dispatch",
               dispatchCount: 1,
@@ -497,7 +616,10 @@
         initiatedBy: "admin",
         initiatedSource: "ui",
         runtimeJobId: this.nextJobId,
-        summary: { message: "Atualizacao enfileirada." },
+        summary: {
+          message: "Atualizacao enfileirada.",
+          applicationPolicy: this.buildApplicationPolicy(release)
+        },
         impactReport: release.impactReport || {},
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -535,6 +657,14 @@
         execution.impactReport = this.decorateImpactReportForExecution(release.impactReport || {}, release.version);
         execution.summary = {
           message: "Atualizacao aplicada com sucesso.",
+          applicationPolicy: this.buildApplicationPolicy(release),
+          structuralPipeline: {
+            migrationsApplied: release.steps.some((step) => String(step.code || step) === "migrate"),
+            metadataSeeded: release.steps.some((step) => String(step.code || step) === "seed_runtime_metadata"),
+            runtimeDefaultsPublished: release.steps.some((step) => String(step.code || step) === "publish_runtime_defaults"),
+            integrityChecked: release.steps.some((step) => String(step.code || step) === "integrity_monitor")
+          },
+          standardProgramPipeline: execution.impactReport.standardProgramPipelineSummary || {},
           overlayPipeline: execution.impactReport.overlayPipelineSummary || {}
         };
         const original = this.releases.find((item) => item.version === release.version);
@@ -571,6 +701,7 @@
         runtimeJobId: null,
         summary: {
           message: "Rollback formal concluido.",
+          applicationPolicy: this.buildApplicationPolicy(release),
           rollback: this.buildRollbackPlan(release),
           reason: String(data.reason || "")
         },
@@ -675,6 +806,13 @@
       missingVersion: 0,
       pipelineFailed: 0
     };
+    const standardProgramPipeline = {
+      installed: 0,
+      updated: 0,
+      verified: 0,
+      aheadOfTarget: 0,
+      failed: 0
+    };
     const rolloutAudit = {
       dispatchCount: 0,
       blockedEntryCount: 0,
@@ -699,6 +837,12 @@
       overlayPipeline.frozen += Number(pipeline.frozen || 0);
       overlayPipeline.missingVersion += Number(pipeline.missingVersion || 0);
       overlayPipeline.pipelineFailed += Number(pipeline.pipelineFailed || 0);
+      const standardPipeline = item.summary && item.summary.standardProgramPipeline || item.impactReport && item.impactReport.standardProgramPipelineSummary || {};
+      standardProgramPipeline.installed += Number(standardPipeline.installed || 0);
+      standardProgramPipeline.updated += Number(standardPipeline.updated || 0);
+      standardProgramPipeline.verified += Number(standardPipeline.verified || 0);
+      standardProgramPipeline.aheadOfTarget += Number(standardPipeline.aheadOfTarget || 0);
+      standardProgramPipeline.failed += Number(standardPipeline.failed || 0);
       const rollout = item.summary && item.summary.rolloutAudit || {};
       rolloutAudit.dispatchCount += Number(rollout.dispatchCount || 0);
       rolloutAudit.blockedEntryCount += rollout.entryAccessMode === "blocked" ? 1 : 0;
@@ -719,6 +863,7 @@
         queued: rows.filter((item) => item.status === "queued" || item.status === "running").length,
         byStatus: byStatus,
         byCategory: byCategory,
+        standardProgramPipeline: standardProgramPipeline,
         overlayPipeline: overlayPipeline,
         rolloutAudit: rolloutAudit,
         timeline: rows.map((item) => ({
@@ -745,6 +890,13 @@
 
   SystemUpdatesDemoHttpClient.prototype.decorateImpactReportForExecution = function(impactReport, releaseVersion) {
     const cloned = JSON.parse(JSON.stringify(impactReport || {}));
+    const standardSummary = {
+      installed: 0,
+      updated: 0,
+      verified: 0,
+      aheadOfTarget: 0,
+      failed: 0
+    };
     const summary = {
       draftCreated: 0,
       draftExists: 0,
@@ -755,6 +907,27 @@
       pipelineFailed: 0
     };
     (cloned.programs || []).forEach(function(program) {
+      if (program.standardProgramStatus === "install_new_standard") {
+        program.standardProgramPipelineStatus = "installed";
+        program.standardProgramPipelineMessage = "Programa padrao novo instalado pela esteira da release " + releaseVersion + ".";
+        program.appliedPublishedVersion = String(program.targetPublishedVersion || "1.0.0");
+        standardSummary.installed += 1;
+      } else if (program.standardProgramStatus === "update_standard") {
+        program.standardProgramPipelineStatus = "updated";
+        program.standardProgramPipelineMessage = "Nova versao padrao aplicada na release " + releaseVersion + ".";
+        program.appliedPublishedVersion = String(program.targetPublishedVersion || program.currentPublishedVersion || "");
+        standardSummary.updated += 1;
+      } else if (program.standardProgramStatus === "ahead_of_target") {
+        program.standardProgramPipelineStatus = "ahead_of_target";
+        program.standardProgramPipelineMessage = "Ambiente ja estava acima da versao alvo declarada.";
+        program.appliedPublishedVersion = String(program.currentPublishedVersion || "");
+        standardSummary.aheadOfTarget += 1;
+      } else {
+        program.standardProgramPipelineStatus = "verified";
+        program.standardProgramPipelineMessage = "Programa padrao validado sem sobrescrita arbitraria.";
+        program.appliedPublishedVersion = String(program.currentPublishedVersion || program.targetPublishedVersion || "");
+        standardSummary.verified += 1;
+      }
       (program.overlayImpacts || []).forEach(function(item) {
         if (item.status === "rebase_ok") {
           item.pipelineStatus = "draft_created";
@@ -785,6 +958,7 @@
         item.pipelineMessage = "Sem acao automatica para este overlay.";
       });
     });
+    cloned.standardProgramPipelineSummary = standardSummary;
     cloned.overlayPipelineSummary = summary;
     return cloned;
   };
@@ -803,6 +977,7 @@
     });
     return this.releases.map((item) => {
       const release = Object.assign({}, item);
+      release.requiresConsent = release.requiresSubscriberConsent !== false;
       if (applied.has(release.version)) {
         release.status = "applied";
       } else if ((release.requiresAppliedUpdates || []).some((requiredVersion) => !applied.has(requiredVersion))) {
@@ -822,6 +997,7 @@
       release.rolloutWindowStatus = release.rolloutWindow.status || "unscheduled";
       release.changelog = Array.isArray(release.metadata && release.metadata.changelog) ? release.metadata.changelog : [];
       release.stepCatalog = Array.isArray(release.steps) ? release.steps.slice() : [];
+      release.applicationPolicy = this.buildApplicationPolicy(release);
       release.tenantActivationRequired = release.scenarioBehavior && release.scenarioBehavior.applyMode === "tenant_activation" && !!normalizedSubscriber;
       release.tenantActivationStatus = release.tenantActivationRequired ? (activation ? activation.status : "pending") : "not-required";
       release.tenantActivationInfo = activation || null;
@@ -893,6 +1069,20 @@
       control: "provider",
       applyMode: "tenant_activation",
       rolloutMode: "opt_in"
+    };
+  };
+
+  SystemUpdatesDemoHttpClient.prototype.buildApplicationPolicy = function(release) {
+    return {
+      requiresBackup: !!(release && release.metadata && release.metadata.requiresBackup === true),
+      requiresMaintenanceMode: !!(release && release.metadata && release.metadata.requiresMaintenanceMode === true),
+      autoApplySaas: !!(release && release.autoApplySaas === true),
+      autoApplyOnPrem: !!(release && release.autoApplyOnPrem === true),
+      requiresSubscriberConsent: !(release && release.requiresSubscriberConsent === false),
+      blocksNextUpdates: !!(release && release.blocksNextUpdates === true),
+      internetRequired: !!(release && release.internetRequired === true),
+      override: !!(release && release.metadata && release.metadata.applicationPolicyOverride === true),
+      overrideJustification: release && release.metadata ? (release.metadata.applicationPolicyOverrideJustification || null) : null
     };
   };
 
@@ -976,6 +1166,9 @@
       }
       if (release.status === "awaiting_tenant_activation") {
         alerts.push({ severity: "medium", kind: "tenant_activation", message: "A release " + release.version + " aguarda ativacao do tenant." });
+      }
+      if (release.category === "security_critical" && release.applicationPolicy && release.applicationPolicy.autoApplyOnPrem === true && release.applicationPolicy.internetRequired !== true) {
+        alerts.push({ severity: "medium", kind: "application_policy", message: "A release critica " + release.version + " aplica no on-premise sem internet obrigatoria declarada." });
       }
     });
     return alerts;

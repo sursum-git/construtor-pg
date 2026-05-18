@@ -22,6 +22,7 @@ Atualizacao operacional:
 - `php backend/bin/console app:update:check`
 - `php backend/bin/console app:update:apply <versao>`
 - `php backend/bin/console app:update:run-pending`
+- `php backend/bin/console app:update:saas-cycle`
 - `php backend/bin/console app:update:rollout-plan <versao>`
 - `php backend/bin/console app:update:publish-artifacts [versao]`
 - `screenId=admin.atualizacoes`
@@ -263,6 +264,14 @@ Regras fechadas:
   - `autoApply`
   - `breakingLevel`
   - `steps`
+- a politica de aplicacao da release agora precisa ficar explicita no contrato:
+  - `metadata.requiresBackup`
+  - `metadata.requiresMaintenanceMode`
+  - `autoApplySaas`
+  - `autoApplyOnPrem`
+  - `requiresSubscriberConsent`
+  - `blocksNextUpdates`
+  - `internetRequired`
 - o manifesto tambem pode declarar:
   - `channels[]`
   - `metadata.changelog`
@@ -272,6 +281,18 @@ Regras fechadas:
   - `metadata.requiresMaintenanceMode`
 - a avaliacao da cadeia obrigatoria considera o assinante alvo no sistema central SaaS; uma release aplicada em outro assinante nao libera a cadeia deste assinante.
 - `replaces[]` cobre supersedencia: quando uma release aplicada substitui outra, a dependência anterior passa a ser considerada satisfeita para a cadeia.
+- a politica operacional padrao por categoria fica assim:
+
+| Categoria | Backup | Manutencao | Auto SaaS | Auto on-prem | Exige anuencia | Bloqueia proximas |
+| --- | --- | --- | --- | --- | --- | --- |
+| `security_critical` | nao | nao | sim | sim | nao | sim |
+| `required_structural` | sim | sim | sim | nao | sim | sim |
+| `optional_visual` | nao | nao | nao | nao | sim | nao |
+| `recommended` | nao | nao | nao | nao | sim | nao |
+
+- quando uma release fugir dessa matriz, o manifesto deve declarar:
+  - `metadata.applicationPolicyOverride=true`
+  - `metadata.applicationPolicyOverrideJustification`
 - o manifesto agora passa por validacao de coerencia antes de persistir ou publicar artefatos:
   - dependencia para version inexistente;
   - `replaces[]` para version inexistente;
@@ -297,6 +318,12 @@ Regras fechadas:
   - `standard`: atualiza pelo pacote da release;
   - `customer_overlay`: apenas gera impacto e fluxo de rebase, sem sobrescrita direta;
   - `customer_custom`: permanece congelado e nao sofre substituicao automatica.
+- quando a release declarar `programUpdates`, o updater agora classifica:
+  - programa padrao novo como instalacao controlada;
+  - versao padrao nova como upgrade da base;
+  - base ja na meta como validacao;
+  - base acima da meta como ambiente adiantado.
+- depois de `migrate`, `seed_runtime_metadata` e `publish_runtime_defaults`, a propria execucao valida se o programa padrao ficou publicado na versao alvo; se nao ficou, a release falha.
 - quando o impacto do overlay vier limpo (`rebase_ok`), a aplicacao da release ja cria um draft de rebase sobre a base publicada e registra isso no historico por assinante; conflito leve fica em revisao e conflito bloqueante continua fora da automacao.
 - manifesto remoto sem confianca nao deve seguir como release aplicavel; a verificacao pode usar `APP_UPDATE_MANIFEST_SIGNING_KEY` com `hmac-sha256`.
 - antes do apply, o updater agora executa pre-check de compatibilidade para cadeia, canal, anuencia, ativacao opcional por tenant, pacote, backup, maintenance mode, janela de rollout, customizacao e orquestracao esperada.
@@ -332,13 +359,45 @@ Exemplo:
 O runner:
 
 1. valida Ubuntu 24.04;
-2. consulta o manifesto;
-3. aplica releases autoaplicaveis ou com anuencia ja registrada;
-4. revalida integridade estrutural ao final.
+2. valida Docker e Docker Compose;
+3. verifica a versao instalada e consulta o manifesto;
+4. baixa o pacote critico quando o modo for `download_only`;
+5. executa backup opcional quando configurado;
+6. aplica releases autoaplicaveis ou com anuencia ja registrada;
+7. opcionalmente atualiza a stack local com `docker compose pull` e `docker compose up -d --force-recreate`;
+8. revalida integridade estrutural ao final.
 
 Quando `APP_UPDATE_ONPREM_CRITICAL_POLICY=block`, a Home passa a tratar release critica pendente como bloqueante e o runner assume `--fail-on-pending-critical` por padrao.
 
 Quando `APP_UPDATE_ONPREM_CRITICAL_MODE=download_only`, o runner nao aplica a release: ele baixa o primeiro pacote critico pendente e encerra a rotina.
+
+Opcoes operacionais adicionais do runner:
+
+- `--backup-command="<comando>"`
+- `--compose-workdir=<diretorio>`
+- `--compose-file=<arquivo-compose>`
+- `--compose-project-name=<projeto>`
+- `--compose-services=app,worker`
+- `--skip-container-rollout`
+
+Essas opcoes existem para o cenario em que a aplicacao decide a atualizacao, mas o host ainda precisa recriar containers ou atualizar servicos depois dos steps de migration, seed e publicacao.
+
+### Ciclo central do SaaS
+
+O sistema central agora tambem tem um comando proprio para rodar sem UI:
+
+```powershell
+php backend/bin/console app:update:saas-cycle
+```
+
+Esse ciclo:
+
+1. consulta o manifesto remoto;
+2. registra e valida a release localmente;
+3. detecta a proxima release autoaplicavel;
+4. cria o job administrativo;
+5. deixa o worker aplicar os steps em ordem;
+6. registra a execucao e, quando necessario, despacha o rollout para o orquestrador externo.
 
 ### Runtime local no on-premise
 

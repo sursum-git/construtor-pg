@@ -67,6 +67,27 @@ class SystemUpdateService
         ];
     }
 
+    public function runSaasOperationalCycle(?string $source = null, bool $autoQueue = true): array
+    {
+        if ($this->deploymentMode->resolve() !== 'saas') {
+            throw new RuntimeHttpException('SYSTEM_UPDATE_SAAS_MODE_REQUIRED', 'A rotina operacional central do updater existe apenas no modo SaaS.', 422, [
+                'deploymentMode' => $this->deploymentMode->resolve(),
+            ]);
+        }
+        if (!$this->central->isCentralControl()) {
+            throw new RuntimeHttpException('SYSTEM_UPDATE_CENTRAL_CONTROL_REQUIRED', 'A rotina operacional central do updater exige o sistema central SaaS.', 422);
+        }
+
+        $result = $this->check($source, true, $autoQueue, null);
+
+        return [
+            'summary' => $result['summary'],
+            'queuedRelease' => $result['summary']['autoQueuedRelease'] ?? null,
+            'releases' => $result['releases'],
+            'jobs' => $this->listJobs(),
+        ];
+    }
+
     public function check(?string $source = null, bool $persist = true, bool $autoQueue = false, ?string $targetSubscriberCode = null): array
     {
         $targetSubscriber = $this->resolveTargetSubscriber($targetSubscriberCode, false);
@@ -152,10 +173,10 @@ class SystemUpdateService
 
         $execution = $this->newExecution($release, $mode, $source, $evaluation['impactReport'] ?? [], $targetSubscriber);
         $execution->setStatus('queued');
-        $execution->setSummary([
+        $execution->setSummary($this->mergeExecutionSummary($release, [
             'message' => 'Atualizacao enfileirada.',
             'releaseVersion' => $release->getVersion(),
-        ]);
+        ]));
         $this->entityManager->persist($execution);
         $this->entityManager->flush();
 
@@ -220,11 +241,11 @@ class SystemUpdateService
         ], $targetSubscriber);
         $execution
             ->setStatus('running')
-            ->setSummary([
+            ->setSummary($this->mergeExecutionSummary($release, [
                 'message' => 'Rollback em execucao.',
                 'rollback' => $plan,
                 'reason' => $reason,
-            ]);
+            ]));
         $this->entityManager->persist($execution);
         $this->entityManager->flush();
 
@@ -236,12 +257,12 @@ class SystemUpdateService
                 $execution
                     ->setStatus('failed')
                     ->setErrorMessage('Falha ao executar o passo de rollback ' . (string) ($result['step'] ?? ''))
-                    ->setSummary([
+                    ->setSummary($this->mergeExecutionSummary($release, [
                         'message' => 'Rollback falhou.',
                         'rollback' => $plan,
                         'reason' => $reason,
                         'steps' => $stepResults,
-                    ])
+                    ]))
                     ->setFinishedAt(new \DateTimeImmutable());
                 $this->entityManager->flush();
 
@@ -272,13 +293,13 @@ class SystemUpdateService
         $execution
             ->setStatus('succeeded')
             ->setErrorMessage(null)
-            ->setSummary([
+            ->setSummary($this->mergeExecutionSummary($release, [
                 'message' => 'Rollback concluido.',
                 'rollback' => $plan,
                 'reason' => $reason,
                 'steps' => $stepResults,
                 'orchestratorDispatch' => $dispatch,
-            ])
+            ]))
             ->setFinishedAt(new \DateTimeImmutable());
         $this->entityManager->flush();
 
@@ -377,10 +398,10 @@ class SystemUpdateService
 
         $execution
             ->setStatus('running')
-            ->setSummary([
+            ->setSummary($this->mergeExecutionSummary($release, [
                 'message' => 'Atualizacao em execucao.',
                 'releaseVersion' => $release->getVersion(),
-            ])
+            ]))
             ->setImpactReport((array) ($evaluation['impactReport'] ?? []));
         $this->entityManager->flush();
 
@@ -390,20 +411,20 @@ class SystemUpdateService
         if (trim((string) ($metadata['packageUrl'] ?? '')) !== '') {
             try {
                 $packageInfo = $this->packages->download($resolvedRelease);
-                $execution->setSummary([
+                $execution->setSummary($this->mergeExecutionSummary($release, [
                     'message' => 'Atualizacao em execucao.',
                     'releaseVersion' => $release->getVersion(),
                     'package' => $packageInfo,
-                ]);
+                ]));
                 $this->entityManager->flush();
             } catch (\Throwable $error) {
                 $execution
                     ->setStatus('failed')
                     ->setErrorMessage($error->getMessage())
-                    ->setSummary([
+                    ->setSummary($this->mergeExecutionSummary($release, [
                         'message' => 'Falha ao validar o pacote da atualizacao.',
                         'releaseVersion' => $release->getVersion(),
-                    ])
+                    ]))
                     ->setFinishedAt(new \DateTimeImmutable());
                 $this->entityManager->flush();
 
@@ -425,11 +446,11 @@ class SystemUpdateService
                 $execution
                     ->setStatus('failed')
                     ->setErrorMessage('Falha ao executar o passo ' . (string) ($result['stepTitle'] ?? $result['step'] ?? '') . '.')
-                    ->setSummary([
+                    ->setSummary($this->mergeExecutionSummary($release, [
                         'message' => 'Falha na atualizacao.',
                         'failedStep' => $result['step'] ?? null,
                         'steps' => $stepResults,
-                    ])
+                    ]))
                     ->setFinishedAt(new \DateTimeImmutable());
                 $this->entityManager->flush();
 
@@ -443,10 +464,43 @@ class SystemUpdateService
             }
         }
 
-        $pipelineImpactReport = $this->processOverlayUpdatePipeline(
+        $structuralPipelineSummary = $this->summarizeStepResults($stepResults);
+        $standardPipelineImpactReport = $this->processStandardProgramUpdatePipeline(
             (array) ($evaluation['impactReport'] ?? []),
             $release->getVersion()
         );
+        $standardPipelineImpactReport['structuralPipelineSummary'] = $structuralPipelineSummary;
+        $execution->setImpactReport($standardPipelineImpactReport);
+        $this->entityManager->flush();
+
+        if ((int) (($standardPipelineImpactReport['standardProgramPipelineSummary']['failed'] ?? 0)) > 0) {
+            $execution
+                ->setStatus('failed')
+                ->setErrorMessage('Falha ao aplicar os programas padrao esperados pela release.')
+                ->setSummary($this->mergeExecutionSummary($release, [
+                    'message' => 'Falha ao validar a aplicacao dos programas padrao da release.',
+                    'steps' => $stepResults,
+                    'package' => $packageInfo,
+                    'structuralPipeline' => $structuralPipelineSummary,
+                    'standardProgramPipeline' => $standardPipelineImpactReport['standardProgramPipelineSummary'] ?? [],
+                ]))
+                ->setFinishedAt(new \DateTimeImmutable());
+            $this->entityManager->flush();
+
+            return [
+                'status' => 'failed',
+                'releaseVersion' => $release->getVersion(),
+                'package' => $packageInfo,
+                'steps' => $stepResults,
+                'impactReport' => $execution->getImpactReport(),
+            ];
+        }
+
+        $pipelineImpactReport = $this->processOverlayUpdatePipeline(
+            $standardPipelineImpactReport,
+            $release->getVersion()
+        );
+        $pipelineImpactReport['structuralPipelineSummary'] = $structuralPipelineSummary;
         $execution->setImpactReport($pipelineImpactReport);
         $this->entityManager->flush();
 
@@ -460,13 +514,15 @@ class SystemUpdateService
                 $execution
                     ->setStatus('failed')
                     ->setErrorMessage($error->getMessage())
-                    ->setSummary([
+                    ->setSummary($this->mergeExecutionSummary($release, [
                         'message' => 'Falha ao despachar rollout SaaS para o orquestrador.',
                         'releaseVersion' => $release->getVersion(),
                         'steps' => $stepResults,
                         'package' => $packageInfo,
+                        'structuralPipeline' => $structuralPipelineSummary,
+                        'standardProgramPipeline' => $pipelineImpactReport['standardProgramPipelineSummary'] ?? [],
                         'overlayPipeline' => $pipelineImpactReport['overlayPipelineSummary'] ?? [],
-                    ])
+                    ]))
                     ->setFinishedAt(new \DateTimeImmutable());
                 $this->entityManager->flush();
 
@@ -484,11 +540,13 @@ class SystemUpdateService
         $execution
             ->setStatus('succeeded')
             ->setErrorMessage(null)
-            ->setSummary([
+            ->setSummary($this->mergeExecutionSummary($release, [
                 'message' => 'Atualizacao aplicada com sucesso.',
                 'steps' => $stepResults,
                 'package' => $packageInfo,
                 'orchestratorDispatch' => $orchestratorDispatch,
+                'structuralPipeline' => $structuralPipelineSummary,
+                'standardProgramPipeline' => $pipelineImpactReport['standardProgramPipelineSummary'] ?? [],
                 'overlayPipeline' => $pipelineImpactReport['overlayPipelineSummary'] ?? [],
                 'rolloutAudit' => [
                     'stage' => $orchestratorDispatch ? 'apply_and_dispatch' : 'apply_only',
@@ -497,7 +555,7 @@ class SystemUpdateService
                     'windowStatus' => $this->resolveSaasRolloutWindow($release->getMetadata())['status'] ?? 'unscheduled',
                     'batchCode' => null,
                 ],
-            ])
+            ]))
             ->setFinishedAt(new \DateTimeImmutable());
         $this->entityManager->flush();
 
@@ -981,28 +1039,48 @@ class SystemUpdateService
     private function normalizeRelease(array $payload, string $source, string $hash): array
     {
         $publishedAt = trim((string) ($payload['publishedAt'] ?? ''));
-        $autoApply = $this->normalizeAutoApply($payload['autoApply'] ?? null, $payload);
+        $category = $this->normalizeCategory((string) ($payload['category'] ?? 'recommended'));
+        $defaultPolicy = $this->resolveDefaultApplicationPolicy($category);
+        $autoApply = $this->normalizeAutoApply($payload['autoApply'] ?? null, $payload, $defaultPolicy);
         $metadata = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
+        $metadata['requiresBackup'] = array_key_exists('requiresBackup', $metadata)
+            ? $metadata['requiresBackup'] === true
+            : $defaultPolicy['requiresBackup'];
+        $metadata['requiresMaintenanceMode'] = array_key_exists('requiresMaintenanceMode', $metadata)
+            ? $metadata['requiresMaintenanceMode'] === true
+            : $defaultPolicy['requiresMaintenanceMode'];
+        $metadata['applicationPolicyOverride'] = ($metadata['applicationPolicyOverride'] ?? false) === true;
+        $metadata['applicationPolicyOverrideJustification'] = trim((string) ($metadata['applicationPolicyOverrideJustification'] ?? '')) ?: null;
         $metadata['channels'] = $this->normalizeChannels($payload, $metadata);
         $metadata['changelog'] = $this->normalizeChangelog($metadata['changelog'] ?? []);
+        $steps = SystemUpdateStepCatalog::normalizeList((array) ($payload['steps'] ?? []));
+        if ($steps === []) {
+            $steps = $this->resolveDefaultStepsForCategory($category);
+        }
         return [
             'version' => trim((string) ($payload['version'] ?? '')),
             'title' => trim((string) ($payload['title'] ?? 'Atualizacao sem titulo')),
-            'category' => $this->normalizeCategory((string) ($payload['category'] ?? 'recommended')),
+            'category' => $category,
             'severity' => $this->normalizeSeverity((string) ($payload['severity'] ?? 'medium')),
             'description' => trim((string) ($payload['description'] ?? '')) ?: null,
             'autoApplySaas' => $autoApply['saas'],
             'autoApplyOnPrem' => $autoApply['onprem'],
             'autoApply' => $autoApply['saas'] === true && $autoApply['onprem'] === true,
-            'requiresSubscriberConsent' => ($payload['requiresSubscriberConsent'] ?? true) !== false,
-            'blocksNextUpdates' => ($payload['blocksNextUpdates'] ?? false) === true,
-            'internetRequired' => ($payload['internetRequired'] ?? false) === true,
+            'requiresSubscriberConsent' => array_key_exists('requiresSubscriberConsent', $payload)
+                ? ($payload['requiresSubscriberConsent'] ?? true) !== false
+                : $defaultPolicy['requiresSubscriberConsent'],
+            'blocksNextUpdates' => array_key_exists('blocksNextUpdates', $payload)
+                ? ($payload['blocksNextUpdates'] ?? false) === true
+                : $defaultPolicy['blocksNextUpdates'],
+            'internetRequired' => array_key_exists('internetRequired', $payload)
+                ? ($payload['internetRequired'] ?? false) === true
+                : $defaultPolicy['internetRequired'],
             'requiresVersionMin' => trim((string) ($payload['requiresVersionMin'] ?? '')) ?: null,
             'requiresAppliedUpdates' => array_values(array_filter(array_map('strval', (array) ($payload['requiresAppliedUpdates'] ?? [])))),
             'replaces' => array_values(array_filter(array_map('strval', (array) ($payload['replaces'] ?? [])))),
             'breakingLevel' => $this->normalizeBreakingLevel((string) ($payload['breakingLevel'] ?? 'non_breaking')),
-            'steps' => SystemUpdateStepCatalog::normalizeList((array) ($payload['steps'] ?? [])),
-            'programUpdates' => array_values(array_filter((array) ($payload['programUpdates'] ?? []), 'is_array')),
+            'steps' => $steps,
+            'programUpdates' => $this->normalizeProgramUpdates((array) ($payload['programUpdates'] ?? [])),
             'metadata' => $metadata,
             'manifestSource' => $source,
             'manifestHash' => $hash,
@@ -1145,6 +1223,7 @@ class SystemUpdateService
             'description' => $release['description'] ?? null,
             'status' => $status,
             'currentVersion' => $currentVersion,
+            'applicationPolicy' => $this->buildApplicationPolicy($release),
             'requiresConsent' => $requiresConsent,
             'consentStatus' => $consentStatus,
             'consentApproved' => $consentApproved,
@@ -1219,6 +1298,29 @@ class SystemUpdateService
         };
     }
 
+    /**
+     * @param array<string, mixed> $release
+     * @return array<string, mixed>
+     */
+    private function buildApplicationPolicy(array $release): array
+    {
+        $defaultPolicy = $this->resolveDefaultApplicationPolicy((string) ($release['category'] ?? 'recommended'));
+        $metadata = is_array($release['metadata'] ?? null) ? $release['metadata'] : [];
+
+        return [
+            'defaultPolicy' => $defaultPolicy,
+            'requiresBackup' => ($metadata['requiresBackup'] ?? false) === true,
+            'requiresMaintenanceMode' => ($metadata['requiresMaintenanceMode'] ?? false) === true,
+            'autoApplySaas' => ($release['autoApplySaas'] ?? false) === true,
+            'autoApplyOnPrem' => ($release['autoApplyOnPrem'] ?? false) === true,
+            'requiresSubscriberConsent' => ($release['requiresSubscriberConsent'] ?? true) !== false,
+            'blocksNextUpdates' => ($release['blocksNextUpdates'] ?? false) === true,
+            'internetRequired' => ($release['internetRequired'] ?? false) === true,
+            'override' => ($metadata['applicationPolicyOverride'] ?? false) === true,
+            'overrideJustification' => trim((string) ($metadata['applicationPolicyOverrideJustification'] ?? '')) ?: null,
+        ];
+    }
+
     private function isManifestTrusted(string $signatureStatus): bool
     {
         return in_array($signatureStatus, ['verified', 'local-unsigned'], true);
@@ -1287,7 +1389,8 @@ class SystemUpdateService
             ->setTargetDatabaseIdentity((string) ($targetMetadata['databaseIdentity'] ?? ''))
             ->setInitiatedBy($this->permissions->getUserId() ?: 'system')
             ->setInitiatedSource($source)
-            ->setImpactReport($impactReport);
+            ->setImpactReport($impactReport)
+            ->setSummary($this->buildExecutionSummaryBase($release));
     }
 
     private function formatExecution(SystemUpdateExecution $execution): array
@@ -1325,10 +1428,53 @@ class SystemUpdateService
         return in_array($normalized, ['security_critical', 'required_structural', 'recommended', 'optional_visual'], true) ? $normalized : 'recommended';
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildExecutionSummaryBase(SystemUpdateRelease $release): array
+    {
+        return [
+            'releaseVersion' => $release->getVersion(),
+            'applicationPolicy' => $this->buildApplicationPolicy($this->resolveReleasePayload($release)),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $extra
+     * @return array<string, mixed>
+     */
+    private function mergeExecutionSummary(SystemUpdateRelease $release, array $extra): array
+    {
+        return array_merge($this->buildExecutionSummaryBase($release), $extra);
+    }
+
     private function normalizeSeverity(string $severity): string
     {
         $normalized = strtolower(trim($severity));
         return in_array($normalized, ['critical', 'high', 'medium', 'low'], true) ? $normalized : 'medium';
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function resolveDefaultStepsForCategory(string $category): array
+    {
+        return match ($category) {
+            'security_critical', 'required_structural', 'recommended' => SystemUpdateStepCatalog::normalizeList([
+                'migrate',
+                'seed_runtime_metadata',
+                'publish_runtime_defaults',
+                'integrity_monitor',
+            ]),
+            'optional_visual' => SystemUpdateStepCatalog::normalizeList([
+                'seed_runtime_metadata',
+                'publish_runtime_defaults',
+                'integrity_monitor',
+            ]),
+            default => SystemUpdateStepCatalog::normalizeList([
+                'integrity_monitor',
+            ]),
+        };
     }
 
     private function normalizeConsentStatus(string $status): string
@@ -1475,9 +1621,10 @@ class SystemUpdateService
     /**
      * @param mixed $autoApply
      * @param array<string, mixed> $payload
+     * @param array<string, bool> $defaultPolicy
      * @return array{saas: bool, onprem: bool}
      */
-    private function normalizeAutoApply(mixed $autoApply, array $payload): array
+    private function normalizeAutoApply(mixed $autoApply, array $payload, array $defaultPolicy): array
     {
         $saas = ($payload['autoApplySaas'] ?? null) === true;
         $onprem = ($payload['autoApplyOnPrem'] ?? null) === true;
@@ -1504,9 +1651,54 @@ class SystemUpdateService
         }
 
         return [
-            'saas' => false,
-            'onprem' => false,
+            'saas' => $defaultPolicy['autoApplySaas'],
+            'onprem' => $defaultPolicy['autoApplyOnPrem'],
         ];
+    }
+
+    /**
+     * @return array{requiresBackup: bool, requiresMaintenanceMode: bool, autoApplySaas: bool, autoApplyOnPrem: bool, requiresSubscriberConsent: bool, blocksNextUpdates: bool, internetRequired: bool}
+     */
+    private function resolveDefaultApplicationPolicy(string $category): array
+    {
+        return match ($category) {
+            'security_critical' => [
+                'requiresBackup' => false,
+                'requiresMaintenanceMode' => false,
+                'autoApplySaas' => true,
+                'autoApplyOnPrem' => true,
+                'requiresSubscriberConsent' => false,
+                'blocksNextUpdates' => true,
+                'internetRequired' => false,
+            ],
+            'required_structural' => [
+                'requiresBackup' => true,
+                'requiresMaintenanceMode' => true,
+                'autoApplySaas' => true,
+                'autoApplyOnPrem' => false,
+                'requiresSubscriberConsent' => true,
+                'blocksNextUpdates' => true,
+                'internetRequired' => false,
+            ],
+            'optional_visual' => [
+                'requiresBackup' => false,
+                'requiresMaintenanceMode' => false,
+                'autoApplySaas' => false,
+                'autoApplyOnPrem' => false,
+                'requiresSubscriberConsent' => true,
+                'blocksNextUpdates' => false,
+                'internetRequired' => false,
+            ],
+            default => [
+                'requiresBackup' => false,
+                'requiresMaintenanceMode' => false,
+                'autoApplySaas' => false,
+                'autoApplyOnPrem' => false,
+                'requiresSubscriberConsent' => true,
+                'blocksNextUpdates' => false,
+                'internetRequired' => false,
+            ],
+        };
     }
 
     private function normalizeBreakingLevel(string $breakingLevel): string
@@ -1529,6 +1721,7 @@ class SystemUpdateService
         $rolloutWindowStatus = (string) ($evaluation['rolloutWindowStatus'] ?? 'unscheduled');
         $impactReport = is_array($evaluation['impactReport'] ?? null) ? $evaluation['impactReport'] : [];
         $overlaySummary = is_array($impactReport['overlayPipelineSummary'] ?? null) ? $impactReport['overlayPipelineSummary'] : [];
+        $standardSummary = is_array($impactReport['standardProgramSummary'] ?? null) ? $impactReport['standardProgramSummary'] : [];
         $requiresBackup = ($metadata['requiresBackup'] ?? false) === true;
         $requiresMaintenance = ($metadata['requiresMaintenanceMode'] ?? false) === true;
         $deploymentMode = $this->deploymentMode->resolve();
@@ -1596,6 +1789,14 @@ class SystemUpdateService
                 : ($rolloutWindowStatus === 'open' || $rolloutWindowStatus === 'unscheduled'
                     ? 'Janela de rollout pronta para uso.'
                     : 'A release aguarda a abertura da janela SaaS.')
+        );
+        $checks[] = $this->precheckItem(
+            'standard_programs',
+            'Programas padrao',
+            'ok',
+            array_sum(array_map('intval', $standardSummary)) > 0
+                ? 'A release declara ' . array_sum(array_map('intval', $standardSummary)) . ' programa(s) padrao para instalar, atualizar ou validar.'
+                : 'Sem atualizacao explicita de programas padrao nesta release.'
         );
         $checks[] = $this->precheckItem(
             'customization',
@@ -1792,6 +1993,7 @@ class SystemUpdateService
         $alerts = [];
         foreach ($items as $item) {
             $status = (string) ($item['status'] ?? '');
+            $applicationPolicy = is_array($item['applicationPolicy'] ?? null) ? $item['applicationPolicy'] : [];
             if ($status === 'blocked_dependency') {
                 $alerts[] = [
                     'severity' => 'high',
@@ -1817,6 +2019,26 @@ class SystemUpdateService
                     'releaseVersion' => $item['version'] ?? null,
                     'subscriberCode' => $targetSubscriberCode,
                     'message' => 'A release ' . (string) ($item['version'] ?? '') . ' possui bloqueio por customizacao.',
+                ];
+            }
+            if ((string) ($item['category'] ?? '') === 'required_structural' && (($applicationPolicy['requiresMaintenanceMode'] ?? false) !== true)) {
+                $alerts[] = [
+                    'severity' => 'high',
+                    'kind' => 'application_policy',
+                    'releaseVersion' => $item['version'] ?? null,
+                    'subscriberCode' => $targetSubscriberCode,
+                    'message' => 'A release estrutural ' . (string) ($item['version'] ?? '') . ' esta sem manutencao obrigatoria na politica avaliada.',
+                ];
+            }
+            if ((string) ($item['category'] ?? '') === 'security_critical'
+                && (($applicationPolicy['autoApplyOnPrem'] ?? false) === true)
+                && (($applicationPolicy['internetRequired'] ?? false) !== true)) {
+                $alerts[] = [
+                    'severity' => 'medium',
+                    'kind' => 'application_policy',
+                    'releaseVersion' => $item['version'] ?? null,
+                    'subscriberCode' => $targetSubscriberCode,
+                    'message' => 'A release critica ' . (string) ($item['version'] ?? '') . ' aplica no on-premise sem internet obrigatoria declarada.',
                 ];
             }
         }
@@ -2037,7 +2259,7 @@ class SystemUpdateService
 
         $execution = $this->newExecution($release, 'rollout_dispatch', 'ui', (array) ($evaluation['impactReport'] ?? []), $targetSubscriber)
             ->setStatus(($dispatch['status'] ?? '') === 'dispatched' ? 'succeeded' : 'failed')
-            ->setSummary([
+            ->setSummary($this->mergeExecutionSummary($release, [
                 'message' => ($dispatch['status'] ?? '') === 'dispatched'
                     ? 'Rollout SaaS despachado para o orquestrador.'
                     : 'Falha ao despachar o rollout SaaS.',
@@ -2052,7 +2274,7 @@ class SystemUpdateService
                     'windowEndsAt' => $payload['rolloutWindow']['endAt'] ?? null,
                 ],
                 'orchestratorDispatch' => $dispatch,
-            ])
+            ]))
             ->setFinishedAt(new \DateTimeImmutable());
         $this->entityManager->persist($execution);
         $this->entityManager->flush();
@@ -2280,7 +2502,7 @@ class SystemUpdateService
             if ($programCode === '') {
                 continue;
             }
-            $published = $this->programVersions->findPublishedByProgramCode($programCode);
+            $published = $this->programVersions->findPublishedStandardByProgramCode($programCode) ?? $this->programVersions->findPublishedByProgramCode($programCode);
             $overlays = $this->overlays->findBy(['programCode' => $programCode], ['updatedAt' => 'DESC', 'id' => 'DESC']);
             $overlayItems = [];
             foreach ($overlays as $overlay) {
@@ -2297,6 +2519,9 @@ class SystemUpdateService
                 'targetPublishedVersion' => (string) ($programUpdate['targetPublishedVersion'] ?? ''),
                 'policy' => (string) ($programUpdate['policy'] ?? 'respect_customizations'),
                 'currentPublishedVersion' => $published?->getVersion(),
+                'standardProgramAction' => $this->resolveStandardProgramAction($published, $programUpdate),
+                'standardProgramStatus' => $this->resolveStandardProgramStatus($published, $programUpdate),
+                'standardProgramMessage' => $this->resolveStandardProgramMessage($published, $programUpdate),
                 'overlayCount' => count($overlayItems),
                 'overlayImpacts' => $overlayItems,
             ];
@@ -2304,10 +2529,90 @@ class SystemUpdateService
 
         return [
             'programs' => $items,
+            'standardProgramSummary' => $this->summarizeStandardProgramImpact($items),
             'blockingCustomizationCount' => array_sum(array_map(static function (array $program): int {
                 return count(array_filter((array) ($program['overlayImpacts'] ?? []), static fn (array $impact): bool => in_array((string) ($impact['status'] ?? ''), ['rebase_blocked', 'custom_frozen'], true)));
             }, $items)),
         ];
+    }
+
+    private function processStandardProgramUpdatePipeline(array $impactReport, string $releaseVersion): array
+    {
+        $programs = array_values(array_map(function (array $program) use ($releaseVersion): array {
+            $programCode = trim((string) ($program['programCode'] ?? ''));
+            if ($programCode === '') {
+                $program['standardProgramPipelineStatus'] = 'ignored';
+                $program['standardProgramPipelineMessage'] = 'Program update sem codigo valido.';
+                return $program;
+            }
+
+            $published = $this->programVersions->findPublishedStandardByProgramCode($programCode) ?? $this->programVersions->findPublishedByProgramCode($programCode);
+            $targetPublishedVersion = trim((string) ($program['targetPublishedVersion'] ?? ''));
+            $currentPublishedVersion = trim((string) ($program['currentPublishedVersion'] ?? ''));
+            $appliedPublishedVersion = trim((string) ($published?->getVersion() ?? ''));
+
+            $program['appliedPublishedVersion'] = $appliedPublishedVersion !== '' ? $appliedPublishedVersion : null;
+            $program['appliedPublishedAt'] = $published?->getPublishedAt()?->format(DATE_ATOM);
+            $program['pipelineReleaseVersion'] = $releaseVersion;
+
+            if ($published === null || $appliedPublishedVersion === '') {
+                $program['standardProgramPipelineStatus'] = 'failed';
+                $program['standardProgramPipelineMessage'] = 'O programa padrao nao ficou publicado apos aplicar a release.';
+                return $program;
+            }
+
+            if ($targetPublishedVersion !== '' && version_compare($appliedPublishedVersion, $targetPublishedVersion, '<')) {
+                $program['standardProgramPipelineStatus'] = 'failed';
+                $program['standardProgramPipelineMessage'] = 'A release nao levou o programa padrao ate a versao esperada.';
+                return $program;
+            }
+
+            if ($currentPublishedVersion === '') {
+                $program['standardProgramPipelineStatus'] = 'installed';
+                $program['standardProgramPipelineMessage'] = 'Programa padrao novo instalado pela esteira da release.';
+                return $program;
+            }
+
+            if ($targetPublishedVersion !== '' && version_compare($appliedPublishedVersion, $targetPublishedVersion, '>')) {
+                $program['standardProgramPipelineStatus'] = 'ahead_of_target';
+                $program['standardProgramPipelineMessage'] = 'O ambiente ja ficou com versao padrao acima da meta declarada na release.';
+                return $program;
+            }
+
+            if (version_compare($appliedPublishedVersion, $currentPublishedVersion, '>')) {
+                $program['standardProgramPipelineStatus'] = 'updated';
+                $program['standardProgramPipelineMessage'] = 'Nova versao padrao aplicada pela release.';
+                return $program;
+            }
+
+            $program['standardProgramPipelineStatus'] = 'verified';
+            $program['standardProgramPipelineMessage'] = 'Programa padrao validado sem sobrescrever customizacoes do assinante.';
+
+            return $program;
+        }, (array) ($impactReport['programs'] ?? [])));
+
+        $summary = [
+            'installed' => 0,
+            'updated' => 0,
+            'verified' => 0,
+            'aheadOfTarget' => 0,
+            'failed' => 0,
+        ];
+        foreach ($programs as $program) {
+            match ((string) ($program['standardProgramPipelineStatus'] ?? '')) {
+                'installed' => $summary['installed']++,
+                'updated' => $summary['updated']++,
+                'verified' => $summary['verified']++,
+                'ahead_of_target' => $summary['aheadOfTarget']++,
+                'failed' => $summary['failed']++,
+                default => null,
+            };
+        }
+
+        $impactReport['programs'] = $programs;
+        $impactReport['standardProgramPipelineSummary'] = $summary;
+
+        return $impactReport;
     }
 
     private function processOverlayUpdatePipeline(array $impactReport, string $releaseVersion): array
@@ -2442,6 +2747,149 @@ class SystemUpdateService
                 'message' => $error->getMessage(),
             ];
         }
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $programUpdates
+     * @return list<array<string, mixed>>
+     */
+    private function normalizeProgramUpdates(array $programUpdates): array
+    {
+        $normalized = [];
+        foreach ($programUpdates as $programUpdate) {
+            if (!is_array($programUpdate)) {
+                continue;
+            }
+            $programCode = trim((string) ($programUpdate['programCode'] ?? ''));
+            if ($programCode === '') {
+                continue;
+            }
+            $normalized[] = [
+                'programCode' => $programCode,
+                'targetPublishedVersion' => trim((string) ($programUpdate['targetPublishedVersion'] ?? '')),
+                'policy' => trim((string) ($programUpdate['policy'] ?? '')) ?: 'respect_customizations',
+                'notes' => trim((string) ($programUpdate['notes'] ?? '')) ?: null,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    private function resolveStandardProgramAction(?object $published, array $programUpdate): string
+    {
+        $targetPublishedVersion = trim((string) ($programUpdate['targetPublishedVersion'] ?? ''));
+        if (!$published) {
+            return 'install';
+        }
+
+        if ($targetPublishedVersion !== '' && version_compare((string) $published->getVersion(), $targetPublishedVersion, '<')) {
+            return 'update';
+        }
+
+        return 'verify';
+    }
+
+    private function resolveStandardProgramStatus(?object $published, array $programUpdate): string
+    {
+        $targetPublishedVersion = trim((string) ($programUpdate['targetPublishedVersion'] ?? ''));
+        if (!$published) {
+            return 'install_new_standard';
+        }
+
+        $currentPublishedVersion = (string) $published->getVersion();
+        if ($targetPublishedVersion === '') {
+            return 'verify_current_standard';
+        }
+        if (version_compare($currentPublishedVersion, $targetPublishedVersion, '<')) {
+            return 'update_standard';
+        }
+        if (version_compare($currentPublishedVersion, $targetPublishedVersion, '>')) {
+            return 'ahead_of_target';
+        }
+
+        return 'already_target';
+    }
+
+    private function resolveStandardProgramMessage(?object $published, array $programUpdate): string
+    {
+        $programCode = trim((string) ($programUpdate['programCode'] ?? ''));
+        $targetPublishedVersion = trim((string) ($programUpdate['targetPublishedVersion'] ?? ''));
+        if (!$published) {
+            return 'Programa padrao novo aguardando instalacao controlada pela esteira da release.';
+        }
+
+        $currentPublishedVersion = (string) $published->getVersion();
+        if ($targetPublishedVersion === '') {
+            return 'Release valida o programa padrao atual sem meta de versao declarada.';
+        }
+        if (version_compare($currentPublishedVersion, $targetPublishedVersion, '<')) {
+            return 'Programa padrao ' . $programCode . ' precisa subir de ' . $currentPublishedVersion . ' para ' . $targetPublishedVersion . '.';
+        }
+        if (version_compare($currentPublishedVersion, $targetPublishedVersion, '>')) {
+            return 'Programa padrao ' . $programCode . ' ja esta acima da versao alvo da release.';
+        }
+
+        return 'Programa padrao ' . $programCode . ' ja esta na versao alvo ' . $targetPublishedVersion . '.';
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $programs
+     * @return array<string, int>
+     */
+    private function summarizeStandardProgramImpact(array $programs): array
+    {
+        $summary = [
+            'install' => 0,
+            'update' => 0,
+            'verify' => 0,
+            'aheadOfTarget' => 0,
+        ];
+
+        foreach ($programs as $program) {
+            match ((string) ($program['standardProgramStatus'] ?? '')) {
+                'install_new_standard' => $summary['install']++,
+                'update_standard' => $summary['update']++,
+                'ahead_of_target' => $summary['aheadOfTarget']++,
+                default => $summary['verify']++,
+            };
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $stepResults
+     * @return array<string, mixed>
+     */
+    private function summarizeStepResults(array $stepResults): array
+    {
+        $summary = [
+            'migrationsApplied' => false,
+            'metadataSeeded' => false,
+            'runtimeDefaultsPublished' => false,
+            'integrityChecked' => false,
+            'failedSteps' => 0,
+            'completedSteps' => count($stepResults),
+        ];
+
+        foreach ($stepResults as $result) {
+            $status = (string) ($result['status'] ?? '');
+            $step = (string) ($result['step'] ?? '');
+            if ($status !== 'ok') {
+                $summary['failedSteps']++;
+                continue;
+            }
+
+            match ($step) {
+                'migrate' => $summary['migrationsApplied'] = true,
+                'seed_runtime_metadata' => $summary['metadataSeeded'] = true,
+                'publish_runtime_defaults' => $summary['runtimeDefaultsPublished'] = true,
+                'integrity_monitor' => $summary['integrityChecked'] = true,
+                default => null,
+            };
+        }
+
+        return $summary;
     }
 
     /**

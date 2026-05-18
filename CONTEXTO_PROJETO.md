@@ -61,6 +61,15 @@ Paginas principais:
 - existe tambem a tela `admin.atualizacoes-assinantes`, que facilita consultar no sistema central o historico do que foi aplicado em cada assinante.
   - a frente agora tambem cobre anuencia formal por release, plano de rollout SaaS exportavel e runner on-premise (`update-onprem.sh|ps1` / `update.sh` no pacote).
   - a regra principal de versionamento da atualizacao agora aceita `requiresVersionMin`, `requiresAppliedUpdates[]`, `replaces[]`, `autoApply`, `breakingLevel` e `steps`, com cadeia obrigatoria resolvida por assinante-alvo no sistema central SaaS.
+  - a politica da release agora tambem fica explicita no contrato do updater:
+    - `metadata.requiresBackup`
+    - `metadata.requiresMaintenanceMode`
+    - `autoApplySaas`
+    - `autoApplyOnPrem`
+    - `requiresSubscriberConsent`
+    - `blocksNextUpdates`
+    - `internetRequired`
+  - a politica tambem passou a aceitar defaults por categoria e override explicito com justificativa, alem de snapshot persistido no historico da execucao.
   - o manifesto tambem passa por validacao de coerencia antes de persistir ou publicar artefatos oficiais, bloqueando dependencias inexistentes, auto-referencias, versoes nao anteriores e ciclos.
   - o updater agora tambem suporta download e validacao do pacote da release, usando manifesto remoto em `APP_UPDATE_MANIFEST_URL`, assinatura do manifesto por `APP_UPDATE_MANIFEST_SIGNING_KEY` e assinatura do pacote por `APP_UPDATE_PACKAGE_SIGNING_KEY`.
   - existe tambem a publicacao oficial de manifesto e pacotes assinados por `app:update:publish-artifacts [versao]`, usando `APP_UPDATE_DISTRIBUTION_DIR` e `APP_UPDATE_PUBLIC_BASE_URL`.
@@ -74,12 +83,16 @@ Paginas principais:
     - `standard`: pode receber a nova release;
     - `customer_overlay`: entra em analise de rebase/compatibilidade, sem sobrescrita automatica;
     - `customer_custom`: permanece congelado e so recebe sinalizacao de impacto.
+  - quando a release declarar `programUpdates`, o updater agora tambem classifica cada programa padrao como instalacao nova, upgrade da base padrao, validacao da versao atual ou ambiente acima da meta declarada.
+  - depois de `migrate`, `seed_runtime_metadata` e `publish_runtime_defaults`, a aplicacao da release valida se o programa padrao realmente ficou publicado na versao alvo; se nao ficou, a execucao falha.
   - quando o impacto do overlay vier como `rebase_ok`, a propria release ja cria rascunho de rebase sobre a base publicada; conflitos leves ficam em revisao e conflitos bloqueantes continuam sem automacao.
   - a consulta central por assinante agora tambem aceita filtro por status, categoria e periodo, com resumo do recorte e exportacao JSON/CSV.
   - updates opcionais no SaaS agora podem depender de ativacao explicita por assinante, registrada no sistema central antes da aplicacao.
   - a mesma frente agora tambem possui changelog estruturado por release, politica por canal (`stable`, `pilot`, `canary`, `lts`), pre-check de compatibilidade antes do apply, simulacao administrativa da release, rollback formal da release e catalogo validado de steps/rollback steps.
   - a tela `admin.atualizacoes` agora mostra resumo explicito da cadeia (`requiresVersionMin`, `requiresAppliedUpdates[]`, `replaces[]`, `breakingLevel`, `steps`), pre-check por release, simulacao e dashboards de atraso/alerta operacional.
   - a tela `admin.atualizacoes-assinantes` agora tambem exibe timeline resumida por assinante para checagem, download, anuencia, ativacao, apply, rollout, falha e rollback.
+  - existe agora tambem o comando `app:update:saas-cycle`, pensado para o sistema central detectar releases sem depender da UI, criar o job administrativo e deixar o worker aplicar os steps em ordem.
+  - quando a release nao declarar `steps`, o updater agora assume uma esteira padrao por categoria para garantir migrations, seed/publicacao default e verificacao de integridade.
 - os registros estruturais principais do builder/runtime agora podem ser protegidos por assinatura de integridade em `system_record_integrity`, com checagem no backend para detectar alteracao fora do fluxo oficial. A cobertura inclui programa, versao, entidade, campos de entidade (`builder_field`), revisao da entidade, situacoes e transicoes da entidade, tela, endpoint, overlay, versao de overlay, `builder_api_source`, `builder_module`, `runtime_lock_policy`, `system_parameter`, `system_parameter_value`, `system_option_list`, `system_option`, `import_export_mapping`, `import_export_mapping_version`, `import_export_schedule`, `auth_provider_config`, `auth_subscriber`, `auth_user_subscriber` e `system_literal_translation`. A reassinatura controlada registra `auditTrail` com motivo, usuario, horario, hash anterior e status antes/depois.
 - o construtor agora tambem permite marcar entidades persistentes com `subscriberIsolation.mode=none|subscriber_column`, para suportar tabelas globais e tabelas filtradas por assinante no proprio runtime CRUD.
 - para `entityType=persistence`, `subscriberIsolation.mode=none` agora exige confirmacao explicita da tabela como global compartilhada; sem isso o builder bloqueia o salvamento.

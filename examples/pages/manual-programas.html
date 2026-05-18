@@ -791,13 +791,17 @@
             scope: [
               "Leitura do manifesto oficial de releases.",
               "Classificacao da release por severidade, dependencia e anuencia.",
+              "Politica explicita por release para backup, manutencao, auto apply, anuencia, bloqueio de cadeia e internet obrigatoria.",
               "Politica por canal (`stable`, `pilot`, `canary`, `lts`).",
               "Cadeia obrigatoria por `requiresVersionMin`, `requiresAppliedUpdates[]`, `replaces[]`, `autoApply`, `breakingLevel` e `steps`.",
+              "Matriz fixa de politica por categoria, com override apenas quando houver justificativa explicita.",
               "Changelog estruturado, simulacao e pre-check de compatibilidade antes do apply.",
               "Ativacao opcional por tenant para updates SaaS que afetem UX ou comportamento visivel.",
               "Aplicacao controlada por job runtime.",
+              "Ciclo automatico central SaaS sem depender da UI.",
               "Rollback formal da release quando o plano operacional permitir.",
               "Analise de impacto em programas padrao, overlays e variantes completas do assinante.",
+              "Classificacao do programa padrao em instalacao nova, upgrade da base, validacao da meta ou ambiente acima da meta declarada.",
               "Exportacao do plano de rollout SaaS para orquestracao externa.",
               "Dashboards de atraso e alertas operacionais por recorte."
             ],
@@ -817,9 +821,10 @@
               "Abrir a tela central para consultar versao atual, releases pendentes e execucoes anteriores.",
               "Selecionar o assinante alvo antes de registrar anuencia, plano SaaS ou apply da release.",
               "Usar `Atualizar manifesto` para reavaliar releases e dependencias.",
-              "Revisar changelog, canal, cadeia obrigatoria e pre-check antes de aplicar.",
+              "Revisar changelog, canal, cadeia obrigatoria, politica de aplicacao e pre-check antes de aplicar.",
               "Usar `Simular` quando precisar avaliar impacto, bloqueios e lotes antes do apply real.",
               "Quando a release exigir aprovacao, registrar a anuencia antes do apply.",
+              "Quando a esteira precisar rodar sem UI no sistema central, usar `app:update:saas-cycle`.",
               "Selecionar a release pendente e usar `Aplicar release` quando a politica permitir.",
               "Usar `Rollback` somente quando a release e o plano operacional permitirem reverter a esteira.",
               "Usar `Plano SaaS` para exportar o roteiro de rollout do container/ambiente controlado externamente.",
@@ -831,20 +836,23 @@
               "Release `required_structural` bloqueia atualizacoes posteriores enquanto a cadeia obrigatoria nao for aplicada.",
               "No sistema central, a cadeia obrigatoria e avaliada por assinante alvo; um assinante nao libera dependencias de outro.",
               "Releases SaaS agora podem declarar janela curta de rollout e batches/canario por assinante; fora da janela, a fila automatica nao deve disparar.",
-              "Manifesto inconsistente nao deve ser persistido nem publicado: dependencias ausentes, `replaces[]` invalido e ciclos agora sao barrados.",
+              "Manifesto inconsistente nao deve ser persistido nem publicado: dependencias ausentes, `replaces[]` invalido, ciclos e politica de aplicacao incoerente por categoria agora sao barrados.",
+              "Quando a release fugir da politica padrao da categoria, o manifesto deve registrar `metadata.applicationPolicyOverride=true` e uma justificativa objetiva.",
               "Canal fora da politica do assinante deixa a release indisponivel ate reclassificar o canal ou mover o assinante para um canal compativel.",
               "Pre-check com bloqueio deve ser resolvido antes do apply; a tela nao deve ser usada para forcar a esteira por cima de dependencia, consentimento, backup ou conflito estrutural.",
               "Atualizacao de programa padrao nao sobrescreve `customer_overlay` nem `customer_custom`: overlays entram em analise de rebase e variantes completas permanecem congeladas.",
+              "Quando a release declarar `programUpdates`, a esteira valida depois de `migrate`, `seed_runtime_metadata` e `publish_runtime_defaults` se o programa padrao realmente ficou publicado na versao alvo; se nao ficou, a release falha.",
               "Quando o impacto do overlay vier como `rebase_ok`, a propria esteira da release gera rascunho de rebase para a base publicada; conflito leve fica em revisao e conflito bloqueante segue sem automacao.",
               "Quando a release critica pedir bloqueio temporario de entrada, o tenant SaaS so volta a abrir depois que o orquestrador limpar o estado local de rollout.",
               "Manifesto remoto sem assinatura confiavel nao deve seguir como release pendente aplicavel.",
+              "No on-premise, o runner agora pode executar backup opcional e rollout local de container depois dos steps da release.",
               "Em outros ambientes, publicar a tela exige rodar `php backend/bin/console app:seed-runtime-metadata --no-interaction`."
             ]
           },
           references: {
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Provisionamento de assinantes", "Atualizacoes por assinante", "Governanca de programas", "Integridade estrutural"],
-            notes: ["Tela de producao: ../../production/app.html?screenId=admin.atualizacoes", "Entrada custom local: ../../production/admin/system-updates.html", "Exemplo local: ../../examples/pages/admin-system-updates.html", "Comandos: `app:update:check`, `app:update:download <versao>`, `app:update:apply <versao>`, `app:update:run-pending`, `app:update:simulate <versao>`, `app:update:rollback <versao>`, `app:update:download-pending-critical`, `app:update:rollout-plan <versao>`, `app:update:dispatch-rollout <versao>` e `app:update:publish-artifacts [versao]`", "Jobs envolvidos: `system.update.apply` e avaliacao automatica ao abrir a Home em ambiente autenticado", "Runner on-premise: `scripts/update-onprem.sh|ps1` ou `./update.sh` no pacote zip", "Politica critica do on-premise: `APP_UPDATE_ONPREM_CRITICAL_MODE=auto|prompt_admin|download_only`, `APP_UPDATE_ONPREM_CRITICAL_ACCESS_POLICY=warn|block` e endpoints locais `POST /api/runtime/system-updates/run-pending` / `POST /api/runtime/system-updates/download-pending-critical`", "Publicacao oficial de artefatos: `APP_UPDATE_DISTRIBUTION_DIR` e `APP_UPDATE_PUBLIC_BASE_URL`", "Distribuicao externa dos artefatos: `APP_UPDATE_DISTRIBUTION_PUSH_URL`, `APP_UPDATE_DISTRIBUTION_PUSH_TOKEN`, `APP_UPDATE_DISTRIBUTION_PUSH_SIGNING_KEY` e `APP_UPDATE_DISTRIBUTION_PUSH_TIMEOUT`", "Webhook/orquestrador real do SaaS: `scripts/orchestrator/system-update-orchestrator.php`, `scripts/orchestrator/run-system-update-orchestrator.sh` e `scripts/orchestrator/system-update-orchestrator.config.sample.json`", "Rollout externo do SaaS: `APP_UPDATE_ORCHESTRATOR_URL`, `APP_UPDATE_ORCHESTRATOR_TOKEN`, `APP_UPDATE_ORCHESTRATOR_SIGNING_KEY` e `APP_UPDATE_ORCHESTRATOR_TIMEOUT`", "Bloqueio local do tenant SaaS durante rollout critico: `APP_SAAS_ROLLOUT_STATE_FILE` escrito pelo orquestrador"]
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.atualizacoes", "Entrada custom local: ../../production/admin/system-updates.html", "Exemplo local: ../../examples/pages/admin-system-updates.html", "Comandos: `app:update:check`, `app:update:download <versao>`, `app:update:apply <versao>`, `app:update:run-pending`, `app:update:saas-cycle`, `app:update:simulate <versao>`, `app:update:rollback <versao>`, `app:update:download-pending-critical`, `app:update:rollout-plan <versao>`, `app:update:dispatch-rollout <versao>` e `app:update:publish-artifacts [versao]`", "Jobs envolvidos: `system.update.apply` e avaliacao automatica ao abrir a Home em ambiente autenticado", "Runner on-premise: `scripts/update-onprem.sh|ps1` ou `./update.sh` no pacote zip", "Flags do runner on-premise: `--backup-command`, `--compose-workdir`, `--compose-file`, `--compose-project-name`, `--compose-services` e `--skip-container-rollout`", "Politica critica do on-premise: `APP_UPDATE_ONPREM_CRITICAL_MODE=auto|prompt_admin|download_only`, `APP_UPDATE_ONPREM_CRITICAL_ACCESS_POLICY=warn|block` e endpoints locais `POST /api/runtime/system-updates/run-pending` / `POST /api/runtime/system-updates/download-pending-critical`", "Publicacao oficial de artefatos: `APP_UPDATE_DISTRIBUTION_DIR` e `APP_UPDATE_PUBLIC_BASE_URL`", "Distribuicao externa dos artefatos: `APP_UPDATE_DISTRIBUTION_PUSH_URL`, `APP_UPDATE_DISTRIBUTION_PUSH_TOKEN`, `APP_UPDATE_DISTRIBUTION_PUSH_SIGNING_KEY` e `APP_UPDATE_DISTRIBUTION_PUSH_TIMEOUT`", "Webhook/orquestrador real do SaaS: `scripts/orchestrator/system-update-orchestrator.php`, `scripts/orchestrator/run-system-update-orchestrator.sh` e `scripts/orchestrator/system-update-orchestrator.config.sample.json`", "Rollout externo do SaaS: `APP_UPDATE_ORCHESTRATOR_URL`, `APP_UPDATE_ORCHESTRATOR_TOKEN`, `APP_UPDATE_ORCHESTRATOR_SIGNING_KEY` e `APP_UPDATE_ORCHESTRATOR_TIMEOUT`", "Bloqueio local do tenant SaaS durante rollout critico: `APP_SAAS_ROLLOUT_STATE_FILE` escrito pelo orquestrador"]
           }
         },
         "admin-atualizacoes-assinantes": {
@@ -860,12 +868,14 @@
               "Filtro por assinante alvo.",
               "Filtro adicional por status, categoria e periodo.",
               "Consulta do historico aplicado por release.",
+              "Resumo do pipeline de programas padrao por instalacao, upgrade, validacao e falha.",
               "Detalhe tecnico com base alvo, horario, origem da execucao e resultado da esteira de overlays.",
               "Timeline resumida de check, download, anuencia, ativacao, apply, rollout, falha e rollback."
             ],
             outputs: [
               "Lista de execucoes por assinante.",
               "Detalhe do que foi aplicado em cada ambiente SaaS.",
+              "Resumo do resultado dos programas padrao atualizados pela release.",
               "Resumo de drafts de rebase criados, revisoes pendentes e overlays bloqueados por release.",
               "Exportacao JSON/CSV do recorte atual.",
               "Resumo operacional do rollout SaaS por lote e bloqueio temporario de entrada."

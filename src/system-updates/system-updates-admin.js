@@ -496,6 +496,28 @@
       }
       global.jQuery("<p></p>").text("Ativacao por tenant: " + ((deployment.supportsPerTenantActivation === true) ? "suportada" : "nao suportada")).appendTo(block);
     }
+    if (item.applicationPolicy && typeof item.applicationPolicy === "object") {
+      const policy = item.applicationPolicy;
+      const policyBlock = global.jQuery("<div class=\"manual-summary\"></div>").appendTo(this.detailSummaryElement);
+      global.jQuery("<p></p>").text("Politica de aplicacao").appendTo(policyBlock);
+      const matrix = global.jQuery("<div class=\"manual-grid\"></div>").appendTo(policyBlock);
+      [
+        ["Backup obrigatorio", policy.requiresBackup === true ? "sim" : "nao"],
+        ["Manutencao obrigatoria", policy.requiresMaintenanceMode === true ? "sim" : "nao"],
+        ["Auto apply SaaS", policy.autoApplySaas === true ? "sim" : "nao"],
+        ["Auto apply on-premise", policy.autoApplyOnPrem === true ? "sim" : "nao"],
+        ["Exige anuencia", policy.requiresSubscriberConsent === true ? "sim" : "nao"],
+        ["Bloqueia proximas", policy.blocksNextUpdates === true ? "sim" : "nao"],
+        ["Internet obrigatoria", policy.internetRequired === true ? "sim" : "nao"]
+      ].forEach(function(entry) {
+        const card = global.jQuery("<div class=\"manual-card\"></div>").appendTo(matrix);
+        global.jQuery("<h4></h4>").text(entry[0]).appendTo(card);
+        global.jQuery("<p></p>").text(entry[1]).appendTo(card);
+      });
+      if (policy.override === true) {
+        global.jQuery("<p></p>").text("Override de politica: " + String(policy.overrideJustification || "sem justificativa")).appendTo(policyBlock);
+      }
+    }
     if (item.compatibilityPrecheck && Array.isArray(item.compatibilityPrecheck.checks)) {
       const precheck = global.jQuery("<div class=\"manual-summary\"></div>").appendTo(this.detailSummaryElement);
       global.jQuery("<p></p>").text("Pre-check: " + String(item.compatibilityPrecheck.status || "-")).appendTo(precheck);
@@ -505,6 +527,12 @@
           .text("[" + String(check.status || "-") + "] " + String(check.title || "-") + ": " + String(check.message || ""))
           .appendTo(list);
       });
+    }
+    if (item.impactReport && item.impactReport.standardProgramSummary) {
+      const standard = item.impactReport.standardProgramSummary;
+      global.jQuery("<p></p>")
+        .text("Programas padrao: instalar " + String(standard.install || 0) + " | atualizar " + String(standard.update || 0) + " | validar " + String(standard.verify || 0) + " | acima da meta " + String(standard.aheadOfTarget || 0))
+        .appendTo(chain);
     }
     const changelog = Array.isArray(item.changelog) ? item.changelog : [];
     if (changelog.length) {
@@ -534,6 +562,22 @@
     if (item.summary && item.summary.rolloutAudit) {
       global.jQuery("<p></p>")
         .text("Rollout: " + String(item.summary.rolloutAudit.stage || "-") + (item.summary.rolloutAudit.batchCode ? " | lote " + String(item.summary.rolloutAudit.batchCode) : ""))
+        .appendTo(wrap);
+    }
+    if (item.summary && item.summary.applicationPolicy) {
+      const policy = item.summary.applicationPolicy;
+      global.jQuery("<p></p>")
+        .text("Politica aplicada: SaaS " + (policy.autoApplySaas ? "auto" : "manual") + " | on-prem " + (policy.autoApplyOnPrem ? "auto" : "manual") + " | anuencia " + (policy.requiresSubscriberConsent ? "sim" : "nao") + " | backup " + (policy.requiresBackup ? "sim" : "nao"))
+        .appendTo(wrap);
+    }
+    if (item.summary && item.summary.structuralPipeline) {
+      global.jQuery("<p></p>")
+        .text("Estrutura: migrate " + (item.summary.structuralPipeline.migrationsApplied ? "ok" : "-") + " | seed " + (item.summary.structuralPipeline.metadataSeeded ? "ok" : "-") + " | publish defaults " + (item.summary.structuralPipeline.runtimeDefaultsPublished ? "ok" : "-") + " | integridade " + (item.summary.structuralPipeline.integrityChecked ? "ok" : "-"))
+        .appendTo(wrap);
+    }
+    if (item.summary && item.summary.standardProgramPipeline) {
+      global.jQuery("<p></p>")
+        .text("Programas padrao: instalados " + String(item.summary.standardProgramPipeline.installed || 0) + " | atualizados " + String(item.summary.standardProgramPipeline.updated || 0) + " | validados " + String(item.summary.standardProgramPipeline.verified || 0) + " | falhas " + String(item.summary.standardProgramPipeline.failed || 0))
         .appendTo(wrap);
     }
   };

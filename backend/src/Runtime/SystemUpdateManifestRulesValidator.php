@@ -46,6 +46,8 @@ class SystemUpdateManifestRulesValidator
             $issues = array_merge($issues, $this->validateChannels($release, $version));
             $issues = array_merge($issues, $this->validateChangelog($release, $version));
             $issues = array_merge($issues, $this->validateSteps($release, $version, $knownStepCodes));
+            $issues = array_merge($issues, $this->validateProgramUpdates($release, $version));
+            $issues = array_merge($issues, $this->validateApplicationPolicy($release, $version));
         }
 
         foreach ($releases as $release) {
@@ -97,6 +99,137 @@ class SystemUpdateManifestRulesValidator
         }
 
         return array_values(array_unique($issues));
+    }
+
+    /**
+     * @param array<string, mixed> $release
+     * @return list<string>
+     */
+    private function validateApplicationPolicy(array $release, string $version): array
+    {
+        $issues = [];
+        $metadata = is_array($release['metadata'] ?? null) ? $release['metadata'] : [];
+        $category = strtolower(trim((string) ($release['category'] ?? 'recommended')));
+
+        $defaults = $this->resolveDefaultApplicationPolicy($category);
+        $effective = [
+            'requiresBackup' => array_key_exists('requiresBackup', $metadata) ? $metadata['requiresBackup'] === true : $defaults['requiresBackup'],
+            'requiresMaintenanceMode' => array_key_exists('requiresMaintenanceMode', $metadata) ? $metadata['requiresMaintenanceMode'] === true : $defaults['requiresMaintenanceMode'],
+            'autoApplySaas' => array_key_exists('autoApplySaas', $release) ? ($release['autoApplySaas'] ?? false) === true : $defaults['autoApplySaas'],
+            'autoApplyOnPrem' => array_key_exists('autoApplyOnPrem', $release) ? ($release['autoApplyOnPrem'] ?? false) === true : $defaults['autoApplyOnPrem'],
+            'requiresSubscriberConsent' => array_key_exists('requiresSubscriberConsent', $release) ? (($release['requiresSubscriberConsent'] ?? true) !== false) : $defaults['requiresSubscriberConsent'],
+            'blocksNextUpdates' => array_key_exists('blocksNextUpdates', $release) ? (($release['blocksNextUpdates'] ?? false) === true) : $defaults['blocksNextUpdates'],
+            'internetRequired' => array_key_exists('internetRequired', $release) ? (($release['internetRequired'] ?? false) === true) : $defaults['internetRequired'],
+        ];
+        $override = ($metadata['applicationPolicyOverride'] ?? false) === true;
+        $overrideJustification = trim((string) ($metadata['applicationPolicyOverrideJustification'] ?? ''));
+
+        if ($override && $overrideJustification === '') {
+            $issues[] = 'Release ' . $version . ' marcou applicationPolicyOverride sem justificativa.';
+        }
+
+        $differsFromDefault = false;
+        foreach ($effective as $field => $value) {
+            if (($defaults[$field] ?? null) !== $value) {
+                $differsFromDefault = true;
+                break;
+            }
+        }
+        if ($differsFromDefault && !$override) {
+            $issues[] = 'Release ' . $version . ' diverge da politica padrao da categoria sem applicationPolicyOverride com justificativa.';
+        }
+
+        return $issues;
+    }
+
+    /**
+     * @return array{requiresBackup: bool, requiresMaintenanceMode: bool, autoApplySaas: bool, autoApplyOnPrem: bool, requiresSubscriberConsent: bool, blocksNextUpdates: bool, internetRequired: bool}
+     */
+    private function resolveDefaultApplicationPolicy(string $category): array
+    {
+        return match ($category) {
+            'security_critical' => [
+                'requiresBackup' => false,
+                'requiresMaintenanceMode' => false,
+                'autoApplySaas' => true,
+                'autoApplyOnPrem' => true,
+                'requiresSubscriberConsent' => false,
+                'blocksNextUpdates' => true,
+                'internetRequired' => false,
+            ],
+            'required_structural' => [
+                'requiresBackup' => true,
+                'requiresMaintenanceMode' => true,
+                'autoApplySaas' => true,
+                'autoApplyOnPrem' => false,
+                'requiresSubscriberConsent' => true,
+                'blocksNextUpdates' => true,
+                'internetRequired' => false,
+            ],
+            'optional_visual' => [
+                'requiresBackup' => false,
+                'requiresMaintenanceMode' => false,
+                'autoApplySaas' => false,
+                'autoApplyOnPrem' => false,
+                'requiresSubscriberConsent' => true,
+                'blocksNextUpdates' => false,
+                'internetRequired' => false,
+            ],
+            default => [
+                'requiresBackup' => false,
+                'requiresMaintenanceMode' => false,
+                'autoApplySaas' => false,
+                'autoApplyOnPrem' => false,
+                'requiresSubscriberConsent' => true,
+                'blocksNextUpdates' => false,
+                'internetRequired' => false,
+            ],
+        };
+    }
+
+    /**
+     * @param array<string, mixed> $release
+     * @return list<string>
+     */
+    private function validateProgramUpdates(array $release, string $version): array
+    {
+        $updates = (array) ($release['programUpdates'] ?? []);
+        if ($updates === []) {
+            return [];
+        }
+
+        $issues = [];
+        $hasPublishDefaults = false;
+        foreach (SystemUpdateStepCatalog::normalizeList((array) ($release['steps'] ?? [])) as $step) {
+            if ((string) ($step['code'] ?? '') === 'publish_runtime_defaults') {
+                $hasPublishDefaults = true;
+                break;
+            }
+        }
+
+        $metadata = is_array($release['metadata'] ?? null) ? $release['metadata'] : [];
+        if (!$hasPublishDefaults && (($metadata['programUpdateHandledExternally'] ?? false) !== true)) {
+            $issues[] = 'Release ' . $version . ' possui programUpdates sem publish_runtime_defaults ou sinalizacao externa explicita.';
+        }
+
+        foreach ($updates as $index => $update) {
+            if (!is_array($update)) {
+                $issues[] = 'Release ' . $version . ' possui programUpdate invalido na posicao ' . $index . '.';
+                continue;
+            }
+
+            $programCode = trim((string) ($update['programCode'] ?? ''));
+            if ($programCode === '') {
+                $issues[] = 'Release ' . $version . ' possui programUpdate sem programCode na posicao ' . $index . '.';
+            }
+
+            $targetPublishedVersion = trim((string) ($update['targetPublishedVersion'] ?? ''));
+            if ($targetPublishedVersion === '') {
+                $issues[] = 'Release ' . $version . ' possui programUpdate sem targetPublishedVersion para ' . ($programCode !== '' ? $programCode : 'item ' . $index) . '.';
+            }
+        }
+
+        return $issues;
     }
 
     /**

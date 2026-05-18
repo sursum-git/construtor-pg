@@ -97,6 +97,12 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `production/app.html?screenId=admin.atualizacoes-assinantes`
     - pagina local: `examples/pages/admin-system-update-subscriber-log.html`
   - a esteira da release agora tambem cria draft de rebase para overlay limpo (`rebase_ok`), mantendo `review_required` para conflito leve e bloqueio total para conflito critico;
+  - `programUpdates` agora tambem passam por pipeline proprio de programa padrao:
+    - programa padrao novo => `installed`;
+    - versao padrao nova => `updated`;
+    - base ja na meta => `verified`;
+    - base acima da meta => `ahead_of_target`;
+    - se o publish padrao nao levar o programa ate a versao esperada, a release falha;
 - o construtor de entidades persistentes agora tambem aceita `subscriberIsolation.mode=none|subscriber_column`, aplicando filtro automatico do assinante atual no runtime CRUD quando a entidade usar coluna de assinante;
 - para entidade persistente sem filtro por assinante, o builder agora exige confirmacao explicita de tabela global compartilhada;
   - a consulta por assinante agora tambem usa `GET /api/admin/system-updates/executions` com filtros por status, categoria e periodo, alem de exportacao local JSON/CSV;
@@ -107,6 +113,15 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - a verificacao do pacote usa `APP_UPDATE_PACKAGE_SIGNING_KEY`;
   - cada release do manifesto agora pode declarar `version`, `requiresVersionMin`, `requiresAppliedUpdates[]`, `replaces[]`, `category`, `autoApply`, `breakingLevel` e `steps`;
   - a cadeia obrigatoria do updater agora e resolvida por assinante-alvo no sistema central; nao usar o historico global do ambiente para decidir dependencias de um assinante especifico;
+  - a politica da release agora tambem deve ficar explicita no contrato:
+    - `metadata.requiresBackup`
+    - `metadata.requiresMaintenanceMode`
+    - `autoApplySaas`
+    - `autoApplyOnPrem`
+    - `requiresSubscriberConsent`
+    - `blocksNextUpdates`
+    - `internetRequired`
+  - o updater agora tambem aplica defaults por categoria e exige `metadata.applicationPolicyOverride` com justificativa quando a release fugir da matriz padrao;
   - a persistencia/publicacao do manifesto agora tambem valida coerencia da cadeia, incluindo dependencia ausente, `replaces[]` invalido e ciclo em `requiresAppliedUpdates[]`;
   - o updater agora tambem valida canais por release (`stable`, `pilot`, `canary`, `lts`), changelog estruturado, `steps` conhecidos e `rollbackStep/rollbackSteps` coerentes;
   - `admin.atualizacoes` agora expõe pre-check de compatibilidade antes do apply, simulacao administrativa da release, rollback formal, dashboards de atraso e alertas operacionais;
@@ -118,6 +133,10 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - a publicacao oficial dos artefatos usa:
     - `APP_UPDATE_DISTRIBUTION_DIR`
     - `APP_UPDATE_PUBLIC_BASE_URL`
+  - existe agora tambem o comando:
+    - `php backend/bin/console app:update:saas-cycle`
+  - esse comando existe para o sistema central detectar a release sem UI, enfileirar o job administrativo e deixar o worker aplicar os steps em ordem;
+  - quando a release nao declarar `steps`, o updater agora assume uma esteira padrao por categoria (`migrate`, `seed_runtime_metadata`, `publish_runtime_defaults`, `integrity_monitor` ou o subconjunto correspondente).
   - a distribuicao externa dos artefatos pode ser despachada por:
     - `APP_UPDATE_DISTRIBUTION_PUSH_URL`
     - `APP_UPDATE_DISTRIBUTION_PUSH_TOKEN`

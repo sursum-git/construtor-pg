@@ -115,6 +115,16 @@
     this.appendBadge(badges, "Sucesso: " + String(historySummary.succeeded != null ? historySummary.succeeded : executionSummary.succeeded));
     this.appendBadge(badges, "Falha: " + String(historySummary.failed != null ? historySummary.failed : executionSummary.failed));
     this.appendBadge(badges, "Fila: " + String(historySummary.queued != null ? historySummary.queued : executionSummary.queued));
+    const standardSummary = historySummary.standardProgramPipeline || executionSummary.standardProgramPipeline || {};
+    if (Number(standardSummary.installed || 0) > 0) {
+      this.appendBadge(badges, "Padrao instalado: " + String(standardSummary.installed));
+    }
+    if (Number(standardSummary.updated || 0) > 0) {
+      this.appendBadge(badges, "Padrao atualizado: " + String(standardSummary.updated));
+    }
+    if (Number(standardSummary.failed || 0) > 0) {
+      this.appendBadge(badges, "Padrao falhou: " + String(standardSummary.failed));
+    }
     const pipelineSummary = historySummary.overlayPipeline || executionSummary.overlayPipeline;
     if (pipelineSummary.draftCreated > 0) {
       this.appendBadge(badges, "Rebases gerados: " + String(pipelineSummary.draftCreated));
@@ -372,10 +382,25 @@
     this.appendDefinition(definition, "Modo", execution.mode || "-");
     this.appendDefinition(definition, "Origem", execution.initiatedSource || "-");
     this.appendDefinition(definition, "Job runtime", execution.runtimeJobId || "-");
+    if (execution.summary && execution.summary.applicationPolicy) {
+      const policy = execution.summary.applicationPolicy;
+      this.appendDefinition(definition, "Politica SaaS", policy.autoApplySaas ? "auto" : "manual");
+      this.appendDefinition(definition, "Politica on-prem", policy.autoApplyOnPrem ? "auto" : "manual");
+      this.appendDefinition(definition, "Exige anuencia", policy.requiresSubscriberConsent ? "sim" : "nao");
+      this.appendDefinition(definition, "Exige backup", policy.requiresBackup ? "sim" : "nao");
+      this.appendDefinition(definition, "Exige manutencao", policy.requiresMaintenanceMode ? "sim" : "nao");
+      this.appendDefinition(definition, "Bloqueia proximas", policy.blocksNextUpdates ? "sim" : "nao");
+    }
     if (execution.summary && execution.summary.rolloutAudit) {
       this.appendDefinition(definition, "Rollout", String(execution.summary.rolloutAudit.stage || "-"));
       this.appendDefinition(definition, "Lote", execution.summary.rolloutAudit.batchCode || "-");
       this.appendDefinition(definition, "Acesso", execution.summary.rolloutAudit.entryAccessMode || "-");
+    }
+    if (execution.summary && execution.summary.standardProgramPipeline) {
+      this.appendDefinition(definition, "Padrao instalado", String(execution.summary.standardProgramPipeline.installed || 0));
+      this.appendDefinition(definition, "Padrao atualizado", String(execution.summary.standardProgramPipeline.updated || 0));
+      this.appendDefinition(definition, "Padrao validado", String(execution.summary.standardProgramPipeline.verified || 0));
+      this.appendDefinition(definition, "Padrao falhou", String(execution.summary.standardProgramPipeline.failed || 0));
     }
 
     const pipelineSummary = this.resolveOverlayPipelineSummary(execution);
@@ -471,6 +496,11 @@
       succeeded: 0,
       failed: 0,
       queued: 0,
+      standardProgramPipeline: {
+        installed: 0,
+        updated: 0,
+        failed: 0
+      },
       overlayPipeline: {
         draftCreated: 0,
         reviewRequired: 0,
@@ -486,6 +516,10 @@
       } else if (status === "queued" || status === "running") {
         summary.queued += 1;
       }
+      const standardPipeline = item.summary && item.summary.standardProgramPipeline || item.impactReport && item.impactReport.standardProgramPipelineSummary || {};
+      summary.standardProgramPipeline.installed += Number(standardPipeline.installed || 0);
+      summary.standardProgramPipeline.updated += Number(standardPipeline.updated || 0);
+      summary.standardProgramPipeline.failed += Number(standardPipeline.failed || 0);
       const pipeline = this.resolveOverlayPipelineSummary(item);
       summary.overlayPipeline.draftCreated += pipeline.draftCreated;
       summary.overlayPipeline.reviewRequired += pipeline.reviewRequired;
