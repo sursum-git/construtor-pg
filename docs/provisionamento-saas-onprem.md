@@ -229,6 +229,12 @@ Regras fechadas:
   - `steps`
 - a avaliacao da cadeia obrigatoria considera o assinante alvo no sistema central SaaS; uma release aplicada em outro assinante nao libera a cadeia deste assinante.
 - `replaces[]` cobre supersedencia: quando uma release aplicada substitui outra, a dependência anterior passa a ser considerada satisfeita para a cadeia.
+- o manifesto agora passa por validacao de coerencia antes de persistir ou publicar artefatos:
+  - dependencia para version inexistente;
+  - `replaces[]` para version inexistente;
+  - auto-referencia;
+  - dependencia para versao nao anterior;
+  - ciclos em `requiresAppliedUpdates[]`.
 - releases com `requiresSubscriberConsent=true` exigem anuencia formal antes da aplicacao normal.
 - no on-premise, o comportamento ao abrir o sistema pode ser endurecido por `APP_UPDATE_ONPREM_CRITICAL_POLICY=warn|block`.
 - atualizacoes de programas padrao respeitam a politica atual de customizacao:

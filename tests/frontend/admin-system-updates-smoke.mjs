@@ -112,7 +112,7 @@ async function main() {
     });
     await page.waitForFunction(() => {
       const detail = window.jQuery(".program-builder-json-preview").text() || "";
-      return detail.includes("\"orchestratorAction\"");
+      return detail.includes("\"orchestratorAction\"") && document.body.innerText.includes("Dependencias obrigatorias:");
     }, null, { timeout: 10000 });
 
     if (errors.length) {

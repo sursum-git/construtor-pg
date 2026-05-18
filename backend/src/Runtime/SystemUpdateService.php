@@ -40,6 +40,7 @@ class SystemUpdateService
         private readonly SystemUpdateStepRunner $steps,
         private readonly SystemUpdatePackageDownloader $packages,
         private readonly SystemUpdateOrchestratorClient $orchestrator,
+        private readonly SystemUpdateManifestRulesValidator $manifestRules,
     ) {
     }
 
@@ -66,6 +67,7 @@ class SystemUpdateService
         $manifest = $this->manifestLoader->load($source);
         $normalized = array_map(fn (array $item): array => $this->normalizeRelease($item, $manifest['source'], $manifest['hash']), $manifest['releases']);
         usort($normalized, fn (array $left, array $right): int => version_compare((string) $left['version'], (string) $right['version']));
+        $this->manifestRules->assertValid($normalized);
 
         if ($persist) {
             foreach ($normalized as $releaseData) {

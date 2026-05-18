@@ -13,6 +13,7 @@ class SystemUpdatePublicationService
         private readonly SystemUpdateManifestLoader $manifestLoader,
         private readonly SystemUpdatePackageDownloader $packages,
         private readonly KernelInterface $kernel,
+        private readonly SystemUpdateManifestRulesValidator $manifestRules,
     ) {
     }
 
@@ -26,6 +27,7 @@ class SystemUpdatePublicationService
         }
 
         $selectedVersion = trim((string) $version);
+        $this->manifestRules->assertValid(array_values(array_filter($manifest['releases'], 'is_array')));
         $releases = array_values(array_filter($manifest['releases'], function ($release) use ($selectedVersion): bool {
             if (!is_array($release)) {
                 return false;

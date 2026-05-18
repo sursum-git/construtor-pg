@@ -76,6 +76,7 @@
 
   SystemUpdatesAdmin.prototype.renderDetailCard = function() {
     const card = this.createCard(this.rightColumn, "Detalhe");
+    this.detailSummaryElement = global.jQuery("<div class=\"program-builder-governance-card-body\"></div>").appendTo(card.body);
     this.detailElement = global.jQuery("<div class=\"program-builder-json-preview\"></div>").appendTo(card.body);
     this.detailElement.text("Selecione uma release ou execucao.");
   };
@@ -306,7 +307,53 @@
   };
 
   SystemUpdatesAdmin.prototype.renderDetail = function(item) {
+    this.detailSummaryElement.empty();
+    if (item && item.version) {
+      this.renderReleaseSummary(item);
+    } else if (item && item.releaseVersion) {
+      this.renderExecutionSummary(item);
+    }
     this.detailElement.text(JSON.stringify(item || {}, null, 2));
+  };
+
+  SystemUpdatesAdmin.prototype.renderReleaseSummary = function(item) {
+    const wrap = global.jQuery("<div class=\"manual-summary\"></div>").appendTo(this.detailSummaryElement);
+    const badges = global.jQuery("<div class=\"manual-meta\"></div>").appendTo(wrap);
+    [
+      "Versao: " + String(item.version || "-"),
+      "Categoria: " + String(item.category || "-"),
+      "Severidade: " + String(item.severity || "-"),
+      "Breaking: " + String(item.breakingLevel || "non_breaking"),
+      "Status: " + String(item.status || "-")
+    ].forEach(function(text) {
+      global.jQuery("<span class=\"manual-badge\"></span>").text(text).appendTo(badges);
+    });
+
+    const chain = global.jQuery("<div class=\"manual-summary\"></div>").appendTo(this.detailSummaryElement);
+    global.jQuery("<p></p>").text("Versao minima: " + String(item.requiresVersionMin || "-")).appendTo(chain);
+    global.jQuery("<p></p>").text("Dependencias obrigatorias: " + this.formatVersionList(item.requiresAppliedUpdates)).appendTo(chain);
+    global.jQuery("<p></p>").text("Substitui: " + this.formatVersionList(item.replaces)).appendTo(chain);
+    global.jQuery("<p></p>").text("Passos: " + this.formatVersionList(item.steps)).appendTo(chain);
+  };
+
+  SystemUpdatesAdmin.prototype.renderExecutionSummary = function(item) {
+    const wrap = global.jQuery("<div class=\"manual-summary\"></div>").appendTo(this.detailSummaryElement);
+    const badges = global.jQuery("<div class=\"manual-meta\"></div>").appendTo(wrap);
+    [
+      "Release: " + String(item.releaseVersion || "-"),
+      "Status: " + String(item.status || "-"),
+      "Modo: " + String(item.mode || "-"),
+      "Assinante: " + String(item.targetSubscriberCode || "-")
+    ].forEach(function(text) {
+      global.jQuery("<span class=\"manual-badge\"></span>").text(text).appendTo(badges);
+    });
+  };
+
+  SystemUpdatesAdmin.prototype.formatVersionList = function(items) {
+    const values = global.CrudUtils.ensureArray(items).filter(function(item) {
+      return String(item || "").trim() !== "";
+    });
+    return values.length ? values.join(", ") : "-";
   };
 
   SystemUpdatesAdmin.prototype.handleCheck = function() {

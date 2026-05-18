@@ -89,6 +89,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - a verificacao do pacote usa `APP_UPDATE_PACKAGE_SIGNING_KEY`;
   - cada release do manifesto agora pode declarar `version`, `requiresVersionMin`, `requiresAppliedUpdates[]`, `replaces[]`, `category`, `autoApply`, `breakingLevel` e `steps`;
   - a cadeia obrigatoria do updater agora e resolvida por assinante-alvo no sistema central; nao usar o historico global do ambiente para decidir dependencias de um assinante especifico;
+  - a persistencia/publicacao do manifesto agora tambem valida coerencia da cadeia, incluindo dependencia ausente, `replaces[]` invalido e ciclo em `requiresAppliedUpdates[]`;
   - o endurecimento do on-premise ao abrir o sistema usa `APP_UPDATE_ONPREM_CRITICAL_POLICY=warn|block`;
   - a publicacao oficial dos artefatos usa:
     - `APP_UPDATE_DISTRIBUTION_DIR`
