@@ -52,6 +52,7 @@ async function main() {
     await page.waitForFunction(() => document.body.innerText.includes("Pipeline de overlays"), null, { timeout: 10000 });
     await page.waitForFunction(() => document.body.innerText.includes("Drafts criados: 1"), null, { timeout: 10000 });
     await page.waitForFunction(() => document.body.innerText.includes("review_required"), null, { timeout: 10000 });
+    await page.waitForFunction(() => document.body.innerText.includes("Timeline do assinante"), null, { timeout: 10000 });
 
     if (errors.length) {
       throw new Error("Erros JavaScript: " + errors.join(" | "));

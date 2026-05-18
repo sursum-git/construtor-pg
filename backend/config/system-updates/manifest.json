@@ -13,6 +13,7 @@
       "severity": "critical",
       "description": "Atualiza metadados e validacoes obrigatorias do runtime. Em SaaS entra automatico; em on-premise pode aplicar ao abrir o sistema quando o manifesto remoto estiver disponivel.",
       "autoApply": true,
+      "channels": ["stable", "pilot", "canary"],
       "autoApplySaas": true,
       "autoApplyOnPrem": true,
       "requiresSubscriberConsent": false,
@@ -23,10 +24,10 @@
       "replaces": [],
       "breakingLevel": "security_forced",
       "steps": [
-        "migrate",
-        "seed_runtime_metadata",
-        "publish_runtime_defaults",
-        "integrity_monitor"
+        { "code": "migrate", "title": "Aplicar migrations", "timeoutSeconds": 900, "idempotent": true },
+        { "code": "seed_runtime_metadata", "title": "Atualizar metadados runtime", "timeoutSeconds": 300, "idempotent": true },
+        { "code": "publish_runtime_defaults", "title": "Publicar catalogo padrao", "timeoutSeconds": 300, "idempotent": true },
+        { "code": "integrity_monitor", "title": "Verificar integridade estrutural", "timeoutSeconds": 180, "idempotent": true }
       ],
       "programUpdates": [
         {
@@ -39,6 +40,19 @@
         "requiresBackup": false,
         "requiresMaintenanceMode": false,
         "orchestratorAction": "rolling-restart",
+        "channels": ["stable", "pilot", "canary"],
+        "changelog": [
+          {
+            "title": "Seguranca",
+            "items": [
+              "Corrige validacoes obrigatorias do runtime.",
+              "Fecha o caminho vulneravel de publicacao sem manifesto valido."
+            ],
+            "impact": "tecnico",
+            "risk": "baixo",
+            "reversible": true
+          }
+        ],
         "packageUrl": "backend/config/system-updates/packages/runtime-security-1.0.1.pkg",
         "packageHash": "eeecb51286c326a573f4ea12be46281263f430e6503bef033ccebcf4fe77cbc9",
         "blockOnCustomizationConflict": false
@@ -54,6 +68,7 @@
         "saas": true,
         "onprem": false
       },
+      "channels": ["stable", "pilot"],
       "autoApplySaas": true,
       "autoApplyOnPrem": false,
       "requiresSubscriberConsent": true,
@@ -66,10 +81,10 @@
       "replaces": [],
       "breakingLevel": "structural_breaking",
       "steps": [
-        "migrate",
-        "seed_runtime_metadata",
-        "publish_runtime_defaults",
-        "integrity_monitor"
+        { "code": "migrate", "title": "Aplicar migrations", "timeoutSeconds": 900, "idempotent": true },
+        { "code": "seed_runtime_metadata", "title": "Atualizar metadados runtime", "timeoutSeconds": 300, "idempotent": true },
+        { "code": "publish_runtime_defaults", "title": "Publicar catalogo padrao", "timeoutSeconds": 300, "idempotent": true },
+        { "code": "integrity_monitor", "title": "Verificar integridade estrutural", "timeoutSeconds": 180, "idempotent": true }
       ],
       "programUpdates": [
         {
@@ -82,6 +97,23 @@
         "requiresBackup": true,
         "requiresMaintenanceMode": true,
         "orchestratorAction": "maintenance-rollout",
+        "channels": ["stable", "pilot"],
+        "changelog": [
+          {
+            "title": "Estrutura",
+            "items": [
+              "Padroniza estruturas exigidas antes das proximas releases.",
+              "Exige backup e janela controlada."
+            ],
+            "impact": "estrutural",
+            "risk": "medio",
+            "reversible": false,
+            "actionRequired": "Aplicar backup antes do rollout."
+          }
+        ],
+        "rollbackSteps": [
+          { "code": "dispatch_rollback", "title": "Despachar rollback SaaS" }
+        ],
         "packageUrl": "backend/config/system-updates/packages/runtime-structure-1.0.2.pkg",
         "packageHash": "567f900373d19e34357a526b20c632f0c514a7107181c75b345cb706c23ad84c",
         "blockOnCustomizationConflict": true
@@ -94,6 +126,7 @@
       "severity": "low",
       "description": "Melhoria visual que pode aguardar anuencia do assinante, mas continua dependente das releases estruturais anteriores.",
       "autoApply": false,
+      "channels": ["pilot", "canary"],
       "autoApplySaas": false,
       "autoApplyOnPrem": false,
       "requiresSubscriberConsent": true,
@@ -107,8 +140,8 @@
       "replaces": [],
       "breakingLevel": "non_breaking",
       "steps": [
-        "seed_runtime_metadata",
-        "publish_runtime_defaults"
+        { "code": "seed_runtime_metadata", "title": "Atualizar metadados runtime", "timeoutSeconds": 300, "idempotent": true },
+        { "code": "publish_runtime_defaults", "title": "Publicar catalogo padrao", "timeoutSeconds": 300, "idempotent": true }
       ],
       "programUpdates": [
         {
@@ -121,6 +154,19 @@
         "requiresBackup": false,
         "requiresMaintenanceMode": false,
         "orchestratorAction": "frontend-refresh",
+        "channels": ["pilot", "canary"],
+        "changelog": [
+          {
+            "title": "Visual",
+            "items": [
+              "Ajusta a apresentacao das telas administrativas.",
+              "Pode ser liberada por tenant conforme canal."
+            ],
+            "impact": "visual",
+            "risk": "baixo",
+            "reversible": true
+          }
+        ],
         "packageUrl": "backend/config/system-updates/packages/admin-visual-1.0.3.pkg",
         "packageHash": "39d177016b851521590920bf4b6a7cd41a0fa68233f713ec3d467f4ef8934b2f",
         "blockOnCustomizationConflict": false

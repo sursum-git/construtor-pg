@@ -64,6 +64,22 @@ Tela administrativa:
 - pagina de producao: [C:\construtor-pg\production\admin\subscriber-provisioning.html](C:/construtor-pg/production/admin/subscriber-provisioning.html)
 - pagina local: [C:\construtor-pg\examples\pages\admin-subscriber-provisioning.html](C:/construtor-pg/examples/pages/admin-subscriber-provisioning.html)
 
+## Modelos de deployment do assinante
+
+O cadastro do assinante agora formaliza o modo de deployment sem mudar a arquitetura atual:
+
+- `shared_program_shared_db`
+- `shared_program_dedicated_db`
+- `dedicated_stack`
+- `onprem_remote`
+
+Regras importantes:
+
+- o ambiente principal continua isolado;
+- o ambiente runtime do assinante pode ser diferente do principal;
+- no modo `shared_program_shared_db`, varios assinantes podem apontar para o mesmo ambiente runtime;
+- esse ambiente compartilhado nao substitui o ambiente principal isolado.
+
 Job assíncrono:
 
 - `subscriber.environment.provision`
@@ -227,6 +243,13 @@ Regras fechadas:
   - `autoApply`
   - `breakingLevel`
   - `steps`
+- o manifesto tambem pode declarar:
+  - `channels[]`
+  - `metadata.changelog`
+  - `metadata.rollbackStep`
+  - `metadata.rollbackSteps[]`
+  - `metadata.requiresBackup`
+  - `metadata.requiresMaintenanceMode`
 - a avaliacao da cadeia obrigatoria considera o assinante alvo no sistema central SaaS; uma release aplicada em outro assinante nao libera a cadeia deste assinante.
 - `replaces[]` cobre supersedencia: quando uma release aplicada substitui outra, a dependência anterior passa a ser considerada satisfeita para a cadeia.
 - o manifesto agora passa por validacao de coerencia antes de persistir ou publicar artefatos:
@@ -256,6 +279,25 @@ Regras fechadas:
   - `customer_custom`: permanece congelado e nao sofre substituicao automatica.
 - quando o impacto do overlay vier limpo (`rebase_ok`), a aplicacao da release ja cria um draft de rebase sobre a base publicada e registra isso no historico por assinante; conflito leve fica em revisao e conflito bloqueante continua fora da automacao.
 - manifesto remoto sem confianca nao deve seguir como release aplicavel; a verificacao pode usar `APP_UPDATE_MANIFEST_SIGNING_KEY` com `hmac-sha256`.
+- antes do apply, o updater agora executa pre-check de compatibilidade para cadeia, canal, anuencia, ativacao opcional por tenant, pacote, backup, maintenance mode, janela de rollout, customizacao e orquestracao esperada.
+
+### Operacao administrativa
+
+A tela `admin.atualizacoes` agora tambem cobre:
+
+- resumo explicito da cadeia da release;
+- changelog estruturado;
+- simulacao por release/assinante/lote;
+- pre-check por release;
+- rollback formal;
+- dashboards de atraso e alertas operacionais.
+
+A tela `admin.atualizacoes-assinantes` agora tambem cobre:
+
+- timeline resumida por assinante;
+- detalhe tecnico da execucao;
+- resumo do pipeline de overlays;
+- exportacao JSON/CSV do recorte filtrado.
 
 ### Runner on-premise
 

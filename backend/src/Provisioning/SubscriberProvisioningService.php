@@ -15,6 +15,13 @@ use Doctrine\ORM\EntityManagerInterface;
 
 class SubscriberProvisioningService
 {
+    private const DEPLOYMENT_MODES = [
+        'shared_program_shared_db',
+        'shared_program_dedicated_db',
+        'dedicated_stack',
+        'onprem_remote',
+    ];
+
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly AuthSubscriberRepository $subscribers,
@@ -64,6 +71,8 @@ class SubscriberProvisioningService
 
         $metadata = $subscriber->getMetadata();
         $metadata['source'] = 'subscriber-provisioning';
+        $metadata['deployment'] = $this->normalizeDeploymentMetadata($subscriber->getCode(), $payload, $metadata);
+        $deployment = is_array($metadata['deployment'] ?? null) ? $metadata['deployment'] : [];
         $metadata['provisioning'] = [
             'instanceCode' => $this->normalizeOptional($payload['instanceCode'] ?? ''),
             'databaseEnvironment' => $this->normalizeOptional($payload['databaseEnvironment'] ?? ''),
@@ -72,6 +81,8 @@ class SubscriberProvisioningService
             'adminUsername' => $this->normalizeOptional($payload['adminUsername'] ?? ''),
             'adminDisplayName' => $this->normalizeOptional($payload['adminDisplayName'] ?? ''),
             'adminEmail' => $this->normalizeOptional($payload['adminEmail'] ?? ''),
+            'runtimeEnvironmentCode' => (string) ($deployment['runtimeEnvironmentCode'] ?? ''),
+            'primaryEnvironmentCode' => (string) ($deployment['primaryEnvironmentCode'] ?? ''),
         ];
 
         $subscriber
@@ -106,10 +117,13 @@ class SubscriberProvisioningService
 
         $metadata = $subscriber->getMetadata();
         $provisioning = is_array($metadata['provisioning'] ?? null) ? $metadata['provisioning'] : [];
-        $instanceCode = $this->normalizeOptional($payload['instanceCode'] ?? $provisioning['instanceCode'] ?? '') ?: ('construtor-pg-' . $subscriber->getCode());
+        $deployment = is_array($metadata['deployment'] ?? null) ? $metadata['deployment'] : [];
+        $deploymentMode = $this->normalizeDeploymentMode((string) ($deployment['mode'] ?? ''));
+        $runtimeEnvironmentCode = $this->normalizeOptional($payload['runtimeEnvironmentCode'] ?? $provisioning['runtimeEnvironmentCode'] ?? $deployment['runtimeEnvironmentCode'] ?? '') ?: $this->defaultRuntimeEnvironmentCode($subscriber->getCode(), $deploymentMode);
+        $instanceCode = $this->normalizeOptional($payload['instanceCode'] ?? $provisioning['instanceCode'] ?? '') ?: ('construtor-pg-' . $runtimeEnvironmentCode);
         $databaseEnvironment = $this->normalizeOptional($payload['databaseEnvironment'] ?? $provisioning['databaseEnvironment'] ?? '') ?: 'prod';
-        $databaseIdentity = $this->normalizeOptional($payload['databaseIdentity'] ?? $provisioning['databaseIdentity'] ?? '') ?: ('saas:' . $subscriber->getCode());
-        $databaseName = $this->normalizeOptional($payload['databaseName'] ?? $provisioning['databaseName'] ?? '') ?: ('construtor_pg_' . str_replace('-', '_', strtolower($subscriber->getCode())));
+        $databaseIdentity = $this->normalizeOptional($payload['databaseIdentity'] ?? $provisioning['databaseIdentity'] ?? '') ?: ('saas:' . $runtimeEnvironmentCode);
+        $databaseName = $this->normalizeOptional($payload['databaseName'] ?? $provisioning['databaseName'] ?? '') ?: ('construtor_pg_' . str_replace('-', '_', strtolower($runtimeEnvironmentCode)));
         $adminUsername = $this->normalizeOptional($payload['adminUsername'] ?? $provisioning['adminUsername'] ?? '') ?: 'admin';
         $adminDisplayName = $this->normalizeOptional($payload['adminDisplayName'] ?? $provisioning['adminDisplayName'] ?? '') ?: ('Administrador ' . $subscriber->getName());
         $adminPassword = $this->normalizeOptional($payload['adminPassword'] ?? '');
@@ -122,6 +136,9 @@ class SubscriberProvisioningService
             'databaseEnvironment' => $databaseEnvironment,
             'databaseIdentity' => $databaseIdentity,
             'databaseName' => $databaseName,
+            'deploymentMode' => $deploymentMode,
+            'runtimeEnvironmentCode' => $runtimeEnvironmentCode,
+            'primaryEnvironmentCode' => $this->normalizeOptional($payload['primaryEnvironmentCode'] ?? $provisioning['primaryEnvironmentCode'] ?? $deployment['primaryEnvironmentCode'] ?? '') ?: $this->defaultPrimaryEnvironmentCode($subscriber->getCode()),
             'adminUsername' => $adminUsername,
             'adminDisplayName' => $adminDisplayName,
             'adminPassword' => $adminPassword,
@@ -189,16 +206,19 @@ class SubscriberProvisioningService
 
         $metadata = $subscriber->getMetadata();
         $provisioning = is_array($metadata['provisioning'] ?? null) ? $metadata['provisioning'] : [];
+        $deployment = is_array($metadata['deployment'] ?? null) ? $metadata['deployment'] : [];
+        $deploymentMode = $this->normalizeDeploymentMode((string) ($deployment['mode'] ?? ''));
+        $runtimeEnvironmentCode = $this->normalizeOptional($payload['runtimeEnvironmentCode'] ?? $provisioning['runtimeEnvironmentCode'] ?? $deployment['runtimeEnvironmentCode'] ?? '') ?: $this->defaultRuntimeEnvironmentCode($subscriber->getCode(), $deploymentMode);
         $package = $this->packages->build([
             'subscriberCode' => $subscriber->getCode(),
             'subscriberName' => $subscriber->getName(),
             'subscriberDocument' => $subscriber->getDocument(),
             'databaseEnvironment' => $this->normalizeOptional($payload['databaseEnvironment'] ?? $provisioning['databaseEnvironment'] ?? '') ?: 'prod',
-            'databaseIdentity' => $this->normalizeOptional($payload['databaseIdentity'] ?? $provisioning['databaseIdentity'] ?? '') ?: ('onprem:' . $subscriber->getCode()),
-            'databaseName' => $this->normalizeOptional($payload['databaseName'] ?? $provisioning['databaseName'] ?? '') ?: ('construtor_pg_' . str_replace('-', '_', strtolower($subscriber->getCode()))),
+            'databaseIdentity' => $this->normalizeOptional($payload['databaseIdentity'] ?? $provisioning['databaseIdentity'] ?? '') ?: ('onprem:' . $runtimeEnvironmentCode),
+            'databaseName' => $this->normalizeOptional($payload['databaseName'] ?? $provisioning['databaseName'] ?? '') ?: ('construtor_pg_' . str_replace('-', '_', strtolower($runtimeEnvironmentCode))),
             'adminUsername' => $this->normalizeOptional($payload['adminUsername'] ?? $provisioning['adminUsername'] ?? '') ?: 'admin',
             'adminDisplayName' => $this->normalizeOptional($payload['adminDisplayName'] ?? $provisioning['adminDisplayName'] ?? '') ?: ('Administrador ' . $subscriber->getName()),
-            'instanceCode' => $this->normalizeOptional($payload['instanceCode'] ?? $provisioning['instanceCode'] ?? '') ?: ('construtor-pg-' . $subscriber->getCode()),
+            'instanceCode' => $this->normalizeOptional($payload['instanceCode'] ?? $provisioning['instanceCode'] ?? '') ?: ('construtor-pg-' . $runtimeEnvironmentCode),
             'generatedBy' => $this->permissions->getUserId(),
         ]);
 
@@ -209,6 +229,7 @@ class SubscriberProvisioningService
     {
         $metadata = $subscriber->getMetadata();
         $provisioning = is_array($metadata['provisioning'] ?? null) ? $metadata['provisioning'] : [];
+        $deployment = is_array($metadata['deployment'] ?? null) ? $metadata['deployment'] : [];
 
         return [
             'id' => $subscriber->getId(),
@@ -218,6 +239,11 @@ class SubscriberProvisioningService
             'principal' => $subscriber->isPrincipal(),
             'enabled' => $subscriber->isEnabled(),
             'metadata' => $metadata,
+            'deploymentMode' => (string) ($deployment['mode'] ?? ''),
+            'runtimeEnvironmentCode' => (string) ($deployment['runtimeEnvironmentCode'] ?? ''),
+            'primaryEnvironmentCode' => (string) ($deployment['primaryEnvironmentCode'] ?? ''),
+            'sharedRuntimeEnvironment' => ($deployment['sharedRuntimeEnvironment'] ?? false) === true,
+            'principalEnvironmentIsolated' => ($deployment['principalEnvironmentIsolated'] ?? true) !== false,
             'instanceCode' => (string) ($provisioning['instanceCode'] ?? ''),
             'databaseEnvironment' => (string) ($provisioning['databaseEnvironment'] ?? ''),
             'databaseIdentity' => (string) ($provisioning['databaseIdentity'] ?? ''),
@@ -249,6 +275,9 @@ class SubscriberProvisioningService
             'databaseEnvironment' => (string) ($payload['databaseEnvironment'] ?? ''),
             'databaseName' => (string) ($payload['databaseName'] ?? ''),
             'instanceCode' => (string) ($payload['instanceCode'] ?? ''),
+            'deploymentMode' => (string) ($payload['deploymentMode'] ?? ''),
+            'runtimeEnvironmentCode' => (string) ($payload['runtimeEnvironmentCode'] ?? ''),
+            'primaryEnvironmentCode' => (string) ($payload['primaryEnvironmentCode'] ?? ''),
             'result' => $result,
             'createdAt' => $job->getCreatedAt()->format(DATE_ATOM),
             'updatedAt' => $job->getUpdatedAt()->format(DATE_ATOM),
@@ -271,5 +300,51 @@ class SubscriberProvisioningService
     {
         $normalized = trim((string) $value);
         return $normalized === '' ? null : $normalized;
+    }
+
+    private function normalizeDeploymentMetadata(string $subscriberCode, array $payload, array $existingMetadata): array
+    {
+        $existing = is_array($existingMetadata['deployment'] ?? null) ? $existingMetadata['deployment'] : [];
+        $mode = $this->normalizeDeploymentMode((string) ($payload['deploymentMode'] ?? $existing['mode'] ?? ''));
+        $runtimeEnvironmentCode = $this->normalizeOptional($payload['runtimeEnvironmentCode'] ?? $existing['runtimeEnvironmentCode'] ?? '');
+        if ($runtimeEnvironmentCode === '') {
+            $runtimeEnvironmentCode = $this->defaultRuntimeEnvironmentCode($subscriberCode, $mode);
+        }
+        $primaryEnvironmentCode = $this->normalizeOptional($payload['primaryEnvironmentCode'] ?? $existing['primaryEnvironmentCode'] ?? '');
+        if ($primaryEnvironmentCode === '') {
+            $primaryEnvironmentCode = $this->defaultPrimaryEnvironmentCode($subscriberCode);
+        }
+
+        return [
+            'mode' => $mode,
+            'runtimeEnvironmentCode' => $runtimeEnvironmentCode,
+            'primaryEnvironmentCode' => $primaryEnvironmentCode,
+            'sharedRuntimeEnvironment' => $mode === 'shared_program_shared_db',
+            'principalEnvironmentIsolated' => true,
+        ];
+    }
+
+    private function normalizeDeploymentMode(string $value): string
+    {
+        $normalized = strtolower(trim($value));
+        if (!in_array($normalized, self::DEPLOYMENT_MODES, true)) {
+            return 'dedicated_stack';
+        }
+
+        return $normalized;
+    }
+
+    private function defaultRuntimeEnvironmentCode(string $subscriberCode, string $deploymentMode): string
+    {
+        if ($deploymentMode === 'shared_program_shared_db') {
+            return 'shared-runtime-default';
+        }
+
+        return $subscriberCode;
+    }
+
+    private function defaultPrimaryEnvironmentCode(string $subscriberCode): string
+    {
+        return $subscriberCode . '-principal';
     }
 }

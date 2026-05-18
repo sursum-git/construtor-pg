@@ -40,6 +40,8 @@
     this.publishArtifactsButton = this.createButton(actions, "Publicar artefatos", "folder-up", this.handlePublishArtifacts.bind(this));
     this.consentButton = this.createButton(actions, "Registrar anuencia", "check", this.handleConsent.bind(this));
     this.tenantActivationButton = this.createButton(actions, "Ativar tenant", "link-horizontal", this.handleTenantActivation.bind(this));
+    this.simulateButton = this.createButton(actions, "Simular", "eye", this.handleSimulate.bind(this));
+    this.rollbackButton = this.createButton(actions, "Rollback", "undo", this.handleRollback.bind(this));
     this.applyButton = this.createButton(actions, "Aplicar release", "play", this.handleApply.bind(this));
     this.rolloutButton = this.createButton(actions, "Plano SaaS", "track-changes-enable", this.handleRolloutPlan.bind(this));
     this.dispatchRolloutButton = this.createButton(actions, "Despachar rollout", "upload", this.handleDispatchRollout.bind(this));
@@ -153,6 +155,28 @@
         .text("Existe atualizacao critica pendente: " + global.CrudUtils.ensureArray(summary.pendingCriticalVersions).join(", ") + ".")
         .appendTo(this.summaryBody);
     }
+    if (summary.delayDashboard) {
+      const delay = summary.delayDashboard;
+      const delayHost = global.jQuery("<div class=\"manual-meta\"></div>").appendTo(this.summaryBody);
+      [
+        "Atrasados: " + String(delay.outdatedSubscribers || 0),
+        "Bloqueio cadeia: " + String(delay.blockedDependencySubscribers || 0),
+        "Aguardando anuencia: " + String(delay.awaitingConsentSubscribers || 0),
+        "Aguardando ativacao: " + String(delay.awaitingActivationSubscribers || 0),
+        "Falha rollout: " + String(delay.failedRolloutSubscribers || 0)
+      ].forEach(function(text) {
+        global.jQuery("<span class=\"manual-badge\"></span>").text(text).appendTo(delayHost);
+      });
+    }
+    const alerts = global.CrudUtils.ensureArray(summary.operationalAlerts);
+    if (alerts.length) {
+      const alertList = global.jQuery("<div class=\"manual-summary\"></div>").appendTo(this.summaryBody);
+      global.jQuery("<p></p>").text("Alertas operacionais automaticos:").appendTo(alertList);
+      const list = global.jQuery("<ul></ul>").appendTo(alertList);
+      alerts.forEach(function(item) {
+        global.jQuery("<li></li>").text(String(item.message || "")).appendTo(list);
+      });
+    }
   };
 
   SystemUpdatesAdmin.prototype.renderSubscriberSelector = function() {
@@ -254,6 +278,7 @@
         category: item.category,
         severity: item.severity,
         status: item.status,
+        channel: global.CrudUtils.ensureArray(item.channels).join(", "),
         consentStatus: item.consentStatus || "-",
         autoApplicable: item.autoApplicable === true ? "Sim" : "Nao"
       };
@@ -273,6 +298,7 @@
         { field: "title", title: "Titulo" },
         { field: "category", title: "Categoria", width: 150 },
         { field: "severity", title: "Severidade", width: 120 },
+        { field: "channel", title: "Canal", width: 140 },
         { field: "status", title: "Status", width: 150 },
         { field: "consentStatus", title: "Anuencia", width: 120 }
       ],
@@ -373,10 +399,44 @@
     this.detailSummaryElement.empty();
     if (item && item.version) {
       this.renderReleaseSummary(item);
+    } else if (item && item.release && item.release.version) {
+      this.renderReleaseSummary(item.release);
+      this.renderSimulationSummary(item);
     } else if (item && item.releaseVersion) {
       this.renderExecutionSummary(item);
     }
     this.detailElement.text(JSON.stringify(item || {}, null, 2));
+  };
+
+  SystemUpdatesAdmin.prototype.renderSimulationSummary = function(payload) {
+    const precheck = payload && payload.precheck || {};
+    const subscriberImpact = payload && payload.subscriberImpact || {};
+    const rollbackPlan = payload && payload.rollbackPlan || {};
+    const dashboard = payload && payload.delayDashboard || {};
+    const alerts = global.CrudUtils.ensureArray(payload && payload.operationalAlerts);
+    const simulation = global.jQuery("<div class=\"manual-summary\"></div>").appendTo(this.detailSummaryElement);
+    global.jQuery("<p></p>").text("Simulacao operacional").appendTo(simulation);
+    const badges = global.jQuery("<div class=\"manual-meta\"></div>").appendTo(simulation);
+    [
+      "Pre-check: " + String(precheck.status || "-"),
+      "Prontos: " + String(subscriberImpact.summary && subscriberImpact.summary.ready || 0),
+      "Anuencia: " + String(subscriberImpact.summary && subscriberImpact.summary.requiresConsent || 0),
+      "Ativacao: " + String(subscriberImpact.summary && subscriberImpact.summary.awaitingActivation || 0),
+      "Rollback: " + (rollbackPlan.supported === true ? "suportado" : "indisponivel")
+    ].forEach(function(text) {
+      global.jQuery("<span class=\"manual-badge\"></span>").text(text).appendTo(badges);
+    });
+    if (dashboard && Object.keys(dashboard).length) {
+      global.jQuery("<p></p>")
+        .text("Atrasos: " + String(dashboard.outdatedSubscribers || 0) + " | Falha rollout: " + String(dashboard.failedRolloutSubscribers || 0))
+        .appendTo(simulation);
+    }
+    if (alerts.length) {
+      const list = global.jQuery("<ul></ul>").appendTo(simulation);
+      alerts.forEach(function(item) {
+        global.jQuery("<li></li>").text(String(item.message || "")).appendTo(list);
+      });
+    }
   };
 
   SystemUpdatesAdmin.prototype.renderReleaseSummary = function(item) {
@@ -396,7 +456,9 @@
     global.jQuery("<p></p>").text("Versao minima: " + String(item.requiresVersionMin || "-")).appendTo(chain);
     global.jQuery("<p></p>").text("Dependencias obrigatorias: " + this.formatVersionList(item.requiresAppliedUpdates)).appendTo(chain);
     global.jQuery("<p></p>").text("Substitui: " + this.formatVersionList(item.replaces)).appendTo(chain);
-    global.jQuery("<p></p>").text("Passos: " + this.formatVersionList(item.steps)).appendTo(chain);
+    global.jQuery("<p></p>").text("Canais: " + this.formatVersionList(item.channels)).appendTo(chain);
+    global.jQuery("<p></p>").text("Canal alvo: " + String(item.targetChannel || "stable")).appendTo(chain);
+    global.jQuery("<p></p>").text("Passos: " + this.formatStepList(item.stepCatalog || item.steps)).appendTo(chain);
     if (item.rolloutWindow && typeof item.rolloutWindow === "object") {
       global.jQuery("<p></p>").text("Janela SaaS: " + String(item.rolloutWindow.status || "unscheduled") + (item.rolloutWindow.startAt ? " | inicio " + String(item.rolloutWindow.startAt) : "")).appendTo(chain);
     }
@@ -418,6 +480,28 @@
       if (behavior.entryBlockAllowed === true) {
         global.jQuery("<p></p>").text("Entrada do tenant pode ser bloqueada durante o rollout.").appendTo(scenario);
       }
+    }
+    if (item.compatibilityPrecheck && Array.isArray(item.compatibilityPrecheck.checks)) {
+      const precheck = global.jQuery("<div class=\"manual-summary\"></div>").appendTo(this.detailSummaryElement);
+      global.jQuery("<p></p>").text("Pre-check: " + String(item.compatibilityPrecheck.status || "-")).appendTo(precheck);
+      const list = global.jQuery("<ul></ul>").appendTo(precheck);
+      item.compatibilityPrecheck.checks.forEach(function(check) {
+        global.jQuery("<li></li>")
+          .text("[" + String(check.status || "-") + "] " + String(check.title || "-") + ": " + String(check.message || ""))
+          .appendTo(list);
+      });
+    }
+    const changelog = Array.isArray(item.changelog) ? item.changelog : [];
+    if (changelog.length) {
+      const changelogCard = global.jQuery("<div class=\"manual-summary\"></div>").appendTo(this.detailSummaryElement);
+      global.jQuery("<p></p>").text("Changelog estruturado").appendTo(changelogCard);
+      changelog.forEach(function(section) {
+        global.jQuery("<p></p>").text(String(section.title || "-")).appendTo(changelogCard);
+        const sectionList = global.jQuery("<ul></ul>").appendTo(changelogCard);
+        global.CrudUtils.ensureArray(section.items).forEach(function(entry) {
+          global.jQuery("<li></li>").text(String(entry || "")).appendTo(sectionList);
+        });
+      });
     }
   };
 
@@ -442,6 +526,18 @@
   SystemUpdatesAdmin.prototype.formatVersionList = function(items) {
     const values = global.CrudUtils.ensureArray(items).filter(function(item) {
       return String(item || "").trim() !== "";
+    });
+    return values.length ? values.join(", ") : "-";
+  };
+
+  SystemUpdatesAdmin.prototype.formatStepList = function(items) {
+    const values = global.CrudUtils.ensureArray(items).map(function(item) {
+      if (item && typeof item === "object") {
+        return String(item.title || item.code || "").trim();
+      }
+      return String(item || "").trim();
+    }).filter(function(item) {
+      return item !== "";
     });
     return values.length ? values.join(", ") : "-";
   };
@@ -489,6 +585,22 @@
     }
 
     proceed();
+  };
+
+  SystemUpdatesAdmin.prototype.handleSimulate = function() {
+    if (!this.currentRelease) {
+      global.CrudUtils.showMessage("Selecione uma release.", "warning");
+      return;
+    }
+    this.request("GET", "/api/admin/system-updates/simulate", {
+      version: this.currentRelease.version,
+      subscriberCode: this.currentSubscriberCode || "",
+      batchCode: this.currentSubscriberCode ? "" : (this.currentBatchCode || "")
+    }).then((payload) => {
+      this.currentExecution = null;
+      this.renderDetail(payload);
+      global.CrudUtils.showMessage("Simulacao carregada.", "info");
+    }).catch((error) => this.showError(error, "Nao foi possivel simular a release."));
   };
 
   SystemUpdatesAdmin.prototype.handleDownload = function() {
@@ -617,6 +729,35 @@
       this.renderDetail(payload);
       global.CrudUtils.showMessage("Rollout SaaS despachado.", "success");
     }).catch((error) => this.showError(error, "Nao foi possivel despachar o rollout SaaS."));
+  };
+
+  SystemUpdatesAdmin.prototype.handleRollback = function() {
+    if (!this.currentRelease) {
+      global.CrudUtils.showMessage("Selecione uma release.", "warning");
+      return;
+    }
+    if (this.centralControl.centralControl === true && !this.currentSubscriberCode) {
+      global.CrudUtils.showMessage("Selecione o assinante alvo do rollback.", "warning");
+      return;
+    }
+    global.CrudUtils.confirm(
+      "Deseja executar o rollback formal da release " + this.currentRelease.version + "?",
+      { title: "Executar rollback" }
+    ).then((confirmed) => {
+      if (!confirmed) {
+        return;
+      }
+      this.request("POST", "/api/admin/system-updates/rollback", {
+        version: this.currentRelease.version,
+        subscriberCode: this.currentSubscriberCode || "",
+        reason: "Rollback solicitado pela tela administrativa."
+      }).then((payload) => {
+        this.currentExecution = null;
+        this.renderDetail(payload);
+        this.loadBootstrap();
+        global.CrudUtils.showMessage("Rollback executado.", "success");
+      }).catch((error) => this.showError(error, "Nao foi possivel executar o rollback."));
+    });
   };
 
   SystemUpdatesAdmin.prototype.followJob = function(jobId) {

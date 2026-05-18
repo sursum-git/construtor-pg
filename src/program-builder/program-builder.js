@@ -324,6 +324,9 @@
       entityType: this.buildTechnicalProperties("Entidade", "Tipo da entidade", "Define se a origem e tabela local, consulta, IO ou API externa.", [
         { section: "Modelo", label: "Valores", value: "persistence | query | io | api", critical: true }
       ]),
+      subscriberIsolation: this.buildTechnicalProperties("Entidade", "Isolamento por assinante", "Define se a tabela guarda registros globais ou filtrados pela coluna do assinante.", [
+        { section: "Tenancy", label: "Valores", value: "none | subscriber_column", critical: true }
+      ]),
       situationField: this.buildTechnicalProperties("Entidade", "Campo de situacao", "Campo usado pelo motor de situacoes e transicoes quando habilitado."),
       entityFlags: this.buildTechnicalProperties("Entidade", "Opcoes da entidade", "Agrupa flags estruturais e de versionamento que afetam a geracao do runtime.", [
         { section: "Runtime", label: "Impacto", value: "Tabela, renomeacao, exclusao, situacao e versionamento." }
@@ -656,6 +659,18 @@
 
     const splitC = $("<div class=\"program-builder-split\"></div>").appendTo(form);
     this.entitySituationFieldInput = this.createTextField(splitC, "Campo de situacao", this.entityFieldTechnicalProperties("situationField"));
+    const subscriberIsolationField = this.appendField(splitC, "Escopo dos registros", this.entityFieldTechnicalProperties("subscriberIsolation"));
+    this.entitySubscriberIsolationSelect = $("<input>").appendTo(subscriberIsolationField).kendoDropDownList({
+      dataSource: [
+        { value: "none", text: "Compartilhado/global" },
+        { value: "subscriber_column", text: "Filtrado por assinante" }
+      ],
+      dataTextField: "text",
+      dataValueField: "value",
+      value: "none",
+      change: this.syncSubscriberIsolationState.bind(this)
+    }).data("kendoDropDownList");
+    this.entitySubscriberColumnInput = this.createTextField(splitC, "Coluna do assinante", this.entityFieldTechnicalProperties("subscriberIsolation"));
     this.entityTypeHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(form);
     this.entityTypeHint.text("Fluxo completo atual: tipo persistence com tabela fisica e programa CRUD.");
     this.renderApiSourceEditor(form);
@@ -4449,6 +4464,15 @@
     if (payload.entityType === "persistence" && !String(payload.tableName || "").trim()) {
       validation.entityIssues.push("Tabela fisica obrigatoria.");
     }
+    if (payload.entityType === "persistence" && payload.subscriberIsolationMode === "subscriber_column") {
+      if (!String(payload.subscriberColumnName || "").trim()) {
+        validation.entityIssues.push("Coluna do assinante obrigatoria.");
+      } else if (!(payload.fields || []).some(function(field) {
+        return field.virtualField !== true && String(field.columnName || "").trim() === String(payload.subscriberColumnName || "").trim();
+      })) {
+        validation.entityIssues.push("A coluna do assinante precisa existir na lista de campos.");
+      }
+    }
     if (payload.entityType === "api") {
       if (!String(payload.apiSourceCode || "").trim()) {
         validation.entityIssues.push("Cadastro de API obrigatorio.");
@@ -5087,6 +5111,8 @@
     this.entityStructureRightSelect.value(item.structureRightEntityCode || "");
     this.entitySituationEnabledInput.prop("checked", item.situationEnabled === true);
     this.entitySituationFieldInput.value(item.situationFieldCode || "status");
+    this.entitySubscriberIsolationSelect.value(item.subscriberIsolationMode || "none");
+    this.entitySubscriberColumnInput.value(item.subscriberColumnName || "subscriber_id");
     this.entityVersioningEnabledInput.prop("checked", item.versioningEnabled === true);
     this.entityVersioningDeduplicateInput.prop("checked", item.versioningDeduplicate !== false);
     this.apiCatalogSourceSelect.value(item.apiSourceCode || "");
@@ -5168,6 +5194,7 @@
     this.historyEntitySelect.value("");
     this.historyFieldsList.empty();
     this.syncEntityTypeState();
+    this.syncSubscriberIsolationState();
     this.syncStructureState();
     this.syncSituationFieldState();
     this.refreshHistoricalAssistantSourceFields();
@@ -5766,6 +5793,9 @@
     this.entitySituationEnabledInput.prop("disabled", !persistence);
     this.entityVersioningEnabledInput.prop("disabled", !persistence);
     this.entityVersioningDeduplicateInput.prop("disabled", !persistence || !this.entityVersioningEnabledInput.is(":checked"));
+    if (this.entitySubscriberIsolationSelect) {
+      this.entitySubscriberIsolationSelect.enable(persistence);
+    }
     this.apiSourcePanel.toggle(apiEntity);
     if (this.uniqueKeysPanel) {
       this.uniqueKeysPanel.toggle(!apiEntity);
@@ -5782,6 +5812,12 @@
       this.entityAllowTableRenameInput.prop("checked", false);
       this.entityAllowColumnRenameInput.prop("checked", false);
       this.entityDropRemovedColumnsInput.prop("checked", false);
+      if (this.entitySubscriberIsolationSelect) {
+        this.entitySubscriberIsolationSelect.value("none");
+      }
+      if (this.entitySubscriberColumnInput) {
+        this.entitySubscriberColumnInput.value("");
+      }
       if (apiEntity) {
         this.entityTypeHint.text("Tipo api gera CRUD somente leitura, sem tabela fisica e sem lock de escrita.");
       } else {
@@ -5796,12 +5832,34 @@
     this.syncApiBindingState();
     this.syncStructureState();
     this.syncSituationFieldState();
+    this.syncSubscriberIsolationState();
     this.syncProgramWriteFlagsForApi();
     this.fieldsTableBody.find("tr").filter(function() {
       return !$(this).hasClass("program-builder-field-details-row");
     }).each(function(_, row) {
       this.syncFieldRowState($(row), $(row).next(".program-builder-field-details-row"));
     }.bind(this));
+  };
+
+  ProgramBuilder.prototype.syncSubscriberIsolationState = function() {
+    if (!this.entitySubscriberIsolationSelect || !this.entitySubscriberColumnInput) {
+      return;
+    }
+    const persistence = (this.entityTypeSelect.value() || "persistence") === "persistence";
+    const filtered = String(this.entitySubscriberIsolationSelect.value() || "none") === "subscriber_column";
+    this.entitySubscriberColumnInput.enable(persistence && filtered);
+    if (!persistence) {
+      this.entitySubscriberIsolationSelect.value("none");
+      this.entitySubscriberColumnInput.value("");
+      return;
+    }
+    if (!filtered) {
+      this.entitySubscriberColumnInput.value("");
+      return;
+    }
+    if (!String(this.entitySubscriberColumnInput.value() || "").trim()) {
+      this.entitySubscriberColumnInput.value("subscriber_id");
+    }
   };
 
   ProgramBuilder.prototype.syncStructureState = function() {
@@ -6049,6 +6107,8 @@
       dropRemovedColumns: this.entityDropRemovedColumnsInput.is(":checked"),
       situationEnabled: this.entitySituationEnabledInput.is(":checked"),
       situationFieldCode: this.entitySituationFieldInput.value(),
+      subscriberIsolationMode: this.entitySubscriberIsolationSelect.value(),
+      subscriberColumnName: this.entitySubscriberColumnInput.value(),
       uniqueKeys: uniqueKeys,
       rules: rules,
       versioningEnabled: this.entityVersioningEnabledInput.is(":checked"),
@@ -6620,6 +6680,8 @@
     this.entityStructureLeftSelect.value("");
     this.entityStructureRightSelect.value("");
     this.entitySituationFieldInput.value("status");
+    this.entitySubscriberIsolationSelect.value("none");
+    this.entitySubscriberColumnInput.value("");
     this.entityCreateTableInput.prop("checked", true);
     this.entityAllowTableRenameInput.prop("checked", true);
     this.entityAllowColumnRenameInput.prop("checked", true);
@@ -6651,6 +6713,7 @@
     this.syncApiBindingState();
     this.syncStructureState();
     this.syncSituationFieldState();
+    this.syncSubscriberIsolationState();
     this.selectPropertyNode("entity", { code: "" });
     this.refreshCompareChoices();
     this.renderRelationshipView();

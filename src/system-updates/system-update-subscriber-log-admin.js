@@ -137,6 +137,11 @@
         .text("Recorte atual: status " + this.describeMap(historySummary.byStatus) + " | categorias " + this.describeMap(historySummary.byCategory) + ".")
         .appendTo(this.summaryBody);
     }
+    if (Array.isArray(historySummary.timeline) && historySummary.timeline.length) {
+      global.jQuery("<p class=\"manual-summary\"></p>")
+        .text("Timeline do recorte: " + String(historySummary.timeline.length) + " eventos carregados.")
+        .appendTo(this.summaryBody);
+    }
     if (rolloutSummary.batchCodes && rolloutSummary.batchCodes.length) {
       global.jQuery("<p class=\"manual-summary\"></p>")
         .text("Lotes SaaS observados: " + rolloutSummary.batchCodes.join(", ") + ".")
@@ -407,6 +412,18 @@
     global.jQuery("<pre class=\"program-builder-json-preview\"></pre>")
       .text(JSON.stringify(execution || {}, null, 2))
       .appendTo(payloadCard);
+
+    const timeline = global.CrudUtils.ensureArray(this.historySummary && this.historySummary.timeline);
+    if (timeline.length) {
+      const timelineCard = global.jQuery("<div class=\"manual-card\"></div>").appendTo(host);
+      global.jQuery("<h4></h4>").text("Timeline do assinante").appendTo(timelineCard);
+      const list = global.jQuery("<ul></ul>").appendTo(timelineCard);
+      timeline.slice(0, 12).forEach(function(entry) {
+        global.jQuery("<li></li>")
+          .text(String(entry.createdAt || "-") + " | " + String(entry.title || "-") + " | " + String(entry.status || "-") + " | " + String(entry.releaseVersion || "-"))
+          .appendTo(list);
+      });
+    }
   };
 
   SystemUpdateSubscriberLogAdmin.prototype.collectOverlayPipelineRows = function(execution) {

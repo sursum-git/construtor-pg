@@ -55,6 +55,8 @@ class SystemUpdateService
         return [
             'centralControl' => $this->central->resolve(),
             'summary' => $check['summary'],
+            'operationalAlerts' => $check['summary']['operationalAlerts'] ?? [],
+            'delayDashboard' => $check['summary']['delayDashboard'] ?? [],
             'releases' => $check['releases'],
             'subscribers' => $this->listTargetSubscribers(),
             'selectedSubscriber' => $targetSubscriber ? $this->formatTargetSubscriber($targetSubscriber) : null,
@@ -100,6 +102,9 @@ class SystemUpdateService
             $autoQueued = $this->queueAutomaticRelease($items, $deploymentMode);
         }
 
+        $delayDashboard = $this->buildDelayDashboard($normalized, $targetSubscriber?->getCode());
+        $operationalAlerts = $this->buildOperationalAlerts($items, $delayDashboard, $targetSubscriber?->getCode());
+
         return [
             'summary' => [
                 'currentVersion' => $currentVersion,
@@ -117,6 +122,8 @@ class SystemUpdateService
                 'blockingCount' => count(array_filter($items, static fn (array $item): bool => ($item['status'] ?? '') === 'blocked_dependency')),
                 'criticalPendingCount' => count(array_filter($items, static fn (array $item): bool => ($item['status'] ?? '') === 'pending' && ($item['severity'] ?? '') === 'critical')),
                 'autoQueuedRelease' => $autoQueued,
+                'delayDashboard' => $delayDashboard,
+                'operationalAlerts' => $operationalAlerts,
             ],
             'releases' => $items,
         ];
@@ -127,6 +134,10 @@ class SystemUpdateService
         $targetSubscriber = $this->resolveTargetSubscriber($targetSubscriberCode, $this->central->isCentralControl());
         $release = $this->requireRelease($version);
         $evaluation = $this->evaluateReleaseEntity($release, $targetSubscriber?->getCode());
+        $precheck = $this->buildCompatibilityPrecheck($this->resolveReleasePayload($release), $evaluation, $targetSubscriber?->getCode());
+        if (($precheck['blockingCount'] ?? 0) > 0) {
+            throw new RuntimeHttpException('SYSTEM_UPDATE_PRECHECK_FAILED', 'A release falhou no pre-check de compatibilidade.', 422, $precheck);
+        }
         if (($evaluation['status'] ?? '') !== 'pending') {
             throw new RuntimeHttpException('SYSTEM_UPDATE_NOT_PENDING', 'A release nao esta pendente para aplicacao.', 422, $evaluation);
         }
@@ -171,6 +182,113 @@ class SystemUpdateService
         return [
             'execution' => $this->formatExecution($execution),
             'job' => $jobId > 0 ? $this->getJob($jobId) : null,
+            'precheck' => $precheck,
+        ];
+    }
+
+    public function simulateRelease(string $version, ?string $targetSubscriberCode = null, ?string $batchCode = null): array
+    {
+        $release = $this->requireRelease($version);
+        $targetSubscriber = $this->resolveTargetSubscriber($targetSubscriberCode, false);
+        $payload = $this->resolveReleasePayload($release);
+        $evaluation = $this->evaluateReleaseEntity($release, $targetSubscriber?->getCode());
+        $precheck = $this->buildCompatibilityPrecheck($payload, $evaluation, $targetSubscriber?->getCode());
+        $subscriberImpact = $this->buildSubscriberImpactReport($payload, $targetSubscriber?->getCode(), $batchCode);
+        $rollbackPlan = $this->buildRollbackPlan($release, $targetSubscriber?->getCode());
+
+        return [
+            'release' => $evaluation,
+            'precheck' => $precheck,
+            'subscriberImpact' => $subscriberImpact,
+            'rollbackPlan' => $rollbackPlan,
+            'delayDashboard' => $this->buildDelayDashboard([$payload], $targetSubscriber?->getCode()),
+            'operationalAlerts' => $this->buildOperationalAlerts([$evaluation], $this->buildDelayDashboard([$payload], $targetSubscriber?->getCode()), $targetSubscriber?->getCode()),
+        ];
+    }
+
+    public function rollbackRelease(string $version, ?string $reason = null, ?string $targetSubscriberCode = null, ?string $targetVersion = null): array
+    {
+        $release = $this->requireRelease($version);
+        $targetSubscriber = $this->resolveTargetSubscriber($targetSubscriberCode, $this->central->isCentralControl());
+        $plan = $this->buildRollbackPlan($release, $targetSubscriber?->getCode(), $targetVersion);
+        if (($plan['supported'] ?? false) !== true) {
+            throw new RuntimeHttpException('SYSTEM_UPDATE_ROLLBACK_UNSUPPORTED', 'A release nao possui rollback operacional suportado.', 422, $plan);
+        }
+
+        $execution = $this->newExecution($release, 'rollback', 'ui', [
+            'rollbackPlan' => $plan,
+        ], $targetSubscriber);
+        $execution
+            ->setStatus('running')
+            ->setSummary([
+                'message' => 'Rollback em execucao.',
+                'rollback' => $plan,
+                'reason' => $reason,
+            ]);
+        $this->entityManager->persist($execution);
+        $this->entityManager->flush();
+
+        $stepResults = [];
+        foreach ((array) ($plan['steps'] ?? []) as $step) {
+            $result = $this->steps->run($step);
+            $stepResults[] = $result;
+            if (($result['status'] ?? '') !== 'ok') {
+                $execution
+                    ->setStatus('failed')
+                    ->setErrorMessage('Falha ao executar o passo de rollback ' . (string) ($result['step'] ?? ''))
+                    ->setSummary([
+                        'message' => 'Rollback falhou.',
+                        'rollback' => $plan,
+                        'reason' => $reason,
+                        'steps' => $stepResults,
+                    ])
+                    ->setFinishedAt(new \DateTimeImmutable());
+                $this->entityManager->flush();
+
+                return [
+                    'status' => 'failed',
+                    'releaseVersion' => $release->getVersion(),
+                    'execution' => $this->formatExecution($execution),
+                    'rollbackPlan' => $plan,
+                    'steps' => $stepResults,
+                ];
+            }
+        }
+
+        $dispatch = null;
+        if (($plan['dispatchRollback'] ?? false) === true) {
+            $dispatch = $this->orchestrator->dispatch(array_merge(
+                $this->buildOrchestratorPayload($release, $this->evaluateReleaseEntity($release, $targetSubscriber?->getCode()), $targetSubscriber, null, $execution),
+                [
+                    'event' => 'system.update.rollback',
+                    'orchestratorAction' => 'rollback',
+                    'rollbackTargetVersion' => $plan['targetVersion'] ?? null,
+                    'rollbackReason' => $reason,
+                    'rollback' => true,
+                ]
+            ));
+        }
+
+        $execution
+            ->setStatus('succeeded')
+            ->setErrorMessage(null)
+            ->setSummary([
+                'message' => 'Rollback concluido.',
+                'rollback' => $plan,
+                'reason' => $reason,
+                'steps' => $stepResults,
+                'orchestratorDispatch' => $dispatch,
+            ])
+            ->setFinishedAt(new \DateTimeImmutable());
+        $this->entityManager->flush();
+
+        return [
+            'status' => 'succeeded',
+            'releaseVersion' => $release->getVersion(),
+            'execution' => $this->formatExecution($execution),
+            'rollbackPlan' => $plan,
+            'steps' => $stepResults,
+            'orchestratorDispatch' => $dispatch,
         ];
     }
 
@@ -301,15 +419,15 @@ class SystemUpdateService
 
         $stepResults = [];
         foreach ($release->getSteps() as $step) {
-            $result = $this->steps->run((string) $step);
+            $result = $this->steps->run($step);
             $stepResults[] = $result;
             if (($result['status'] ?? '') !== 'ok') {
                 $execution
                     ->setStatus('failed')
-                    ->setErrorMessage('Falha ao executar o passo ' . $step . '.')
+                    ->setErrorMessage('Falha ao executar o passo ' . (string) ($result['stepTitle'] ?? $result['step'] ?? '') . '.')
                     ->setSummary([
                         'message' => 'Falha na atualizacao.',
-                        'failedStep' => $step,
+                        'failedStep' => $result['step'] ?? null,
                         'steps' => $stepResults,
                     ])
                     ->setFinishedAt(new \DateTimeImmutable());
@@ -635,8 +753,11 @@ class SystemUpdateService
         $targetSubscriber = $this->resolveTargetSubscriber($targetSubscriberCode, $this->central->isCentralControl());
         $evaluation = $this->evaluateReleaseEntity($release, $targetSubscriber?->getCode());
         $metadata = $release->getMetadata();
-        $requiresMaintenance = ($metadata['requiresMaintenanceMode'] ?? false) === true || in_array('migrate', $release->getSteps(), true);
-        $requiresBackup = ($metadata['requiresBackup'] ?? false) === true || in_array('migrate', $release->getSteps(), true);
+        $stepCodes = array_values(array_filter(array_map(static function ($step): string {
+            return trim((string) (is_array($step) ? ($step['code'] ?? '') : $step));
+        }, $release->getSteps()), static fn (string $value): bool => $value !== ''));
+        $requiresMaintenance = ($metadata['requiresMaintenanceMode'] ?? false) === true || in_array('migrate', $stepCodes, true);
+        $requiresBackup = ($metadata['requiresBackup'] ?? false) === true || in_array('migrate', $stepCodes, true);
         $rolloutWindow = $this->resolveSaasRolloutWindow($metadata);
         $rolloutBatches = $this->resolveSaasRolloutBatches($release, $targetSubscriber?->getCode());
         $entryBlockPlan = $this->buildSaasEntryBlockPlan($release, $rolloutWindow);
@@ -656,6 +777,7 @@ class SystemUpdateService
             'rolloutBatches' => $rolloutBatches,
             'defaultBatchCode' => $rolloutBatches[0]['code'] ?? null,
             'entryBlockPlan' => $entryBlockPlan,
+            'rollbackPlan' => $this->buildRollbackPlan($release, $targetSubscriber?->getCode()),
             'suggestedSequence' => [
                 'validar manifesto e assinatura',
                 $requiresBackup ? 'executar backup antes da aplicacao' : 'backup opcional conforme politica do ambiente',
@@ -759,6 +881,7 @@ class SystemUpdateService
             'batchCodes' => [],
             'byStage' => [],
         ];
+        $timeline = [];
         foreach ($rows as $row) {
             $rowStatus = (string) ($row['status'] ?? '');
             $rowCategory = (string) ($row['category'] ?? '');
@@ -792,6 +915,7 @@ class SystemUpdateService
                     $rolloutAudit['byStage'][$stage] = (int) ($rolloutAudit['byStage'][$stage] ?? 0) + 1;
                 }
             }
+            $timeline[] = $this->buildTimelineEntry($row);
         }
 
         return [
@@ -811,6 +935,7 @@ class SystemUpdateService
                     'batchCodes' => array_values(array_keys($rolloutAudit['batchCodes'])),
                     'byStage' => $rolloutAudit['byStage'],
                 ],
+                'timeline' => $timeline,
                 'filters' => [
                     'subscriberCode' => $subscriberCode,
                     'status' => $status,
@@ -857,6 +982,9 @@ class SystemUpdateService
     {
         $publishedAt = trim((string) ($payload['publishedAt'] ?? ''));
         $autoApply = $this->normalizeAutoApply($payload['autoApply'] ?? null, $payload);
+        $metadata = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
+        $metadata['channels'] = $this->normalizeChannels($payload, $metadata);
+        $metadata['changelog'] = $this->normalizeChangelog($metadata['changelog'] ?? []);
         return [
             'version' => trim((string) ($payload['version'] ?? '')),
             'title' => trim((string) ($payload['title'] ?? 'Atualizacao sem titulo')),
@@ -873,9 +1001,9 @@ class SystemUpdateService
             'requiresAppliedUpdates' => array_values(array_filter(array_map('strval', (array) ($payload['requiresAppliedUpdates'] ?? [])))),
             'replaces' => array_values(array_filter(array_map('strval', (array) ($payload['replaces'] ?? [])))),
             'breakingLevel' => $this->normalizeBreakingLevel((string) ($payload['breakingLevel'] ?? 'non_breaking')),
-            'steps' => array_values(array_filter(array_map('strval', (array) ($payload['steps'] ?? [])))),
+            'steps' => SystemUpdateStepCatalog::normalizeList((array) ($payload['steps'] ?? [])),
             'programUpdates' => array_values(array_filter((array) ($payload['programUpdates'] ?? []), 'is_array')),
-            'metadata' => is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [],
+            'metadata' => $metadata,
             'manifestSource' => $source,
             'manifestHash' => $hash,
             'publishedAt' => $publishedAt !== '' ? $publishedAt : null,
@@ -951,6 +1079,13 @@ class SystemUpdateService
         $requiresConsent = ($release['requiresSubscriberConsent'] ?? true) !== false;
         $autoApplicable = $status === 'pending' && $this->isAutoApplicable($release, $deploymentMode);
         $impactReport = $this->analyzeProgramCustomizationImpact((array) ($release['programUpdates'] ?? []), $targetSubscriberCode);
+        $targetChannel = $this->resolveTargetChannel($targetSubscriberCode);
+        $channels = $this->normalizeChannels($release, is_array($release['metadata'] ?? null) ? $release['metadata'] : []);
+        if ($status === 'pending' && !in_array($targetChannel, $channels, true)) {
+            $status = 'channel_unavailable';
+            $dependencyIssues[] = 'A release esta publicada apenas para os canais ' . implode(', ', $channels) . '.';
+            $autoApplicable = false;
+        }
         if ($status === 'pending' && ($impactReport['blockingCustomizationCount'] ?? 0) > 0 && (($release['metadata']['blockOnCustomizationConflict'] ?? false) === true)) {
             $status = 'blocked_customization';
             $dependencyIssues[] = 'Existem customizacoes de assinante que exigem rebase antes desta release.';
@@ -979,6 +1114,19 @@ class SystemUpdateService
             $autoApplicable = false;
         }
         $packageUrl = trim((string) ($release['metadata']['packageUrl'] ?? ''));
+        $precheck = $this->buildCompatibilityPrecheck($release, [
+            'status' => $status,
+            'consentApproved' => $consentApproved,
+            'consentStatus' => $consentStatus,
+            'tenantActivationRequired' => $tenantActivationRequired,
+            'tenantActivationStatus' => $tenantActivationStatus,
+            'impactReport' => $impactReport,
+            'scenarioBehavior' => $scenarioBehavior,
+            'rolloutWindow' => $rolloutWindow,
+            'rolloutWindowStatus' => $rolloutWindowStatus,
+            'dependencyIssues' => $dependencyIssues,
+            'autoApplicable' => $autoApplicable,
+        ], $targetSubscriberCode);
 
         return [
             'version' => (string) ($release['version'] ?? ''),
@@ -999,6 +1147,9 @@ class SystemUpdateService
             'autoQueueAllowed' => $autoQueueAllowed,
             'breakingLevel' => (string) ($release['breakingLevel'] ?? 'non_breaking'),
             'scenarioBehavior' => $scenarioBehavior,
+            'channels' => $channels,
+            'targetChannel' => $targetChannel,
+            'channelStatus' => in_array($targetChannel, $channels, true) ? 'eligible' : 'out_of_channel',
             'rolloutWindow' => $rolloutWindow,
             'rolloutWindowStatus' => $rolloutWindowStatus,
             'blocksNextUpdates' => ($release['blocksNextUpdates'] ?? false) === true,
@@ -1007,9 +1158,12 @@ class SystemUpdateService
             'requiresAppliedUpdates' => array_values((array) ($release['requiresAppliedUpdates'] ?? [])),
             'replaces' => array_values((array) ($release['replaces'] ?? [])),
             'steps' => array_values((array) ($release['steps'] ?? [])),
+            'stepCatalog' => array_values((array) ($release['steps'] ?? [])),
+            'changelog' => $this->normalizeChangelog($release['metadata']['changelog'] ?? []),
             'manifestSource' => $release['manifestSource'] ?? null,
             'metadata' => is_array($release['metadata'] ?? null) ? $release['metadata'] : [],
             'impactReport' => $impactReport,
+            'compatibilityPrecheck' => $precheck,
             'targetSubscriberCode' => $targetSubscriberCode,
             'programUpdates' => array_values((array) ($release['programUpdates'] ?? [])),
             'packageAvailable' => $packageUrl !== '',
@@ -1262,6 +1416,53 @@ class SystemUpdateService
     }
 
     /**
+     * @param array<string, mixed> $payload
+     * @param array<string, mixed> $metadata
+     * @return list<string>
+     */
+    private function normalizeChannels(array $payload, array $metadata): array
+    {
+        $channels = $payload['channels'] ?? $metadata['channels'] ?? $metadata['channel'] ?? ['stable'];
+        $normalized = array_values(array_filter(array_map(static function ($value): string {
+            return strtolower(trim((string) $value));
+        }, is_array($channels) ? $channels : [$channels]), static fn (string $value): bool => $value !== ''));
+
+        return $normalized ?: ['stable'];
+    }
+
+    /**
+     * @param mixed $changelog
+     * @return list<array<string, mixed>>
+     */
+    private function normalizeChangelog(mixed $changelog): array
+    {
+        if (!is_array($changelog)) {
+            return [];
+        }
+
+        $sections = [];
+        foreach ($changelog as $section) {
+            if (!is_array($section)) {
+                continue;
+            }
+            $title = trim((string) ($section['title'] ?? ''));
+            $items = array_values(array_filter(array_map(static function ($value): string {
+                return trim((string) $value);
+            }, (array) ($section['items'] ?? [])), static fn (string $value): bool => $value !== ''));
+            $sections[] = [
+                'title' => $title !== '' ? $title : 'Sem titulo',
+                'items' => $items,
+                'impact' => trim((string) ($section['impact'] ?? '')) ?: null,
+                'risk' => trim((string) ($section['risk'] ?? '')) ?: null,
+                'reversible' => ($section['reversible'] ?? true) !== false,
+                'actionRequired' => trim((string) ($section['actionRequired'] ?? '')) ?: null,
+            ];
+        }
+
+        return $sections;
+    }
+
+    /**
      * @param mixed $autoApply
      * @param array<string, mixed> $payload
      * @return array{saas: bool, onprem: bool}
@@ -1302,6 +1503,410 @@ class SystemUpdateService
     {
         $normalized = strtolower(trim($breakingLevel));
         return $normalized !== '' ? mb_substr($normalized, 0, 30) : 'non_breaking';
+    }
+
+    /**
+     * @param array<string, mixed> $release
+     * @param array<string, mixed> $evaluation
+     * @return array<string, mixed>
+     */
+    private function buildCompatibilityPrecheck(array $release, array $evaluation, ?string $targetSubscriberCode = null): array
+    {
+        $checks = [];
+        $metadata = is_array($release['metadata'] ?? null) ? $release['metadata'] : [];
+        $packageConfigured = trim((string) ($metadata['packageUrl'] ?? '')) !== '';
+        $packageHashConfigured = trim((string) ($metadata['packageHash'] ?? '')) !== '';
+        $rolloutWindowStatus = (string) ($evaluation['rolloutWindowStatus'] ?? 'unscheduled');
+        $impactReport = is_array($evaluation['impactReport'] ?? null) ? $evaluation['impactReport'] : [];
+        $overlaySummary = is_array($impactReport['overlayPipelineSummary'] ?? null) ? $impactReport['overlayPipelineSummary'] : [];
+        $requiresBackup = ($metadata['requiresBackup'] ?? false) === true;
+        $requiresMaintenance = ($metadata['requiresMaintenanceMode'] ?? false) === true;
+        $deploymentMode = $this->deploymentMode->resolve();
+        $orchestratorExpected = $deploymentMode === 'saas' && (($metadata['orchestratorDispatchEnabled'] ?? true) === true);
+
+        $checks[] = $this->precheckItem('manifest', 'Manifesto confiavel', 'ok', 'Manifesto validado para a release.');
+        $checks[] = $this->precheckItem(
+            'version_chain',
+            'Cadeia de versoes',
+            in_array((string) ($evaluation['status'] ?? ''), ['blocked_dependency'], true) ? 'blocked' : 'ok',
+            in_array((string) ($evaluation['status'] ?? ''), ['blocked_dependency'], true)
+                ? implode(' ', (array) ($evaluation['dependencyIssues'] ?? []))
+                : 'Dependencias de versao satisfeitas.'
+        );
+        $checks[] = $this->precheckItem(
+            'channel',
+            'Canal do assinante',
+            (string) ($evaluation['channelStatus'] ?? 'eligible') === 'eligible' ? 'ok' : 'blocked',
+            (string) ($evaluation['channelStatus'] ?? 'eligible') === 'eligible'
+                ? 'Release disponivel para o canal ' . (string) ($evaluation['targetChannel'] ?? 'stable') . '.'
+                : 'Release fora do canal do assinante.'
+        );
+        $checks[] = $this->precheckItem(
+            'consent',
+            'Anuencia',
+            ($evaluation['requiresConsent'] ?? false) !== true || ($evaluation['consentApproved'] ?? false) === true ? 'ok' : 'warning',
+            ($evaluation['requiresConsent'] ?? false) !== true
+                ? 'Release nao exige anuencia.'
+                : (($evaluation['consentApproved'] ?? false) === true ? 'Anuencia registrada.' : 'A release exige anuencia antes da aplicacao.')
+        );
+        $checks[] = $this->precheckItem(
+            'tenant_activation',
+            'Ativacao por tenant',
+            ($evaluation['tenantActivationRequired'] ?? false) !== true || ($evaluation['tenantActivationStatus'] ?? '') === 'enabled' ? 'ok' : 'warning',
+            ($evaluation['tenantActivationRequired'] ?? false) !== true
+                ? 'Sem ativacao especifica por tenant.'
+                : (($evaluation['tenantActivationStatus'] ?? '') === 'enabled' ? 'Tenant ativado para a release.' : 'Aguardando ativacao explicita do tenant.')
+        );
+        $checks[] = $this->precheckItem(
+            'package',
+            'Pacote da release',
+            $packageConfigured && $packageHashConfigured ? 'ok' : 'blocked',
+            $packageConfigured && $packageHashConfigured
+                ? 'Pacote e hash configurados no manifesto.'
+                : 'Pacote ou hash ausente para esta release.'
+        );
+        $checks[] = $this->precheckItem(
+            'backup',
+            'Backup',
+            $requiresBackup ? 'warning' : 'ok',
+            $requiresBackup ? 'A release exige backup antes da aplicacao.' : 'Sem exigencia de backup.'
+        );
+        $checks[] = $this->precheckItem(
+            'maintenance',
+            'Janela de manutencao',
+            $requiresMaintenance ? 'warning' : 'ok',
+            $requiresMaintenance ? 'A release exige janela de manutencao.' : 'A release pode seguir sem manutencao dedicada.'
+        );
+        $checks[] = $this->precheckItem(
+            'rollout_window',
+            'Janela de rollout',
+            $deploymentMode !== 'saas' || $rolloutWindowStatus === 'open' || $rolloutWindowStatus === 'unscheduled' ? 'ok' : 'warning',
+            $deploymentMode !== 'saas'
+                ? 'Nao se aplica ao on-premise.'
+                : ($rolloutWindowStatus === 'open' || $rolloutWindowStatus === 'unscheduled'
+                    ? 'Janela de rollout pronta para uso.'
+                    : 'A release aguarda a abertura da janela SaaS.')
+        );
+        $checks[] = $this->precheckItem(
+            'customization',
+            'Customizacoes',
+            ($impactReport['blockingCustomizationCount'] ?? 0) > 0 ? 'blocked' : ((int) ($overlaySummary['reviewRequired'] ?? 0) > 0 ? 'warning' : 'ok'),
+            ($impactReport['blockingCustomizationCount'] ?? 0) > 0
+                ? 'Existe customizacao bloqueante antes da aplicacao.'
+                : ((int) ($overlaySummary['reviewRequired'] ?? 0) > 0
+                    ? 'Ha overlays que exigem revisao manual.'
+                    : 'Sem bloqueios de customizacao para esta release.')
+        );
+        $checks[] = $this->precheckItem(
+            'orchestrator',
+            'Orquestrador',
+            $deploymentMode !== 'saas' || !$orchestratorExpected || $this->orchestrator->isEnabled() ? 'ok' : 'warning',
+            $deploymentMode !== 'saas'
+                ? 'Nao se aplica ao on-premise.'
+                : ($this->orchestrator->isEnabled() ? 'Orquestrador habilitado para rollout.' : 'Rollout SaaS sem orquestrador ativo.')
+        );
+
+        $blockingCount = count(array_filter($checks, static fn (array $item): bool => (string) ($item['status'] ?? '') === 'blocked'));
+        $warningCount = count(array_filter($checks, static fn (array $item): bool => (string) ($item['status'] ?? '') === 'warning'));
+
+        return [
+            'targetSubscriberCode' => $targetSubscriberCode,
+            'checks' => $checks,
+            'blockingCount' => $blockingCount,
+            'warningCount' => $warningCount,
+            'status' => $blockingCount > 0 ? 'blocked' : ($warningCount > 0 ? 'warning' : 'ok'),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function precheckItem(string $code, string $title, string $status, string $message): array
+    {
+        return [
+            'code' => $code,
+            'title' => $title,
+            'status' => $status,
+            'message' => $message,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $releasePayload
+     * @return array<string, mixed>
+     */
+    private function buildSubscriberImpactReport(array $releasePayload, ?string $targetSubscriberCode = null, ?string $batchCode = null): array
+    {
+        $subscribers = $targetSubscriberCode
+            ? array_values(array_filter($this->listTargetSubscribers(), static fn (array $item): bool => (string) ($item['code'] ?? '') === trim((string) $targetSubscriberCode)))
+            : $this->listTargetSubscribers();
+        $batchFilter = trim((string) $batchCode);
+        if ($batchFilter !== '' && $subscribers) {
+            $releaseEntity = $this->releases->findOneByVersion((string) ($releasePayload['version'] ?? ''));
+            if ($releaseEntity) {
+                $allowedCodes = [];
+                foreach ($this->resolveSaasRolloutBatches($releaseEntity, null) as $batch) {
+                    if ((string) ($batch['code'] ?? '') !== $batchFilter) {
+                        continue;
+                    }
+                    foreach ((array) ($batch['subscribers'] ?? []) as $subscriber) {
+                        $allowedCodes[] = (string) ($subscriber['code'] ?? '');
+                    }
+                }
+                $subscribers = array_values(array_filter($subscribers, static fn (array $item): bool => in_array((string) ($item['code'] ?? ''), $allowedCodes, true)));
+            }
+        }
+
+        $items = [];
+        $summary = [
+            'totalSubscribers' => count($subscribers),
+            'autoApplicable' => 0,
+            'requiresConsent' => 0,
+            'awaitingActivation' => 0,
+            'blockedDependency' => 0,
+            'blockedCustomization' => 0,
+            'channelUnavailable' => 0,
+            'ready' => 0,
+        ];
+
+        foreach ($subscribers as $subscriber) {
+            $code = (string) ($subscriber['code'] ?? '');
+            $evaluation = $this->evaluateRelease(
+                $releasePayload,
+                $this->resolveCurrentVersion($code),
+                $this->resolveAppliedVersions($code),
+                $this->resolveSatisfiedVersions($this->buildReleaseCatalog(), $this->resolveAppliedVersions($code)),
+                $this->deploymentMode->resolve(),
+                true,
+                '',
+                $code
+            );
+            $precheck = $this->buildCompatibilityPrecheck($releasePayload, $evaluation, $code);
+            $items[] = [
+                'subscriber' => $subscriber,
+                'status' => $evaluation['status'] ?? 'unknown',
+                'autoApplicable' => ($evaluation['autoApplicable'] ?? false) === true,
+                'requiresConsent' => ($evaluation['requiresConsent'] ?? false) === true,
+                'consentStatus' => $evaluation['consentStatus'] ?? 'not-required',
+                'tenantActivationStatus' => $evaluation['tenantActivationStatus'] ?? 'not-required',
+                'channel' => $evaluation['targetChannel'] ?? 'stable',
+                'compatibilityPrecheck' => $precheck,
+                'blockingCustomizationCount' => (int) (($evaluation['impactReport']['blockingCustomizationCount'] ?? 0)),
+                'dependencyIssues' => $evaluation['dependencyIssues'] ?? [],
+            ];
+
+            if (($evaluation['autoApplicable'] ?? false) === true) {
+                $summary['autoApplicable']++;
+            }
+            if (($evaluation['requiresConsent'] ?? false) === true && ($evaluation['consentApproved'] ?? false) !== true) {
+                $summary['requiresConsent']++;
+            }
+            if (($evaluation['tenantActivationRequired'] ?? false) === true && ($evaluation['tenantActivationStatus'] ?? '') !== 'enabled') {
+                $summary['awaitingActivation']++;
+            }
+            if (($evaluation['status'] ?? '') === 'blocked_dependency') {
+                $summary['blockedDependency']++;
+            }
+            if (($evaluation['status'] ?? '') === 'blocked_customization') {
+                $summary['blockedCustomization']++;
+            }
+            if (($evaluation['status'] ?? '') === 'channel_unavailable') {
+                $summary['channelUnavailable']++;
+            }
+            if (($evaluation['status'] ?? '') === 'pending' && ($precheck['blockingCount'] ?? 0) === 0) {
+                $summary['ready']++;
+            }
+        }
+
+        return [
+            'items' => $items,
+            'summary' => $summary,
+        ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $releaseCatalog
+     * @return array<string, int>
+     */
+    private function buildDelayDashboard(array $releaseCatalog, ?string $targetSubscriberCode = null): array
+    {
+        $summary = [
+            'blockedDependency' => 0,
+            'requiresConsent' => 0,
+            'awaitingActivation' => 0,
+            'blockedCustomization' => 0,
+            'channelUnavailable' => 0,
+            'ready' => 0,
+        ];
+        foreach ($releaseCatalog as $releasePayload) {
+            if (!is_array($releasePayload) || trim((string) ($releasePayload['version'] ?? '')) === '') {
+                continue;
+            }
+            $report = $this->buildSubscriberImpactReport($releasePayload, $targetSubscriberCode);
+            $itemSummary = (array) ($report['summary'] ?? []);
+            $summary['blockedDependency'] += (int) ($itemSummary['blockedDependency'] ?? 0);
+            $summary['requiresConsent'] += (int) ($itemSummary['requiresConsent'] ?? 0);
+            $summary['awaitingActivation'] += (int) ($itemSummary['awaitingActivation'] ?? 0);
+            $summary['blockedCustomization'] += (int) ($itemSummary['blockedCustomization'] ?? 0);
+            $summary['channelUnavailable'] += (int) ($itemSummary['channelUnavailable'] ?? 0);
+            $summary['ready'] += (int) ($itemSummary['ready'] ?? 0);
+        }
+        $failedRollout = 0;
+        foreach ($this->listExecutionHistory([
+            'subscriberCode' => $targetSubscriberCode,
+            'limit' => 120,
+        ])['items'] ?? [] as $item) {
+            if ((string) ($item['mode'] ?? '') === 'rollout_dispatch' && (string) ($item['status'] ?? '') === 'failed') {
+                $failedRollout++;
+            }
+        }
+
+        return [
+            'outdatedSubscribers' => (int) (($summary['blockedDependency'] ?? 0) + ($summary['ready'] ?? 0) + ($summary['requiresConsent'] ?? 0) + ($summary['awaitingActivation'] ?? 0)),
+            'blockedDependencySubscribers' => (int) ($summary['blockedDependency'] ?? 0),
+            'awaitingConsentSubscribers' => (int) ($summary['requiresConsent'] ?? 0),
+            'awaitingActivationSubscribers' => (int) ($summary['awaitingActivation'] ?? 0),
+            'blockedCustomizationSubscribers' => (int) ($summary['blockedCustomization'] ?? 0),
+            'channelUnavailableSubscribers' => (int) ($summary['channelUnavailable'] ?? 0),
+            'failedRolloutSubscribers' => $failedRollout,
+        ];
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $items
+     * @param array<string, int> $delayDashboard
+     * @return list<array<string, mixed>>
+     */
+    private function buildOperationalAlerts(array $items, array $delayDashboard, ?string $targetSubscriberCode = null): array
+    {
+        $alerts = [];
+        foreach ($items as $item) {
+            $status = (string) ($item['status'] ?? '');
+            if ($status === 'blocked_dependency') {
+                $alerts[] = [
+                    'severity' => 'high',
+                    'kind' => 'dependency',
+                    'releaseVersion' => $item['version'] ?? null,
+                    'subscriberCode' => $targetSubscriberCode,
+                    'message' => 'A release ' . (string) ($item['version'] ?? '') . ' esta bloqueada pela cadeia obrigatoria.',
+                ];
+            }
+            if ($status === 'awaiting_tenant_activation') {
+                $alerts[] = [
+                    'severity' => 'medium',
+                    'kind' => 'tenant_activation',
+                    'releaseVersion' => $item['version'] ?? null,
+                    'subscriberCode' => $targetSubscriberCode,
+                    'message' => 'A release opcional ' . (string) ($item['version'] ?? '') . ' aguarda ativacao do tenant.',
+                ];
+            }
+            if ($status === 'blocked_customization') {
+                $alerts[] = [
+                    'severity' => 'high',
+                    'kind' => 'customization',
+                    'releaseVersion' => $item['version'] ?? null,
+                    'subscriberCode' => $targetSubscriberCode,
+                    'message' => 'A release ' . (string) ($item['version'] ?? '') . ' possui bloqueio por customizacao.',
+                ];
+            }
+        }
+        if (($delayDashboard['failedRolloutSubscribers'] ?? 0) > 0) {
+            $alerts[] = [
+                'severity' => 'critical',
+                'kind' => 'rollout_failed',
+                'releaseVersion' => null,
+                'subscriberCode' => $targetSubscriberCode,
+                'message' => 'Existem assinantes com falha de rollout em execucoes recentes.',
+            ];
+        }
+
+        return $alerts;
+    }
+
+    private function resolveTargetChannel(?string $targetSubscriberCode): string
+    {
+        $targetCode = trim((string) $targetSubscriberCode);
+        if ($targetCode === '') {
+            return 'stable';
+        }
+        $subscriber = $this->subscribers->findEnabledByCode($targetCode) ?? $this->subscribers->findOneBy(['code' => $targetCode]);
+        if (!$subscriber) {
+            return 'stable';
+        }
+        $metadata = $subscriber->getMetadata();
+        $provisioning = is_array($metadata['provisioning'] ?? null) ? $metadata['provisioning'] : [];
+
+        return strtolower(trim((string) ($provisioning['updateChannel'] ?? 'stable'))) ?: 'stable';
+    }
+
+    private function buildRollbackPlan(SystemUpdateRelease $release, ?string $targetSubscriberCode = null, ?string $targetVersion = null): array
+    {
+        $metadata = $release->getMetadata();
+        $steps = [];
+        if (is_array($metadata['rollbackSteps'] ?? null) && $metadata['rollbackSteps']) {
+            $steps = SystemUpdateStepCatalog::normalizeList((array) $metadata['rollbackSteps']);
+        } else {
+            foreach (SystemUpdateStepCatalog::normalizeList($release->getSteps()) as $step) {
+                $rollbackStep = trim((string) ($step['rollbackStep'] ?? ''));
+                if ($rollbackStep !== '') {
+                    $steps[] = SystemUpdateStepCatalog::normalize(['code' => $rollbackStep]);
+                }
+            }
+            $steps = array_values(array_filter($steps));
+        }
+        $resolvedTargetVersion = trim((string) $targetVersion);
+        if ($resolvedTargetVersion === '') {
+            $resolvedTargetVersion = trim((string) ($metadata['rollbackTargetVersion'] ?? ''));
+        }
+        if ($resolvedTargetVersion === '' && $release->getReplaces()) {
+            $resolvedTargetVersion = (string) ($release->getReplaces()[0] ?? '');
+        }
+        if ($resolvedTargetVersion === '') {
+            $resolvedTargetVersion = (string) ($this->executions->findLatestSuccessfulVersionBySubscriber($targetSubscriberCode) ?? '');
+            if ($resolvedTargetVersion === $release->getVersion()) {
+                $resolvedTargetVersion = '';
+            }
+        }
+
+        $supported = $resolvedTargetVersion !== '' || count($steps) > 0 || $this->orchestrator->isEnabled();
+
+        return [
+            'supported' => $supported,
+            'targetVersion' => $resolvedTargetVersion !== '' ? $resolvedTargetVersion : null,
+            'steps' => $steps,
+            'dispatchRollback' => $this->deploymentMode->resolve() === 'saas' && $this->orchestrator->isEnabled(),
+            'requiresBackup' => ($metadata['requiresBackup'] ?? false) === true,
+            'requiresMaintenanceMode' => ($metadata['requiresMaintenanceMode'] ?? false) === true,
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private function buildTimelineEntry(array $row): array
+    {
+        $mode = (string) ($row['mode'] ?? 'manual');
+        $status = (string) ($row['status'] ?? 'queued');
+        $title = match ($mode) {
+            'rollback' => 'Rollback da release',
+            'rollout_dispatch' => 'Despacho de rollout',
+            'auto' => 'Aplicacao automatica',
+            'consented' => 'Aplicacao com anuencia',
+            default => 'Aplicacao da release',
+        };
+
+        return [
+            'id' => $row['id'] ?? null,
+            'releaseVersion' => $row['releaseVersion'] ?? null,
+            'title' => $title,
+            'status' => $status,
+            'mode' => $mode,
+            'createdAt' => $row['createdAt'] ?? null,
+            'finishedAt' => $row['finishedAt'] ?? null,
+            'subscriberCode' => $row['targetSubscriberCode'] ?? null,
+            'message' => $row['summary']['message'] ?? null,
+        ];
     }
 
     private function describeOnPremCriticalMode(?string $mode): string

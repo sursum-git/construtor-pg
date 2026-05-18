@@ -92,6 +92,22 @@ class SystemUpdateController extends AbstractController
         }
     }
 
+    #[Route('/simulate', methods: ['GET'])]
+    public function simulate(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $this->central->ensureCentral();
+            return $this->json($this->updates->simulateRelease(
+                trim((string) $request->query->get('version')),
+                trim((string) $request->query->get('subscriberCode')) ?: null,
+                trim((string) $request->query->get('batchCode')) ?: null
+            ));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
     #[Route('/consent', methods: ['POST'])]
     public function consent(Request $request): JsonResponse
     {
@@ -156,6 +172,24 @@ class SystemUpdateController extends AbstractController
                 trim((string) ($payload['version'] ?? '')),
                 trim((string) ($payload['subscriberCode'] ?? '')) ?: null,
                 trim((string) ($payload['batchCode'] ?? '')) ?: null
+            ));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/rollback', methods: ['POST'])]
+    public function rollback(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $this->central->ensureCentral();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->updates->rollbackRelease(
+                trim((string) ($payload['version'] ?? '')),
+                trim((string) ($payload['reason'] ?? '')) ?: null,
+                trim((string) ($payload['subscriberCode'] ?? '')) ?: null,
+                trim((string) ($payload['targetVersion'] ?? '')) ?: null
             ));
         } catch (\Throwable $error) {
             return $this->error($error);

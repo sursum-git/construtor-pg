@@ -35,6 +35,8 @@
     <ul>
       <li>Esta pagina usa demo em memoria e nao executa Docker, banco real ou worker.</li>
       <li>No sistema real, esta tela existe apenas no sistema central SaaS identificado por <code>APP_SYSTEM_ROLE=saas_central</code> ou <code>APP_CENTRAL_CONTROL_ENABLED=1</code>.</li>
+      <li>O cadastro agora separa ambiente principal isolado e ambiente runtime do assinante.</li>
+      <li>No modelo compartilhado por coluna de assinante, varios assinantes podem apontar para o mesmo ambiente runtime.</li>
       <li>Na producao, o botao <code>Criar ambiente</code> enfileira o job <code>subscriber.environment.provision</code> e depende de worker ativo.</li>
       <li>Na producao, o acompanhamento prefere SSE e cai para polling quando necessario.</li>
       <li>O pacote on-premise foi pensado para Ubuntu 24.04 e entrega <code>install.sh</code> como ponto de entrada.</li>

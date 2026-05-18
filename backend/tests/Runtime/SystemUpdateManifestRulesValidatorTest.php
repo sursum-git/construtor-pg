@@ -43,4 +43,23 @@ class SystemUpdateManifestRulesValidatorTest extends TestCase
             ],
         ]);
     }
+
+    public function testRejectsManifestWithUnknownStep(): void
+    {
+        $validator = new SystemUpdateManifestRulesValidator();
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('step nao suportado');
+
+        $validator->assertValid([
+            [
+                'version' => '2.3.5',
+                'requiresAppliedUpdates' => [],
+                'replaces' => [],
+                'steps' => [
+                    ['code' => 'step_inexistente'],
+                ],
+            ],
+        ]);
+    }
 }

@@ -30,6 +30,11 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - seed runtime;
   - validacao do catalogo padrao;
   - criacao/atualizacao do assinante e do admin inicial.
+- o cadastro do assinante agora tambem guarda:
+  - `deploymentMode`
+  - `runtimeEnvironmentCode`
+  - `primaryEnvironmentCode`
+- no modo `shared_program_shared_db`, varios assinantes podem apontar para o mesmo ambiente runtime, sem misturar o ambiente principal isolado.
 - existe agora uma tela administrativa propria:
   - `production/app.html?screenId=admin.assinante-ambientes`
   - pagina local: `examples/pages/admin-subscriber-provisioning.html`
@@ -49,6 +54,8 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `php backend/bin/console app:update:download <versao>`
     - `php backend/bin/console app:update:apply <versao>`
     - `php backend/bin/console app:update:run-pending`
+    - `php backend/bin/console app:update:simulate <versao>`
+    - `php backend/bin/console app:update:rollback <versao>`
     - `php backend/bin/console app:update:rollout-plan <versao>`
     - `php backend/bin/console app:update:dispatch-rollout <versao>`
     - `php backend/bin/console app:update:publish-artifacts [versao]`
@@ -59,6 +66,8 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `GET /api/admin/system-updates/bootstrap`
     - `POST /api/admin/system-updates/check`
     - `POST /api/admin/system-updates/apply`
+    - `GET /api/admin/system-updates/simulate`
+    - `POST /api/admin/system-updates/rollback`
     - `POST /api/admin/system-updates/publish-artifacts`
     - `GET /api/admin/system-updates/jobs/{jobId}`
     - `GET /api/admin/system-updates/jobs/{jobId}/events`
@@ -83,6 +92,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `production/app.html?screenId=admin.atualizacoes-assinantes`
     - pagina local: `examples/pages/admin-system-update-subscriber-log.html`
   - a esteira da release agora tambem cria draft de rebase para overlay limpo (`rebase_ok`), mantendo `review_required` para conflito leve e bloqueio total para conflito critico;
+  - o construtor de entidades persistentes agora tambem aceita `subscriberIsolation.mode=none|subscriber_column`, aplicando filtro automatico do assinante atual no runtime CRUD quando a entidade usar coluna de assinante;
   - a consulta por assinante agora tambem usa `GET /api/admin/system-updates/executions` com filtros por status, categoria e periodo, alem de exportacao local JSON/CSV;
   - releases opcionais no SaaS agora podem exigir ativacao por assinante antes do apply:
     - `POST /api/admin/system-updates/tenant-activation`
@@ -92,6 +102,9 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - cada release do manifesto agora pode declarar `version`, `requiresVersionMin`, `requiresAppliedUpdates[]`, `replaces[]`, `category`, `autoApply`, `breakingLevel` e `steps`;
   - a cadeia obrigatoria do updater agora e resolvida por assinante-alvo no sistema central; nao usar o historico global do ambiente para decidir dependencias de um assinante especifico;
   - a persistencia/publicacao do manifesto agora tambem valida coerencia da cadeia, incluindo dependencia ausente, `replaces[]` invalido e ciclo em `requiresAppliedUpdates[]`;
+  - o updater agora tambem valida canais por release (`stable`, `pilot`, `canary`, `lts`), changelog estruturado, `steps` conhecidos e `rollbackStep/rollbackSteps` coerentes;
+  - `admin.atualizacoes` agora expõe pre-check de compatibilidade antes do apply, simulacao administrativa da release, rollback formal, dashboards de atraso e alertas operacionais;
+  - `admin.atualizacoes-assinantes` agora tambem mostra timeline resumida por assinante com eventos de check, download, anuencia, ativacao, apply, rollout, falha e rollback;
   - o endurecimento do on-premise ao abrir o sistema agora separa:
     - `APP_UPDATE_ONPREM_CRITICAL_MODE=auto|prompt_admin|download_only`
     - `APP_UPDATE_ONPREM_CRITICAL_ACCESS_POLICY=warn|block`

@@ -126,6 +126,17 @@ async function main() {
     }, null, { timeout: 10000 });
 
     await page.evaluate(() => {
+      const button = window.jQuery("button").filter(function() {
+        return window.jQuery(this).text().trim() === "Simular";
+      }).get(0);
+      if (!button) {
+        throw new Error("Botao simular nao encontrado.");
+      }
+      button.click();
+    });
+    await page.waitForFunction(() => document.body.innerText.includes("Simulacao operacional"), null, { timeout: 10000 });
+
+    await page.evaluate(() => {
       const dropDown = window.jQuery(".program-builder-toolbar input").first().data("kendoDropDownList");
       if (!dropDown) {
         throw new Error("DropDown de assinante nao encontrado para limpar filtro.");
@@ -147,6 +158,28 @@ async function main() {
       const detail = window.jQuery(".program-builder-json-preview").text() || "";
       return detail.includes("\"dispatches\"") && detail.includes("\"batch\"");
     }, null, { timeout: 10000 });
+
+    await page.evaluate(() => {
+      const dropDown = window.jQuery(".program-builder-toolbar input").first().data("kendoDropDownList");
+      if (!dropDown) {
+        throw new Error("DropDown de assinante nao encontrado para rollback.");
+      }
+      dropDown.value("empresa-a");
+      dropDown.trigger("change");
+    });
+    await page.waitForFunction(() => document.body.innerText.includes("Assinante alvo: empresa-a."), null, { timeout: 10000 });
+    await page.evaluate(() => {
+      const button = window.jQuery("button").filter(function() {
+        return window.jQuery(this).text().trim() === "Rollback";
+      }).get(0);
+      if (!button) {
+        throw new Error("Botao rollback nao encontrado.");
+      }
+      button.click();
+    });
+    await page.waitForSelector(".k-window:has-text('Deseja continuar?')", { timeout: 10000 });
+    await page.getByRole("button", { name: "Confirmar", exact: true }).last().click();
+    await page.waitForFunction(() => document.body.innerText.includes("Rollback executado."), null, { timeout: 10000 });
 
     if (errors.length) {
       throw new Error("Erros JavaScript: " + errors.join(" | "));

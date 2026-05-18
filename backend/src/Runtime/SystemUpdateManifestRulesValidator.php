@@ -25,6 +25,7 @@ class SystemUpdateManifestRulesValidator
     {
         $issues = [];
         $knownVersions = [];
+        $knownStepCodes = array_flip(SystemUpdateStepCatalog::codes());
 
         foreach ($releases as $index => $release) {
             $version = trim((string) ($release['version'] ?? ''));
@@ -42,6 +43,9 @@ class SystemUpdateManifestRulesValidator
             if ($requiresVersionMin !== '' && version_compare($requiresVersionMin, $version, '>=')) {
                 $issues[] = 'Release ' . $version . ' possui requiresVersionMin invalido: ' . $requiresVersionMin . '.';
             }
+            $issues = array_merge($issues, $this->validateChannels($release, $version));
+            $issues = array_merge($issues, $this->validateChangelog($release, $version));
+            $issues = array_merge($issues, $this->validateSteps($release, $version, $knownStepCodes));
         }
 
         foreach ($releases as $release) {
@@ -93,6 +97,90 @@ class SystemUpdateManifestRulesValidator
         }
 
         return array_values(array_unique($issues));
+    }
+
+    /**
+     * @param array<string, mixed> $release
+     * @return list<string>
+     */
+    private function validateChannels(array $release, string $version): array
+    {
+        $metadata = is_array($release['metadata'] ?? null) ? $release['metadata'] : [];
+        $channels = $metadata['channels'] ?? $release['channels'] ?? [];
+        $normalized = array_values(array_filter(array_map(static function ($value): string {
+            return strtolower(trim((string) $value));
+        }, (array) $channels), static fn (string $value): bool => $value !== ''));
+        if ($normalized === []) {
+            return [];
+        }
+
+        $allowed = ['stable', 'pilot', 'canary', 'lts'];
+        $issues = [];
+        foreach ($normalized as $channel) {
+            if (!in_array($channel, $allowed, true)) {
+                $issues[] = 'Release ' . $version . ' possui canal invalido: ' . $channel . '.';
+            }
+        }
+
+        return $issues;
+    }
+
+    /**
+     * @param array<string, mixed> $release
+     * @return list<string>
+     */
+    private function validateChangelog(array $release, string $version): array
+    {
+        $metadata = is_array($release['metadata'] ?? null) ? $release['metadata'] : [];
+        $changelog = $metadata['changelog'] ?? [];
+        if (!is_array($changelog)) {
+            return ['Release ' . $version . ' possui changelog invalido.'];
+        }
+
+        $issues = [];
+        foreach ($changelog as $index => $section) {
+            if (!is_array($section)) {
+                $issues[] = 'Release ' . $version . ' possui secao de changelog invalida na posicao ' . $index . '.';
+                continue;
+            }
+            $title = trim((string) ($section['title'] ?? ''));
+            if ($title === '') {
+                $issues[] = 'Release ' . $version . ' possui secao de changelog sem titulo na posicao ' . $index . '.';
+            }
+        }
+
+        return $issues;
+    }
+
+    /**
+     * @param array<string, mixed> $release
+     * @param array<string, bool> $knownStepCodes
+     * @return list<string>
+     */
+    private function validateSteps(array $release, string $version, array $knownStepCodes): array
+    {
+        $issues = [];
+        foreach (SystemUpdateStepCatalog::normalizeList((array) ($release['steps'] ?? [])) as $step) {
+            $code = trim((string) ($step['code'] ?? ''));
+            if ($code === '') {
+                $issues[] = 'Release ' . $version . ' possui step sem codigo.';
+                continue;
+            }
+            if (!isset($knownStepCodes[$code])) {
+                $issues[] = 'Release ' . $version . ' referencia step nao suportado: ' . $code . '.';
+            }
+            $rollbackStep = trim((string) ($step['rollbackStep'] ?? ''));
+            if ($rollbackStep !== '' && !isset($knownStepCodes[$rollbackStep])) {
+                $issues[] = 'Release ' . $version . ' referencia rollbackStep nao suportado: ' . $rollbackStep . '.';
+            }
+            foreach ((array) ($step['preconditions'] ?? []) as $precondition) {
+                if (trim((string) $precondition) === '') {
+                    $issues[] = 'Release ' . $version . ' possui precondicao vazia no step ' . $code . '.';
+                }
+            }
+        }
+
+        return $issues;
     }
 
     /**

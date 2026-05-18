@@ -79,7 +79,7 @@ class RuntimeTransactionServiceTraceabilityTest extends TestCase
 
     private function permissionResolver(): PermissionResolver
     {
-        $resolver = $this->createMock(PermissionResolver::class);
+        $resolver = $this->createStub(PermissionResolver::class);
         $resolver->method('getTenantId')->willReturn('tenant-a');
         return $resolver;
     }

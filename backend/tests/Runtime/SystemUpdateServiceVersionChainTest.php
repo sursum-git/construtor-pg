@@ -41,7 +41,7 @@ class SystemUpdateServiceVersionChainTest extends TestCase
             ->setRequiresVersionMin('2.3.0')
             ->setRequiresAppliedUpdates(['2.3.5']);
 
-        $executions = $this->createMock(SystemUpdateExecutionRepository::class);
+        $executions = $this->createStub(SystemUpdateExecutionRepository::class);
         $executions->method('findLatestSuccessfulVersionBySubscriber')->willReturnMap([
             ['empresa-a', '2.3.0'],
             ['empresa-b', '2.3.0'],
@@ -78,7 +78,7 @@ class SystemUpdateServiceVersionChainTest extends TestCase
             ->setCategory('required_structural')
             ->setRequiresAppliedUpdates(['2.3.5']);
 
-        $executions = $this->createMock(SystemUpdateExecutionRepository::class);
+        $executions = $this->createStub(SystemUpdateExecutionRepository::class);
         $executions->method('findLatestSuccessfulVersionBySubscriber')->willReturn('2.4.0');
         $executions->method('findSuccessfulVersionsBySubscriber')->willReturn(['2.4.0']);
 
@@ -99,11 +99,11 @@ class SystemUpdateServiceVersionChainTest extends TestCase
             ->setTitle('Melhoria visual')
             ->setCategory('optional_visual');
 
-        $executions = $this->createMock(SystemUpdateExecutionRepository::class);
+        $executions = $this->createStub(SystemUpdateExecutionRepository::class);
         $executions->method('findLatestSuccessfulVersionBySubscriber')->willReturn('2.5.0');
         $executions->method('findSuccessfulVersionsBySubscriber')->willReturn(['2.5.0']);
 
-        $activations = $this->createMock(SystemUpdateTenantActivationRepository::class);
+        $activations = $this->createStub(SystemUpdateTenantActivationRepository::class);
         $activations->method('findLatestByVersionAndSubscriber')->willReturn(null);
 
         $service = $this->service([$release], $executions, $activations);
@@ -117,7 +117,7 @@ class SystemUpdateServiceVersionChainTest extends TestCase
             ->setReleaseVersion('2.6.0')
             ->setStatus('enabled')
             ->setTargetSubscriberCode('empresa-a');
-        $activationsEnabled = $this->createMock(SystemUpdateTenantActivationRepository::class);
+        $activationsEnabled = $this->createStub(SystemUpdateTenantActivationRepository::class);
         $activationsEnabled->method('findLatestByVersionAndSubscriber')->willReturn($activation);
 
         $serviceEnabled = $this->service([$release], $executions, $activationsEnabled);
@@ -128,30 +128,53 @@ class SystemUpdateServiceVersionChainTest extends TestCase
         self::assertSame('pending', $enabled['status']);
     }
 
+    public function testReleaseOutsideSubscriberChannelIsBlocked(): void
+    {
+        $release = (new SystemUpdateRelease())
+            ->setVersion('2.7.0')
+            ->setTitle('Canario')
+            ->setCategory('optional_visual')
+            ->setMetadata([
+                'channels' => ['canary'],
+            ]);
+
+        $executions = $this->createStub(SystemUpdateExecutionRepository::class);
+        $executions->method('findLatestSuccessfulVersionBySubscriber')->willReturn('2.5.0');
+        $executions->method('findSuccessfulVersionsBySubscriber')->willReturn(['2.5.0']);
+
+        $service = $this->service([$release], $executions);
+        $method = new \ReflectionMethod($service, 'evaluateReleaseEntity');
+        $method->setAccessible(true);
+
+        $evaluation = $method->invoke($service, $release, 'empresa-a');
+
+        self::assertSame('channel_unavailable', $evaluation['status']);
+    }
+
     /**
      * @param list<SystemUpdateRelease> $catalog
      */
     private function service(array $catalog, SystemUpdateExecutionRepository $executions, ?SystemUpdateTenantActivationRepository $activations = null): SystemUpdateService
     {
-        $releases = $this->createMock(SystemUpdateReleaseRepository::class);
+        $releases = $this->createStub(SystemUpdateReleaseRepository::class);
         $releases->method('findAllOrdered')->willReturn($catalog);
 
-        $consents = $this->createMock(SystemUpdateConsentRepository::class);
+        $consents = $this->createStub(SystemUpdateConsentRepository::class);
         $consents->method('findLatestByVersionAndSubscriber')->willReturn(null);
 
-        $tenantActivations = $activations ?: $this->createMock(SystemUpdateTenantActivationRepository::class);
+        $tenantActivations = $activations ?: $this->createStub(SystemUpdateTenantActivationRepository::class);
         $tenantActivations->method('findLatestByVersionAndSubscriber')->willReturn(null);
 
-        $environment = $this->createMock(RuntimeEnvironmentIdentityResolver::class);
+        $environment = $this->createStub(RuntimeEnvironmentIdentityResolver::class);
         $environment->method('resolve')->willReturn([
             'databaseEnvironment' => 'prod',
             'databaseIdentity' => 'saas:test',
         ]);
 
-        $deploymentMode = $this->createMock(DeploymentModeResolver::class);
+        $deploymentMode = $this->createStub(DeploymentModeResolver::class);
         $deploymentMode->method('resolve')->willReturn('saas');
 
-        $central = $this->createMock(CentralControlResolver::class);
+        $central = $this->createStub(CentralControlResolver::class);
         $central->method('isCentralControl')->willReturn(true);
 
         return new SystemUpdateService(

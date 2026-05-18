@@ -13,6 +13,13 @@
     this.centralControl = {};
   }
 
+  SubscriberProvisioningAdmin.DEPLOYMENT_MODES = [
+    { value: "shared_program_shared_db", text: "Programa e banco compartilhados por coluna de assinante" },
+    { value: "shared_program_dedicated_db", text: "Programa compartilhado e banco dedicado" },
+    { value: "dedicated_stack", text: "Container e banco dedicados no SaaS" },
+    { value: "onprem_remote", text: "Instalacao on-premise remota" }
+  ];
+
   SubscriberProvisioningAdmin.prototype.init = function() {
     this.root = global.jQuery(this.rootSelector);
     this.root.empty().addClass("program-builder-root");
@@ -47,6 +54,10 @@
     this.codeInput = this.createTextField(form, "Codigo");
     this.nameInput = this.createTextField(form, "Nome");
     this.documentInput = this.createTextField(form, "Documento");
+    this.deploymentModeSelect = this.createSelectField(form, "Modelo de deployment", SubscriberProvisioningAdmin.DEPLOYMENT_MODES, "dedicated_stack", this.syncDeploymentHint.bind(this));
+    this.runtimeEnvironmentCodeInput = this.createTextField(form, "Ambiente runtime");
+    this.primaryEnvironmentCodeInput = this.createTextField(form, "Ambiente principal isolado");
+    this.deploymentHint = global.jQuery("<div class=\"program-builder-inline-hint\"></div>").appendTo(form);
     this.instanceCodeInput = this.createTextField(form, "Instance code");
     this.databaseEnvironmentInput = this.createTextField(form, "Ambiente do banco");
     this.databaseIdentityInput = this.createTextField(form, "Identidade do banco");
@@ -62,6 +73,7 @@
     this.createButton(actions, "Salvar assinante", "save", this.handleSaveSubscriber.bind(this));
     this.createButton(actions, "Criar ambiente", "play", this.handleProvision.bind(this));
     this.createButton(actions, "Baixar pacote on-premise", "download", this.handleDownloadOnPrem.bind(this));
+    this.syncDeploymentHint();
   };
 
   SubscriberProvisioningAdmin.prototype.renderJobCard = function() {
@@ -98,6 +110,8 @@
       return {
         code: item.code,
         name: item.name,
+        deploymentMode: item.deploymentMode || "-",
+        runtimeEnvironmentCode: item.runtimeEnvironmentCode || "-",
         databaseEnvironment: item.databaseEnvironment || "-",
         databaseIdentity: item.databaseIdentity || "-",
         updatedAt: item.updatedAt || ""
@@ -116,6 +130,8 @@
       columns: [
         { field: "code", title: "Codigo", width: 160 },
         { field: "name", title: "Nome" },
+        { field: "deploymentMode", title: "Modelo", width: 220 },
+        { field: "runtimeEnvironmentCode", title: "Runtime", width: 180 },
         { field: "databaseEnvironment", title: "Ambiente", width: 120 },
         { field: "updatedAt", title: "Atualizado", width: 180 }
       ],
@@ -192,6 +208,9 @@
     this.nameInput.value(subscriber.name || "");
     this.documentInput.value(subscriber.document || "");
     this.instanceCodeInput.value(subscriber.instanceCode || "");
+    this.deploymentModeSelect.value(subscriber.deploymentMode || "dedicated_stack");
+    this.runtimeEnvironmentCodeInput.value(subscriber.runtimeEnvironmentCode || "");
+    this.primaryEnvironmentCodeInput.value(subscriber.primaryEnvironmentCode || "");
     this.databaseEnvironmentInput.value(subscriber.databaseEnvironment || "");
     this.databaseIdentityInput.value(subscriber.databaseIdentity || "");
     this.databaseNameInput.value(subscriber.databaseName || "");
@@ -201,6 +220,7 @@
     this.adminPasswordInput.value("");
     this.principalCheckbox.prop("checked", subscriber.principal === true);
     this.enabledCheckbox.prop("checked", subscriber.enabled !== false);
+    this.syncDeploymentHint();
   };
 
   SubscriberProvisioningAdmin.prototype.collectSubscriberPayload = function() {
@@ -208,6 +228,9 @@
       code: this.codeInput.value(),
       name: this.nameInput.value(),
       document: this.documentInput.value(),
+      deploymentMode: this.deploymentModeSelect.value(),
+      runtimeEnvironmentCode: this.runtimeEnvironmentCodeInput.value(),
+      primaryEnvironmentCode: this.primaryEnvironmentCodeInput.value(),
       instanceCode: this.instanceCodeInput.value(),
       databaseEnvironment: this.databaseEnvironmentInput.value(),
       databaseIdentity: this.databaseIdentityInput.value(),
@@ -368,6 +391,20 @@
     return input.data("kendoTextBox");
   };
 
+  SubscriberProvisioningAdmin.prototype.createSelectField = function(container, label, items, value, changeHandler) {
+    const field = global.jQuery("<label class=\"program-builder-field\"></label>").appendTo(container);
+    global.jQuery("<span></span>").text(label).appendTo(field);
+    const input = global.jQuery("<input>").appendTo(field);
+    input.kendoDropDownList({
+      dataSource: items || [],
+      dataTextField: "text",
+      dataValueField: "value",
+      value: value || "",
+      change: changeHandler
+    });
+    return input.data("kendoDropDownList");
+  };
+
   SubscriberProvisioningAdmin.prototype.createCheckboxField = function(container, label, checked) {
     const field = global.jQuery("<label class=\"program-builder-checkbox\"></label>").appendTo(container);
     const input = global.jQuery("<input type=\"checkbox\">").prop("checked", checked === true).appendTo(field);
@@ -392,6 +429,26 @@
   SubscriberProvisioningAdmin.prototype.showError = function(error, fallback) {
     const message = error && error.error && error.error.message || error && error.message || fallback;
     global.CrudUtils.showMessage(message, "error");
+  };
+
+  SubscriberProvisioningAdmin.prototype.syncDeploymentHint = function() {
+    if (!this.deploymentHint || !this.deploymentModeSelect) {
+      return;
+    }
+    const mode = String(this.deploymentModeSelect.value() || "");
+    if (mode === "shared_program_shared_db") {
+      this.deploymentHint.text("Varios assinantes podem apontar para o mesmo ambiente runtime. O ambiente principal continua isolado e separado do ambiente compartilhado.");
+      return;
+    }
+    if (mode === "shared_program_dedicated_db") {
+      this.deploymentHint.text("Os programas permanecem compartilhados, mas cada assinante aponta para um banco proprio.");
+      return;
+    }
+    if (mode === "onprem_remote") {
+      this.deploymentHint.text("Cada assinante recebe instalacao propria. O ambiente principal continua isolado para controle e publicacao.");
+      return;
+    }
+    this.deploymentHint.text("Cada assinante usa stack propria no SaaS. O ambiente principal continua isolado e nao se mistura ao ambiente do cliente.");
   };
 
   global.SubscriberProvisioningAdmin = SubscriberProvisioningAdmin;

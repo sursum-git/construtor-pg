@@ -36,6 +36,8 @@
     <ul>
       <li>Esta tela existe apenas no sistema central SaaS identificado por <code>APP_SYSTEM_ROLE=saas_central</code> ou <code>APP_CENTRAL_CONTROL_ENABLED=1</code>.</li>
       <li>O provisionamento SaaS depende de worker de jobs ativo para processar <code>subscriber.environment.provision</code>.</li>
+      <li>O cadastro agora diferencia o ambiente principal isolado do ambiente runtime usado pelo assinante.</li>
+      <li>No modelo compartilhado por coluna de assinante, varios assinantes podem apontar para o mesmo ambiente runtime sem misturar o ambiente principal.</li>
       <li>O acompanhamento usa SSE quando disponivel e cai para polling quando necessario.</li>
       <li>O pacote on-premise foi pensado para Ubuntu 24.04 e entrega <code>install.sh</code> como ponto de entrada.</li>
       <li>Em outros ambientes, publicar esta tela exige rodar <code>php backend/bin/console app:seed-runtime-metadata --no-interaction</code>.</li>

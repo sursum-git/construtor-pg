@@ -19,6 +19,7 @@ use App\Repository\ProgramTestExecutionRepository;
 use App\Repository\SystemRecordIntegrityRepository;
 use App\Runtime\GovernanceRetentionPolicyService;
 use App\Runtime\PermissionResolver;
+use App\Runtime\ProgramGovernanceRetentionHistoryService;
 use App\Runtime\ProgramGovernanceService;
 use App\Runtime\RuntimeHttpException;
 use App\Runtime\RuntimeNotificationService;
@@ -256,7 +257,7 @@ class ProgramGovernanceServiceTest extends TestCase
 
     private function permissionResolver(): PermissionResolver
     {
-        $resolver = $this->createMock(PermissionResolver::class);
+        $resolver = $this->createStub(PermissionResolver::class);
         $resolver->method('getUserId')->willReturn('user-1');
         $resolver->method('getTenantId')->willReturn('tenant-a');
         $resolver->method('getSessionId')->willReturn('sess-1');
@@ -286,6 +287,7 @@ class ProgramGovernanceServiceTest extends TestCase
             $entityManager ?? $this->createStub(EntityManagerInterface::class),
             $this->createStub(RuntimeNotificationService::class),
             $this->createStub(GovernanceRetentionPolicyService::class),
+            $this->createStub(ProgramGovernanceRetentionHistoryService::class),
             $this->createStub(StructuralIntegrityService::class),
             $this->createStub(Connection::class),
         );

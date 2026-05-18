@@ -726,12 +726,15 @@
             objective: "Automatizar a preparacao do ambiente do assinante sem alterar a arquitetura atual do sistema.",
             scope: [
               "Cadastro e atualizacao do assinante.",
+              "Escolha do modelo de deployment do assinante.",
+              "Separacao entre ambiente principal isolado e ambiente runtime do assinante.",
               "Disparo do job `subscriber.environment.provision`.",
               "Acompanhamento do processamento por SSE quando disponivel, com fallback por polling.",
               "Geracao do pacote zip on-premise com `install.sh`."
             ],
             outputs: [
               "Assinante salvo com metadados de provisionamento.",
+              "Modo de deployment e ambientes logicos persistidos no cadastro do assinante.",
               "Job de provisionamento enfileirado e acompanhado pela tela.",
               "Pacote on-premise pronto para download."
             ]
@@ -744,6 +747,7 @@
             ],
             steps: [
               "Cadastrar ou localizar o assinante e preencher os dados de provisionamento.",
+              "Definir o modelo de deployment e, quando houver compartilhamento, informar o ambiente runtime comum.",
               "Salvar o assinante antes de iniciar o ambiente.",
               "Usar `Criar ambiente` para enfileirar o job SaaS e acompanhar o detalhe do processamento.",
               "Usar `Baixar pacote on-premise` quando precisar entregar uma instalacao nova com bootstrap automatico.",
@@ -751,6 +755,8 @@
             ],
             cautions: [
               "Esta tela existe apenas no sistema central SaaS.",
+              "No modo compartilhado por coluna de assinante, varios assinantes podem apontar para o mesmo ambiente runtime.",
+              "O ambiente principal continua isolado mesmo quando o runtime compartilhado atende varios assinantes.",
               "Sem worker ativo, o job fica enfileirado e nao conclui.",
               "A tela tenta SSE primeiro e cai para polling quando o stream nao estiver disponivel.",
               "O pacote on-premise foi pensado para Ubuntu 24.04 e nao substitui validacao operacional do host.",
@@ -776,11 +782,15 @@
             scope: [
               "Leitura do manifesto oficial de releases.",
               "Classificacao da release por severidade, dependencia e anuencia.",
+              "Politica por canal (`stable`, `pilot`, `canary`, `lts`).",
               "Cadeia obrigatoria por `requiresVersionMin`, `requiresAppliedUpdates[]`, `replaces[]`, `autoApply`, `breakingLevel` e `steps`.",
+              "Changelog estruturado, simulacao e pre-check de compatibilidade antes do apply.",
               "Ativacao opcional por tenant para updates SaaS que afetem UX ou comportamento visivel.",
               "Aplicacao controlada por job runtime.",
+              "Rollback formal da release quando o plano operacional permitir.",
               "Analise de impacto em programas padrao, overlays e variantes completas do assinante.",
-              "Exportacao do plano de rollout SaaS para orquestracao externa."
+              "Exportacao do plano de rollout SaaS para orquestracao externa.",
+              "Dashboards de atraso e alertas operacionais por recorte."
             ],
             outputs: [
               "Resumo do ambiente e das releases pendentes.",
@@ -798,8 +808,11 @@
               "Abrir a tela central para consultar versao atual, releases pendentes e execucoes anteriores.",
               "Selecionar o assinante alvo antes de registrar anuencia, plano SaaS ou apply da release.",
               "Usar `Atualizar manifesto` para reavaliar releases e dependencias.",
+              "Revisar changelog, canal, cadeia obrigatoria e pre-check antes de aplicar.",
+              "Usar `Simular` quando precisar avaliar impacto, bloqueios e lotes antes do apply real.",
               "Quando a release exigir aprovacao, registrar a anuencia antes do apply.",
               "Selecionar a release pendente e usar `Aplicar release` quando a politica permitir.",
+              "Usar `Rollback` somente quando a release e o plano operacional permitirem reverter a esteira.",
               "Usar `Plano SaaS` para exportar o roteiro de rollout do container/ambiente controlado externamente.",
               "Acompanhar o job ate `succeeded` ou `failed` pelo detalhe da tela."
             ],
@@ -810,6 +823,8 @@
               "No sistema central, a cadeia obrigatoria e avaliada por assinante alvo; um assinante nao libera dependencias de outro.",
               "Releases SaaS agora podem declarar janela curta de rollout e batches/canario por assinante; fora da janela, a fila automatica nao deve disparar.",
               "Manifesto inconsistente nao deve ser persistido nem publicado: dependencias ausentes, `replaces[]` invalido e ciclos agora sao barrados.",
+              "Canal fora da politica do assinante deixa a release indisponivel ate reclassificar o canal ou mover o assinante para um canal compativel.",
+              "Pre-check com bloqueio deve ser resolvido antes do apply; a tela nao deve ser usada para forcar a esteira por cima de dependencia, consentimento, backup ou conflito estrutural.",
               "Atualizacao de programa padrao nao sobrescreve `customer_overlay` nem `customer_custom`: overlays entram em analise de rebase e variantes completas permanecem congeladas.",
               "Quando o impacto do overlay vier como `rebase_ok`, a propria esteira da release gera rascunho de rebase para a base publicada; conflito leve fica em revisao e conflito bloqueante segue sem automacao.",
               "Quando a release critica pedir bloqueio temporario de entrada, o tenant SaaS so volta a abrir depois que o orquestrador limpar o estado local de rollout.",
@@ -820,7 +835,7 @@
           references: {
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Provisionamento de assinantes", "Atualizacoes por assinante", "Governanca de programas", "Integridade estrutural"],
-            notes: ["Tela de producao: ../../production/app.html?screenId=admin.atualizacoes", "Entrada custom local: ../../production/admin/system-updates.html", "Exemplo local: ../../examples/pages/admin-system-updates.html", "Comandos: `app:update:check`, `app:update:download <versao>`, `app:update:apply <versao>`, `app:update:run-pending`, `app:update:download-pending-critical`, `app:update:rollout-plan <versao>`, `app:update:dispatch-rollout <versao>` e `app:update:publish-artifacts [versao]`", "Jobs envolvidos: `system.update.apply` e avaliacao automatica ao abrir a Home em ambiente autenticado", "Runner on-premise: `scripts/update-onprem.sh|ps1` ou `./update.sh` no pacote zip", "Politica critica do on-premise: `APP_UPDATE_ONPREM_CRITICAL_MODE=auto|prompt_admin|download_only`, `APP_UPDATE_ONPREM_CRITICAL_ACCESS_POLICY=warn|block` e endpoints locais `POST /api/runtime/system-updates/run-pending` / `POST /api/runtime/system-updates/download-pending-critical`", "Publicacao oficial de artefatos: `APP_UPDATE_DISTRIBUTION_DIR` e `APP_UPDATE_PUBLIC_BASE_URL`", "Distribuicao externa dos artefatos: `APP_UPDATE_DISTRIBUTION_PUSH_URL`, `APP_UPDATE_DISTRIBUTION_PUSH_TOKEN`, `APP_UPDATE_DISTRIBUTION_PUSH_SIGNING_KEY` e `APP_UPDATE_DISTRIBUTION_PUSH_TIMEOUT`", "Webhook/orquestrador real do SaaS: `scripts/orchestrator/system-update-orchestrator.php`, `scripts/orchestrator/run-system-update-orchestrator.sh` e `scripts/orchestrator/system-update-orchestrator.config.sample.json`", "Rollout externo do SaaS: `APP_UPDATE_ORCHESTRATOR_URL`, `APP_UPDATE_ORCHESTRATOR_TOKEN`, `APP_UPDATE_ORCHESTRATOR_SIGNING_KEY` e `APP_UPDATE_ORCHESTRATOR_TIMEOUT`", "Bloqueio local do tenant SaaS durante rollout critico: `APP_SAAS_ROLLOUT_STATE_FILE` escrito pelo orquestrador"]
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.atualizacoes", "Entrada custom local: ../../production/admin/system-updates.html", "Exemplo local: ../../examples/pages/admin-system-updates.html", "Comandos: `app:update:check`, `app:update:download <versao>`, `app:update:apply <versao>`, `app:update:run-pending`, `app:update:simulate <versao>`, `app:update:rollback <versao>`, `app:update:download-pending-critical`, `app:update:rollout-plan <versao>`, `app:update:dispatch-rollout <versao>` e `app:update:publish-artifacts [versao]`", "Jobs envolvidos: `system.update.apply` e avaliacao automatica ao abrir a Home em ambiente autenticado", "Runner on-premise: `scripts/update-onprem.sh|ps1` ou `./update.sh` no pacote zip", "Politica critica do on-premise: `APP_UPDATE_ONPREM_CRITICAL_MODE=auto|prompt_admin|download_only`, `APP_UPDATE_ONPREM_CRITICAL_ACCESS_POLICY=warn|block` e endpoints locais `POST /api/runtime/system-updates/run-pending` / `POST /api/runtime/system-updates/download-pending-critical`", "Publicacao oficial de artefatos: `APP_UPDATE_DISTRIBUTION_DIR` e `APP_UPDATE_PUBLIC_BASE_URL`", "Distribuicao externa dos artefatos: `APP_UPDATE_DISTRIBUTION_PUSH_URL`, `APP_UPDATE_DISTRIBUTION_PUSH_TOKEN`, `APP_UPDATE_DISTRIBUTION_PUSH_SIGNING_KEY` e `APP_UPDATE_DISTRIBUTION_PUSH_TIMEOUT`", "Webhook/orquestrador real do SaaS: `scripts/orchestrator/system-update-orchestrator.php`, `scripts/orchestrator/run-system-update-orchestrator.sh` e `scripts/orchestrator/system-update-orchestrator.config.sample.json`", "Rollout externo do SaaS: `APP_UPDATE_ORCHESTRATOR_URL`, `APP_UPDATE_ORCHESTRATOR_TOKEN`, `APP_UPDATE_ORCHESTRATOR_SIGNING_KEY` e `APP_UPDATE_ORCHESTRATOR_TIMEOUT`", "Bloqueio local do tenant SaaS durante rollout critico: `APP_SAAS_ROLLOUT_STATE_FILE` escrito pelo orquestrador"]
           }
         },
         "admin-atualizacoes-assinantes": {
@@ -836,7 +851,8 @@
               "Filtro por assinante alvo.",
               "Filtro adicional por status, categoria e periodo.",
               "Consulta do historico aplicado por release.",
-              "Detalhe tecnico com base alvo, horario, origem da execucao e resultado da esteira de overlays."
+              "Detalhe tecnico com base alvo, horario, origem da execucao e resultado da esteira de overlays.",
+              "Timeline resumida de check, download, anuencia, ativacao, apply, rollout, falha e rollback."
             ],
             outputs: [
               "Lista de execucoes por assinante.",
@@ -856,7 +872,7 @@
               "Abrir a tela e selecionar o assinante desejado.",
               "Aplicar filtros de status, categoria ou periodo quando precisar reduzir o recorte.",
               "Consultar as releases aplicadas e o status de cada execucao.",
-              "Abrir o detalhe para revisar base alvo, origem, resumo da execucao e o pipeline de overlays."
+              "Abrir o detalhe para revisar base alvo, origem, resumo da execucao, timeline e o pipeline de overlays."
             ],
             cautions: [
               "Esta tela existe apenas no sistema central SaaS.",

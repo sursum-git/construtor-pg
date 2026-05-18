@@ -182,13 +182,17 @@ class ProgramBuilderServiceGovernanceTest extends TestCase
             ->setNumberStart(1000)
             ->setNumberEnd(1999);
 
-        $modules = $this->createMock(BuilderModuleRepository::class);
-        $modules->method('findOneBy')->with(['code' => 'cadastros'])->willReturn($module);
+        $modules = $this->createStub(BuilderModuleRepository::class);
+        $modules->method('findOneBy')->willReturnCallback(
+            static fn (array $criteria): ?BuilderModule => $criteria === ['code' => 'cadastros'] ? $module : null
+        );
 
-        $programs = $this->createMock(ProgramRepository::class);
-        $programs->method('findOneBy')->with(['code' => 'cd1001'])->willReturn($existingProgram);
+        $programs = $this->createStub(ProgramRepository::class);
+        $programs->method('findOneBy')->willReturnCallback(
+            static fn (array $criteria): ?Program => $criteria === ['code' => 'cd1001'] ? $existingProgram : null
+        );
 
-        $environment = $this->createMock(RuntimeEnvironmentIdentityResolver::class);
+        $environment = $this->createStub(RuntimeEnvironmentIdentityResolver::class);
         $environment->method('resolve')->willReturn([
             'databaseIdentity' => 'db:test-1',
             'databaseEnvironment' => 'test',

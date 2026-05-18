@@ -61,6 +61,7 @@ class RuntimeEntityDefinitionResolver
         $ignoredFields = [];
         $primaryKey = (string) (($entity->getMetadata()['primaryKey'] ?? '') ?: 'id');
         $entityMetadata = $entity->getMetadata();
+        $subscriberIsolation = $this->resolveSubscriberIsolationConfig($entityMetadata, $dbColumns, $entityCode, $tableName);
         $versioning = $this->resolveVersioningConfig($entityMetadata);
         foreach ($entity->getFields() as $field) {
             ++$configuredFieldCount;
@@ -169,6 +170,7 @@ class RuntimeEntityDefinitionResolver
             'metadata' => $entityMetadata,
             'fields' => $fields,
             'dbColumns' => $dbColumns,
+            'subscriberIsolation' => $subscriberIsolation,
             'versioning' => $versioning,
             'situation' => $situation,
         ];
@@ -392,6 +394,11 @@ class RuntimeEntityDefinitionResolver
                 'minimum' => 'Um campo primaryKey e os campos legiveis/gravaveis usados pelo frontend.',
                 'columnName' => 'Use options.columnName quando o nome do campo for diferente da coluna fisica.',
             ],
+            'subscriberIsolation' => [
+                'required' => false,
+                'mode' => 'none | subscriber_column',
+                'columnName' => 'Obrigatorio quando a tabela for filtrada por assinante.',
+            ],
             'builder_entity_situation' => [
                 'required' => false,
                 'purpose' => 'Situacoes permitidas quando a entidade tiver fluxo de situacao.',
@@ -423,6 +430,40 @@ class RuntimeEntityDefinitionResolver
             'enabled' => ($config['enabled'] ?? false) === true,
             'mode' => (string) ($config['mode'] ?? 'snapshot_on_change'),
             'deduplicate' => ($config['deduplicate'] ?? true) !== false,
+        ];
+    }
+
+    private function resolveSubscriberIsolationConfig(array $metadata, array $dbColumns, string $entityCode, string $tableName): array
+    {
+        $config = is_array($metadata['subscriberIsolation'] ?? null) ? $metadata['subscriberIsolation'] : [];
+        $mode = strtolower(trim((string) ($config['mode'] ?? 'none')));
+        if ($mode !== 'subscriber_column') {
+            return [
+                'enabled' => false,
+                'mode' => 'none',
+                'column' => null,
+            ];
+        }
+
+        $columnName = trim((string) ($config['columnName'] ?? ''));
+        if ($columnName === '' || !preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $columnName)) {
+            throw new RuntimeHttpException('ENTITY_SUBSCRIBER_ISOLATION_INVALID', 'Configuracao de isolamento por assinante invalida.', 422, [
+                'entityCode' => $entityCode,
+                'tableName' => $tableName,
+            ]);
+        }
+        if (!isset($dbColumns[$columnName])) {
+            throw new RuntimeHttpException('ENTITY_SUBSCRIBER_COLUMN_NOT_FOUND', 'A coluna de assinante configurada nao existe na tabela fisica.', 422, [
+                'entityCode' => $entityCode,
+                'tableName' => $tableName,
+                'columnName' => $columnName,
+            ]);
+        }
+
+        return [
+            'enabled' => true,
+            'mode' => 'subscriber_column',
+            'column' => $columnName,
         ];
     }
 
@@ -493,6 +534,9 @@ class RuntimeEntityDefinitionResolver
         }
         if (!empty($entityMetadata['versioning']['enabled'])) {
             $properties[] = ['section' => 'Versionamento', 'label' => 'Entidade versionada', 'value' => 'Sim'];
+        }
+        if (($entityMetadata['subscriberIsolation']['mode'] ?? 'none') === 'subscriber_column') {
+            $properties[] = ['section' => 'Tenancy', 'label' => 'Filtro por assinante', 'value' => (string) ($entityMetadata['subscriberIsolation']['columnName'] ?? ''), 'critical' => true];
         }
 
         return $properties;

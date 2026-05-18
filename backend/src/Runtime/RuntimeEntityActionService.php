@@ -22,6 +22,7 @@ class RuntimeEntityActionService
         private readonly BuilderAiSettingsService $builderAiSettings,
         private readonly RuntimeNotificationService $notifications,
         private readonly StructuralIntegrityService $integrity,
+        private readonly PermissionResolver $permissions,
     ) {
     }
 
@@ -53,6 +54,7 @@ class RuntimeEntityActionService
         $qb = $this->connection->createQueryBuilder();
         $qb->select(...$this->selectColumns($definition, 't'))
             ->from($definition['quotedTableName'], 't');
+        $this->applySubscriberIsolation($qb, $definition, 't');
         $this->applyCustomFilters($qb, $definition, $payload['filters'] ?? []);
         $this->applyKendoFilter($qb, $definition, $payload['filter'] ?? null);
 
@@ -109,6 +111,7 @@ class RuntimeEntityActionService
         $values = $context->getValues();
         $situationTransition = $this->situations->validateCreate($definition, $values, $actionId);
         $dbValues = $this->toDatabaseValues($definition, $values);
+        $this->injectSubscriberIsolationValues($definition, $dbValues);
         $this->applyTimestampColumns($definition, $dbValues, true);
 
         $columns = array_keys($dbValues);
@@ -190,6 +193,7 @@ class RuntimeEntityActionService
         $values = $context->getValues();
         $situationTransition = $this->situations->validateUpdate($definition, $before, $values, $actionId);
         $dbValues = $this->toDatabaseValues($definition, $values);
+        $this->injectSubscriberIsolationValues($definition, $dbValues);
         $this->applyTimestampColumns($definition, $dbValues, false);
 
         if (!$dbValues) {
@@ -526,6 +530,7 @@ class RuntimeEntityActionService
             ->from($definition['quotedTableName'], 't')
             ->where('t.' . $this->quote($definition['primaryColumn']) . ' = :id')
             ->setParameter('id', $id);
+        $this->applySubscriberIsolation($qb, $definition, 't');
         $row = $qb->executeQuery()->fetchAssociative();
         if (!$row) {
             throw new RuntimeHttpException('RECORD_NOT_FOUND', 'Registro nao encontrado.', 404, [
@@ -890,6 +895,37 @@ class RuntimeEntityActionService
     private function quote(string $identifier): string
     {
         return $this->connection->quoteSingleIdentifier($identifier);
+    }
+
+    private function applySubscriberIsolation(QueryBuilder $qb, array $definition, string $alias): void
+    {
+        $config = is_array($definition['subscriberIsolation'] ?? null) ? $definition['subscriberIsolation'] : [];
+        if (($config['enabled'] ?? false) !== true) {
+            return;
+        }
+
+        $column = (string) ($config['column'] ?? '');
+        if ($column === '') {
+            return;
+        }
+
+        $qb->andWhere($alias . '.' . $this->quote($column) . ' = :runtimeTenantId');
+        $qb->setParameter('runtimeTenantId', $this->permissions->getTenantId());
+    }
+
+    private function injectSubscriberIsolationValues(array $definition, array &$dbValues): void
+    {
+        $config = is_array($definition['subscriberIsolation'] ?? null) ? $definition['subscriberIsolation'] : [];
+        if (($config['enabled'] ?? false) !== true) {
+            return;
+        }
+
+        $column = (string) ($config['column'] ?? '');
+        if ($column === '') {
+            return;
+        }
+
+        $dbValues[$column] = $this->permissions->getTenantId();
     }
 
     private function sqlValuePlaceholder(array $definition, string $column, string $placeholder): string

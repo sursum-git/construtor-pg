@@ -76,7 +76,10 @@ class ProgramBuilderServicePublishFlowTest extends TestCase
         $this->setEntityId($request, 45);
 
         $versions = $this->createMock(BuilderProgramVersionRepository::class);
-        $versions->method('find')->with(77)->willReturn($version);
+        $versions->expects(self::once())
+            ->method('find')
+            ->with(77)
+            ->willReturn($version);
         $versions->expects(self::exactly(2))
             ->method('findByProgramCodeOrdered')
             ->with('cad.clientes')
@@ -142,7 +145,7 @@ class ProgramBuilderServicePublishFlowTest extends TestCase
                 'databaseEnvironment' => 'test',
             ]);
 
-        $permissions = $this->createMock(PermissionResolver::class);
+        $permissions = $this->createStub(PermissionResolver::class);
         $permissions->method('hasPermission')->willReturn(true);
 
         $service = new ProgramBuilderService(

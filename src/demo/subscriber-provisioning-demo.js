@@ -10,6 +10,11 @@
         document: "",
         principal: true,
         enabled: true,
+        deploymentMode: "dedicated_stack",
+        runtimeEnvironmentCode: "default",
+        primaryEnvironmentCode: "default-principal",
+        sharedRuntimeEnvironment: false,
+        principalEnvironmentIsolated: true,
         instanceCode: "construtor-pg-default",
         databaseEnvironment: "prod",
         databaseIdentity: "saas:default",
@@ -32,7 +37,7 @@
     const data = request.data || {};
 
     if (method === "GET" && url === "/api/admin/subscriber-provisioning/bootstrap") {
-      return Promise.resolve({ environment: { databaseEnvironment: "dev", databaseIdentity: "db:demo" }, subscribers: this.subscribers.slice(), jobs: this.jobs.slice().reverse() });
+      return Promise.resolve({ centralControl: { centralControl: true }, environment: { databaseEnvironment: "dev", databaseIdentity: "db:demo" }, subscribers: this.subscribers.slice(), jobs: this.jobs.slice().reverse() });
     }
     if (method === "POST" && url === "/api/admin/subscriber-provisioning/subscribers") {
       const payload = Object.assign({}, data);
@@ -44,6 +49,11 @@
         document: payload.document || "",
         principal: payload.principal === true,
         enabled: payload.enabled !== false,
+        deploymentMode: payload.deploymentMode || "dedicated_stack",
+        runtimeEnvironmentCode: payload.runtimeEnvironmentCode || payload.code || "",
+        primaryEnvironmentCode: payload.primaryEnvironmentCode || ((payload.code || "") + "-principal"),
+        sharedRuntimeEnvironment: payload.deploymentMode === "shared_program_shared_db",
+        principalEnvironmentIsolated: true,
         instanceCode: payload.instanceCode || "",
         databaseEnvironment: payload.databaseEnvironment || "",
         databaseIdentity: payload.databaseIdentity || "",
@@ -86,6 +96,9 @@
         databaseEnvironment: data.databaseEnvironment || "prod",
         databaseName: data.databaseName || "",
         instanceCode: data.instanceCode || "",
+        deploymentMode: data.deploymentMode || "dedicated_stack",
+        runtimeEnvironmentCode: data.runtimeEnvironmentCode || data.subscriberCode || data.code || "",
+        primaryEnvironmentCode: data.primaryEnvironmentCode || ((data.subscriberCode || data.code || "") + "-principal"),
         result: { phase: "queued", message: "Provisionamento enfileirado." },
         createdAt: now,
         updatedAt: now,

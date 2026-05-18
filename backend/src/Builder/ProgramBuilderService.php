@@ -1269,6 +1269,7 @@ class ProgramBuilderService
                 'createdByBuilder' => true,
                 'builderMode' => 'visual',
                 'structure' => $config['structure'],
+                'subscriberIsolation' => $config['subscriberIsolation'],
                 'uniqueKeys' => $config['uniqueKeys'],
                 'rules' => $config['rules'],
                 'apiSource' => $this->restoreMaskedApiSourceSecrets(
@@ -2123,6 +2124,8 @@ class ProgramBuilderService
             'structureParentEntityCode' => (string) ($entity->getMetadata()['structure']['parentEntityCode'] ?? ''),
             'structureLeftEntityCode' => (string) ($entity->getMetadata()['structure']['leftEntityCode'] ?? ''),
             'structureRightEntityCode' => (string) ($entity->getMetadata()['structure']['rightEntityCode'] ?? ''),
+            'subscriberIsolationMode' => (string) ($entity->getMetadata()['subscriberIsolation']['mode'] ?? 'none'),
+            'subscriberColumnName' => (string) ($entity->getMetadata()['subscriberIsolation']['columnName'] ?? ''),
             'uniqueKeys' => $this->entityUniqueKeysPayload($entity->getMetadata()['uniqueKeys'] ?? []),
             'rules' => $this->entityRulesPayload($entity->getMetadata()['rules'] ?? []),
             'versioningEnabled' => ($entity->getMetadata()['versioning']['enabled'] ?? false) === true,
@@ -2278,6 +2281,7 @@ class ProgramBuilderService
         $situationFieldCode = $situationEnabled ? $this->safeSqlIdentifier((string) ($payload['situationFieldCode'] ?? 'status')) : null;
         $versioningEnabled = $entityType === 'persistence' && ($payload['versioningEnabled'] ?? false) === true;
         $versioningDeduplicate = ($payload['versioningDeduplicate'] ?? true) !== false;
+        $subscriberIsolation = $this->normalizeSubscriberIsolationConfig($payload, $entityType, $rawFields);
         $apiSourceCode = $this->safeCode((string) ($payload['apiSourceCode'] ?? ''));
         $apiListOperationCode = $this->safeCode((string) ($payload['apiListOperationCode'] ?? ''));
         $apiDetailOperationCode = $this->safeCode((string) ($payload['apiDetailOperationCode'] ?? ''));
@@ -2598,6 +2602,7 @@ class ProgramBuilderService
             'situationEnabled' => $situationEnabled,
             'situationFieldCode' => $situationFieldCode,
             'structure' => $structure,
+            'subscriberIsolation' => $subscriberIsolation,
             'uniqueKeys' => $uniqueKeys,
             'rules' => $rules,
             'versioningEnabled' => $versioningEnabled,
@@ -2606,6 +2611,41 @@ class ProgramBuilderService
             'allowTableRename' => $entityType === 'persistence' && ($payload['allowTableRename'] ?? true) !== false,
             'allowColumnRename' => $entityType === 'persistence' && ($payload['allowColumnRename'] ?? true) !== false,
             'dropRemovedColumns' => $entityType === 'persistence' && ($payload['dropRemovedColumns'] ?? false) === true,
+        ];
+    }
+
+    private function normalizeSubscriberIsolationConfig(array $payload, string $entityType, array $rawFields): array
+    {
+        if ($entityType !== 'persistence') {
+            return [
+                'mode' => 'none',
+                'columnName' => null,
+            ];
+        }
+
+        $mode = strtolower(trim((string) ($payload['subscriberIsolationMode'] ?? 'none')));
+        if (!in_array($mode, ['none', 'subscriber_column'], true)) {
+            $mode = 'none';
+        }
+        $columnName = $this->safeSqlIdentifier((string) ($payload['subscriberColumnName'] ?? ''));
+        if ($mode !== 'subscriber_column') {
+            return [
+                'mode' => 'none',
+                'columnName' => null,
+            ];
+        }
+        if ($columnName === '') {
+            throw new RuntimeHttpException('ENTITY_SUBSCRIBER_COLUMN_REQUIRED', 'Informe a coluna do assinante para isolamento por tabela.', 422);
+        }
+        if (!$this->fieldColumnExistsInRawConfig($rawFields, $columnName)) {
+            throw new RuntimeHttpException('ENTITY_SUBSCRIBER_COLUMN_NOT_FOUND', 'A coluna de assinante precisa existir na lista de campos da entidade.', 422, [
+                'columnName' => $columnName,
+            ]);
+        }
+
+        return [
+            'mode' => 'subscriber_column',
+            'columnName' => $columnName,
         ];
     }
 
@@ -3553,6 +3593,7 @@ class ProgramBuilderService
             ->setSituationFieldCode($config['situationFieldCode'])
             ->setMetadata([
                 'structure' => $config['structure'],
+                'subscriberIsolation' => $config['subscriberIsolation'],
                 'uniqueKeys' => $config['uniqueKeys'],
                 'rules' => $config['rules'],
                 'apiSource' => $config['apiSource'] ?? null,
@@ -3645,6 +3686,7 @@ class ProgramBuilderService
             'situationFieldCode' => $config['situationFieldCode'],
             'metadata' => [
                 'structure' => $config['structure'],
+                'subscriberIsolation' => $config['subscriberIsolation'],
                 'uniqueKeys' => $config['uniqueKeys'],
                 'rules' => $config['rules'],
                 'apiSource' => $this->maskApiSourceSecrets($config['apiSource'] ?? null),
@@ -3667,6 +3709,8 @@ class ProgramBuilderService
             'structureParentEntityCode' => (string) ($config['structure']['parentEntityCode'] ?? ''),
             'structureLeftEntityCode' => (string) ($config['structure']['leftEntityCode'] ?? ''),
             'structureRightEntityCode' => (string) ($config['structure']['rightEntityCode'] ?? ''),
+            'subscriberIsolationMode' => (string) ($config['subscriberIsolation']['mode'] ?? 'none'),
+            'subscriberColumnName' => (string) ($config['subscriberIsolation']['columnName'] ?? ''),
             'uniqueKeys' => $config['uniqueKeys'],
             'rules' => $config['rules'],
             'versioningEnabled' => $config['versioningEnabled'],
@@ -5870,6 +5914,24 @@ class ProgramBuilderService
     {
         foreach ($fields as $field) {
             if (($field['code'] ?? '') === $code) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function fieldColumnExistsInRawConfig(array $fields, string $columnName): bool
+    {
+        foreach ($fields as $field) {
+            if (!is_array($field)) {
+                continue;
+            }
+            if (($field['virtualField'] ?? false) === true) {
+                continue;
+            }
+            $currentColumn = $this->safeSqlIdentifier((string) ($field['columnName'] ?? $field['code'] ?? ''));
+            if ($currentColumn === $columnName) {
                 return true;
             }
         }

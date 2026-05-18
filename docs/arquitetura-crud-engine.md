@@ -92,6 +92,22 @@ No backend:
 - o handler usado passa a ser `entity.api.crud`, separado do `entity.crud`;
 - quando a fonte vinculada usa `providerType=odoo`, o runtime muda para `entity.api.odoo.readonly`, com `search_read`, `search_count` e `read` montados internamente, sem expor `create`, `update` ou `delete`.
 
+## Isolamento por assinante na entidade persistente
+
+O construtor agora tambem pode marcar a entidade persistente com escopo de registros por tabela:
+
+- `subscriberIsolation.mode=none`
+- `subscriberIsolation.mode=subscriber_column`
+
+Quando o modo for `subscriber_column`:
+
+- a coluna fisica do assinante precisa existir na modelagem da entidade;
+- o runtime CRUD aplica automaticamente o filtro do assinante atual em `read` e `get`;
+- `create` injeta o valor do assinante atual nessa coluna;
+- `update` e `delete` ficam limitados ao registro que ja passou pelo mesmo filtro.
+
+Isso cobre o cenario em que varios assinantes apontam para o mesmo programa e o mesmo banco, mas a separacao dos registros acontece pela coluna do assinante.
+
 Na definicao gerada:
 
 - o `pageType` continua `crud`;

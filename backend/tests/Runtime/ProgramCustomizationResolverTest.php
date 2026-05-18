@@ -50,7 +50,7 @@ class ProgramCustomizationResolverTest extends TestCase
             ->with('cd0001', 'tenant-a')
             ->willReturn($version);
 
-        $permissions = $this->createMock(PermissionResolver::class);
+        $permissions = $this->createStub(PermissionResolver::class);
         $permissions->method('getTenantId')->willReturn('tenant-a');
 
         $integrity = $this->createMock(StructuralIntegrityService::class);

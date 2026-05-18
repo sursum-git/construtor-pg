@@ -5,8 +5,8 @@
     this.consents = [];
     this.activations = [];
     this.subscribers = [
-      { code: "empresa-a", name: "Empresa A", databaseEnvironment: "prod", databaseIdentity: "saas:empresa-a" },
-      { code: "empresa-b", name: "Empresa B", databaseEnvironment: "prod", databaseIdentity: "saas:empresa-b" }
+      { code: "empresa-a", name: "Empresa A", databaseEnvironment: "prod", databaseIdentity: "saas:empresa-a", updateChannel: "stable" },
+      { code: "empresa-b", name: "Empresa B", databaseEnvironment: "prod", databaseIdentity: "saas:empresa-b", updateChannel: "pilot" }
     ];
     this.releases = [
       {
@@ -20,9 +20,29 @@
         breakingLevel: "security_forced",
         requiresConsent: false,
         autoApplicable: true,
+        channels: ["stable", "pilot", "canary"],
         packageAvailable: true,
         packageUrl: "backend/config/system-updates/packages/runtime-security-1.0.1.pkg",
+        steps: [
+          { code: "migrate", title: "Aplicar migrations", timeoutSeconds: 900, idempotent: true },
+          { code: "seed_runtime_metadata", title: "Atualizar metadados runtime", timeoutSeconds: 300, idempotent: true },
+          { code: "publish_runtime_defaults", title: "Publicar catalogo padrao", timeoutSeconds: 300, idempotent: true },
+          { code: "integrity_monitor", title: "Verificar integridade estrutural", timeoutSeconds: 180, idempotent: true }
+        ],
         metadata: {
+          channels: ["stable", "pilot", "canary"],
+          changelog: [
+            {
+              title: "Seguranca",
+              items: [
+                "Corrige validacoes obrigatorias do runtime.",
+                "Fecha o caminho vulneravel de publicacao sem manifesto valido."
+              ],
+              impact: "tecnico",
+              risk: "baixo",
+              reversible: true
+            }
+          ],
           saasRolloutWindow: {
             startAt: "2026-05-17T22:00:00-03:00",
             durationMinutes: 45,
@@ -57,13 +77,37 @@
         breakingLevel: "structural_breaking",
         requiresConsent: true,
         autoApplicable: false,
+        channels: ["stable", "pilot"],
         packageAvailable: true,
         packageUrl: "backend/config/system-updates/packages/runtime-structure-1.0.2.pkg",
+        steps: [
+          { code: "migrate", title: "Aplicar migrations", timeoutSeconds: 900, idempotent: true },
+          { code: "seed_runtime_metadata", title: "Atualizar metadados runtime", timeoutSeconds: 300, idempotent: true },
+          { code: "publish_runtime_defaults", title: "Publicar catalogo padrao", timeoutSeconds: 300, idempotent: true },
+          { code: "integrity_monitor", title: "Verificar integridade estrutural", timeoutSeconds: 180, idempotent: true }
+        ],
         dependencyIssues: ["Atualizacao obrigatoria pendente: 1.0.1."],
         metadata: {
+          channels: ["stable", "pilot"],
+          changelog: [
+            {
+              title: "Estrutura",
+              items: [
+                "Padroniza as estruturas exigidas antes das proximas releases.",
+                "Exige backup e janela controlada."
+              ],
+              impact: "estrutural",
+              risk: "medio",
+              reversible: false,
+              actionRequired: "Aplicar backup antes do rollout."
+            }
+          ],
           requiresBackup: true,
           requiresMaintenanceMode: true,
           orchestratorAction: "maintenance-rollout",
+          rollbackSteps: [
+            { code: "dispatch_rollback", title: "Despachar rollback SaaS" }
+          ],
           saasRolloutWindow: {
             startAt: "2026-05-18T00:30:00-03:00",
             durationMinutes: 90,
@@ -86,10 +130,28 @@
         breakingLevel: "non_breaking",
         requiresConsent: true,
         autoApplicable: false,
+        channels: ["pilot", "canary"],
         packageAvailable: true,
         packageUrl: "backend/config/system-updates/packages/admin-visual-1.0.3.pkg",
+        steps: [
+          { code: "seed_runtime_metadata", title: "Atualizar metadados runtime", timeoutSeconds: 300, idempotent: true },
+          { code: "publish_runtime_defaults", title: "Publicar catalogo padrao", timeoutSeconds: 300, idempotent: true }
+        ],
         dependencyIssues: ["Atualizacao obrigatoria pendente: 1.0.2."],
         metadata: {
+          channels: ["pilot", "canary"],
+          changelog: [
+            {
+              title: "Visual",
+              items: [
+                "Ajusta a apresentacao das telas administrativas.",
+                "Pode ser liberada por tenant conforme canal."
+              ],
+              impact: "visual",
+              risk: "baixo",
+              reversible: true
+            }
+          ],
           requiresBackup: false,
           requiresMaintenanceMode: false,
           orchestratorAction: "frontend-refresh",
@@ -247,6 +309,22 @@
           savedPath: "C:/construtor-pg/var/system-updates/" + version + "/system-update-" + version + ".pkg",
           sizeBytes: 2048
         }
+      });
+    }
+    if (method === "GET" && url === "/api/admin/system-updates/simulate") {
+      const version = String(data.version || "");
+      const subscriberCode = String(data.subscriberCode || "");
+      const release = this.resolveReleases(subscriberCode).find((item) => item.version === version);
+      if (!release) {
+        return Promise.reject({ error: { message: "Release demo nao encontrada." } });
+      }
+      return Promise.resolve({
+        release: release,
+        precheck: this.buildCompatibilityPrecheck(release),
+        subscriberImpact: this.buildSubscriberImpact(release, subscriberCode, String(data.batchCode || "")),
+        rollbackPlan: this.buildRollbackPlan(release),
+        delayDashboard: this.buildDelayDashboard(),
+        operationalAlerts: this.buildOperationalAlerts(this.resolveReleases(subscriberCode))
       });
     }
     if (method === "POST" && url === "/api/admin/system-updates/publish-artifacts") {
@@ -466,6 +544,50 @@
       }, 1600);
       return Promise.resolve({ execution: execution, job: job });
     }
+    if (method === "POST" && url === "/api/admin/system-updates/rollback") {
+      const version = String(data.version || "");
+      const subscriberCode = String(data.subscriberCode || "");
+      const release = this.resolveReleases(subscriberCode).find((item) => item.version === version);
+      if (!release) {
+        return Promise.reject({ error: { message: "Release demo nao encontrada." } });
+      }
+      const execution = {
+        id: this.executions.length + 1,
+        releaseVersion: release.version,
+        releaseTitle: release.title,
+        category: release.category,
+        severity: release.severity,
+        status: "succeeded",
+        mode: "rollback",
+        deploymentMode: "saas",
+        databaseEnvironment: "dev",
+        databaseIdentity: "saas:demo",
+        targetSubscriberCode: subscriberCode || "",
+        targetSubscriberName: this.findSubscriberName(subscriberCode),
+        targetDatabaseEnvironment: "prod",
+        targetDatabaseIdentity: subscriberCode ? "saas:" + subscriberCode : "",
+        initiatedBy: "admin",
+        initiatedSource: "ui",
+        runtimeJobId: null,
+        summary: {
+          message: "Rollback formal concluido.",
+          rollback: this.buildRollbackPlan(release),
+          reason: String(data.reason || "")
+        },
+        impactReport: {},
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString()
+      };
+      this.executions.unshift(execution);
+      return Promise.resolve({
+        status: "succeeded",
+        releaseVersion: version,
+        execution: execution,
+        rollbackPlan: this.buildRollbackPlan(release),
+        steps: [{ step: "dispatch_rollback", status: "ok" }]
+      });
+    }
     if (method === "GET" && /^\/api\/admin\/system-updates\/jobs\/\d+$/i.test(url)) {
       const jobId = Number(url.split("/").pop());
       const job = this.jobs.find((item) => item.id === jobId);
@@ -493,6 +615,8 @@
         manifestSignatureMessage: "Manifesto local sem assinatura obrigatoria.",
         pendingCount: releases.filter((item) => item.status === "pending").length,
         criticalPendingCount: releases.filter((item) => item.status === "pending" && item.severity === "critical").length,
+        delayDashboard: this.buildDelayDashboard(),
+        operationalAlerts: this.buildOperationalAlerts(releases),
         targetSubscriberCode: selectedSubscriber && selectedSubscriber.code || "",
         targetSubscriberName: selectedSubscriber && selectedSubscriber.name || ""
       },
@@ -597,6 +721,17 @@
         byCategory: byCategory,
         overlayPipeline: overlayPipeline,
         rolloutAudit: rolloutAudit,
+        timeline: rows.map((item) => ({
+          id: item.id,
+          releaseVersion: item.releaseVersion,
+          title: item.mode === "rollback" ? "Rollback da release" : (item.mode === "rollout_dispatch" ? "Despacho de rollout" : "Aplicacao da release"),
+          status: item.status,
+          mode: item.mode,
+          createdAt: item.createdAt,
+          finishedAt: item.finishedAt,
+          subscriberCode: item.targetSubscriberCode,
+          message: item.summary && item.summary.message || ""
+        })),
         filters: {
           subscriberCode: subscriberCode,
           status: status,
@@ -680,15 +815,25 @@
       release.consentStatus = release.requiresConsent ? (consent ? consent.status : "pending") : "not-required";
       release.consentApproved = release.requiresConsent ? Boolean(consent && consent.status === "approved") : true;
       release.scenarioBehavior = this.resolveScenarioBehavior(release);
+      release.channels = Array.isArray(release.channels) && release.channels.length ? release.channels.slice() : ["stable"];
+      release.targetChannel = this.resolveSubscriberChannel(normalizedSubscriber);
+      release.channelStatus = release.channels.indexOf(release.targetChannel) >= 0 ? "eligible" : "out_of_channel";
       release.rolloutWindow = this.resolveRolloutWindow(release);
       release.rolloutWindowStatus = release.rolloutWindow.status || "unscheduled";
+      release.changelog = Array.isArray(release.metadata && release.metadata.changelog) ? release.metadata.changelog : [];
+      release.stepCatalog = Array.isArray(release.steps) ? release.steps.slice() : [];
       release.tenantActivationRequired = release.scenarioBehavior && release.scenarioBehavior.applyMode === "tenant_activation" && !!normalizedSubscriber;
       release.tenantActivationStatus = release.tenantActivationRequired ? (activation ? activation.status : "pending") : "not-required";
       release.tenantActivationInfo = activation || null;
+      if (release.status === "pending" && release.channelStatus !== "eligible") {
+        release.status = "channel_unavailable";
+        release.dependencyIssues = ["Release fora do canal do assinante."];
+      }
       if (release.status === "pending" && release.tenantActivationRequired && release.tenantActivationStatus !== "enabled") {
         release.status = "awaiting_tenant_activation";
         release.dependencyIssues = ["A release opcional exige ativacao explicita para este assinante."];
       }
+      release.compatibilityPrecheck = this.buildCompatibilityPrecheck(release);
       return release;
     });
   };
@@ -712,6 +857,11 @@
   SystemUpdatesDemoHttpClient.prototype.findSubscriberName = function(subscriberCode) {
     const subscriber = this.findSubscriber(subscriberCode);
     return subscriber ? subscriber.name : "";
+  };
+
+  SystemUpdatesDemoHttpClient.prototype.resolveSubscriberChannel = function(subscriberCode) {
+    const subscriber = this.findSubscriber(subscriberCode);
+    return subscriber && subscriber.updateChannel ? String(subscriber.updateChannel) : "stable";
   };
 
   SystemUpdatesDemoHttpClient.prototype.findActivation = function(version, subscriberCode) {
@@ -744,6 +894,91 @@
       applyMode: "tenant_activation",
       rolloutMode: "opt_in"
     };
+  };
+
+  SystemUpdatesDemoHttpClient.prototype.buildCompatibilityPrecheck = function(release) {
+    const checks = [
+      { code: "version_chain", title: "Cadeia de versoes", status: release.status === "blocked_dependency" ? "blocked" : "ok", message: release.status === "blocked_dependency" ? (release.dependencyIssues || []).join(" ") : "Dependencias de versao satisfeitas." },
+      { code: "channel", title: "Canal", status: release.channelStatus === "eligible" ? "ok" : "blocked", message: release.channelStatus === "eligible" ? "Release liberada para o canal do assinante." : "Release fora do canal do assinante." },
+      { code: "consent", title: "Anuencia", status: release.requiresConsent && !release.consentApproved ? "warning" : "ok", message: release.requiresConsent ? (release.consentApproved ? "Anuencia registrada." : "A release exige anuencia.") : "Sem exigencia de anuencia." },
+      { code: "tenant_activation", title: "Ativacao por tenant", status: release.tenantActivationRequired && release.tenantActivationStatus !== "enabled" ? "warning" : "ok", message: release.tenantActivationRequired ? (release.tenantActivationStatus === "enabled" ? "Tenant ativado." : "Aguardando ativacao do tenant.") : "Sem ativacao especifica por tenant." },
+      { code: "package", title: "Pacote", status: release.packageAvailable ? "ok" : "blocked", message: release.packageAvailable ? "Pacote configurado para a release." : "Pacote ausente." },
+      { code: "customization", title: "Customizacoes", status: release.status === "blocked_customization" ? "blocked" : "ok", message: release.status === "blocked_customization" ? "Existe customizacao bloqueante." : "Sem bloqueios de customizacao." }
+    ];
+    return {
+      status: checks.some((item) => item.status === "blocked") ? "blocked" : (checks.some((item) => item.status === "warning") ? "warning" : "ok"),
+      blockingCount: checks.filter((item) => item.status === "blocked").length,
+      warningCount: checks.filter((item) => item.status === "warning").length,
+      checks: checks
+    };
+  };
+
+  SystemUpdatesDemoHttpClient.prototype.buildSubscriberImpact = function(release, subscriberCode, batchCode) {
+    let subscribers = subscriberCode ? [this.findSubscriber(subscriberCode)].filter(Boolean) : this.subscribers.slice();
+    if (!subscriberCode && batchCode) {
+      const batches = this.resolveRolloutBatches(release, "");
+      const batch = batches.find((item) => String(item.code || "") === String(batchCode || ""));
+      subscribers = batch ? batch.subscribers.slice() : [];
+    }
+    const items = subscribers.map((subscriber) => {
+      const evaluated = this.resolveReleases(subscriber.code).find((item) => item.version === release.version);
+      return {
+        subscriber: subscriber,
+        status: evaluated && evaluated.status || "unknown",
+        autoApplicable: evaluated && evaluated.autoApplicable === true,
+        requiresConsent: evaluated && evaluated.requiresConsent === true,
+        consentStatus: evaluated && evaluated.consentStatus || "not-required",
+        tenantActivationStatus: evaluated && evaluated.tenantActivationStatus || "not-required",
+        channel: evaluated && evaluated.targetChannel || "stable",
+        compatibilityPrecheck: evaluated && evaluated.compatibilityPrecheck || { status: "ok", checks: [] }
+      };
+    });
+    return {
+      items: items,
+      summary: {
+        totalSubscribers: items.length,
+        ready: items.filter((item) => item.status === "pending").length,
+        requiresConsent: items.filter((item) => item.requiresConsent && item.consentStatus !== "approved").length,
+        awaitingActivation: items.filter((item) => item.tenantActivationStatus === "pending").length,
+        blockedDependency: items.filter((item) => item.status === "blocked_dependency").length,
+        blockedCustomization: items.filter((item) => item.status === "blocked_customization").length,
+        channelUnavailable: items.filter((item) => item.status === "channel_unavailable").length
+      }
+    };
+  };
+
+  SystemUpdatesDemoHttpClient.prototype.buildRollbackPlan = function(release) {
+    return {
+      supported: true,
+      targetVersion: Array.isArray(release.replaces) && release.replaces.length ? release.replaces[0] : "1.0.0",
+      dispatchRollback: true,
+      steps: [{ code: "dispatch_rollback", title: "Despachar rollback SaaS" }]
+    };
+  };
+
+  SystemUpdatesDemoHttpClient.prototype.buildDelayDashboard = function() {
+    return {
+      outdatedSubscribers: 2,
+      blockedDependencySubscribers: 1,
+      awaitingConsentSubscribers: 1,
+      awaitingActivationSubscribers: 1,
+      blockedCustomizationSubscribers: 0,
+      channelUnavailableSubscribers: 1,
+      failedRolloutSubscribers: this.executions.filter((item) => item.mode === "rollout_dispatch" && item.status === "failed").length
+    };
+  };
+
+  SystemUpdatesDemoHttpClient.prototype.buildOperationalAlerts = function(releases) {
+    const alerts = [];
+    (releases || []).forEach(function(release) {
+      if (release.status === "blocked_dependency") {
+        alerts.push({ severity: "high", kind: "dependency", message: "A release " + release.version + " esta bloqueada pela cadeia obrigatoria." });
+      }
+      if (release.status === "awaiting_tenant_activation") {
+        alerts.push({ severity: "medium", kind: "tenant_activation", message: "A release " + release.version + " aguarda ativacao do tenant." });
+      }
+    });
+    return alerts;
   };
 
   SystemUpdatesDemoHttpClient.prototype.resolveRolloutWindow = function(release) {

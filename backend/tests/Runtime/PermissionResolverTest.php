@@ -266,7 +266,7 @@ class PermissionResolverTest extends TestCase
                 ],
             ]);
 
-        $authenticatedSessionResolver = $this->createMock(AuthenticatedSessionResolver::class);
+        $authenticatedSessionResolver = $this->createStub(AuthenticatedSessionResolver::class);
         $authenticatedSessionResolver->method('resolve')->willReturn($session);
 
         $stack = new RequestStack();

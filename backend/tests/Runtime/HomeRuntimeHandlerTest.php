@@ -2,14 +2,16 @@
 
 namespace App\Tests\Runtime;
 
+use App\Runtime\HomeSupportService;
 use App\Runtime\HomeRuntimeHandler;
+use App\Runtime\RuntimeNotificationService;
 use PHPUnit\Framework\TestCase;
 
 class HomeRuntimeHandlerTest extends TestCase
 {
     public function testAiSendUsesProgramContext(): void
     {
-        $response = (new HomeRuntimeHandler())->handle('aiSend', [
+        $response = $this->createHandler()->handle('aiSend', [
             'message' => ['text' => 'qual o estado da tela?'],
             'context' => $this->contextPayload(),
         ]);
@@ -25,7 +27,26 @@ class HomeRuntimeHandlerTest extends TestCase
 
     public function testSupportRequestReturnsProgramContext(): void
     {
-        $response = (new HomeRuntimeHandler())->handle('supportCreateRequest', [
+        $support = $this->createMock(HomeSupportService::class);
+        $support->expects(self::once())
+            ->method('createSupportRequest')
+            ->with(
+                ['id' => 'suporte'],
+                'normal',
+                'Erro na tela',
+                'Falha ao salvar',
+                self::callback(function (array $context): bool {
+                    return ($context['programId'] ?? null) === 'clientes-crud'
+                        && ($context['programCode'] ?? null) === 'clientes-crud'
+                        && ($context['programTitle'] ?? null) === 'Clientes';
+                })
+            )
+            ->willReturn([
+                'ok' => true,
+                'protocol' => 'ATD-20260518000000',
+            ]);
+
+        $response = $this->createHandler($support)->handle('supportCreateRequest', [
             'sector' => ['id' => 'suporte'],
             'subject' => 'Erro na tela',
             'description' => 'Falha ao salvar',
@@ -57,5 +78,13 @@ class HomeRuntimeHandlerTest extends TestCase
                 'moduleId' => 'operacional',
             ],
         ];
+    }
+
+    private function createHandler(?HomeSupportService $support = null): HomeRuntimeHandler
+    {
+        return new HomeRuntimeHandler(
+            $this->createStub(RuntimeNotificationService::class),
+            $support ?? $this->createStub(HomeSupportService::class),
+        );
     }
 }

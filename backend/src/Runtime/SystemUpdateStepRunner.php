@@ -17,16 +17,23 @@ class SystemUpdateStepRunner
     /**
      * @return array{step: string, status: string, output: string}
      */
-    public function run(string $step): array
+    public function run(string|array $step): array
     {
-        $commands = $this->resolveCommand($step);
+        $stepDefinition = SystemUpdateStepCatalog::normalize(is_array($step) ? $step : ['code' => $step]);
+        if (!$stepDefinition) {
+            throw new \RuntimeException('Passo de atualizacao invalido.');
+        }
+        $stepCode = (string) ($stepDefinition['code'] ?? '');
+        $commands = $this->resolveCommand($stepCode);
         $application = new Application($this->kernel);
         $application->setAutoExit(false);
         $output = new BufferedOutput();
         $statusCode = $application->run(new ArrayInput($commands), $output);
 
         return [
-            'step' => $step,
+            'step' => $stepCode,
+            'stepTitle' => (string) ($stepDefinition['title'] ?? $stepCode),
+            'stepType' => (string) ($stepDefinition['type'] ?? 'custom'),
             'status' => $statusCode === 0 ? 'ok' : 'failed',
             'output' => trim($output->fetch()),
         ];
