@@ -90,6 +90,11 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - a publicacao oficial dos artefatos usa:
     - `APP_UPDATE_DISTRIBUTION_DIR`
     - `APP_UPDATE_PUBLIC_BASE_URL`
+  - a distribuicao externa dos artefatos pode ser despachada por:
+    - `APP_UPDATE_DISTRIBUTION_PUSH_URL`
+    - `APP_UPDATE_DISTRIBUTION_PUSH_TOKEN`
+    - `APP_UPDATE_DISTRIBUTION_PUSH_SIGNING_KEY`
+    - `APP_UPDATE_DISTRIBUTION_PUSH_TIMEOUT`
   - o rollout externo do SaaS pode ser integrado por:
     - `APP_UPDATE_ORCHESTRATOR_URL`
     - `APP_UPDATE_ORCHESTRATOR_TOKEN`

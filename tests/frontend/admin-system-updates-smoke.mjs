@@ -46,7 +46,7 @@ async function main() {
     });
     await page.waitForFunction(() => {
       const detail = window.jQuery(".program-builder-json-preview").text() || "";
-      return detail.includes("\"distributionDirectory\"");
+      return detail.includes("\"distributionDirectory\"") && detail.includes("\"externalPublication\"");
     }, null, { timeout: 10000 });
 
     await page.evaluate(() => {

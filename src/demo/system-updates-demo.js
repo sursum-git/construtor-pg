@@ -198,7 +198,17 @@
             signature: "demo-package-signature-" + (version || "1.0.1"),
             url: "https://updates.demo.local/stable/packages/system-update-" + (version || "1.0.1") + ".pkg"
           }
-        ]
+        ],
+        externalPublication: {
+          status: "dispatched",
+          url: "https://distribution.demo.local/system-updates",
+          httpStatus: 202,
+          signatureAlgorithm: "hmac-sha256",
+          response: {
+            accepted: true,
+            provider: "demo-distribution"
+          }
+        }
       });
     }
     if (method === "GET" && url === "/api/admin/system-updates/rollout-plan") {

@@ -35,6 +35,11 @@ Atualizacao operacional:
 - a publicacao oficial dos artefatos usa:
   - `APP_UPDATE_DISTRIBUTION_DIR`
   - `APP_UPDATE_PUBLIC_BASE_URL`
+- a distribuicao externa dos artefatos pode ser feita logo apos a publicacao oficial por:
+  - `APP_UPDATE_DISTRIBUTION_PUSH_URL`
+  - `APP_UPDATE_DISTRIBUTION_PUSH_TOKEN`
+  - `APP_UPDATE_DISTRIBUTION_PUSH_SIGNING_KEY`
+  - `APP_UPDATE_DISTRIBUTION_PUSH_TIMEOUT`
 - o rollout externo do SaaS pode ser integrado por:
   - `APP_UPDATE_ORCHESTRATOR_URL`
   - `APP_UPDATE_ORCHESTRATOR_TOKEN`
@@ -46,6 +51,7 @@ Atualizacao operacional:
 - a consulta por assinante agora tambem aceita filtros por status, categoria e periodo, com exportacao JSON/CSV do recorte atual.
 - existe tambem o download/validacao do pacote por release, com registro local em `var/system-updates/<versao>/`.
 - existe tambem a publicacao oficial de manifesto e pacote assinados em `var/system-updates/distribution/<versao-ou-catalog>/`.
+- quando o destino externo estiver configurado, a mesma operacao despacha `manifest.json`, `SHA256SUMS`, `publication.json` e os pacotes para o endpoint externo assinado, deixando o app desacoplado do provedor final.
 - existe tambem o despacho do rollout do SaaS para orquestrador externo por HTTP assinado; o app nao executa Docker diretamente.
 
 Tela administrativa:
