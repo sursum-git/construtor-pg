@@ -62,6 +62,7 @@ Paginas principais:
   - existe tambem a publicacao oficial de manifesto e pacotes assinados por `app:update:publish-artifacts [versao]`, usando `APP_UPDATE_DISTRIBUTION_DIR` e `APP_UPDATE_PUBLIC_BASE_URL`.
   - a mesma publicacao agora tambem pode despachar os artefatos para destino externo real por `APP_UPDATE_DISTRIBUTION_PUSH_URL`, `APP_UPDATE_DISTRIBUTION_PUSH_TOKEN`, `APP_UPDATE_DISTRIBUTION_PUSH_SIGNING_KEY` e `APP_UPDATE_DISTRIBUTION_PUSH_TIMEOUT`.
   - o rollout externo do SaaS agora pode ser despachado por HTTP assinado usando `APP_UPDATE_ORCHESTRATOR_URL`, `APP_UPDATE_ORCHESTRATOR_TOKEN`, `APP_UPDATE_ORCHESTRATOR_SIGNING_KEY` e `APP_UPDATE_ORCHESTRATOR_TIMEOUT`.
+  - existe agora tambem um receptor externo real do webhook em `scripts/orchestrator/system-update-orchestrator.php`, com config por assinante, validacao de token/assinatura, log proprio e execucao de `docker compose pull/up` por target.
   - no on-premise, a abertura da Home pode endurecer atualizacao critica pendente por `APP_UPDATE_ONPREM_CRITICAL_POLICY=warn|block`, com bloqueio modal e endpoint runtime local `POST /api/runtime/system-updates/run-pending`.
   - a politica de atualizacao respeita o modelo atual de programas:
     - `standard`: pode receber a nova release;

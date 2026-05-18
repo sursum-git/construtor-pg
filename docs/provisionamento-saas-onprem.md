@@ -53,6 +53,10 @@ Atualizacao operacional:
 - existe tambem a publicacao oficial de manifesto e pacote assinados em `var/system-updates/distribution/<versao-ou-catalog>/`.
 - quando o destino externo estiver configurado, a mesma operacao despacha `manifest.json`, `SHA256SUMS`, `publication.json` e os pacotes para o endpoint externo assinado, deixando o app desacoplado do provedor final.
 - existe tambem o despacho do rollout do SaaS para orquestrador externo por HTTP assinado; o app nao executa Docker diretamente.
+- o repositorio agora tambem entrega o receptor externo desse webhook em:
+  - `scripts/orchestrator/system-update-orchestrator.php`
+  - `scripts/orchestrator/run-system-update-orchestrator.sh`
+  - `scripts/orchestrator/system-update-orchestrator.config.sample.json`
 
 Tela administrativa:
 
@@ -268,6 +272,50 @@ Para ambientes SaaS controlados por orquestrador externo:
 ```powershell
 php backend/bin/console app:update:rollout-plan 1.0.2
 ```
+
+### Receptor real do webhook de rollout
+
+O app central continua apenas despachando a solicitacao. A execucao fisica fica neste receptor externo.
+
+Suba o servico no host do SaaS:
+
+```bash
+cp scripts/orchestrator/system-update-orchestrator.config.sample.json scripts/orchestrator/system-update-orchestrator.config.json
+APP_UPDATE_ORCHESTRATOR_CONFIG=/srv/construtor-pg/scripts/orchestrator/system-update-orchestrator.config.json \
+APP_UPDATE_ORCHESTRATOR_TOKEN=trocar-token \
+APP_UPDATE_ORCHESTRATOR_SIGNING_KEY=trocar-chave \
+HOST=0.0.0.0 PORT=8095 \
+./scripts/orchestrator/run-system-update-orchestrator.sh
+```
+
+O receptor:
+
+1. valida `Authorization: Bearer ...`;
+2. valida `X-Construtor-Signature`;
+3. resolve o assinante alvo na configuracao local;
+4. executa `docker compose pull` e `docker compose up -d --force-recreate`;
+5. roda comandos opcionais de backup e manutencao;
+6. grava log em `var/orchestrator-update/<data>/...json`.
+
+Configuracoes principais:
+
+- `APP_UPDATE_ORCHESTRATOR_CONFIG`
+- `APP_UPDATE_ORCHESTRATOR_TOKEN`
+- `APP_UPDATE_ORCHESTRATOR_SIGNING_KEY`
+- `HOST`
+- `PORT`
+
+Cada assinante pode declarar no JSON:
+
+- `projectName`
+- `composeFile`
+- `workdir`
+- `services`
+- `backupCommand`
+- `maintenanceEnterCommand`
+- `maintenanceExitCommand`
+- `preCommands`
+- `postCommands`
 
 O plano informa backup, janela de manutencao, acao sugerida do orquestrador e impacto em overlays/variantes congeladas.
 

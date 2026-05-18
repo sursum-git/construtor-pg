@@ -1,0 +1,22 @@
+{
+  "defaults": {
+    "composeBinary": "docker compose",
+    "timeoutSeconds": 900,
+    "pullBeforeUp": true,
+    "forceRecreate": true,
+    "services": ["app"],
+    "preCommands": [],
+    "postCommands": []
+  },
+  "subscribers": {
+    "empresa-a": {
+      "projectName": "construtor-pg-empresa-a",
+      "composeFile": "/srv/construtor-pg/empresa-a/backend/compose.yaml",
+      "workdir": "/srv/construtor-pg/empresa-a/backend",
+      "services": ["app", "web"],
+      "backupCommand": "/srv/construtor-pg/shared/backup-instance.sh {{subscriberCode}}",
+      "maintenanceEnterCommand": "/srv/construtor-pg/shared/maintenance.sh enter {{subscriberCode}}",
+      "maintenanceExitCommand": "/srv/construtor-pg/shared/maintenance.sh exit {{subscriberCode}}"
+    }
+  }
+}

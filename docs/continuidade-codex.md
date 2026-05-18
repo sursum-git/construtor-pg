@@ -100,6 +100,10 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `APP_UPDATE_ORCHESTRATOR_TOKEN`
     - `APP_UPDATE_ORCHESTRATOR_SIGNING_KEY`
     - `APP_UPDATE_ORCHESTRATOR_TIMEOUT`
+  - o receptor externo real fica em:
+    - `scripts/orchestrator/system-update-orchestrator.php`
+    - `scripts/orchestrator/run-system-update-orchestrator.sh`
+    - `scripts/orchestrator/system-update-orchestrator.config.sample.json`
 
 ## Estado atual do program-builder
 
