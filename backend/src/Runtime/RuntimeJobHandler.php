@@ -32,23 +32,39 @@ class RuntimeJobHandler
 
         try {
             $result = $this->registry->get($job->getJobType())->handle($job);
-            $job->markSucceeded($this->sanitizeResult($result));
+            $job->markSucceeded($this->sanitizeValue($result));
             $this->entityManager->flush();
         } catch (\Throwable $error) {
-            $job->markFailed($error->getMessage(), [
-                'exception' => $error::class,
-            ]);
+            $result = $job->getResult();
+            if (!is_array($result)) {
+                $result = [];
+            }
+            $result['exception'] = $error::class;
+            $result['message'] = $error->getMessage();
+            $job->markFailed($error->getMessage(), $this->sanitizeValue($result));
             $this->entityManager->flush();
             throw $error;
         }
     }
 
     /**
-     * @param array<string, mixed> $result
-     * @return array<string, mixed>
+     * @param mixed $value
+     * @return mixed
      */
-    private function sanitizeResult(array $result): array
+    private function sanitizeValue(mixed $value): mixed
     {
-        return array_filter($result, static fn (mixed $value): bool => is_scalar($value) || $value === null);
+        if (is_scalar($value) || $value === null) {
+            return $value;
+        }
+        if (!is_array($value)) {
+            return null;
+        }
+
+        $result = [];
+        foreach ($value as $key => $item) {
+            $result[$key] = $this->sanitizeValue($item);
+        }
+
+        return $result;
     }
 }

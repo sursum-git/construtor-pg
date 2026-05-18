@@ -30,12 +30,14 @@ async function main() {
         const setValue = (value) => widget ? widget.value(value) : input.val(value);
         if (label === "Codigo") setValue("cliente-smoke");
         if (label === "Nome") setValue("Cliente Smoke");
+        if (label === "Ambiente runtime") setValue("cliente-smoke-runtime");
+        if (label === "Ambiente principal isolado") setValue("cliente-smoke-principal");
         if (label === "Ambiente do banco") setValue("prod");
         if (label === "Identidade do banco") setValue("saas:cliente-smoke");
         if (label === "Nome do banco") setValue("construtor_pg_cliente_smoke");
         if (label === "Usuario admin") setValue("admin");
         if (label === "Nome do admin") setValue("Administrador Smoke");
-        if (label === "Senha do admin") setValue("Senha@123");
+        if (label === "Senha do admin") setValue("SenhaForte@123X");
       });
     });
 
@@ -45,6 +47,13 @@ async function main() {
       button.click();
     });
     await page.waitForFunction(() => document.body.innerText.includes("Assinante salvo."), null, { timeout: 10000 });
+
+    await page.evaluate(() => {
+      const button = window.jQuery("button").filter(function() { return window.jQuery(this).text().trim() === "Validar provisionamento"; }).get(0);
+      if (!button) throw new Error("Botao validar nao encontrado.");
+      button.click();
+    });
+    await page.waitForFunction(() => document.body.innerText.includes("Credencial inicial forte"), null, { timeout: 10000 });
 
     await page.evaluate(() => {
       const button = window.jQuery("button").filter(function() { return window.jQuery(this).text().trim() === "Criar ambiente"; }).get(0);
@@ -64,6 +73,8 @@ async function main() {
 
     const result = await page.evaluate(() => {
       const detail = window.jQuery(".program-builder-json-preview").text();
+      const precheckText = window.jQuery(".program-builder-json-preview").eq(0).text();
+      const packageText = window.jQuery(".program-builder-json-preview").eq(1).text();
       const runtimeGrid = window.jQuery(".k-grid").filter(function() {
         return window.jQuery(this).find("th[data-title='Runtime']").length > 0
           && window.jQuery(this).find("th[data-title='Assinantes']").length > 0;
@@ -76,6 +87,8 @@ async function main() {
         shell: window.jQuery(".subscriber-provisioning-shell").length,
         subscriberRows: window.jQuery(".k-grid tbody tr").length,
         detailText: detail,
+        precheckText: precheckText,
+        packageText: packageText,
         runtimeEnvironmentRows: runtimeGrid.find("tbody tr").length,
         isolationRows: isolationGrid.find("tbody tr").length,
         updateChannelSelected: window.jQuery("label:contains('Canal de update')").find("input").val() || ""
@@ -93,6 +106,12 @@ async function main() {
     }
     if (result.isolationRows < 1) {
       throw new Error("Grid de catalogo de isolamento nao carregou registros.");
+    }
+    if (!String(result.precheckText || "").includes("Credencial inicial forte")) {
+      throw new Error("Painel de validacao previa nao mostrou checklist.");
+    }
+    if (!String(result.packageText || "").includes("SHA-256")) {
+      throw new Error("Relatorio do pacote on-premise nao mostrou checksum.");
     }
     if (!String(result.updateChannelSelected || "").trim()) {
       throw new Error("Canal de update nao ficou selecionado.");

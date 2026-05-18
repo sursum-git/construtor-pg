@@ -40,15 +40,21 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - matriz operacional por assinante;
   - catalogo administrativo de tabelas globais x filtradas por assinante;
   - canal de update por assinante.
+  - validacao previa de conflitos e checklist de prerequisitos;
+  - progresso por etapa do job de provisionamento;
+  - retry parcial a partir de uma etapa especifica;
+  - relatorio final do job e checksum SHA-256 do pacote on-premise.
 - existe agora uma tela administrativa propria:
   - `production/app.html?screenId=admin.assinante-ambientes`
   - pagina local: `examples/pages/admin-subscriber-provisioning.html`
   - backend:
     - `GET /api/admin/subscriber-provisioning/bootstrap`
     - `POST /api/admin/subscriber-provisioning/subscribers`
-    - `POST /api/admin/subscriber-provisioning/provision`
-    - `GET /api/admin/subscriber-provisioning/jobs`
-    - `GET /api/admin/subscriber-provisioning/jobs/{jobId}`
+  - `POST /api/admin/subscriber-provisioning/provision`
+  - `POST /api/admin/subscriber-provisioning/precheck`
+  - `GET /api/admin/subscriber-provisioning/jobs`
+  - `GET /api/admin/subscriber-provisioning/jobs/{jobId}`
+  - `POST /api/admin/subscriber-provisioning/jobs/{jobId}/retry`
   - `GET /api/admin/subscriber-provisioning/jobs/{jobId}/events`
   - `GET /api/admin/subscriber-provisioning/onprem-package`
   - o provisionamento SaaS roda no job `subscriber.environment.provision`.

@@ -25,6 +25,14 @@ class SubscriberProvisioningService
         'onprem_remote',
     ];
 
+    private const PROVISION_STEPS = [
+        'prepare_env' => 'Preparar ambiente e variaveis',
+        'start_database' => 'Subir banco dedicado',
+        'bootstrap_app' => 'Bootstrap da aplicacao',
+        'create_subscriber' => 'Criar assinante e admin inicial',
+        'publish_defaults' => 'Publicar programas padrao',
+    ];
+
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly AuthSubscriberRepository $subscribers,
@@ -38,6 +46,7 @@ class SubscriberProvisioningService
         private readonly CentralControlResolver $central,
         private readonly RuntimeEnvironmentIdentityResolver $environmentIdentity,
         private readonly OnPremPackageBuilderService $packages,
+        private readonly ProvisioningSecretStore $secretStore,
     ) {
     }
 
@@ -126,45 +135,23 @@ class SubscriberProvisioningService
 
     public function queueProvision(array $payload): array
     {
-        $subscriberCode = $this->normalizeRequired($payload['subscriberCode'] ?? $payload['code'] ?? '');
-        if ($subscriberCode === '') {
-            throw new \InvalidArgumentException('Informe o assinante para provisionar.');
+        [$subscriber, $normalizedPayload] = $this->resolveProvisionPayload($payload);
+        $precheck = $this->precheckProvision($normalizedPayload);
+        if (($precheck['hasBlockingIssues'] ?? false) === true) {
+            throw new \RuntimeException('Existem conflitos bloqueantes no provisionamento. Revise a validacao previa antes de continuar.');
         }
 
-        $subscriber = $this->subscribers->findEnabledByCode($subscriberCode) ?? $this->subscribers->findOneBy(['code' => $subscriberCode]);
-        if (!$subscriber) {
-            throw new \RuntimeException('Assinante nao encontrado para provisionamento.');
-        }
+        $credentialRef = $this->secretStore->store([
+            'adminPassword' => (string) ($normalizedPayload['adminPassword'] ?? ''),
+        ]);
 
-        $metadata = $subscriber->getMetadata();
-        $provisioning = is_array($metadata['provisioning'] ?? null) ? $metadata['provisioning'] : [];
-        $deployment = is_array($metadata['deployment'] ?? null) ? $metadata['deployment'] : [];
-        $deploymentMode = $this->normalizeDeploymentMode((string) ($deployment['mode'] ?? ''));
-        $runtimeEnvironmentCode = $this->normalizeOptional($payload['runtimeEnvironmentCode'] ?? $provisioning['runtimeEnvironmentCode'] ?? $deployment['runtimeEnvironmentCode'] ?? '') ?: $this->defaultRuntimeEnvironmentCode($subscriber->getCode(), $deploymentMode);
-        $instanceCode = $this->normalizeOptional($payload['instanceCode'] ?? $provisioning['instanceCode'] ?? '') ?: ('construtor-pg-' . $runtimeEnvironmentCode);
-        $databaseEnvironment = $this->normalizeOptional($payload['databaseEnvironment'] ?? $provisioning['databaseEnvironment'] ?? '') ?: 'prod';
-        $databaseIdentity = $this->normalizeOptional($payload['databaseIdentity'] ?? $provisioning['databaseIdentity'] ?? '') ?: ('saas:' . $runtimeEnvironmentCode);
-        $databaseName = $this->normalizeOptional($payload['databaseName'] ?? $provisioning['databaseName'] ?? '') ?: ('construtor_pg_' . str_replace('-', '_', strtolower($runtimeEnvironmentCode)));
-        $adminUsername = $this->normalizeOptional($payload['adminUsername'] ?? $provisioning['adminUsername'] ?? '') ?: 'admin';
-        $adminDisplayName = $this->normalizeOptional($payload['adminDisplayName'] ?? $provisioning['adminDisplayName'] ?? '') ?: ('Administrador ' . $subscriber->getName());
-        $adminPassword = $this->normalizeOptional($payload['adminPassword'] ?? '');
+        $jobPayload = $normalizedPayload;
+        unset($jobPayload['adminPassword']);
+        $jobPayload['credentialRef'] = $credentialRef;
+        $jobPayload['precheckSnapshot'] = $precheck;
+        $jobPayload['steps'] = $this->buildProvisionSteps();
 
-        $this->asyncJobs->schedule('subscriber.environment.provision', [
-            'subscriberCode' => $subscriber->getCode(),
-            'subscriberName' => $subscriber->getName(),
-            'subscriberDocument' => $subscriber->getDocument(),
-            'instanceCode' => $instanceCode,
-            'databaseEnvironment' => $databaseEnvironment,
-            'databaseIdentity' => $databaseIdentity,
-            'databaseName' => $databaseName,
-            'deploymentMode' => $deploymentMode,
-            'runtimeEnvironmentCode' => $runtimeEnvironmentCode,
-            'primaryEnvironmentCode' => $this->normalizeOptional($payload['primaryEnvironmentCode'] ?? $provisioning['primaryEnvironmentCode'] ?? $deployment['primaryEnvironmentCode'] ?? '') ?: $this->defaultPrimaryEnvironmentCode($subscriber->getCode()),
-            'updateChannel' => $this->normalizeUpdateChannel((string) ($payload['updateChannel'] ?? $provisioning['updateChannel'] ?? 'stable')),
-            'adminUsername' => $adminUsername,
-            'adminDisplayName' => $adminDisplayName,
-            'adminPassword' => $adminPassword,
-        ], [
+        $this->asyncJobs->schedule('subscriber.environment.provision', $jobPayload, [
             'screenId' => 'admin.assinante-ambientes',
             'programId' => 'admin-assinante-ambientes',
             'actionId' => 'provisionSubscriberEnvironment',
@@ -216,36 +203,145 @@ class SubscriberProvisioningService
 
     public function buildOnPremPackage(array $payload): array
     {
-        $subscriberCode = $this->normalizeRequired($payload['subscriberCode'] ?? '');
-        if ($subscriberCode === '') {
-            throw new \InvalidArgumentException('Informe o assinante para gerar o pacote on-premise.');
-        }
-
-        $subscriber = $this->subscribers->findOneBy(['code' => $subscriberCode]);
-        if (!$subscriber) {
-            throw new \RuntimeException('Assinante nao encontrado para gerar pacote on-premise.');
-        }
-
-        $metadata = $subscriber->getMetadata();
-        $provisioning = is_array($metadata['provisioning'] ?? null) ? $metadata['provisioning'] : [];
-        $deployment = is_array($metadata['deployment'] ?? null) ? $metadata['deployment'] : [];
-        $deploymentMode = $this->normalizeDeploymentMode((string) ($deployment['mode'] ?? ''));
-        $runtimeEnvironmentCode = $this->normalizeOptional($payload['runtimeEnvironmentCode'] ?? $provisioning['runtimeEnvironmentCode'] ?? $deployment['runtimeEnvironmentCode'] ?? '') ?: $this->defaultRuntimeEnvironmentCode($subscriber->getCode(), $deploymentMode);
-        $package = $this->packages->build([
+        [$subscriber, $normalizedPayload] = $this->resolveProvisionPayload($payload);
+        $precheck = $this->precheckProvision(array_merge($normalizedPayload, [
+            'databaseIdentity' => $normalizedPayload['databaseIdentity'] ?: ('onprem:' . $normalizedPayload['runtimeEnvironmentCode']),
+        ]));
+        $package = $this->packages->build(array_merge($normalizedPayload, [
             'subscriberCode' => $subscriber->getCode(),
             'subscriberName' => $subscriber->getName(),
             'subscriberDocument' => $subscriber->getDocument(),
-            'databaseEnvironment' => $this->normalizeOptional($payload['databaseEnvironment'] ?? $provisioning['databaseEnvironment'] ?? '') ?: 'prod',
-            'databaseIdentity' => $this->normalizeOptional($payload['databaseIdentity'] ?? $provisioning['databaseIdentity'] ?? '') ?: ('onprem:' . $runtimeEnvironmentCode),
-            'databaseName' => $this->normalizeOptional($payload['databaseName'] ?? $provisioning['databaseName'] ?? '') ?: ('construtor_pg_' . str_replace('-', '_', strtolower($runtimeEnvironmentCode))),
-            'updateChannel' => $this->normalizeUpdateChannel((string) ($payload['updateChannel'] ?? $provisioning['updateChannel'] ?? 'stable')),
-            'adminUsername' => $this->normalizeOptional($payload['adminUsername'] ?? $provisioning['adminUsername'] ?? '') ?: 'admin',
-            'adminDisplayName' => $this->normalizeOptional($payload['adminDisplayName'] ?? $provisioning['adminDisplayName'] ?? '') ?: ('Administrador ' . $subscriber->getName()),
-            'instanceCode' => $this->normalizeOptional($payload['instanceCode'] ?? $provisioning['instanceCode'] ?? '') ?: ('construtor-pg-' . $runtimeEnvironmentCode),
+            'databaseIdentity' => $normalizedPayload['databaseIdentity'] ?: ('onprem:' . $normalizedPayload['runtimeEnvironmentCode']),
             'generatedBy' => $this->permissions->getUserId(),
-        ]);
+        ]));
+        $package['precheck'] = $precheck;
 
         return $package;
+    }
+
+    public function precheckProvision(array $payload): array
+    {
+        [, $normalizedPayload] = $this->resolveProvisionPayload($payload);
+        $currentSubscriberCode = (string) ($normalizedPayload['subscriberCode'] ?? '');
+        $deploymentMode = (string) ($normalizedPayload['deploymentMode'] ?? 'dedicated_stack');
+        $runtimeEnvironmentCode = (string) ($normalizedPayload['runtimeEnvironmentCode'] ?? '');
+        $primaryEnvironmentCode = (string) ($normalizedPayload['primaryEnvironmentCode'] ?? '');
+        $databaseIdentity = (string) ($normalizedPayload['databaseIdentity'] ?? '');
+        $databaseName = (string) ($normalizedPayload['databaseName'] ?? '');
+        $instanceCode = (string) ($normalizedPayload['instanceCode'] ?? '');
+        $adminPassword = (string) ($normalizedPayload['adminPassword'] ?? '');
+        $passwordCheck = $this->evaluateAdminPassword($adminPassword, $currentSubscriberCode, (string) ($normalizedPayload['adminUsername'] ?? ''));
+
+        $conflicts = [];
+        $warnings = [];
+        $allowSharedRuntime = $deploymentMode === 'shared_program_shared_db';
+        foreach ($this->subscribers->findEnabledOrdered() as $subscriber) {
+            if ($subscriber->getCode() === $currentSubscriberCode) {
+                continue;
+            }
+            $metadata = $subscriber->getMetadata();
+            $existingProvisioning = is_array($metadata['provisioning'] ?? null) ? $metadata['provisioning'] : [];
+            $existingDeployment = is_array($metadata['deployment'] ?? null) ? $metadata['deployment'] : [];
+            $existingRuntime = trim((string) ($existingDeployment['runtimeEnvironmentCode'] ?? ''));
+            $existingPrimary = trim((string) ($existingDeployment['primaryEnvironmentCode'] ?? ''));
+            $existingInstance = trim((string) ($existingProvisioning['instanceCode'] ?? ''));
+            $existingDatabaseIdentity = trim((string) ($existingProvisioning['databaseIdentity'] ?? ''));
+            $existingDatabaseName = trim((string) ($existingProvisioning['databaseName'] ?? ''));
+            $existingMode = $this->normalizeDeploymentMode((string) ($existingDeployment['mode'] ?? ''));
+
+            if ($primaryEnvironmentCode !== '' && $existingPrimary === $primaryEnvironmentCode) {
+                $conflicts[] = $this->conflictItem('primary_environment_conflict', 'Outro assinante ja usa o mesmo ambiente principal isolado.', $subscriber->getCode());
+            }
+            if ($runtimeEnvironmentCode !== '' && $existingRuntime === $runtimeEnvironmentCode && (!$allowSharedRuntime || $existingMode !== 'shared_program_shared_db')) {
+                $conflicts[] = $this->conflictItem('runtime_environment_conflict', 'O ambiente runtime informado ja esta reservado por assinante com modo nao compartilhado.', $subscriber->getCode());
+            }
+            if ($instanceCode !== '' && $existingInstance === $instanceCode && (!$allowSharedRuntime || $existingRuntime !== $runtimeEnvironmentCode)) {
+                $conflicts[] = $this->conflictItem('instance_code_conflict', 'Outro assinante ja usa o mesmo instance code.', $subscriber->getCode());
+            }
+            if ($databaseIdentity !== '' && $existingDatabaseIdentity === $databaseIdentity && (!$allowSharedRuntime || $existingRuntime !== $runtimeEnvironmentCode)) {
+                $conflicts[] = $this->conflictItem('database_identity_conflict', 'Outra configuracao ja usa a mesma identidade de banco.', $subscriber->getCode());
+            }
+            if ($databaseName !== '' && $existingDatabaseName === $databaseName && (!$allowSharedRuntime || $existingRuntime !== $runtimeEnvironmentCode)) {
+                $conflicts[] = $this->conflictItem('database_name_conflict', 'Outra configuracao ja usa o mesmo nome de banco.', $subscriber->getCode());
+            }
+        }
+
+        if ($deploymentMode === 'onprem_remote') {
+            $warnings[] = [
+                'code' => 'onprem_remote',
+                'message' => 'O modo on-premise remoto normalmente depende mais do pacote instalavel e do updater remoto do que do job SaaS central.',
+            ];
+        }
+
+        $checklist = [
+            $this->checklistItem('central_control', 'Sistema central SaaS habilitado', $this->central->isCentralControl() ? 'ok' : 'error', $this->central->isCentralControl() ? 'Tela liberada para o sistema central.' : 'Provisionamento central so deve rodar quando APP_SYSTEM_ROLE=saas_central ou APP_CENTRAL_CONTROL_ENABLED=1.'),
+            $this->checklistItem('worker', 'Worker de jobs disponivel', 'manual', 'O worker precisa estar ativo para consumir subscriber.environment.provision.'),
+            $this->checklistItem('deployment_mode', 'Modelo de deployment coerente', in_array($deploymentMode, self::DEPLOYMENT_MODES, true) ? 'ok' : 'error', $this->deploymentModeLabel($deploymentMode)),
+            $this->checklistItem('runtime_environment', 'Ambiente runtime definido', $runtimeEnvironmentCode !== '' ? 'ok' : 'error', $runtimeEnvironmentCode !== '' ? ('Runtime: ' . $runtimeEnvironmentCode) : 'Informe o ambiente runtime.'),
+            $this->checklistItem('primary_environment', 'Ambiente principal isolado definido', $primaryEnvironmentCode !== '' ? 'ok' : 'error', $primaryEnvironmentCode !== '' ? ('Principal: ' . $primaryEnvironmentCode) : 'Informe o ambiente principal isolado.'),
+            $this->checklistItem('admin_password', 'Credencial inicial forte', $passwordCheck['status'], $passwordCheck['message']),
+            $this->checklistItem('zip_archive', 'ZipArchive disponivel para pacote on-premise', class_exists(\ZipArchive::class) ? 'ok' : 'warning', class_exists(\ZipArchive::class) ? 'Pacote on-premise pode ser gerado neste ambiente.' : 'ZipArchive nao esta disponivel; o pacote on-premise nao sera gerado aqui.'),
+        ];
+
+        return [
+            'payload' => $normalizedPayload,
+            'steps' => $this->buildProvisionSteps(),
+            'hasBlockingIssues' => $conflicts !== [] || $passwordCheck['status'] === 'error' || !$this->central->isCentralControl(),
+            'blockingIssues' => array_merge(
+                $conflicts,
+                $passwordCheck['status'] === 'error' ? [[
+                    'code' => 'weak_admin_password',
+                    'message' => $passwordCheck['message'],
+                ]] : [],
+                !$this->central->isCentralControl() ? [[
+                    'code' => 'not_central_control',
+                    'message' => 'A operacao de provisionamento pertence apenas ao sistema central SaaS.',
+                ]] : []
+            ),
+            'warnings' => $warnings,
+            'checklist' => $checklist,
+            'conflicts' => $conflicts,
+            'credentialPolicy' => $passwordCheck,
+        ];
+    }
+
+    public function retryProvisionJob(int $jobId, ?string $retryFromStep = null): array
+    {
+        $job = $this->jobs->find($jobId);
+        if (!$job || $job->getJobType() !== 'subscriber.environment.provision') {
+            throw new \RuntimeException('Job de provisionamento nao encontrado para retry.');
+        }
+        if (in_array($job->getStatus(), ['queued', 'running'], true)) {
+            throw new \RuntimeException('O retry parcial so pode ser solicitado depois do termino do job anterior.');
+        }
+
+        $payload = $job->getPayload();
+        $startStep = $retryFromStep ?: $this->detectRetryStep($job->getResult());
+        if (!isset(self::PROVISION_STEPS[$startStep])) {
+            throw new \RuntimeException('Step inicial do retry parcial nao e suportado.');
+        }
+
+        $payload['retryFromStep'] = $startStep;
+        $payload['retryJobId'] = $jobId;
+        $payload['steps'] = $this->buildProvisionSteps($startStep);
+
+        $this->asyncJobs->schedule('subscriber.environment.provision', $payload, [
+            'screenId' => 'admin.assinante-ambientes',
+            'programId' => 'admin-assinante-ambientes',
+            'actionId' => 'retrySubscriberEnvironmentProvision',
+            'entityCode' => 'auth_subscriber',
+            'recordId' => (string) ($payload['subscriberCode'] ?? ''),
+            'message' => 'Retry parcial do provisionamento enfileirado.',
+        ]);
+
+        $queued = $this->asyncJobs->flushPending();
+        $queuedJobId = (int) (($queued[0]['id'] ?? 0));
+        $queuedJob = $queuedJobId > 0 ? $this->jobs->find($queuedJobId) : null;
+
+        return [
+            'queued' => $queued,
+            'job' => $queuedJob ? $this->formatJob($queuedJob) : null,
+        ];
     }
 
     private function formatSubscriber(AuthSubscriber $subscriber): array
@@ -305,6 +401,7 @@ class SubscriberProvisioningService
             'primaryEnvironmentCode' => (string) ($payload['primaryEnvironmentCode'] ?? ''),
             'updateChannel' => (string) ($payload['updateChannel'] ?? ''),
             'result' => $result,
+            'steps' => is_array($result['steps'] ?? null) ? $result['steps'] : [],
             'createdAt' => $job->getCreatedAt()->format(DATE_ATOM),
             'updatedAt' => $job->getUpdatedAt()->format(DATE_ATOM),
             'startedAt' => $job->getStartedAt()?->format(DATE_ATOM),
@@ -598,5 +695,121 @@ class SubscriberProvisioningService
     private function defaultPrimaryEnvironmentCode(string $subscriberCode): string
     {
         return $subscriberCode . '-principal';
+    }
+
+    private function resolveProvisionPayload(array $payload): array
+    {
+        $subscriberCode = $this->normalizeRequired($payload['subscriberCode'] ?? $payload['code'] ?? '');
+        if ($subscriberCode === '') {
+            throw new \InvalidArgumentException('Informe o assinante para provisionar.');
+        }
+
+        $subscriber = $this->subscribers->findEnabledByCode($subscriberCode) ?? $this->subscribers->findOneBy(['code' => $subscriberCode]);
+        if (!$subscriber) {
+            throw new \RuntimeException('Assinante nao encontrado para provisionamento.');
+        }
+
+        $metadata = $subscriber->getMetadata();
+        $provisioning = is_array($metadata['provisioning'] ?? null) ? $metadata['provisioning'] : [];
+        $deployment = is_array($metadata['deployment'] ?? null) ? $metadata['deployment'] : [];
+        $deploymentMode = $this->normalizeDeploymentMode((string) ($payload['deploymentMode'] ?? $deployment['mode'] ?? ''));
+        $runtimeEnvironmentCode = $this->normalizeOptional($payload['runtimeEnvironmentCode'] ?? $provisioning['runtimeEnvironmentCode'] ?? $deployment['runtimeEnvironmentCode'] ?? '') ?: $this->defaultRuntimeEnvironmentCode($subscriber->getCode(), $deploymentMode);
+
+        return [$subscriber, [
+            'subscriberCode' => $subscriber->getCode(),
+            'subscriberName' => $subscriber->getName(),
+            'subscriberDocument' => $subscriber->getDocument(),
+            'instanceCode' => $this->normalizeOptional($payload['instanceCode'] ?? $provisioning['instanceCode'] ?? '') ?: ('construtor-pg-' . $runtimeEnvironmentCode),
+            'databaseEnvironment' => $this->normalizeOptional($payload['databaseEnvironment'] ?? $provisioning['databaseEnvironment'] ?? '') ?: 'prod',
+            'databaseIdentity' => $this->normalizeOptional($payload['databaseIdentity'] ?? $provisioning['databaseIdentity'] ?? '') ?: ('saas:' . $runtimeEnvironmentCode),
+            'databaseName' => $this->normalizeOptional($payload['databaseName'] ?? $provisioning['databaseName'] ?? '') ?: ('construtor_pg_' . str_replace('-', '_', strtolower($runtimeEnvironmentCode))),
+            'deploymentMode' => $deploymentMode,
+            'runtimeEnvironmentCode' => $runtimeEnvironmentCode,
+            'primaryEnvironmentCode' => $this->normalizeOptional($payload['primaryEnvironmentCode'] ?? $provisioning['primaryEnvironmentCode'] ?? $deployment['primaryEnvironmentCode'] ?? '') ?: $this->defaultPrimaryEnvironmentCode($subscriber->getCode()),
+            'updateChannel' => $this->normalizeUpdateChannel((string) ($payload['updateChannel'] ?? $provisioning['updateChannel'] ?? 'stable')),
+            'adminUsername' => $this->normalizeOptional($payload['adminUsername'] ?? $provisioning['adminUsername'] ?? '') ?: 'admin',
+            'adminDisplayName' => $this->normalizeOptional($payload['adminDisplayName'] ?? $provisioning['adminDisplayName'] ?? '') ?: ('Administrador ' . $subscriber->getName()),
+            'adminPassword' => $this->normalizeOptional($payload['adminPassword'] ?? ''),
+        ]];
+    }
+
+    private function buildProvisionSteps(?string $retryFromStep = null): array
+    {
+        $retryEnabled = $retryFromStep !== null && isset(self::PROVISION_STEPS[$retryFromStep]);
+        $steps = [];
+        foreach (self::PROVISION_STEPS as $code => $label) {
+            $status = 'pending';
+            if ($retryEnabled) {
+                $status = $code === $retryFromStep ? 'pending' : 'reused';
+                if (array_search($code, array_keys(self::PROVISION_STEPS), true) > array_search($retryFromStep, array_keys(self::PROVISION_STEPS), true)) {
+                    $status = 'pending';
+                }
+            }
+            $steps[] = [
+                'code' => $code,
+                'label' => $label,
+                'status' => $status,
+            ];
+        }
+
+        return $steps;
+    }
+
+    private function evaluateAdminPassword(string $password, string $subscriberCode, string $adminUsername): array
+    {
+        if ($password === '') {
+            return [
+                'status' => 'error',
+                'message' => 'Informe uma senha inicial forte para o admin do assinante.',
+            ];
+        }
+
+        $checks = [
+            preg_match('/[a-z]/', $password) === 1,
+            preg_match('/[A-Z]/', $password) === 1,
+            preg_match('/\d/', $password) === 1,
+            preg_match('/[^a-zA-Z0-9]/', $password) === 1,
+            mb_strlen($password) >= 14,
+            stripos($password, $subscriberCode) === false,
+            stripos($password, $adminUsername) === false,
+        ];
+
+        if (in_array(false, $checks, true)) {
+            return [
+                'status' => 'error',
+                'message' => 'A senha inicial precisa ter pelo menos 14 caracteres, maiuscula, minuscula, numero, simbolo e nao pode repetir usuario ou codigo do assinante.',
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'message' => 'Credencial inicial atende a politica minima de provisionamento.',
+        ];
+    }
+
+    private function checklistItem(string $code, string $label, string $status, string $message): array
+    {
+        return compact('code', 'label', 'status', 'message');
+    }
+
+    private function conflictItem(string $code, string $message, string $subscriberCode): array
+    {
+        return [
+            'code' => $code,
+            'message' => $message,
+            'subscriberCode' => $subscriberCode,
+        ];
+    }
+
+    private function detectRetryStep(array $result): string
+    {
+        $steps = is_array($result['steps'] ?? null) ? $result['steps'] : [];
+        foreach ($steps as $step) {
+            if (($step['status'] ?? '') === 'failed' && isset(self::PROVISION_STEPS[(string) ($step['code'] ?? '')])) {
+                return (string) $step['code'];
+            }
+        }
+
+        return 'prepare_env';
     }
 }

@@ -16,6 +16,7 @@ DATABASE_NAME="${DATABASE_NAME:-}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin123}"
 START_DATABASE_CONTAINER="${START_DATABASE_CONTAINER:-1}"
+ONLY_STEP="${ONLY_STEP:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -34,6 +35,7 @@ while [[ $# -gt 0 ]]; do
     --admin-username=*) ADMIN_USERNAME="${1#*=}" ;;
     --admin-password=*) ADMIN_PASSWORD="${1#*=}" ;;
     --no-database-container) START_DATABASE_CONTAINER="0" ;;
+    --only-step=*) ONLY_STEP="${1#*=}" ;;
     *) echo "Parametro nao suportado: $1" >&2; exit 1 ;;
   esac
   shift
@@ -41,6 +43,11 @@ done
 
 if [[ -z "${SUBSCRIBER_CODE}" || -z "${SUBSCRIBER_NAME}" ]]; then
   echo "Informe subscriber-code e subscriber-name." >&2
+  exit 1
+fi
+
+if [[ -z "${ADMIN_PASSWORD}" ]]; then
+  echo "Informe admin-password." >&2
   exit 1
 fi
 
@@ -66,6 +73,58 @@ APP_DATABASE_ENVIRONMENT="${DATABASE_ENVIRONMENT}"
 APP_DATABASE_IDENTITY="${DATABASE_IDENTITY}"
 EOF
 
+run_step() {
+  local step="$1"
+  echo "== STEP:${step} =="
+  case "${step}" in
+    prepare_env)
+      return 0
+      ;;
+    start_database)
+      if [[ "${START_DATABASE_CONTAINER}" != "1" ]]; then
+        echo "Container de banco desabilitado por configuracao."
+        return 0
+      fi
+      (
+        cd "${BACKEND_DIR}"
+        POSTGRES_DB="${DATABASE_NAME}" POSTGRES_USER="${DATABASE_USER}" POSTGRES_PASSWORD="${DATABASE_PASSWORD}" \
+          docker compose -p "construtor-pg-${SUBSCRIBER_CODE}" up -d database
+      )
+      return 0
+      ;;
+    bootstrap_app)
+      (
+        cd "${BACKEND_DIR}"
+        php bin/console app:install:bootstrap --create-database --database-environment="${DATABASE_ENVIRONMENT}" --database-identity="${DATABASE_IDENTITY}"
+      )
+      return 0
+      ;;
+    create_subscriber)
+      (
+        cd "${BACKEND_DIR}"
+        php bin/console app:subscriber:create --code="${SUBSCRIBER_CODE}" --name="${SUBSCRIBER_NAME}" --document="${SUBSCRIBER_DOCUMENT}" --admin-username="${ADMIN_USERNAME}" --admin-password="${ADMIN_PASSWORD}" --admin-display-name="Administrador ${SUBSCRIBER_NAME}"
+      )
+      return 0
+      ;;
+    publish_defaults)
+      (
+        cd "${BACKEND_DIR}"
+        php bin/console app:runtime:publish-defaults --fail-on-missing
+      )
+      return 0
+      ;;
+    *)
+      echo "Step nao suportado: ${step}" >&2
+      return 1
+      ;;
+  esac
+}
+
+if [[ -n "${ONLY_STEP}" ]]; then
+  run_step "${ONLY_STEP}"
+  exit 0
+fi
+
 if [[ "${START_DATABASE_CONTAINER}" == "1" ]]; then
   (
     cd "${BACKEND_DIR}"
@@ -74,12 +133,10 @@ if [[ "${START_DATABASE_CONTAINER}" == "1" ]]; then
   )
 fi
 
-(
-  cd "${BACKEND_DIR}"
-  php bin/console app:install:bootstrap --create-database --database-environment="${DATABASE_ENVIRONMENT}" --database-identity="${DATABASE_IDENTITY}"
-  php bin/console app:subscriber:create --code="${SUBSCRIBER_CODE}" --name="${SUBSCRIBER_NAME}" --document="${SUBSCRIBER_DOCUMENT}" --admin-username="${ADMIN_USERNAME}" --admin-password="${ADMIN_PASSWORD}" --admin-display-name="Administrador ${SUBSCRIBER_NAME}"
-  php bin/console app:runtime:publish-defaults --fail-on-missing
-)
+run_step prepare_env
+run_step bootstrap_app
+run_step create_subscriber
+run_step publish_defaults
 
 echo
 echo "Provisionamento SaaS concluido."

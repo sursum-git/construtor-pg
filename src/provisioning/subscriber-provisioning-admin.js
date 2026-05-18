@@ -14,6 +14,8 @@
     this.runtimeEnvironments = [];
     this.operationalMatrix = [];
     this.isolationCatalog = { summary: {}, items: [] };
+    this.currentPrecheck = null;
+    this.currentPackageMetadata = null;
   }
 
   SubscriberProvisioningAdmin.DEPLOYMENT_MODES = [
@@ -84,14 +86,29 @@
 
     const actions = global.jQuery("<div class=\"program-builder-toolbar\"></div>").appendTo(form);
     this.createButton(actions, "Salvar assinante", "save", this.handleSaveSubscriber.bind(this));
+    this.createButton(actions, "Validar provisionamento", "check", this.handlePrecheck.bind(this));
     this.createButton(actions, "Criar ambiente", "play", this.handleProvision.bind(this));
     this.createButton(actions, "Baixar pacote on-premise", "download", this.handleDownloadOnPrem.bind(this));
+    this.createButton(actions, "Gerar senha forte", "lock", this.fillStrongPassword.bind(this));
+    this.precheckElement = global.jQuery("<div class=\"program-builder-json-preview\"></div>").appendTo(form);
+    this.precheckElement.text("A validacao previa de conflitos e checklist aparece aqui.");
+    this.packageReportElement = global.jQuery("<div class=\"program-builder-json-preview\"></div>").appendTo(form);
+    this.packageReportElement.text("O relatorio do pacote on-premise aparece aqui.");
     this.syncDeploymentHint();
   };
 
   SubscriberProvisioningAdmin.prototype.renderJobCard = function() {
     const card = this.createCard(this.rightColumn, "Jobs de provisionamento");
     const body = card.body;
+    const toolbar = global.jQuery("<div class=\"program-builder-toolbar\"></div>").appendTo(body);
+    this.retryFromStepSelect = this.createSelectField(toolbar, "Retry parcial", [
+      { value: "prepare_env", text: "Preparar ambiente" },
+      { value: "start_database", text: "Subir banco" },
+      { value: "bootstrap_app", text: "Bootstrap" },
+      { value: "create_subscriber", text: "Criar assinante" },
+      { value: "publish_defaults", text: "Publish defaults" }
+    ], "prepare_env");
+    this.createButton(toolbar, "Retry parcial", "reload", this.handleRetryProvisionJob.bind(this));
     this.jobsGridElement = global.jQuery("<div class=\"program-builder-governance-list\"></div>").appendTo(body);
     this.jobDetailElement = global.jQuery("<div class=\"program-builder-json-preview\"></div>").appendTo(body);
     this.jobDetailElement.text("Nenhum job selecionado.");
@@ -377,14 +394,33 @@
 
   SubscriberProvisioningAdmin.prototype.handleSaveSubscriber = function() {
     const payload = this.collectSubscriberPayload();
+    const password = payload.adminPassword || "";
     this.request("POST", "/api/admin/subscriber-provisioning/subscribers", payload).then((response) => {
       global.CrudUtils.showMessage("Assinante salvo.", "success");
       this.currentSubscriberCode = payload.code || "";
-      this.loadBootstrap(this.currentSubscriberCode);
-      if (response && response.subscriber) {
-        this.applySubscriber(response.subscriber);
-      }
+      this.loadBootstrap(this.currentSubscriberCode).then(() => {
+        if (response && response.subscriber) {
+          this.applySubscriber(response.subscriber);
+        }
+        if (password) {
+          this.adminPasswordInput.value(password);
+        }
+      });
     }).catch((error) => this.showError(error, "Nao foi possivel salvar o assinante."));
+  };
+
+  SubscriberProvisioningAdmin.prototype.handlePrecheck = function() {
+    const payload = this.collectSubscriberPayload();
+    payload.subscriberCode = payload.code;
+    this.request("POST", "/api/admin/subscriber-provisioning/precheck", payload).then((response) => {
+      this.currentPrecheck = response || null;
+      this.renderPrecheck(response || {});
+      if (response && response.hasBlockingIssues) {
+        global.CrudUtils.showMessage("Existem bloqueios no provisionamento.", "warning");
+        return;
+      }
+      global.CrudUtils.showMessage("Validacao previa concluida.", "success");
+    }).catch((error) => this.showError(error, "Nao foi possivel validar o provisionamento."));
   };
 
   SubscriberProvisioningAdmin.prototype.handleProvision = function() {
@@ -401,25 +437,47 @@
     }).catch((error) => this.showError(error, "Nao foi possivel enfileirar o provisionamento."));
   };
 
+  SubscriberProvisioningAdmin.prototype.handleRetryProvisionJob = function() {
+    if (!this.activeJobId) {
+      global.CrudUtils.showMessage("Selecione um job antes do retry parcial.", "warning");
+      return;
+    }
+    this.request("POST", "/api/admin/subscriber-provisioning/jobs/" + this.activeJobId + "/retry", {
+      retryFromStep: this.retryFromStepSelect ? this.retryFromStepSelect.value() : "prepare_env"
+    }).then((response) => {
+      const job = response && response.job;
+      global.CrudUtils.showMessage("Retry parcial enfileirado.", "success");
+      this.loadJobs().then(() => {
+        if (job && job.id) {
+          this.selectJob(job.id, true);
+        }
+      });
+    }).catch((error) => this.showError(error, "Nao foi possivel enfileirar o retry parcial."));
+  };
+
   SubscriberProvisioningAdmin.prototype.handleDownloadOnPrem = function() {
     const payload = this.collectSubscriberPayload();
     payload.subscriberCode = payload.code;
-    if (this.httpClient && typeof this.httpClient.downloadOnPremPackage === "function") {
-      this.httpClient.downloadOnPremPackage(payload);
-      return;
-    }
-    const url = new URL("/api/admin/subscriber-provisioning/onprem-package", global.location && global.location.href || "http://localhost/");
-    Object.keys(payload).forEach(function(key) {
-      if (payload[key] != null && payload[key] !== "") {
-        url.searchParams.set(key, String(payload[key]));
+    this.request("GET", "/api/admin/subscriber-provisioning/onprem-package", Object.assign({}, payload, { metadataOnly: 1 })).then((metadata) => {
+      this.currentPackageMetadata = metadata || null;
+      this.renderPackageMetadata(metadata || {});
+      if (this.httpClient && typeof this.httpClient.downloadOnPremPackage === "function") {
+        this.httpClient.downloadOnPremPackage(payload);
+        return;
       }
-    });
-    const link = document.createElement("a");
-    link.href = url.href;
-    link.download = "";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      const url = new URL("/api/admin/subscriber-provisioning/onprem-package", global.location && global.location.href || "http://localhost/");
+      Object.keys(payload).forEach(function(key) {
+        if (payload[key] != null && payload[key] !== "") {
+          url.searchParams.set(key, String(payload[key]));
+        }
+      });
+      const link = document.createElement("a");
+      link.href = url.href;
+      link.download = "";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }).catch((error) => this.showError(error, "Nao foi possivel gerar o pacote on-premise."));
   };
 
   SubscriberProvisioningAdmin.prototype.loadJobs = function() {
@@ -500,7 +558,91 @@
   };
 
   SubscriberProvisioningAdmin.prototype.renderJobDetail = function(job) {
-    this.jobDetailElement.text(JSON.stringify(job || {}, null, 2));
+    const result = job && job.result || {};
+    const steps = global.CrudUtils.ensureArray(result.steps || job && job.steps || []);
+    const report = result.report || {};
+    const wrapper = global.jQuery("<div class=\"program-builder-side-section\"></div>");
+    global.jQuery("<div class=\"program-builder-inline-hint\"></div>")
+      .text("Status: " + String(job && job.status || "-") + " | Etapa atual: " + String(result.currentStep || result.phase || "-"))
+      .appendTo(wrapper);
+    if (steps.length) {
+      const list = global.jQuery("<div class=\"program-builder-governance-list\"></div>").appendTo(wrapper);
+      const items = steps.map(this.describeStep.bind(this)).join("");
+      list.html("<ul class=\"program-builder-issue-list\">" + items + "</ul>");
+    }
+    if (report && Object.keys(report).length) {
+      const reportText = [
+        "Relatorio final",
+        "Assinante: " + String(report.subscriberCode || "-"),
+        "Banco: " + String(report.databaseIdentity || "-"),
+        "Runtime: " + String(report.runtimeEnvironmentCode || "-"),
+        "Retry de: " + String(report.retryFromStep || "-"),
+        "Falha em: " + String(report.failedStep || "-"),
+        "Concluidas: " + String(report.completedSteps || 0)
+      ].join("\n");
+      global.jQuery("<pre class=\"program-builder-json-preview\"></pre>").text(reportText + "\n\n" + JSON.stringify(report, null, 2)).appendTo(wrapper);
+    }
+    global.jQuery("<pre class=\"program-builder-json-preview\"></pre>").text(JSON.stringify(job || {}, null, 2)).appendTo(wrapper);
+    this.jobDetailElement.empty().append(wrapper);
+  };
+
+  SubscriberProvisioningAdmin.prototype.renderPrecheck = function(precheck) {
+    const checklist = global.CrudUtils.ensureArray(precheck.checklist);
+    const conflicts = global.CrudUtils.ensureArray(precheck.blockingIssues);
+    const warnings = global.CrudUtils.ensureArray(precheck.warnings);
+    const lines = [];
+    lines.push("Bloqueios: " + String(conflicts.length));
+    lines.push("Avisos: " + String(warnings.length));
+    lines.push("");
+    checklist.forEach(function(item) {
+      lines.push("[" + String(item.status || "-").toUpperCase() + "] " + String(item.label || item.code || "-") + " - " + String(item.message || ""));
+    });
+    if (conflicts.length) {
+      lines.push("");
+      lines.push("Conflitos bloqueantes:");
+      conflicts.forEach(function(item) {
+        lines.push("- " + String(item.message || item.code || "-") + (item.subscriberCode ? " (" + item.subscriberCode + ")" : ""));
+      });
+    }
+    if (warnings.length) {
+      lines.push("");
+      lines.push("Avisos:");
+      warnings.forEach(function(item) {
+        lines.push("- " + String(item.message || item.code || "-"));
+      });
+    }
+    this.precheckElement.text(lines.join("\n"));
+  };
+
+  SubscriberProvisioningAdmin.prototype.renderPackageMetadata = function(metadata) {
+    const precheck = metadata.precheck || {};
+    const lines = [
+      "Pacote on-premise",
+      "Arquivo: " + String(metadata.fileName || "-"),
+      "SHA-256: " + String(metadata.sha256 || "-"),
+      "Assinatura: " + String(metadata.signature || "-"),
+      "Tamanho: " + String(metadata.size || 0),
+      "Gerado em: " + String(metadata.generatedAt || "-"),
+      "",
+      "Bloqueios detectados: " + String(global.CrudUtils.ensureArray(precheck.blockingIssues).length)
+    ];
+    this.packageReportElement.text(lines.join("\n"));
+  };
+
+  SubscriberProvisioningAdmin.prototype.fillStrongPassword = function() {
+    const password = "CpG!" + Math.random().toString(36).slice(2, 8) + "A9#" + Math.random().toString(36).slice(2, 8).toUpperCase();
+    this.adminPasswordInput.value(password);
+    global.CrudUtils.showMessage("Senha forte sugerida no formulario.", "info");
+  };
+
+  SubscriberProvisioningAdmin.prototype.describeStep = function(step) {
+    return "<li><strong>" + this.escapeHtml(String(step.code || "-")) + "</strong>: " + this.escapeHtml(String(step.status || "-")) + (step.message ? " - " + this.escapeHtml(String(step.message)) : "") + "</li>";
+  };
+
+  SubscriberProvisioningAdmin.prototype.escapeHtml = function(text) {
+    return String(text || "").replace(/[&<>\"']/g, function(char) {
+      return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char] || char;
+    });
   };
 
   SubscriberProvisioningAdmin.prototype.request = function(method, url, data) {

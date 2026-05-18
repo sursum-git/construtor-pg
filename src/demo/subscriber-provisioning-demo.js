@@ -31,6 +31,14 @@
     this.nextJobId = 100;
   }
 
+  SubscriberProvisioningDemoHttpClient.STEPS = [
+    { code: "prepare_env", label: "Preparar ambiente e variaveis" },
+    { code: "start_database", label: "Subir banco dedicado" },
+    { code: "bootstrap_app", label: "Bootstrap da aplicacao" },
+    { code: "create_subscriber", label: "Criar assinante e admin inicial" },
+    { code: "publish_defaults", label: "Publicar programas padrao" }
+  ];
+
   SubscriberProvisioningDemoHttpClient.prototype.request = function(options) {
     const request = options || {};
     const method = String(request.method || "GET").toUpperCase();
@@ -90,8 +98,20 @@
       const items = this.jobs.filter((item) => !subscriberCode || item.subscriberCode === subscriberCode).slice().reverse();
       return Promise.resolve({ items: items });
     }
+    if (method === "POST" && url === "/api/admin/subscriber-provisioning/precheck") {
+      return Promise.resolve(this.buildPrecheck(data));
+    }
     if (method === "POST" && url === "/api/admin/subscriber-provisioning/provision") {
+      const precheck = this.buildPrecheck(data);
+      if (precheck.hasBlockingIssues) {
+        return Promise.reject({ error: { message: "Existem conflitos bloqueantes no provisionamento." } });
+      }
       const now = new Date().toISOString();
+      const steps = SubscriberProvisioningDemoHttpClient.STEPS.map((step) => ({
+        code: step.code,
+        label: step.label,
+        status: "pending"
+      }));
       const job = {
         id: this.nextJobId++,
         jobType: "subscriber.environment.provision",
@@ -110,31 +130,92 @@
         runtimeEnvironmentCode: data.runtimeEnvironmentCode || data.subscriberCode || data.code || "",
         primaryEnvironmentCode: data.primaryEnvironmentCode || ((data.subscriberCode || data.code || "") + "-principal"),
         updateChannel: data.updateChannel || "stable",
-        result: { phase: "queued", message: "Provisionamento enfileirado." },
+        result: {
+          phase: "queued",
+          message: "Provisionamento enfileirado.",
+          steps: steps,
+          report: {
+            subscriberCode: data.subscriberCode || data.code || "",
+            databaseIdentity: data.databaseIdentity || "saas:" + (data.subscriberCode || data.code || ""),
+            databaseName: data.databaseName || "",
+            runtimeEnvironmentCode: data.runtimeEnvironmentCode || data.subscriberCode || data.code || ""
+          }
+        },
         createdAt: now,
         updatedAt: now,
         startedAt: null,
         finishedAt: null
       };
       this.jobs.push(job);
-      global.setTimeout(() => {
-        job.status = "running";
-        job.startedAt = new Date().toISOString();
-        job.updatedAt = new Date().toISOString();
-        job.result = { phase: "running", message: "Provisionamento em execucao.", outputTail: "Executando bootstrap do assinante " + job.subscriberCode };
-      }, 400);
+      SubscriberProvisioningDemoHttpClient.STEPS.forEach((step, index) => {
+        global.setTimeout(() => {
+          job.status = "running";
+          job.startedAt = job.startedAt || new Date().toISOString();
+          job.updatedAt = new Date().toISOString();
+          job.result.phase = "running";
+          job.result.currentStep = step.code;
+          job.result.message = "Executando etapa: " + step.code + ".";
+          job.result.outputTail = "Executando " + step.code + " para " + job.subscriberCode;
+          job.result.steps = job.result.steps.map((item) => ({
+            code: item.code,
+            label: item.label,
+            status: item.code === step.code ? "running" : (item.status === "succeeded" ? "succeeded" : "pending")
+          }));
+        }, 350 + (index * 260));
+        global.setTimeout(() => {
+          job.updatedAt = new Date().toISOString();
+          job.result.steps = job.result.steps.map((item) => ({
+            code: item.code,
+            label: item.label,
+            status: item.code === step.code ? "succeeded" : item.status
+          }));
+        }, 500 + (index * 260));
+      });
       global.setTimeout(() => {
         job.status = "succeeded";
         job.finishedAt = new Date().toISOString();
         job.updatedAt = new Date().toISOString();
-        job.result = { phase: "completed", message: "Provisionamento concluido.", outputTail: "Ambiente preparado com sucesso.", script: "demo", subscriberCode: job.subscriberCode };
-      }, 1800);
+        job.result.phase = "completed";
+        job.result.message = "Provisionamento concluido.";
+        job.result.outputTail = "Ambiente preparado com sucesso.";
+        job.result.script = "demo";
+        job.result.report.completedSteps = SubscriberProvisioningDemoHttpClient.STEPS.length;
+      }, 1900);
       return Promise.resolve({ queued: [{ id: job.id, type: job.jobType, status: job.status }], job: Object.assign({}, job) });
     }
     if (method === "GET" && /^\/api\/admin\/subscriber-provisioning\/jobs\/\d+$/i.test(url)) {
       const jobId = Number(url.split("/").pop());
       const job = this.jobs.find((item) => item.id === jobId);
       return Promise.resolve(job ? Object.assign({}, job) : {});
+    }
+    if (method === "POST" && /^\/api\/admin\/subscriber-provisioning\/jobs\/\d+\/retry$/i.test(url)) {
+      const originalJobId = Number(url.split("/")[5]);
+      const original = this.jobs.find((item) => item.id === originalJobId);
+      if (!original) {
+        return Promise.reject({ error: { message: "Job nao encontrado para retry." } });
+      }
+      const retryFromStep = String(data.retryFromStep || "prepare_env");
+      return this.request({
+        method: "POST",
+        url: "/api/admin/subscriber-provisioning/provision",
+        data: Object.assign({}, original, {
+          code: original.subscriberCode,
+          subscriberCode: original.subscriberCode,
+          name: original.subscriberName,
+          retryFromStep: retryFromStep
+        })
+      });
+    }
+    if (method === "GET" && url === "/api/admin/subscriber-provisioning/onprem-package") {
+      const code = String(data.subscriberCode || data.code || "cliente");
+      return Promise.resolve({
+        fileName: "construtor-pg-onprem-" + code + ".zip",
+        size: 1024,
+        sha256: "demo-" + code + "-sha256",
+        signature: "demo-signature-" + code,
+        generatedAt: new Date().toISOString(),
+        precheck: this.buildPrecheck(data)
+      });
     }
 
     return Promise.reject({ error: { message: "Endpoint demo nao suportado: " + method + " " + url } });
@@ -152,6 +233,30 @@
     link.click();
     document.body.removeChild(link);
     global.URL.revokeObjectURL(url);
+  };
+
+  SubscriberProvisioningDemoHttpClient.prototype.buildPrecheck = function(payload) {
+    const password = String(payload.adminPassword || "");
+    const blockingIssues = [];
+    const checklist = [
+      { code: "central_control", label: "Sistema central SaaS habilitado", status: "ok", message: "Demo local sempre roda como central." },
+      { code: "worker", label: "Worker de jobs disponivel", status: "manual", message: "No sistema real, manter worker ativo para subscriber.environment.provision." },
+      { code: "runtime_environment", label: "Ambiente runtime definido", status: payload.runtimeEnvironmentCode ? "ok" : "error", message: payload.runtimeEnvironmentCode || "Informe o ambiente runtime." },
+      { code: "primary_environment", label: "Ambiente principal isolado definido", status: payload.primaryEnvironmentCode ? "ok" : "error", message: payload.primaryEnvironmentCode || "Informe o ambiente principal isolado." }
+    ];
+    if (!password || password.length < 14) {
+      blockingIssues.push({ code: "weak_admin_password", message: "A senha inicial precisa ter pelo menos 14 caracteres e politica forte." });
+      checklist.push({ code: "admin_password", label: "Credencial inicial forte", status: "error", message: "Defina senha forte antes de provisionar." });
+    } else {
+      checklist.push({ code: "admin_password", label: "Credencial inicial forte", status: "ok", message: "Senha forte preenchida." });
+    }
+    return {
+      hasBlockingIssues: blockingIssues.length > 0,
+      blockingIssues: blockingIssues,
+      warnings: [],
+      checklist: checklist,
+      steps: SubscriberProvisioningDemoHttpClient.STEPS
+    };
   };
 
   SubscriberProvisioningDemoHttpClient.prototype.buildRuntimeEnvironments = function() {

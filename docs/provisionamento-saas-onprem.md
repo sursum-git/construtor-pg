@@ -113,6 +113,15 @@ Job assíncrono:
 4. a UI acompanha o status do job por SSE quando disponivel e cai para polling quando necessario;
 5. ao concluir, o detalhamento do job mostra o resumo final e o rastro do script executado.
 
+Capacidades operacionais atuais da tela:
+
+- validacao previa de conflitos antes do enfileiramento;
+- checklist de prerequisitos operacionais;
+- painel de progresso por etapa;
+- retry parcial a partir de `prepare_env`, `start_database`, `bootstrap_app`, `create_subscriber` ou `publish_defaults`;
+- relatorio final do provisionamento com etapas reaproveitadas ou falhas;
+- pacote on-premise com checksum SHA-256 e assinatura opcional.
+
 Pre-requisito operacional:
 
 - manter o worker de jobs ativo no ambiente onde a tela administrativa estiver rodando.
@@ -206,6 +215,14 @@ Ele entrega um arquivo com:
 - `scripts/install-onprem.sh`;
 - `.env.template`;
 - `README-INSTALACAO.txt`.
+
+Metadados devolvidos para a tela antes do download:
+
+- `fileName`
+- `size`
+- `sha256`
+- `signature` opcional
+- `generatedAt`
 
 O alvo previsto e:
 

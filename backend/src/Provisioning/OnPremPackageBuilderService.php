@@ -60,10 +60,16 @@ class OnPremPackageBuilderService
 
         $zip->close();
 
+        $sha256 = hash_file('sha256', $targetPath) ?: '';
+        $signature = $this->signPackageChecksum($sha256);
+
         return [
             'path' => $targetPath,
             'fileName' => $fileName,
             'size' => filesize($targetPath) ?: 0,
+            'sha256' => $sha256,
+            'signature' => $signature,
+            'generatedAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
         ];
     }
 
@@ -151,5 +157,15 @@ class OnPremPackageBuilderService
     private function escapeEnv(string $value): string
     {
         return str_replace('"', '\"', $value);
+    }
+
+    private function signPackageChecksum(string $sha256): ?string
+    {
+        $key = (string) (getenv('APP_ONPREM_PACKAGE_SIGNING_KEY') ?: getenv('APP_UPDATE_PACKAGE_SIGNING_KEY') ?: '');
+        if ($key === '' || $sha256 === '') {
+            return null;
+        }
+
+        return hash_hmac('sha256', $sha256, $key);
     }
 }

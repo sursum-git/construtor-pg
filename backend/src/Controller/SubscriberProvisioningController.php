@@ -64,6 +64,19 @@ class SubscriberProvisioningController extends AbstractController
         }
     }
 
+    #[Route('/precheck', methods: ['POST'])]
+    public function precheck(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $this->central->ensureCentral();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->provisioning->precheckProvision(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
     #[Route('/provision', methods: ['POST'])]
     public function provision(Request $request): JsonResponse
     {
@@ -84,6 +97,19 @@ class SubscriberProvisioningController extends AbstractController
             $this->sessions->ensureActive();
             $this->central->ensureCentral();
             return $this->json($this->provisioning->getProvisionJob($jobId));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/jobs/{jobId}/retry', methods: ['POST'])]
+    public function retryJob(int $jobId, Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $this->central->ensureCentral();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->provisioning->retryProvisionJob($jobId, trim((string) (($payload['retryFromStep'] ?? '')))));
         } catch (\Throwable $error) {
             return $this->error($error);
         }
@@ -153,7 +179,17 @@ class SubscriberProvisioningController extends AbstractController
                 'instanceCode' => $request->query->get('instanceCode'),
             ]);
 
-            return $this->file($package['path'], $package['fileName']);
+            if ($request->query->getBoolean('metadataOnly')) {
+                return $this->json($package);
+            }
+
+            $response = $this->file($package['path'], $package['fileName']);
+            $response->headers->set('X-Construtor-Package-Sha256', (string) ($package['sha256'] ?? ''));
+            if (($package['signature'] ?? null) !== null) {
+                $response->headers->set('X-Construtor-Package-Signature', (string) $package['signature']);
+            }
+
+            return $response;
         } catch (\Throwable $error) {
             return $this->error($error);
         }

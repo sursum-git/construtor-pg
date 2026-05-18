@@ -39,6 +39,7 @@
       <li>No modelo compartilhado por coluna de assinante, varios assinantes podem apontar para o mesmo ambiente runtime.</li>
       <li>Na producao, o botao <code>Criar ambiente</code> enfileira o job <code>subscriber.environment.provision</code> e depende de worker ativo.</li>
       <li>Na producao, o acompanhamento prefere SSE e cai para polling quando necessario.</li>
+      <li>A tela agora tambem demonstra validacao previa, checklist, progresso por etapa, retry parcial e checksum do pacote.</li>
       <li>O pacote on-premise foi pensado para Ubuntu 24.04 e entrega <code>install.sh</code> como ponto de entrada.</li>
       <li>Em outros ambientes reais, publique a tela com <code>php backend/bin/console app:seed-runtime-metadata --no-interaction</code>.</li>
       <li>Sem a marcacao de sistema central e sem worker, o ambiente real nao deve expor esta operacao.</li>

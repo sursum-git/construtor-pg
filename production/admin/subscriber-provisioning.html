@@ -39,6 +39,8 @@
       <li>O cadastro agora diferencia o ambiente principal isolado do ambiente runtime usado pelo assinante.</li>
       <li>No modelo compartilhado por coluna de assinante, varios assinantes podem apontar para o mesmo ambiente runtime sem misturar o ambiente principal.</li>
       <li>O acompanhamento usa SSE quando disponivel e cai para polling quando necessario.</li>
+      <li>A tela agora faz validacao previa de conflitos, checklist de prerequisitos, progresso por etapa, retry parcial e relatorio final do job.</li>
+      <li>O pacote on-premise agora expoe checksum SHA-256 e assinatura opcional antes do download.</li>
       <li>O pacote on-premise foi pensado para Ubuntu 24.04 e entrega <code>install.sh</code> como ponto de entrada.</li>
       <li>Em outros ambientes, publicar esta tela exige rodar <code>php backend/bin/console app:seed-runtime-metadata --no-interaction</code>.</li>
       <li>Em outros ambientes centrais, tambem configure <code>APP_SYSTEM_ROLE=saas_central</code> ou <code>APP_CENTRAL_CONTROL_ENABLED=1</code> antes de expor a tela.</li>

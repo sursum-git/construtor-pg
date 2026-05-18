@@ -732,8 +732,10 @@
               "Auditoria de ambientes runtime compartilhados e matriz operacional por assinante.",
               "Catalogo administrativo de tabelas globais e tabelas filtradas por assinante.",
               "Disparo do job `subscriber.environment.provision`.",
+              "Validacao previa de conflitos e checklist de prerequisitos antes do enfileiramento.",
+              "Painel de progresso por etapa e retry parcial a partir da etapa escolhida.",
               "Acompanhamento do processamento por SSE quando disponivel, com fallback por polling.",
-              "Geracao do pacote zip on-premise com `install.sh`."
+              "Geracao do pacote zip on-premise com `install.sh`, checksum SHA-256 e assinatura opcional."
             ],
             outputs: [
               "Assinante salvo com metadados de provisionamento.",
@@ -742,7 +744,8 @@
               "Visao de ambientes runtime compartilhados, divergencias e quantidade de assinantes por runtime.",
               "Catalogo de isolamento das entidades persistentes com riscos de configuracao.",
               "Job de provisionamento enfileirado e acompanhado pela tela.",
-              "Pacote on-premise pronto para download."
+              "Pacote on-premise pronto para download.",
+              "Checksum e assinatura do pacote exibidos antes do download."
             ]
           },
           operational: {
@@ -756,8 +759,10 @@
               "Definir o modelo de deployment e, quando houver compartilhamento, informar o ambiente runtime comum.",
               "Definir o canal de update do assinante e revisar a matriz operacional do ambiente compartilhado.",
               "Salvar o assinante antes de iniciar o ambiente.",
+              "Rodar a validacao previa para revisar bloqueios e checklist operacional.",
               "Revisar o catalogo de isolamento para confirmar quais tabelas sao globais e quais exigem filtro por assinante.",
               "Usar `Criar ambiente` para enfileirar o job SaaS e acompanhar o detalhe do processamento.",
+              "Se o job falhar no meio, usar o retry parcial a partir da etapa necessaria.",
               "Usar `Baixar pacote on-premise` quando precisar entregar uma instalacao nova com bootstrap automatico.",
               "No on-premise, extrair o zip em Ubuntu 24.04 e executar `install.sh`."
             ],

@@ -54,6 +54,7 @@ Paginas principais:
   - `scripts/provision-saas-subscriber.sh`
   - o objetivo e automatizar banco, migrations, seed, validacao do catalogo padrao e criacao do assinante/admin inicial.
   - existe tambem a tela `admin.assinante-ambientes`, que salva o assinante, enfileira o provisionamento SaaS em job runtime, acompanha o status por SSE/polling e gera o pacote zip on-premise com `install.sh` para Ubuntu 24.04.
+  - a mesma tela agora tambem executa validacao previa de conflitos, checklist de prerequisitos, mostra progresso por etapa do job, permite retry parcial a partir de uma etapa especifica e exibe checksum SHA-256/assinatura opcional do pacote on-premise.
   - o cadastro do assinante agora tambem formaliza o modo de deployment (`shared_program_shared_db`, `shared_program_dedicated_db`, `dedicated_stack`, `onprem_remote`), separando ambiente principal isolado do ambiente runtime usado pelo assinante; no modo compartilhado, varios assinantes podem apontar para o mesmo ambiente runtime.
   - a mesma tela agora tambem expoe canal de update por assinante, auditoria dos ambientes runtime compartilhados, matriz operacional por assinante e catalogo administrativo das entidades persistentes globais x filtradas por assinante.
   - existe tambem a tela `admin.atualizacoes`, que le o manifesto de releases, avalia dependencias, aplica atualizacoes por job e mostra o impacto em programas padrao e customizados.
