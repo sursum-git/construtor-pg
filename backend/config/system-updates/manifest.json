@@ -12,6 +12,7 @@
       "category": "security_critical",
       "severity": "critical",
       "description": "Atualiza metadados e validacoes obrigatorias do runtime. Em SaaS entra automatico; em on-premise pode aplicar ao abrir o sistema quando o manifesto remoto estiver disponivel.",
+      "autoApply": true,
       "autoApplySaas": true,
       "autoApplyOnPrem": true,
       "requiresSubscriberConsent": false,
@@ -19,6 +20,8 @@
       "internetRequired": false,
       "requiresVersionMin": "1.0.0",
       "requiresAppliedUpdates": [],
+      "replaces": [],
+      "breakingLevel": "security_forced",
       "steps": [
         "migrate",
         "seed_runtime_metadata",
@@ -47,6 +50,10 @@
       "category": "required_structural",
       "severity": "high",
       "description": "Padroniza estruturas necessarias para publicacoes posteriores. Nao deve ser pulada antes da proxima leva de releases.",
+      "autoApply": {
+        "saas": true,
+        "onprem": false
+      },
       "autoApplySaas": true,
       "autoApplyOnPrem": false,
       "requiresSubscriberConsent": true,
@@ -56,6 +63,8 @@
       "requiresAppliedUpdates": [
         "1.0.1"
       ],
+      "replaces": [],
+      "breakingLevel": "structural_breaking",
       "steps": [
         "migrate",
         "seed_runtime_metadata",
@@ -84,6 +93,7 @@
       "category": "optional_visual",
       "severity": "low",
       "description": "Melhoria visual que pode aguardar anuencia do assinante, mas continua dependente das releases estruturais anteriores.",
+      "autoApply": false,
       "autoApplySaas": false,
       "autoApplyOnPrem": false,
       "requiresSubscriberConsent": true,
@@ -94,6 +104,8 @@
         "1.0.1",
         "1.0.2"
       ],
+      "replaces": [],
+      "breakingLevel": "non_breaking",
       "steps": [
         "seed_runtime_metadata",
         "publish_runtime_defaults"

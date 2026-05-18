@@ -775,6 +775,7 @@
             scope: [
               "Leitura do manifesto oficial de releases.",
               "Classificacao da release por severidade, dependencia e anuencia.",
+              "Cadeia obrigatoria por `requiresVersionMin`, `requiresAppliedUpdates[]`, `replaces[]`, `autoApply`, `breakingLevel` e `steps`.",
               "Aplicacao controlada por job runtime.",
               "Analise de impacto em programas padrao, overlays e variantes completas do assinante.",
               "Exportacao do plano de rollout SaaS para orquestracao externa."
@@ -804,6 +805,7 @@
               "Esta tela existe apenas no sistema central SaaS; no assinante fica apenas a parte local necessaria de verificacao/aplicacao.",
               "Release `security_critical` pode ser autoenfileirada quando a politica do ambiente permitir.",
               "Release `required_structural` bloqueia atualizacoes posteriores enquanto a cadeia obrigatoria nao for aplicada.",
+              "No sistema central, a cadeia obrigatoria e avaliada por assinante alvo; um assinante nao libera dependencias de outro.",
               "Atualizacao de programa padrao nao sobrescreve `customer_overlay` nem `customer_custom`: overlays entram em analise de rebase e variantes completas permanecem congeladas.",
               "Quando o impacto do overlay vier como `rebase_ok`, a propria esteira da release gera rascunho de rebase para a base publicada; conflito leve fica em revisao e conflito bloqueante segue sem automacao.",
               "Manifesto remoto sem assinatura confiavel nao deve seguir como release pendente aplicavel.",

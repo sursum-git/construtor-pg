@@ -13,6 +13,10 @@
         title: "Correcao critica de seguranca do runtime",
         category: "security_critical",
         severity: "critical",
+        requiresVersionMin: "1.0.0",
+        requiresAppliedUpdates: [],
+        replaces: [],
+        breakingLevel: "security_forced",
         requiresConsent: false,
         autoApplicable: true,
         packageAvailable: true,
@@ -35,6 +39,10 @@
         title: "Ajuste estrutural obrigatorio",
         category: "required_structural",
         severity: "high",
+        requiresVersionMin: "1.0.0",
+        requiresAppliedUpdates: ["1.0.1"],
+        replaces: [],
+        breakingLevel: "structural_breaking",
         requiresConsent: true,
         autoApplicable: false,
         packageAvailable: true,
@@ -44,6 +52,26 @@
           requiresBackup: true,
           requiresMaintenanceMode: true,
           orchestratorAction: "maintenance-rollout"
+        }
+      },
+      {
+        version: "1.0.3",
+        title: "Melhoria visual opcional",
+        category: "optional_visual",
+        severity: "low",
+        requiresVersionMin: "1.0.0",
+        requiresAppliedUpdates: ["1.0.1", "1.0.2"],
+        replaces: [],
+        breakingLevel: "non_breaking",
+        requiresConsent: true,
+        autoApplicable: false,
+        packageAvailable: true,
+        packageUrl: "backend/config/system-updates/packages/admin-visual-1.0.3.pkg",
+        dependencyIssues: ["Atualizacao obrigatoria pendente: 1.0.2."],
+        metadata: {
+          requiresBackup: false,
+          requiresMaintenanceMode: false,
+          orchestratorAction: "frontend-refresh"
         }
       }
     ];
@@ -500,7 +528,10 @@
   };
 
   SystemUpdatesDemoHttpClient.prototype.resolveReleases = function(subscriberCode) {
-    const applied = new Set(this.executions.filter((item) => item.status === "succeeded").map((item) => item.releaseVersion));
+    const normalizedSubscriber = String(subscriberCode || "");
+    const applied = new Set(this.executions
+      .filter((item) => item.status === "succeeded" && (!normalizedSubscriber || String(item.targetSubscriberCode || "") === normalizedSubscriber))
+      .map((item) => item.releaseVersion));
     const latestConsentByVersion = {};
     this.consents.forEach((item) => {
       const consentKey = item.releaseVersion + "|" + String(item.targetSubscriberCode || "");
@@ -512,12 +543,12 @@
       const release = Object.assign({}, item);
       if (applied.has(release.version)) {
         release.status = "applied";
-      } else if (release.version === "1.0.2" && !applied.has("1.0.1")) {
+      } else if ((release.requiresAppliedUpdates || []).some((requiredVersion) => !applied.has(requiredVersion))) {
         release.status = "blocked_dependency";
       } else {
         release.status = "pending";
       }
-      const consent = latestConsentByVersion[release.version + "|" + String(subscriberCode || "")] || null;
+      const consent = latestConsentByVersion[release.version + "|" + normalizedSubscriber] || null;
       release.consentStatus = release.requiresConsent ? (consent ? consent.status : "pending") : "not-required";
       release.consentApproved = release.requiresConsent ? Boolean(consent && consent.status === "approved") : true;
       return release;

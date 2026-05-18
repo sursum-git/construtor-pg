@@ -50,21 +50,66 @@ class SystemUpdateExecutionRepository extends ServiceEntityRepository
 
     public function findLatestSuccessfulVersion(): ?string
     {
-        $value = $this->createQueryBuilder('e')
+        return $this->findLatestSuccessfulVersionBySubscriber(null);
+    }
+
+    public function findLatestSuccessfulVersionBySubscriber(?string $subscriberCode): ?string
+    {
+        $query = $this->createQueryBuilder('e')
             ->select('e.releaseVersion')
             ->andWhere('e.status = :status')
             ->setParameter('status', 'succeeded')
             ->orderBy('e.createdAt', 'DESC')
             ->addOrderBy('e.id', 'DESC')
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult();
+            ->setMaxResults(1);
+
+        $normalizedSubscriber = trim((string) $subscriberCode);
+        if ($normalizedSubscriber !== '') {
+            $query
+                ->andWhere('e.targetSubscriberCode = :subscriberCode')
+                ->setParameter('subscriberCode', $normalizedSubscriber);
+        }
+
+        $value = $query->getQuery()->getOneOrNullResult();
 
         if (!is_array($value) || !isset($value['releaseVersion'])) {
             return null;
         }
 
         return (string) $value['releaseVersion'];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function findSuccessfulVersionsBySubscriber(?string $subscriberCode, int $limit = 200): array
+    {
+        $query = $this->createQueryBuilder('e')
+            ->select('e.releaseVersion')
+            ->andWhere('e.status = :status')
+            ->setParameter('status', 'succeeded')
+            ->orderBy('e.createdAt', 'DESC')
+            ->addOrderBy('e.id', 'DESC')
+            ->setMaxResults(max(1, $limit));
+
+        $normalizedSubscriber = trim((string) $subscriberCode);
+        if ($normalizedSubscriber !== '') {
+            $query
+                ->andWhere('e.targetSubscriberCode = :subscriberCode')
+                ->setParameter('subscriberCode', $normalizedSubscriber);
+        }
+
+        $rows = $query->getQuery()->getArrayResult();
+        $versions = [];
+        foreach ($rows as $row) {
+            $version = trim((string) ($row['releaseVersion'] ?? ''));
+            if ($version === '') {
+                continue;
+            }
+            $versions[] = $version;
+        }
+
+        return array_values(array_unique($versions));
     }
 
     public function hasExecutionInStatuses(string $version, array $statuses): bool

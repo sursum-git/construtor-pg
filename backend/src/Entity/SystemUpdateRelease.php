@@ -54,6 +54,12 @@ class SystemUpdateRelease
     private array $requiresAppliedUpdates = [];
 
     #[ORM\Column(type: Types::JSON)]
+    private array $replaces = [];
+
+    #[ORM\Column(length: 30)]
+    private string $breakingLevel = 'non_breaking';
+
+    #[ORM\Column(type: Types::JSON)]
     private array $steps = [];
 
     #[ORM\Column(type: Types::JSON)]
@@ -215,6 +221,31 @@ class SystemUpdateRelease
     public function setRequiresAppliedUpdates(array $requiresAppliedUpdates): self
     {
         $this->requiresAppliedUpdates = $requiresAppliedUpdates;
+        return $this;
+    }
+
+    public function getReplaces(): array
+    {
+        return $this->replaces;
+    }
+
+    public function setReplaces(array $replaces): self
+    {
+        $this->replaces = array_values(array_filter(array_map(static function ($value): string {
+            return trim((string) $value);
+        }, $replaces), static fn (string $value): bool => $value !== ''));
+        return $this;
+    }
+
+    public function getBreakingLevel(): string
+    {
+        return $this->breakingLevel;
+    }
+
+    public function setBreakingLevel(string $breakingLevel): self
+    {
+        $normalized = strtolower(trim($breakingLevel));
+        $this->breakingLevel = $normalized !== '' ? mb_substr($normalized, 0, 30) : 'non_breaking';
         return $this;
     }
 

@@ -58,6 +58,7 @@ Paginas principais:
 - provisionamento e gestao administrativa de atualizacoes ficam apenas no sistema central SaaS, identificado por `APP_SYSTEM_ROLE=saas_central` ou `APP_CENTRAL_CONTROL_ENABLED=1`.
 - existe tambem a tela `admin.atualizacoes-assinantes`, que facilita consultar no sistema central o historico do que foi aplicado em cada assinante.
   - a frente agora tambem cobre anuencia formal por release, plano de rollout SaaS exportavel e runner on-premise (`update-onprem.sh|ps1` / `update.sh` no pacote).
+  - a regra principal de versionamento da atualizacao agora aceita `requiresVersionMin`, `requiresAppliedUpdates[]`, `replaces[]`, `autoApply`, `breakingLevel` e `steps`, com cadeia obrigatoria resolvida por assinante-alvo no sistema central SaaS.
   - o updater agora tambem suporta download e validacao do pacote da release, usando manifesto remoto em `APP_UPDATE_MANIFEST_URL`, assinatura do manifesto por `APP_UPDATE_MANIFEST_SIGNING_KEY` e assinatura do pacote por `APP_UPDATE_PACKAGE_SIGNING_KEY`.
   - existe tambem a publicacao oficial de manifesto e pacotes assinados por `app:update:publish-artifacts [versao]`, usando `APP_UPDATE_DISTRIBUTION_DIR` e `APP_UPDATE_PUBLIC_BASE_URL`.
   - a mesma publicacao agora tambem pode despachar os artefatos para destino externo real por `APP_UPDATE_DISTRIBUTION_PUSH_URL`, `APP_UPDATE_DISTRIBUTION_PUSH_TOKEN`, `APP_UPDATE_DISTRIBUTION_PUSH_SIGNING_KEY` e `APP_UPDATE_DISTRIBUTION_PUSH_TIMEOUT`.

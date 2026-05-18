@@ -78,13 +78,15 @@ class SystemUpdateService
 
         $deploymentMode = $this->deploymentMode->resolve();
         $environment = $this->environmentIdentity->resolve();
-        $currentVersion = $this->resolveCurrentVersion();
-        $appliedVersions = $this->resolveAppliedVersions();
+        $targetSubscriberKey = $targetSubscriber?->getCode();
+        $currentVersion = $this->resolveCurrentVersion($targetSubscriberKey);
+        $appliedVersions = $this->resolveAppliedVersions($targetSubscriberKey);
+        $satisfiedVersions = $this->resolveSatisfiedVersions($normalized, $appliedVersions);
 
         $items = [];
         $manifestTrusted = $this->isManifestTrusted((string) ($manifest['signatureStatus'] ?? 'unknown'));
         foreach ($normalized as $releaseData) {
-            $items[] = $this->evaluateRelease($releaseData, $currentVersion, $appliedVersions, $deploymentMode, $manifestTrusted, (string) ($manifest['signatureMessage'] ?? ''), $targetSubscriber?->getCode());
+            $items[] = $this->evaluateRelease($releaseData, $currentVersion, $appliedVersions, $satisfiedVersions, $deploymentMode, $manifestTrusted, (string) ($manifest['signatureMessage'] ?? ''), $targetSubscriberKey);
         }
 
         $autoQueued = null;
@@ -638,6 +640,10 @@ class SystemUpdateService
 
     private function evaluateReleaseEntity(SystemUpdateRelease $release, ?string $targetSubscriberCode = null): array
     {
+        $currentVersion = $this->resolveCurrentVersion($targetSubscriberCode);
+        $appliedVersions = $this->resolveAppliedVersions($targetSubscriberCode);
+        $satisfiedVersions = $this->resolveSatisfiedVersions($this->buildReleaseCatalog(), $appliedVersions);
+
         return $this->evaluateRelease([
             'version' => $release->getVersion(),
             'title' => $release->getTitle(),
@@ -646,36 +652,43 @@ class SystemUpdateService
             'description' => $release->getDescription(),
             'autoApplySaas' => $release->isAutoApplySaas(),
             'autoApplyOnPrem' => $release->isAutoApplyOnPrem(),
+            'autoApply' => $release->isAutoApplySaas() && $release->isAutoApplyOnPrem(),
             'requiresSubscriberConsent' => $release->isRequiresSubscriberConsent(),
             'blocksNextUpdates' => $release->isBlocksNextUpdates(),
             'internetRequired' => $release->isInternetRequired(),
             'requiresVersionMin' => $release->getRequiresVersionMin(),
             'requiresAppliedUpdates' => $release->getRequiresAppliedUpdates(),
+            'replaces' => $release->getReplaces(),
+            'breakingLevel' => $release->getBreakingLevel(),
             'steps' => $release->getSteps(),
             'programUpdates' => $release->getProgramUpdates(),
             'metadata' => $release->getMetadata(),
             'manifestSource' => $release->getManifestSource(),
             'manifestHash' => $release->getManifestHash(),
             'publishedAt' => $release->getPublishedAt()?->format(DATE_ATOM),
-        ], $this->resolveCurrentVersion(), $this->resolveAppliedVersions(), $this->deploymentMode->resolve(), true, '', $targetSubscriberCode);
+        ], $currentVersion, $appliedVersions, $satisfiedVersions, $this->deploymentMode->resolve(), true, '', $targetSubscriberCode);
     }
 
     private function normalizeRelease(array $payload, string $source, string $hash): array
     {
         $publishedAt = trim((string) ($payload['publishedAt'] ?? ''));
+        $autoApply = $this->normalizeAutoApply($payload['autoApply'] ?? null, $payload);
         return [
             'version' => trim((string) ($payload['version'] ?? '')),
             'title' => trim((string) ($payload['title'] ?? 'Atualizacao sem titulo')),
             'category' => $this->normalizeCategory((string) ($payload['category'] ?? 'recommended')),
             'severity' => $this->normalizeSeverity((string) ($payload['severity'] ?? 'medium')),
             'description' => trim((string) ($payload['description'] ?? '')) ?: null,
-            'autoApplySaas' => ($payload['autoApplySaas'] ?? false) === true,
-            'autoApplyOnPrem' => ($payload['autoApplyOnPrem'] ?? false) === true,
+            'autoApplySaas' => $autoApply['saas'],
+            'autoApplyOnPrem' => $autoApply['onprem'],
+            'autoApply' => $autoApply['saas'] === true && $autoApply['onprem'] === true,
             'requiresSubscriberConsent' => ($payload['requiresSubscriberConsent'] ?? true) !== false,
             'blocksNextUpdates' => ($payload['blocksNextUpdates'] ?? false) === true,
             'internetRequired' => ($payload['internetRequired'] ?? false) === true,
             'requiresVersionMin' => trim((string) ($payload['requiresVersionMin'] ?? '')) ?: null,
             'requiresAppliedUpdates' => array_values(array_filter(array_map('strval', (array) ($payload['requiresAppliedUpdates'] ?? [])))),
+            'replaces' => array_values(array_filter(array_map('strval', (array) ($payload['replaces'] ?? [])))),
+            'breakingLevel' => $this->normalizeBreakingLevel((string) ($payload['breakingLevel'] ?? 'non_breaking')),
             'steps' => array_values(array_filter(array_map('strval', (array) ($payload['steps'] ?? [])))),
             'programUpdates' => array_values(array_filter((array) ($payload['programUpdates'] ?? []), 'is_array')),
             'metadata' => is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [],
@@ -700,6 +713,8 @@ class SystemUpdateService
             ->setInternetRequired(($data['internetRequired'] ?? false) === true)
             ->setRequiresVersionMin($data['requiresVersionMin'] ?? null)
             ->setRequiresAppliedUpdates((array) ($data['requiresAppliedUpdates'] ?? []))
+            ->setReplaces((array) ($data['replaces'] ?? []))
+            ->setBreakingLevel((string) ($data['breakingLevel'] ?? 'non_breaking'))
             ->setSteps((array) ($data['steps'] ?? []))
             ->setProgramUpdates((array) ($data['programUpdates'] ?? []))
             ->setMetadata((array) ($data['metadata'] ?? []))
@@ -711,28 +726,20 @@ class SystemUpdateService
         $release->setPublishedAt($publishedAt ? new \DateTimeImmutable((string) $publishedAt) : null);
     }
 
-    private function resolveCurrentVersion(): string
+    private function resolveCurrentVersion(?string $targetSubscriberCode = null): string
     {
-        return $this->executions->findLatestSuccessfulVersion() ?? $this->systemVersion->resolve();
+        return $this->executions->findLatestSuccessfulVersionBySubscriber($targetSubscriberCode) ?? $this->systemVersion->resolve();
     }
 
     /**
      * @return list<string>
      */
-    private function resolveAppliedVersions(): array
+    private function resolveAppliedVersions(?string $targetSubscriberCode = null): array
     {
-        $items = [];
-        foreach ($this->executions->findRecent(200) as $execution) {
-            if ($execution->getStatus() !== 'succeeded') {
-                continue;
-            }
-            $items[] = $execution->getReleaseVersion();
-        }
-
-        return array_values(array_unique($items));
+        return $this->executions->findSuccessfulVersionsBySubscriber($targetSubscriberCode, 200);
     }
 
-    private function evaluateRelease(array $release, string $currentVersion, array $appliedVersions, string $deploymentMode, bool $manifestTrusted, string $manifestMessage, ?string $targetSubscriberCode = null): array
+    private function evaluateRelease(array $release, string $currentVersion, array $appliedVersions, array $satisfiedVersions, string $deploymentMode, bool $manifestTrusted, string $manifestMessage, ?string $targetSubscriberCode = null): array
     {
         $status = 'pending';
         $dependencyIssues = [];
@@ -746,13 +753,15 @@ class SystemUpdateService
             $dependencyIssues[] = 'Versao minima atual exigida: ' . $requiresVersionMin . '.';
         }
         foreach ((array) ($release['requiresAppliedUpdates'] ?? []) as $requiredVersion) {
-            if (!in_array((string) $requiredVersion, $appliedVersions, true)) {
+            if (!in_array((string) $requiredVersion, $satisfiedVersions, true)) {
                 $status = 'blocked_dependency';
                 $dependencyIssues[] = 'Atualizacao obrigatoria pendente: ' . $requiredVersion . '.';
             }
         }
         if (in_array((string) ($release['version'] ?? ''), $appliedVersions, true)) {
             $status = 'applied';
+        } elseif (in_array((string) ($release['version'] ?? ''), $satisfiedVersions, true)) {
+            $status = 'superseded';
         }
 
         $requiresConsent = ($release['requiresSubscriberConsent'] ?? true) !== false;
@@ -780,8 +789,12 @@ class SystemUpdateService
             'consentApproved' => $consentApproved,
             'consentInfo' => $consent ? $this->formatConsent($consent) : null,
             'autoApplicable' => $autoApplicable,
+            'breakingLevel' => (string) ($release['breakingLevel'] ?? 'non_breaking'),
             'blocksNextUpdates' => ($release['blocksNextUpdates'] ?? false) === true,
             'dependencyIssues' => $dependencyIssues,
+            'requiresVersionMin' => $requiresVersionMin !== '' ? $requiresVersionMin : null,
+            'requiresAppliedUpdates' => array_values((array) ($release['requiresAppliedUpdates'] ?? [])),
+            'replaces' => array_values((array) ($release['replaces'] ?? [])),
             'steps' => array_values((array) ($release['steps'] ?? [])),
             'manifestSource' => $release['manifestSource'] ?? null,
             'metadata' => is_array($release['metadata'] ?? null) ? $release['metadata'] : [],
@@ -930,6 +943,7 @@ class SystemUpdateService
             'category' => $release->getCategory(),
             'severity' => $release->getSeverity(),
             'description' => $release->getDescription(),
+            'autoApply' => $release->isAutoApplySaas() && $release->isAutoApplyOnPrem(),
             'autoApplySaas' => $release->isAutoApplySaas(),
             'autoApplyOnPrem' => $release->isAutoApplyOnPrem(),
             'requiresSubscriberConsent' => $release->isRequiresSubscriberConsent(),
@@ -937,6 +951,8 @@ class SystemUpdateService
             'internetRequired' => $release->isInternetRequired(),
             'requiresVersionMin' => $release->getRequiresVersionMin(),
             'requiresAppliedUpdates' => $release->getRequiresAppliedUpdates(),
+            'replaces' => $release->getReplaces(),
+            'breakingLevel' => $release->getBreakingLevel(),
             'steps' => $release->getSteps(),
             'programUpdates' => $release->getProgramUpdates(),
             'metadata' => $release->getMetadata(),
@@ -961,6 +977,87 @@ class SystemUpdateService
         }
 
         return $payload;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $releaseCatalog
+     * @param list<string> $appliedVersions
+     * @return list<string>
+     */
+    private function resolveSatisfiedVersions(array $releaseCatalog, array $appliedVersions): array
+    {
+        $covered = [];
+        foreach ($appliedVersions as $version) {
+            $normalizedVersion = trim((string) $version);
+            if ($normalizedVersion === '') {
+                continue;
+            }
+            $covered[$normalizedVersion] = true;
+            foreach ($releaseCatalog as $release) {
+                if ((string) ($release['version'] ?? '') !== $normalizedVersion) {
+                    continue;
+                }
+                foreach ((array) ($release['replaces'] ?? []) as $replacedVersion) {
+                    $replacedVersion = trim((string) $replacedVersion);
+                    if ($replacedVersion !== '') {
+                        $covered[$replacedVersion] = true;
+                    }
+                }
+            }
+        }
+
+        return array_keys($covered);
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function buildReleaseCatalog(): array
+    {
+        return array_map(fn (SystemUpdateRelease $release): array => $this->releaseToArray($release), $this->releases->findAllOrdered());
+    }
+
+    /**
+     * @param mixed $autoApply
+     * @param array<string, mixed> $payload
+     * @return array{saas: bool, onprem: bool}
+     */
+    private function normalizeAutoApply(mixed $autoApply, array $payload): array
+    {
+        $saas = ($payload['autoApplySaas'] ?? null) === true;
+        $onprem = ($payload['autoApplyOnPrem'] ?? null) === true;
+
+        if (array_key_exists('autoApplySaas', $payload) || array_key_exists('autoApplyOnPrem', $payload)) {
+            return [
+                'saas' => $saas,
+                'onprem' => $onprem,
+            ];
+        }
+
+        if (is_bool($autoApply)) {
+            return [
+                'saas' => $autoApply,
+                'onprem' => $autoApply,
+            ];
+        }
+
+        if (is_array($autoApply)) {
+            return [
+                'saas' => ($autoApply['saas'] ?? false) === true,
+                'onprem' => ($autoApply['onprem'] ?? false) === true,
+            ];
+        }
+
+        return [
+            'saas' => false,
+            'onprem' => false,
+        ];
+    }
+
+    private function normalizeBreakingLevel(string $breakingLevel): string
+    {
+        $normalized = strtolower(trim($breakingLevel));
+        return $normalized !== '' ? mb_substr($normalized, 0, 30) : 'non_breaking';
     }
 
     private function resolveConsent(string $version, ?string $targetSubscriberCode = null): ?SystemUpdateConsent

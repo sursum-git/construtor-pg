@@ -11,6 +11,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
 5. Para alteracoes na pagina inicial, leia `docs/arquitetura-home-engine.md`.
 6. Para alteracoes em demo, exemplos ou mocks, execute a skill `construtor-pg-demo-production-parity` e atualize `docs/paridade-demo-producao.md`.
 7. Nao reverta alteracoes existentes sem pedido explicito do usuario.
+8. Quando o usuario pedir pendencias operacionais ou o que falta fazer fora do codigo, consultar `docs/pendencias-operacionais.md`.
 
 ## Provisionamento operacional
 
@@ -86,6 +87,8 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - o manifesto remoto pode ser configurado por `APP_UPDATE_MANIFEST_URL`;
   - a verificacao do manifesto usa `APP_UPDATE_MANIFEST_SIGNING_KEY`;
   - a verificacao do pacote usa `APP_UPDATE_PACKAGE_SIGNING_KEY`;
+  - cada release do manifesto agora pode declarar `version`, `requiresVersionMin`, `requiresAppliedUpdates[]`, `replaces[]`, `category`, `autoApply`, `breakingLevel` e `steps`;
+  - a cadeia obrigatoria do updater agora e resolvida por assinante-alvo no sistema central; nao usar o historico global do ambiente para decidir dependencias de um assinante especifico;
   - o endurecimento do on-premise ao abrir o sistema usa `APP_UPDATE_ONPREM_CRITICAL_POLICY=warn|block`;
   - a publicacao oficial dos artefatos usa:
     - `APP_UPDATE_DISTRIBUTION_DIR`
