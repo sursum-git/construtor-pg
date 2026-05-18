@@ -161,6 +161,12 @@ function orchestrator_execute(array $payload, bool $dryRun = false, ?string $con
         'logFile' => $logFile,
     ];
 
+    orchestrator_write_rollout_state($subscriberConfig, $payload, [
+        'active' => true,
+        'status' => 'running',
+        'finishedAt' => null,
+    ], $dryRun);
+
     foreach ($commands as $command) {
         $result['results'][] = $dryRun
             ? [
@@ -173,6 +179,11 @@ function orchestrator_execute(array $payload, bool $dryRun = false, ?string $con
     }
 
     $result['status'] = orchestrator_has_failures($result['results']) ? 'failed' : 'succeeded';
+    orchestrator_write_rollout_state($subscriberConfig, $payload, [
+        'active' => false,
+        'status' => $result['status'],
+        'finishedAt' => (new DateTimeImmutable())->format(DATE_ATOM),
+    ], $dryRun);
     orchestrator_write_log($logFile, [
         'payload' => $payload,
         'result' => $result,
@@ -288,6 +299,44 @@ function orchestrator_make_command(string $label, string $command, array $config
         'display' => $command,
         'workdir' => (string) $config['workdir'],
     ];
+}
+
+function orchestrator_write_rollout_state(array $config, array $payload, array $state, bool $dryRun): void
+{
+    $file = trim((string) ($config['rolloutStateFile'] ?? ''));
+    if ($file === '') {
+        return;
+    }
+
+    $window = is_array($payload['rolloutWindow'] ?? null) ? $payload['rolloutWindow'] : [];
+    $batch = is_array($payload['rolloutBatch'] ?? null) ? $payload['rolloutBatch'] : [];
+    $targetSubscriber = is_array($payload['targetSubscriber'] ?? null) ? $payload['targetSubscriber'] : [];
+    $content = [
+        'active' => ($state['active'] ?? false) === true,
+        'status' => trim((string) ($state['status'] ?? 'running')) ?: 'running',
+        'releaseVersion' => trim((string) ($payload['releaseVersion'] ?? '')),
+        'category' => trim((string) ($payload['category'] ?? '')),
+        'severity' => trim((string) ($payload['severity'] ?? '')),
+        'subscriberCode' => trim((string) ($targetSubscriber['code'] ?? '')),
+        'batchCode' => trim((string) ($batch['code'] ?? '')),
+        'accessMode' => trim((string) ($payload['entryAccessMode'] ?? 'warning')) ?: 'warning',
+        'title' => 'Atualizacao SaaS em andamento',
+        'message' => (($payload['entryAccessMode'] ?? 'warning') === 'blocked')
+            ? 'O tenant esta temporariamente bloqueado enquanto o rollout SaaS termina.'
+            : 'O rollout SaaS esta em andamento. Aguarde a validacao final.',
+        'windowStartsAt' => trim((string) ($window['startAt'] ?? '')),
+        'windowEndsAt' => trim((string) ($window['endAt'] ?? '')),
+        'startedAt' => (new DateTimeImmutable())->format(DATE_ATOM),
+        'finishedAt' => $state['finishedAt'] ?? null,
+        'dryRun' => $dryRun,
+    ];
+
+    $directory = dirname($file);
+    if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+        throw new RuntimeException('Nao foi possivel criar o diretorio do estado de rollout SaaS.');
+    }
+
+    file_put_contents($file, json_encode($content, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 }
 
 function orchestrator_run_command(array $command, int $timeoutSeconds): array

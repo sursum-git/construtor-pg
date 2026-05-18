@@ -95,4 +95,30 @@ class RuntimeSystemUpdateController extends AbstractController
             ], 500);
         }
     }
+
+    #[Route('/download-pending-critical', methods: ['POST'])]
+    public function downloadPendingCritical(): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            return $this->json($this->updates->downloadPendingCriticalRuntime());
+        } catch (\Throwable $error) {
+            if ($error instanceof RuntimeHttpException) {
+                return $this->json([
+                    'error' => [
+                        'code' => $error->getErrorCode(),
+                        'message' => $error->getMessage(),
+                        'details' => $error->getDetails(),
+                    ],
+                ], $error->getStatusCode());
+            }
+
+            return $this->json([
+                'error' => [
+                    'code' => 'RUNTIME_SYSTEM_UPDATE_DOWNLOAD_ERROR',
+                    'message' => $error->getMessage() !== '' ? $error->getMessage() : 'Falha ao baixar o pacote critico local.',
+                ],
+            ], 500);
+        }
+    }
 }

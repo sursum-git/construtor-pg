@@ -25,6 +25,16 @@ async function main() {
     }));
 
     await page.evaluate(() => {
+      const dropDown = window.jQuery(".program-builder-toolbar input").first().data("kendoDropDownList");
+      if (!dropDown) {
+        throw new Error("DropDown de assinante nao encontrado.");
+      }
+      dropDown.value("empresa-a");
+      dropDown.trigger("change");
+    });
+    await page.waitForFunction(() => document.body.innerText.includes("Assinante alvo: empresa-a."), null, { timeout: 10000 });
+
+    await page.evaluate(() => {
       const button = window.jQuery("button").filter(function() {
         return window.jQuery(this).text().trim() === "Atualizar manifesto";
       }).get(0);
@@ -113,6 +123,29 @@ async function main() {
     await page.waitForFunction(() => {
       const detail = window.jQuery(".program-builder-json-preview").text() || "";
       return detail.includes("\"orchestratorAction\"") && document.body.innerText.includes("Dependencias obrigatorias:");
+    }, null, { timeout: 10000 });
+
+    await page.evaluate(() => {
+      const dropDown = window.jQuery(".program-builder-toolbar input").first().data("kendoDropDownList");
+      if (!dropDown) {
+        throw new Error("DropDown de assinante nao encontrado para limpar filtro.");
+      }
+      dropDown.value("");
+      dropDown.trigger("change");
+    });
+    await page.waitForFunction(() => document.body.innerText.includes("Sistema central identificado"), null, { timeout: 10000 });
+    await page.evaluate(() => {
+      const button = window.jQuery("button").filter(function() {
+        return window.jQuery(this).text().trim() === "Despachar rollout";
+      }).get(0);
+      if (!button) {
+        throw new Error("Botao despachar rollout nao encontrado.");
+      }
+      button.click();
+    });
+    await page.waitForFunction(() => {
+      const detail = window.jQuery(".program-builder-json-preview").text() || "";
+      return detail.includes("\"dispatches\"") && detail.includes("\"batch\"");
     }, null, { timeout: 10000 });
 
     if (errors.length) {

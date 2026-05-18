@@ -754,7 +754,8 @@
               "Sem worker ativo, o job fica enfileirado e nao conclui.",
               "A tela tenta SSE primeiro e cai para polling quando o stream nao estiver disponivel.",
               "O pacote on-premise foi pensado para Ubuntu 24.04 e nao substitui validacao operacional do host.",
-              "Em outros ambientes, publicar a tela exige rodar `php backend/bin/console app:seed-runtime-metadata --no-interaction`."
+              "Em outros ambientes, publicar a tela exige rodar `php backend/bin/console app:seed-runtime-metadata --no-interaction`.",
+              "No on-premise, a politica critica agora separa modo (`auto|prompt_admin|download_only`) de acesso (`warn|block`)."
             ]
           },
           references: {
@@ -776,6 +777,7 @@
               "Leitura do manifesto oficial de releases.",
               "Classificacao da release por severidade, dependencia e anuencia.",
               "Cadeia obrigatoria por `requiresVersionMin`, `requiresAppliedUpdates[]`, `replaces[]`, `autoApply`, `breakingLevel` e `steps`.",
+              "Ativacao opcional por tenant para updates SaaS que afetem UX ou comportamento visivel.",
               "Aplicacao controlada por job runtime.",
               "Analise de impacto em programas padrao, overlays e variantes completas do assinante.",
               "Exportacao do plano de rollout SaaS para orquestracao externa."
@@ -806,9 +808,11 @@
               "Release `security_critical` pode ser autoenfileirada quando a politica do ambiente permitir.",
               "Release `required_structural` bloqueia atualizacoes posteriores enquanto a cadeia obrigatoria nao for aplicada.",
               "No sistema central, a cadeia obrigatoria e avaliada por assinante alvo; um assinante nao libera dependencias de outro.",
+              "Releases SaaS agora podem declarar janela curta de rollout e batches/canario por assinante; fora da janela, a fila automatica nao deve disparar.",
               "Manifesto inconsistente nao deve ser persistido nem publicado: dependencias ausentes, `replaces[]` invalido e ciclos agora sao barrados.",
               "Atualizacao de programa padrao nao sobrescreve `customer_overlay` nem `customer_custom`: overlays entram em analise de rebase e variantes completas permanecem congeladas.",
               "Quando o impacto do overlay vier como `rebase_ok`, a propria esteira da release gera rascunho de rebase para a base publicada; conflito leve fica em revisao e conflito bloqueante segue sem automacao.",
+              "Quando a release critica pedir bloqueio temporario de entrada, o tenant SaaS so volta a abrir depois que o orquestrador limpar o estado local de rollout.",
               "Manifesto remoto sem assinatura confiavel nao deve seguir como release pendente aplicavel.",
               "Em outros ambientes, publicar a tela exige rodar `php backend/bin/console app:seed-runtime-metadata --no-interaction`."
             ]
@@ -816,7 +820,7 @@
           references: {
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Provisionamento de assinantes", "Atualizacoes por assinante", "Governanca de programas", "Integridade estrutural"],
-            notes: ["Tela de producao: ../../production/app.html?screenId=admin.atualizacoes", "Entrada custom local: ../../production/admin/system-updates.html", "Exemplo local: ../../examples/pages/admin-system-updates.html", "Comandos: `app:update:check`, `app:update:download <versao>`, `app:update:apply <versao>`, `app:update:run-pending`, `app:update:rollout-plan <versao>`, `app:update:dispatch-rollout <versao>` e `app:update:publish-artifacts [versao]`", "Jobs envolvidos: `system.update.apply` e avaliacao automatica ao abrir a Home em ambiente autenticado", "Runner on-premise: `scripts/update-onprem.sh|ps1` ou `./update.sh` no pacote zip", "Politica critica do on-premise: `APP_UPDATE_ONPREM_CRITICAL_POLICY=warn|block` e endpoint local `POST /api/runtime/system-updates/run-pending`", "Publicacao oficial de artefatos: `APP_UPDATE_DISTRIBUTION_DIR` e `APP_UPDATE_PUBLIC_BASE_URL`", "Distribuicao externa dos artefatos: `APP_UPDATE_DISTRIBUTION_PUSH_URL`, `APP_UPDATE_DISTRIBUTION_PUSH_TOKEN`, `APP_UPDATE_DISTRIBUTION_PUSH_SIGNING_KEY` e `APP_UPDATE_DISTRIBUTION_PUSH_TIMEOUT`", "Webhook/orquestrador real do SaaS: `scripts/orchestrator/system-update-orchestrator.php`, `scripts/orchestrator/run-system-update-orchestrator.sh` e `scripts/orchestrator/system-update-orchestrator.config.sample.json`", "Rollout externo do SaaS: `APP_UPDATE_ORCHESTRATOR_URL`, `APP_UPDATE_ORCHESTRATOR_TOKEN`, `APP_UPDATE_ORCHESTRATOR_SIGNING_KEY` e `APP_UPDATE_ORCHESTRATOR_TIMEOUT`"]
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.atualizacoes", "Entrada custom local: ../../production/admin/system-updates.html", "Exemplo local: ../../examples/pages/admin-system-updates.html", "Comandos: `app:update:check`, `app:update:download <versao>`, `app:update:apply <versao>`, `app:update:run-pending`, `app:update:download-pending-critical`, `app:update:rollout-plan <versao>`, `app:update:dispatch-rollout <versao>` e `app:update:publish-artifacts [versao]`", "Jobs envolvidos: `system.update.apply` e avaliacao automatica ao abrir a Home em ambiente autenticado", "Runner on-premise: `scripts/update-onprem.sh|ps1` ou `./update.sh` no pacote zip", "Politica critica do on-premise: `APP_UPDATE_ONPREM_CRITICAL_MODE=auto|prompt_admin|download_only`, `APP_UPDATE_ONPREM_CRITICAL_ACCESS_POLICY=warn|block` e endpoints locais `POST /api/runtime/system-updates/run-pending` / `POST /api/runtime/system-updates/download-pending-critical`", "Publicacao oficial de artefatos: `APP_UPDATE_DISTRIBUTION_DIR` e `APP_UPDATE_PUBLIC_BASE_URL`", "Distribuicao externa dos artefatos: `APP_UPDATE_DISTRIBUTION_PUSH_URL`, `APP_UPDATE_DISTRIBUTION_PUSH_TOKEN`, `APP_UPDATE_DISTRIBUTION_PUSH_SIGNING_KEY` e `APP_UPDATE_DISTRIBUTION_PUSH_TIMEOUT`", "Webhook/orquestrador real do SaaS: `scripts/orchestrator/system-update-orchestrator.php`, `scripts/orchestrator/run-system-update-orchestrator.sh` e `scripts/orchestrator/system-update-orchestrator.config.sample.json`", "Rollout externo do SaaS: `APP_UPDATE_ORCHESTRATOR_URL`, `APP_UPDATE_ORCHESTRATOR_TOKEN`, `APP_UPDATE_ORCHESTRATOR_SIGNING_KEY` e `APP_UPDATE_ORCHESTRATOR_TIMEOUT`", "Bloqueio local do tenant SaaS durante rollout critico: `APP_SAAS_ROLLOUT_STATE_FILE` escrito pelo orquestrador"]
           }
         },
         "admin-atualizacoes-assinantes": {
@@ -838,7 +842,8 @@
               "Lista de execucoes por assinante.",
               "Detalhe do que foi aplicado em cada ambiente SaaS.",
               "Resumo de drafts de rebase criados, revisoes pendentes e overlays bloqueados por release.",
-              "Exportacao JSON/CSV do recorte atual."
+              "Exportacao JSON/CSV do recorte atual.",
+              "Resumo operacional do rollout SaaS por lote e bloqueio temporario de entrada."
             ]
           },
           operational: {

@@ -3,6 +3,7 @@
 
   function SystemUpdatesDemoHttpClient() {
     this.consents = [];
+    this.activations = [];
     this.subscribers = [
       { code: "empresa-a", name: "Empresa A", databaseEnvironment: "prod", databaseIdentity: "saas:empresa-a" },
       { code: "empresa-b", name: "Empresa B", databaseEnvironment: "prod", databaseIdentity: "saas:empresa-b" }
@@ -21,6 +22,17 @@
         autoApplicable: true,
         packageAvailable: true,
         packageUrl: "backend/config/system-updates/packages/runtime-security-1.0.1.pkg",
+        metadata: {
+          saasRolloutWindow: {
+            startAt: "2026-05-17T22:00:00-03:00",
+            durationMinutes: 45,
+            freezeNewSessions: true
+          },
+          saasRolloutBatches: [
+            { code: "canary", title: "Canario inicial", subscriberCodes: ["empresa-a"] },
+            { code: "wave-1", title: "Lote principal", subscriberCodes: ["empresa-b"] }
+          ]
+        },
         impactReport: {
           programs: [
             {
@@ -51,7 +63,16 @@
         metadata: {
           requiresBackup: true,
           requiresMaintenanceMode: true,
-          orchestratorAction: "maintenance-rollout"
+          orchestratorAction: "maintenance-rollout",
+          saasRolloutWindow: {
+            startAt: "2026-05-18T00:30:00-03:00",
+            durationMinutes: 90,
+            freezeNewSessions: false
+          },
+          saasRolloutBatches: [
+            { code: "canary", title: "Canario inicial", subscriberCodes: ["empresa-a"] },
+            { code: "wave-1", title: "Lote principal", subscriberCodes: ["empresa-b"] }
+          ]
         }
       },
       {
@@ -71,7 +92,11 @@
         metadata: {
           requiresBackup: false,
           requiresMaintenanceMode: false,
-          orchestratorAction: "frontend-refresh"
+          orchestratorAction: "frontend-refresh",
+          saasRolloutBatches: [
+            { code: "canary", title: "Canario inicial", subscriberCodes: ["empresa-a"] },
+            { code: "wave-1", title: "Lote principal", subscriberCodes: ["empresa-b"] }
+          ]
         }
       }
     ];
@@ -190,6 +215,24 @@
       this.consents.unshift(consent);
       return Promise.resolve(consent);
     }
+    if (method === "POST" && url === "/api/admin/system-updates/tenant-activation") {
+      const version = String(data.version || "");
+      const activation = {
+        id: this.activations.length + 1,
+        releaseVersion: version,
+        status: String(data.status || "enabled"),
+        decidedBy: "admin",
+        source: "ui",
+        deploymentMode: "saas",
+        databaseIdentity: "saas:demo",
+        targetSubscriberCode: String(data.subscriberCode || ""),
+        targetSubscriberName: this.findSubscriberName(String(data.subscriberCode || "")),
+        reason: String(data.reason || ""),
+        createdAt: new Date().toISOString()
+      };
+      this.activations.unshift(activation);
+      return Promise.resolve(activation);
+    }
     if (method === "POST" && url === "/api/admin/system-updates/download") {
       const version = String(data.version || "");
       const subscriberCode = String(data.subscriberCode || "");
@@ -245,6 +288,7 @@
       if (!release) {
         return Promise.reject({ error: { message: "Release demo nao encontrada." } });
       }
+      const rolloutBatches = this.resolveRolloutBatches(release, String(data.subscriberCode || ""));
       return Promise.resolve({
         version: release.version,
         title: release.title,
@@ -255,32 +299,97 @@
         orchestratorAction: release.metadata && release.metadata.orchestratorAction || "rolling-restart",
         consentStatus: release.consentStatus || "not-required",
         impactReport: release.impactReport || {},
+        rolloutWindow: this.resolveRolloutWindow(release),
+        rolloutBatches: rolloutBatches,
+        defaultBatchCode: rolloutBatches.length ? rolloutBatches[0].code : null,
+        entryBlockPlan: {
+          enabled: release.category === "security_critical",
+          accessMode: release.category === "security_critical" ? "blocked" : "warning",
+          message: release.category === "security_critical"
+            ? "A entrada do tenant pode ficar temporariamente bloqueada durante o rollout."
+            : "A release pode seguir sem bloquear novas sessoes."
+        },
         suggestedSequence: ["validar impacto", "executar rollout controlado", "validar integridade"]
       });
     }
     if (method === "POST" && url === "/api/admin/system-updates/dispatch-rollout") {
       const version = String(data.version || "");
       const subscriberCode = String(data.subscriberCode || "");
+      const batchCode = String(data.batchCode || "");
+      const release = this.resolveReleases(subscriberCode).find((item) => item.version === version);
+      if (!release) {
+        return Promise.reject({ error: { message: "Release demo nao encontrada." } });
+      }
+      const plan = {
+        rolloutWindow: this.resolveRolloutWindow(release),
+        rolloutBatches: this.resolveRolloutBatches(release, subscriberCode)
+      };
+      const subscribers = subscriberCode
+        ? [this.findSubscriber(subscriberCode)].filter(Boolean)
+        : this.resolveDispatchSubscribers(batchCode, plan.rolloutBatches);
+      const dispatches = subscribers.map((subscriber, index) => {
+        const execution = {
+          id: this.executions.length + 1 + index,
+          releaseVersion: release.version,
+          releaseTitle: release.title,
+          category: release.category,
+          severity: release.severity,
+          status: "succeeded",
+          mode: "rollout_dispatch",
+          deploymentMode: "saas",
+          databaseEnvironment: "dev",
+          databaseIdentity: "saas:demo",
+          targetSubscriberCode: subscriber.code,
+          targetSubscriberName: subscriber.name,
+          targetDatabaseEnvironment: subscriber.databaseEnvironment,
+          targetDatabaseIdentity: subscriber.databaseIdentity,
+          initiatedBy: "admin",
+          initiatedSource: "ui",
+          runtimeJobId: null,
+          summary: {
+            message: "Rollout despachado para o orquestrador demo.",
+            rolloutAudit: {
+              stage: "dispatch",
+              dispatchCount: 1,
+              entryAccessMode: release.category === "security_critical" ? "blocked" : "warning",
+              windowStatus: this.resolveRolloutWindow(release).status || "unscheduled",
+              batchCode: subscriberCode ? null : batchCode
+            }
+          },
+          impactReport: release.impactReport || {},
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          finishedAt: new Date().toISOString()
+        };
+        this.executions.unshift(execution);
+        return {
+          targetSubscriber: subscriber,
+          batch: batchCode ? { code: batchCode } : null,
+          dispatch: {
+            status: "dispatched",
+            message: "Rollout despachado para o orquestrador demo.",
+            endpoint: "https://orchestrator.demo.local/system-update",
+            httpStatus: 202,
+            responseHeaders: {
+              "x-request-id": "demo-rollout-" + version + "-" + subscriber.code
+            },
+            responseBody: {
+              queued: true,
+              version: version
+            }
+          },
+          execution: execution
+        };
+      });
       return Promise.resolve({
         releaseVersion: version,
         targetSubscriber: this.findSubscriber(subscriberCode) || null,
-        dispatch: {
-          status: "dispatched",
-          message: "Rollout despachado para o orquestrador demo.",
-          endpoint: "https://orchestrator.demo.local/system-update",
-          httpStatus: 202,
-          responseHeaders: {
-            "x-request-id": "demo-rollout-" + version
-          },
-          responseBody: {
-            queued: true,
-            version: version
-          }
-        },
-        payload: {
-          event: "system.update.rollout",
-          releaseVersion: version,
-          targetSubscriber: this.findSubscriber(subscriberCode) || null
+        plan: plan,
+        dispatches: dispatches,
+        summary: {
+          dispatchCount: dispatches.length,
+          succeededCount: dispatches.length,
+          failedCount: 0
         }
       });
     }
@@ -442,6 +551,13 @@
       missingVersion: 0,
       pipelineFailed: 0
     };
+    const rolloutAudit = {
+      dispatchCount: 0,
+      blockedEntryCount: 0,
+      windowScheduledCount: 0,
+      batchCodes: [],
+      byStage: {}
+    };
     rows.forEach(function(item) {
       const itemStatus = String(item.status || "");
       const itemCategory = String(item.category || "");
@@ -459,6 +575,16 @@
       overlayPipeline.frozen += Number(pipeline.frozen || 0);
       overlayPipeline.missingVersion += Number(pipeline.missingVersion || 0);
       overlayPipeline.pipelineFailed += Number(pipeline.pipelineFailed || 0);
+      const rollout = item.summary && item.summary.rolloutAudit || {};
+      rolloutAudit.dispatchCount += Number(rollout.dispatchCount || 0);
+      rolloutAudit.blockedEntryCount += rollout.entryAccessMode === "blocked" ? 1 : 0;
+      rolloutAudit.windowScheduledCount += rollout.windowStatus === "scheduled" ? 1 : 0;
+      if (rollout.batchCode && rolloutAudit.batchCodes.indexOf(rollout.batchCode) < 0) {
+        rolloutAudit.batchCodes.push(rollout.batchCode);
+      }
+      if (rollout.stage) {
+        rolloutAudit.byStage[rollout.stage] = Number(rolloutAudit.byStage[rollout.stage] || 0) + 1;
+      }
     });
     return {
       items: rows,
@@ -470,6 +596,7 @@
         byStatus: byStatus,
         byCategory: byCategory,
         overlayPipeline: overlayPipeline,
+        rolloutAudit: rolloutAudit,
         filters: {
           subscriberCode: subscriberCode,
           status: status,
@@ -549,8 +676,19 @@
         release.status = "pending";
       }
       const consent = latestConsentByVersion[release.version + "|" + normalizedSubscriber] || null;
+      const activation = this.findActivation(release.version, normalizedSubscriber);
       release.consentStatus = release.requiresConsent ? (consent ? consent.status : "pending") : "not-required";
       release.consentApproved = release.requiresConsent ? Boolean(consent && consent.status === "approved") : true;
+      release.scenarioBehavior = this.resolveScenarioBehavior(release);
+      release.rolloutWindow = this.resolveRolloutWindow(release);
+      release.rolloutWindowStatus = release.rolloutWindow.status || "unscheduled";
+      release.tenantActivationRequired = release.scenarioBehavior && release.scenarioBehavior.applyMode === "tenant_activation" && !!normalizedSubscriber;
+      release.tenantActivationStatus = release.tenantActivationRequired ? (activation ? activation.status : "pending") : "not-required";
+      release.tenantActivationInfo = activation || null;
+      if (release.status === "pending" && release.tenantActivationRequired && release.tenantActivationStatus !== "enabled") {
+        release.status = "awaiting_tenant_activation";
+        release.dependencyIssues = ["A release opcional exige ativacao explicita para este assinante."];
+      }
       return release;
     });
   };
@@ -574,6 +712,88 @@
   SystemUpdatesDemoHttpClient.prototype.findSubscriberName = function(subscriberCode) {
     const subscriber = this.findSubscriber(subscriberCode);
     return subscriber ? subscriber.name : "";
+  };
+
+  SystemUpdatesDemoHttpClient.prototype.findActivation = function(version, subscriberCode) {
+    const normalizedVersion = String(version || "");
+    const normalizedSubscriber = String(subscriberCode || "");
+    return this.activations.find(function(item) {
+      return String(item.releaseVersion || "") === normalizedVersion && String(item.targetSubscriberCode || "") === normalizedSubscriber;
+    }) || null;
+  };
+
+  SystemUpdatesDemoHttpClient.prototype.resolveScenarioBehavior = function(release) {
+    const category = String(release && release.category || "recommended");
+    if (category === "security_critical") {
+      return {
+        control: "provider",
+        applyMode: "automatic",
+        rolloutMode: "short_window",
+        entryBlockAllowed: true
+      };
+    }
+    if (category === "required_structural") {
+      return {
+        control: "provider",
+        applyMode: "automatic",
+        rolloutMode: "progressive_by_tenant"
+      };
+    }
+    return {
+      control: "provider",
+      applyMode: "tenant_activation",
+      rolloutMode: "opt_in"
+    };
+  };
+
+  SystemUpdatesDemoHttpClient.prototype.resolveRolloutWindow = function(release) {
+    const windowConfig = release && release.metadata && release.metadata.saasRolloutWindow || {};
+    const startAt = String(windowConfig.startAt || "");
+    const durationMinutes = Number(windowConfig.durationMinutes || 0);
+    if (!startAt || !durationMinutes) {
+      return {
+        requiresWindow: false,
+        startAt: null,
+        durationMinutes: null,
+        endAt: null,
+        freezeNewSessions: false,
+        status: "unscheduled"
+      };
+    }
+    return {
+      requiresWindow: true,
+      startAt: startAt,
+      durationMinutes: durationMinutes,
+      endAt: startAt,
+      freezeNewSessions: windowConfig.freezeNewSessions === true,
+      status: "scheduled"
+    };
+  };
+
+  SystemUpdatesDemoHttpClient.prototype.resolveRolloutBatches = function(release, subscriberCode) {
+    const targetSubscriberCode = String(subscriberCode || "");
+    const configured = release && release.metadata && Array.isArray(release.metadata.saasRolloutBatches)
+      ? release.metadata.saasRolloutBatches
+      : [];
+    const availableSubscribers = targetSubscriberCode
+      ? this.subscribers.filter((item) => item.code === targetSubscriberCode)
+      : this.subscribers.slice();
+    return configured.map((item) => {
+      const subscriberCodes = Array.isArray(item && item.subscriberCodes) ? item.subscriberCodes : [];
+      const subscribers = availableSubscribers.filter((subscriber) => subscriberCodes.indexOf(subscriber.code) >= 0);
+      return {
+        code: String(item && item.code || ""),
+        title: String(item && item.title || ""),
+        status: "pending",
+        subscribers: subscribers
+      };
+    }).filter((item) => item.subscribers.length > 0);
+  };
+
+  SystemUpdatesDemoHttpClient.prototype.resolveDispatchSubscribers = function(batchCode, batches) {
+    const code = String(batchCode || "");
+    const match = (batches || []).find((item) => String(item.code || "") === code);
+    return match ? match.subscribers.slice() : [];
   };
 
   global.SystemUpdatesDemoHttpClient = SystemUpdatesDemoHttpClient;

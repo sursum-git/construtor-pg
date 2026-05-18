@@ -125,4 +125,30 @@ class SystemUpdateExecutionRepository extends ServiceEntityRepository
 
         return $count > 0;
     }
+
+    /**
+     * @param list<string> $subscriberCodes
+     * @return list<SystemUpdateExecution>
+     */
+    public function findByReleaseAndSubscribers(string $version, array $subscriberCodes, int $limit = 200): array
+    {
+        $normalizedCodes = array_values(array_filter(array_map(static function ($value): string {
+            return trim((string) $value);
+        }, $subscriberCodes), static fn (string $value): bool => $value !== ''));
+
+        if (!$normalizedCodes) {
+            return [];
+        }
+
+        return $this->createQueryBuilder('e')
+            ->andWhere('e.releaseVersion = :version')
+            ->andWhere('e.targetSubscriberCode IN (:subscriberCodes)')
+            ->setParameter('version', trim($version))
+            ->setParameter('subscriberCodes', $normalizedCodes)
+            ->orderBy('e.createdAt', 'DESC')
+            ->addOrderBy('e.id', 'DESC')
+            ->setMaxResults(max(1, $limit))
+            ->getQuery()
+            ->getResult();
+    }
 }

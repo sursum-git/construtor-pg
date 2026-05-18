@@ -111,6 +111,25 @@ class SystemUpdateController extends AbstractController
         }
     }
 
+    #[Route('/tenant-activation', methods: ['POST'])]
+    public function tenantActivation(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $this->central->ensureCentral();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->updates->registerTenantActivation(
+                trim((string) ($payload['version'] ?? '')),
+                trim((string) ($payload['status'] ?? 'enabled')) ?: 'enabled',
+                trim((string) ($payload['reason'] ?? '')) ?: null,
+                'ui',
+                trim((string) ($payload['subscriberCode'] ?? '')) ?: null
+            ));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
     #[Route('/rollout-plan', methods: ['GET'])]
     public function rolloutPlan(Request $request): JsonResponse
     {
@@ -135,7 +154,8 @@ class SystemUpdateController extends AbstractController
             $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
             return $this->json($this->updates->dispatchRollout(
                 trim((string) ($payload['version'] ?? '')),
-                trim((string) ($payload['subscriberCode'] ?? '')) ?: null
+                trim((string) ($payload['subscriberCode'] ?? '')) ?: null,
+                trim((string) ($payload['batchCode'] ?? '')) ?: null
             ));
         } catch (\Throwable $error) {
             return $this->error($error);

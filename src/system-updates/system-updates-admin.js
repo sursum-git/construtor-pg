@@ -12,6 +12,7 @@
     this.currentRelease = null;
     this.currentExecution = null;
     this.currentSubscriberCode = "";
+    this.currentBatchCode = "";
     this.subscribers = [];
     this.centralControl = {};
     this.activeEventSource = null;
@@ -38,6 +39,7 @@
     this.downloadButton = this.createButton(actions, "Baixar pacote", "download", this.handleDownload.bind(this));
     this.publishArtifactsButton = this.createButton(actions, "Publicar artefatos", "folder-up", this.handlePublishArtifacts.bind(this));
     this.consentButton = this.createButton(actions, "Registrar anuencia", "check", this.handleConsent.bind(this));
+    this.tenantActivationButton = this.createButton(actions, "Ativar tenant", "link-horizontal", this.handleTenantActivation.bind(this));
     this.applyButton = this.createButton(actions, "Aplicar release", "play", this.handleApply.bind(this));
     this.rolloutButton = this.createButton(actions, "Plano SaaS", "track-changes-enable", this.handleRolloutPlan.bind(this));
     this.dispatchRolloutButton = this.createButton(actions, "Despachar rollout", "upload", this.handleDispatchRollout.bind(this));
@@ -62,6 +64,9 @@
     this.subscriberLabel = global.jQuery("<label class=\"program-builder-field\" style=\"min-width:280px\"></label>").appendTo(this.subscriberToolbar);
     global.jQuery("<span></span>").text("Assinante alvo").appendTo(this.subscriberLabel);
     this.subscriberSelect = global.jQuery("<input>").appendTo(this.subscriberLabel);
+    this.batchLabel = global.jQuery("<label class=\"program-builder-field\" style=\"min-width:220px\"></label>").appendTo(this.subscriberToolbar);
+    global.jQuery("<span></span>").text("Lote SaaS").appendTo(this.batchLabel);
+    this.batchSelect = global.jQuery("<input>").appendTo(this.batchLabel);
     this.releasesGridElement = global.jQuery("<div class=\"program-builder-governance-list\"></div>").appendTo(card.body);
   };
 
@@ -90,10 +95,6 @@
       this.summary = payload.summary || {};
       this.subscribers = global.CrudUtils.ensureArray(payload.subscribers);
       this.currentSubscriberCode = payload.selectedSubscriber && payload.selectedSubscriber.code || this.currentSubscriberCode || "";
-      if (this.centralControl.centralControl === true && !this.currentSubscriberCode && this.subscribers.length) {
-        this.currentSubscriberCode = this.subscribers[0].code || "";
-        return this.loadBootstrap();
-      }
       this.releases = global.CrudUtils.ensureArray(payload.releases);
       this.executions = global.CrudUtils.ensureArray(payload.executions);
       this.jobs = global.CrudUtils.ensureArray(payload.jobs);
@@ -167,7 +168,7 @@
       dataTextField: "label",
       dataValueField: "code",
       valuePrimitive: true,
-      optionLabel: "Selecione",
+      optionLabel: "Todos os assinantes",
       dataSource: this.subscribers.map(function(item) {
         return {
           code: item.code,
@@ -177,10 +178,71 @@
       value: this.currentSubscriberCode || "",
       change: () => {
         this.currentSubscriberCode = this.subscriberDropDown.value() || "";
+        this.currentBatchCode = "";
         this.loadBootstrap();
       }
     });
     this.subscriberDropDown = this.subscriberSelect.data("kendoDropDownList");
+    this.renderBatchSelector();
+  };
+
+  SystemUpdatesAdmin.prototype.renderBatchSelector = function() {
+    const options = this.computeBatchOptions();
+    const visible = this.centralControl.centralControl === true && !this.currentSubscriberCode && options.length > 0;
+    this.batchLabel.toggle(visible);
+    if (!visible) {
+      this.currentBatchCode = "";
+      if (this.batchDropDown && typeof this.batchDropDown.destroy === "function") {
+        this.batchDropDown.destroy();
+        this.batchDropDown = null;
+      }
+      return;
+    }
+    if (this.batchDropDown && typeof this.batchDropDown.destroy === "function") {
+      this.batchDropDown.destroy();
+    }
+    if (!this.currentBatchCode && options.length) {
+      this.currentBatchCode = options[0].code;
+    }
+    this.batchSelect.kendoDropDownList({
+      dataTextField: "label",
+      dataValueField: "code",
+      valuePrimitive: true,
+      dataSource: options,
+      value: this.currentBatchCode || "",
+      change: () => {
+        this.currentBatchCode = this.batchDropDown.value() || "";
+      }
+    });
+    this.batchDropDown = this.batchSelect.data("kendoDropDownList");
+  };
+
+  SystemUpdatesAdmin.prototype.computeBatchOptions = function() {
+    if (!this.currentRelease || this.currentSubscriberCode) {
+      return [];
+    }
+    const configured = this.currentRelease.metadata && Array.isArray(this.currentRelease.metadata.saasRolloutBatches)
+      ? this.currentRelease.metadata.saasRolloutBatches
+      : [];
+    if (configured.length) {
+      return configured.map(function(item, index) {
+        const code = String(item && item.code || "batch-" + (index + 1));
+        return {
+          code: code,
+          label: code + " - " + String(item && item.title || code)
+        };
+      });
+    }
+    if (!this.subscribers.length) {
+      return [];
+    }
+    if (this.subscribers.length === 1) {
+      return [{ code: "canary", label: "canary - Lote unico" }];
+    }
+    return [
+      { code: "canary", label: "canary - Canario inicial" },
+      { code: "wave-1", label: "wave-1 - Lote principal" }
+    ];
   };
 
   SystemUpdatesAdmin.prototype.renderReleasesGrid = function() {
@@ -222,6 +284,7 @@
         self.currentRelease = self.releases.find(function(item) {
           return item.version === selected.version;
         }) || null;
+        self.renderBatchSelector();
         self.currentExecution = null;
         self.renderDetail(self.currentRelease);
       }
@@ -334,6 +397,28 @@
     global.jQuery("<p></p>").text("Dependencias obrigatorias: " + this.formatVersionList(item.requiresAppliedUpdates)).appendTo(chain);
     global.jQuery("<p></p>").text("Substitui: " + this.formatVersionList(item.replaces)).appendTo(chain);
     global.jQuery("<p></p>").text("Passos: " + this.formatVersionList(item.steps)).appendTo(chain);
+    if (item.rolloutWindow && typeof item.rolloutWindow === "object") {
+      global.jQuery("<p></p>").text("Janela SaaS: " + String(item.rolloutWindow.status || "unscheduled") + (item.rolloutWindow.startAt ? " | inicio " + String(item.rolloutWindow.startAt) : "")).appendTo(chain);
+    }
+    if (item.tenantActivationRequired === true) {
+      global.jQuery("<p></p>").text("Ativacao por tenant: " + String(item.tenantActivationStatus || "pending")).appendTo(chain);
+    }
+
+    if (item.scenarioBehavior && typeof item.scenarioBehavior === "object") {
+      const behavior = item.scenarioBehavior;
+      const scenario = global.jQuery("<div class=\"manual-summary\"></div>").appendTo(this.detailSummaryElement);
+      global.jQuery("<p></p>").text("Controle: " + String(behavior.control || "-")).appendTo(scenario);
+      global.jQuery("<p></p>").text("Aplicacao no cenario: " + String(behavior.applyMode || "-")).appendTo(scenario);
+      if (behavior.rolloutMode) {
+        global.jQuery("<p></p>").text("Rollout: " + String(behavior.rolloutMode || "-")).appendTo(scenario);
+      }
+      if (behavior.accessPolicy) {
+        global.jQuery("<p></p>").text("Politica de acesso: " + String(behavior.accessPolicy || "-")).appendTo(scenario);
+      }
+      if (behavior.entryBlockAllowed === true) {
+        global.jQuery("<p></p>").text("Entrada do tenant pode ser bloqueada durante o rollout.").appendTo(scenario);
+      }
+    }
   };
 
   SystemUpdatesAdmin.prototype.renderExecutionSummary = function(item) {
@@ -347,6 +432,11 @@
     ].forEach(function(text) {
       global.jQuery("<span class=\"manual-badge\"></span>").text(text).appendTo(badges);
     });
+    if (item.summary && item.summary.rolloutAudit) {
+      global.jQuery("<p></p>")
+        .text("Rollout: " + String(item.summary.rolloutAudit.stage || "-") + (item.summary.rolloutAudit.batchCode ? " | lote " + String(item.summary.rolloutAudit.batchCode) : ""))
+        .appendTo(wrap);
+    }
   };
 
   SystemUpdatesAdmin.prototype.formatVersionList = function(items) {
@@ -448,6 +538,38 @@
     });
   };
 
+  SystemUpdatesAdmin.prototype.handleTenantActivation = function() {
+    if (this.centralControl.centralControl === true && !this.currentSubscriberCode) {
+      global.CrudUtils.showMessage("Selecione o assinante alvo da ativacao.", "warning");
+      return;
+    }
+    if (!this.currentRelease) {
+      global.CrudUtils.showMessage("Selecione uma release.", "warning");
+      return;
+    }
+    const release = this.currentRelease;
+    const currentStatus = String(release.tenantActivationStatus || "pending");
+    const nextStatus = currentStatus === "enabled" ? "disabled" : "enabled";
+    const actionLabel = nextStatus === "enabled" ? "ativar" : "desativar";
+    global.CrudUtils.confirm(
+      "Deseja " + actionLabel + " esta release para o assinante selecionado?",
+      { title: nextStatus === "enabled" ? "Ativar tenant" : "Desativar tenant" }
+    ).then((confirmed) => {
+      if (!confirmed) {
+        return;
+      }
+      this.request("POST", "/api/admin/system-updates/tenant-activation", {
+        version: release.version,
+        status: nextStatus,
+        reason: nextStatus === "enabled" ? "Ativacao pela tela administrativa." : "Desativacao pela tela administrativa.",
+        subscriberCode: this.currentSubscriberCode || ""
+      }).then(() => {
+        global.CrudUtils.showMessage("Ativacao por tenant atualizada.", "success");
+        return this.loadBootstrap();
+      }).catch((error) => this.showError(error, "Nao foi possivel atualizar a ativacao por tenant."));
+    });
+  };
+
   SystemUpdatesAdmin.prototype.handlePublishArtifacts = function() {
     if (!this.currentRelease) {
       global.CrudUtils.showMessage("Selecione uma release.", "warning");
@@ -463,10 +585,6 @@
   };
 
   SystemUpdatesAdmin.prototype.handleRolloutPlan = function() {
-    if (this.centralControl.centralControl === true && !this.currentSubscriberCode) {
-      global.CrudUtils.showMessage("Selecione o assinante alvo do plano SaaS.", "warning");
-      return;
-    }
     if (!this.currentRelease) {
       global.CrudUtils.showMessage("Selecione uma release.", "warning");
       return;
@@ -482,17 +600,18 @@
   };
 
   SystemUpdatesAdmin.prototype.handleDispatchRollout = function() {
-    if (this.centralControl.centralControl === true && !this.currentSubscriberCode) {
-      global.CrudUtils.showMessage("Selecione o assinante alvo do rollout.", "warning");
-      return;
-    }
     if (!this.currentRelease) {
       global.CrudUtils.showMessage("Selecione uma release.", "warning");
       return;
     }
+    if (this.centralControl.centralControl === true && !this.currentSubscriberCode && !this.currentBatchCode) {
+      global.CrudUtils.showMessage("Selecione um lote SaaS para o rollout progressivo.", "warning");
+      return;
+    }
     this.request("POST", "/api/admin/system-updates/dispatch-rollout", {
       version: this.currentRelease.version,
-      subscriberCode: this.currentSubscriberCode || ""
+      subscriberCode: this.currentSubscriberCode || "",
+      batchCode: this.currentSubscriberCode ? "" : (this.currentBatchCode || "")
     }).then((payload) => {
       this.currentExecution = null;
       this.renderDetail(payload);

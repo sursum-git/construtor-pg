@@ -3,6 +3,7 @@
 namespace App\Tests\Runtime;
 
 use App\Entity\SystemUpdateRelease;
+use App\Entity\SystemUpdateTenantActivation;
 use App\Repository\AuthSubscriberRepository;
 use App\Repository\BuilderProgramOverlayRepository;
 use App\Repository\BuilderProgramOverlayVersionRepository;
@@ -11,6 +12,7 @@ use App\Repository\RuntimeAsyncJobRepository;
 use App\Repository\SystemUpdateConsentRepository;
 use App\Repository\SystemUpdateExecutionRepository;
 use App\Repository\SystemUpdateReleaseRepository;
+use App\Repository\SystemUpdateTenantActivationRepository;
 use App\Runtime\CentralControlResolver;
 use App\Runtime\DeploymentModeResolver;
 use App\Runtime\PermissionResolver;
@@ -31,10 +33,11 @@ class SystemUpdateServiceVersionChainTest extends TestCase
 {
     public function testBlocksReleaseForSubscriberWithoutRequiredAppliedUpdate(): void
     {
-        $required = (new SystemUpdateRelease())->setVersion('2.3.5')->setTitle('Base estrutural');
+        $required = (new SystemUpdateRelease())->setVersion('2.3.5')->setTitle('Base estrutural')->setCategory('required_structural');
         $target = (new SystemUpdateRelease())
             ->setVersion('2.4.0')
             ->setTitle('Nova release')
+            ->setCategory('required_structural')
             ->setRequiresVersionMin('2.3.0')
             ->setRequiresAppliedUpdates(['2.3.5']);
 
@@ -60,14 +63,19 @@ class SystemUpdateServiceVersionChainTest extends TestCase
 
     public function testReplacedVersionSatisfiesFutureDependency(): void
     {
-        $base = (new SystemUpdateRelease())->setVersion('2.3.5')->setTitle('Base estrutural');
+        $base = (new SystemUpdateRelease())
+            ->setVersion('2.3.5')
+            ->setTitle('Base estrutural')
+            ->setCategory('required_structural');
         $replacement = (new SystemUpdateRelease())
             ->setVersion('2.4.0')
             ->setTitle('Release substituta')
+            ->setCategory('required_structural')
             ->setReplaces(['2.3.5']);
         $future = (new SystemUpdateRelease())
             ->setVersion('2.5.0')
             ->setTitle('Release futura')
+            ->setCategory('required_structural')
             ->setRequiresAppliedUpdates(['2.3.5']);
 
         $executions = $this->createMock(SystemUpdateExecutionRepository::class);
@@ -84,16 +92,55 @@ class SystemUpdateServiceVersionChainTest extends TestCase
         self::assertSame(['2.3.5'], $evaluation['requiresAppliedUpdates']);
     }
 
+    public function testOptionalReleaseRequiresTenantActivationInSaas(): void
+    {
+        $release = (new SystemUpdateRelease())
+            ->setVersion('2.6.0')
+            ->setTitle('Melhoria visual')
+            ->setCategory('optional_visual');
+
+        $executions = $this->createMock(SystemUpdateExecutionRepository::class);
+        $executions->method('findLatestSuccessfulVersionBySubscriber')->willReturn('2.5.0');
+        $executions->method('findSuccessfulVersionsBySubscriber')->willReturn(['2.5.0']);
+
+        $activations = $this->createMock(SystemUpdateTenantActivationRepository::class);
+        $activations->method('findLatestByVersionAndSubscriber')->willReturn(null);
+
+        $service = $this->service([$release], $executions, $activations);
+        $method = new \ReflectionMethod($service, 'evaluateReleaseEntity');
+        $method->setAccessible(true);
+
+        $waiting = $method->invoke($service, $release, 'empresa-a');
+        self::assertSame('awaiting_tenant_activation', $waiting['status']);
+
+        $activation = (new SystemUpdateTenantActivation())
+            ->setReleaseVersion('2.6.0')
+            ->setStatus('enabled')
+            ->setTargetSubscriberCode('empresa-a');
+        $activationsEnabled = $this->createMock(SystemUpdateTenantActivationRepository::class);
+        $activationsEnabled->method('findLatestByVersionAndSubscriber')->willReturn($activation);
+
+        $serviceEnabled = $this->service([$release], $executions, $activationsEnabled);
+        $methodEnabled = new \ReflectionMethod($serviceEnabled, 'evaluateReleaseEntity');
+        $methodEnabled->setAccessible(true);
+
+        $enabled = $methodEnabled->invoke($serviceEnabled, $release, 'empresa-a');
+        self::assertSame('pending', $enabled['status']);
+    }
+
     /**
      * @param list<SystemUpdateRelease> $catalog
      */
-    private function service(array $catalog, SystemUpdateExecutionRepository $executions): SystemUpdateService
+    private function service(array $catalog, SystemUpdateExecutionRepository $executions, ?SystemUpdateTenantActivationRepository $activations = null): SystemUpdateService
     {
         $releases = $this->createMock(SystemUpdateReleaseRepository::class);
         $releases->method('findAllOrdered')->willReturn($catalog);
 
         $consents = $this->createMock(SystemUpdateConsentRepository::class);
         $consents->method('findLatestByVersionAndSubscriber')->willReturn(null);
+
+        $tenantActivations = $activations ?: $this->createMock(SystemUpdateTenantActivationRepository::class);
+        $tenantActivations->method('findLatestByVersionAndSubscriber')->willReturn(null);
 
         $environment = $this->createMock(RuntimeEnvironmentIdentityResolver::class);
         $environment->method('resolve')->willReturn([
@@ -111,6 +158,7 @@ class SystemUpdateServiceVersionChainTest extends TestCase
             $this->createStub(SystemUpdateManifestLoader::class),
             $releases,
             $consents,
+            $tenantActivations,
             $executions,
             $this->createStub(RuntimeAsyncJobService::class),
             $this->createStub(RuntimeAsyncJobRepository::class),

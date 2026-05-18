@@ -84,13 +84,18 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - pagina local: `examples/pages/admin-system-update-subscriber-log.html`
   - a esteira da release agora tambem cria draft de rebase para overlay limpo (`rebase_ok`), mantendo `review_required` para conflito leve e bloqueio total para conflito critico;
   - a consulta por assinante agora tambem usa `GET /api/admin/system-updates/executions` com filtros por status, categoria e periodo, alem de exportacao local JSON/CSV;
+  - releases opcionais no SaaS agora podem exigir ativacao por assinante antes do apply:
+    - `POST /api/admin/system-updates/tenant-activation`
   - o manifesto remoto pode ser configurado por `APP_UPDATE_MANIFEST_URL`;
   - a verificacao do manifesto usa `APP_UPDATE_MANIFEST_SIGNING_KEY`;
   - a verificacao do pacote usa `APP_UPDATE_PACKAGE_SIGNING_KEY`;
   - cada release do manifesto agora pode declarar `version`, `requiresVersionMin`, `requiresAppliedUpdates[]`, `replaces[]`, `category`, `autoApply`, `breakingLevel` e `steps`;
   - a cadeia obrigatoria do updater agora e resolvida por assinante-alvo no sistema central; nao usar o historico global do ambiente para decidir dependencias de um assinante especifico;
   - a persistencia/publicacao do manifesto agora tambem valida coerencia da cadeia, incluindo dependencia ausente, `replaces[]` invalido e ciclo em `requiresAppliedUpdates[]`;
-  - o endurecimento do on-premise ao abrir o sistema usa `APP_UPDATE_ONPREM_CRITICAL_POLICY=warn|block`;
+  - o endurecimento do on-premise ao abrir o sistema agora separa:
+    - `APP_UPDATE_ONPREM_CRITICAL_MODE=auto|prompt_admin|download_only`
+    - `APP_UPDATE_ONPREM_CRITICAL_ACCESS_POLICY=warn|block`
+  - `APP_UPDATE_ONPREM_CRITICAL_POLICY` continua aceito como legado;
   - a publicacao oficial dos artefatos usa:
     - `APP_UPDATE_DISTRIBUTION_DIR`
     - `APP_UPDATE_PUBLIC_BASE_URL`
@@ -108,6 +113,12 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `scripts/orchestrator/system-update-orchestrator.php`
     - `scripts/orchestrator/run-system-update-orchestrator.sh`
     - `scripts/orchestrator/system-update-orchestrator.config.sample.json`
+  - a maturidade operacional do rollout SaaS agora inclui:
+    - janela agendada por `metadata.saasRolloutWindow`;
+    - batches/canario por `metadata.saasRolloutBatches`;
+    - despacho progressivo por lote a partir de `admin.atualizacoes`;
+    - auditoria de rollout em `admin.atualizacoes-assinantes`;
+    - bloqueio temporario de entrada do tenant via estado local em `APP_SAAS_ROLLOUT_STATE_FILE`, escrito pelo orquestrador externo.
 
 ## Estado atual do program-builder
 

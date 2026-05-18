@@ -7,6 +7,7 @@ use App\Entity\AuthSubscriber;
 use App\Entity\SystemUpdateConsent;
 use App\Entity\SystemUpdateExecution;
 use App\Entity\SystemUpdateRelease;
+use App\Entity\SystemUpdateTenantActivation;
 use App\Repository\AuthSubscriberRepository;
 use App\Repository\BuilderProgramOverlayRepository;
 use App\Repository\BuilderProgramOverlayVersionRepository;
@@ -15,6 +16,7 @@ use App\Repository\RuntimeAsyncJobRepository;
 use App\Repository\SystemUpdateConsentRepository;
 use App\Repository\SystemUpdateExecutionRepository;
 use App\Repository\SystemUpdateReleaseRepository;
+use App\Repository\SystemUpdateTenantActivationRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 class SystemUpdateService
@@ -23,6 +25,7 @@ class SystemUpdateService
         private readonly SystemUpdateManifestLoader $manifestLoader,
         private readonly SystemUpdateReleaseRepository $releases,
         private readonly SystemUpdateConsentRepository $consents,
+        private readonly SystemUpdateTenantActivationRepository $activations,
         private readonly SystemUpdateExecutionRepository $executions,
         private readonly RuntimeAsyncJobService $jobs,
         private readonly RuntimeAsyncJobRepository $runtimeJobs,
@@ -56,6 +59,7 @@ class SystemUpdateService
             'subscribers' => $this->listTargetSubscribers(),
             'selectedSubscriber' => $targetSubscriber ? $this->formatTargetSubscriber($targetSubscriber) : null,
             'consents' => $this->listConsents($targetSubscriber?->getCode()),
+            'activations' => $this->listActivations($targetSubscriber?->getCode()),
             'executions' => $this->listExecutions($targetSubscriber?->getCode()),
             'jobs' => $this->listJobs(),
         ];
@@ -183,25 +187,55 @@ class SystemUpdateService
         ];
     }
 
-    public function dispatchRollout(string $version, ?string $targetSubscriberCode = null): array
+    public function dispatchRollout(string $version, ?string $targetSubscriberCode = null, ?string $batchCode = null): array
     {
-        $targetSubscriber = $this->resolveTargetSubscriber($targetSubscriberCode, $this->central->isCentralControl());
         $release = $this->requireRelease($version);
-        $evaluation = $this->evaluateReleaseEntity($release, $targetSubscriber?->getCode());
-        $package = null;
+        $targetSubscriber = $this->resolveTargetSubscriber($targetSubscriberCode, false);
+        $plan = $this->buildRolloutPlan($version, $targetSubscriber?->getCode());
         $resolvedRelease = $this->resolveReleasePayload($release);
+        $package = null;
         if (trim((string) (($resolvedRelease['metadata']['packageUrl'] ?? ''))) !== '') {
             $package = $this->packages->download($resolvedRelease);
         }
-
-        $payload = $this->buildOrchestratorPayload($release, $evaluation, $targetSubscriber, $package);
-        $dispatch = $this->orchestrator->dispatch($payload);
+        $dispatches = [];
+        if ($targetSubscriber) {
+            $evaluation = $this->evaluateReleaseEntity($release, $targetSubscriber->getCode());
+            $dispatches[] = $this->dispatchRolloutForSubscriber($release, $evaluation, $targetSubscriber, $package, $plan, null);
+        } else {
+            $batchCode = trim((string) ($batchCode ?: ($plan['defaultBatchCode'] ?? '')));
+            $selectedBatch = null;
+            foreach ((array) ($plan['rolloutBatches'] ?? []) as $batch) {
+                if ((string) ($batch['code'] ?? '') === $batchCode) {
+                    $selectedBatch = $batch;
+                    break;
+                }
+            }
+            if (!is_array($selectedBatch)) {
+                throw new RuntimeHttpException('SYSTEM_UPDATE_BATCH_REQUIRED', 'Selecione um lote SaaS antes de despachar o rollout.', 422, [
+                    'availableBatches' => $plan['rolloutBatches'] ?? [],
+                ]);
+            }
+            foreach ((array) ($selectedBatch['subscribers'] ?? []) as $subscriberRow) {
+                $subscriberCode = trim((string) ($subscriberRow['code'] ?? ''));
+                if ($subscriberCode === '') {
+                    continue;
+                }
+                $subscriber = $this->resolveTargetSubscriber($subscriberCode, true);
+                $evaluation = $this->evaluateReleaseEntity($release, $subscriber->getCode());
+                $dispatches[] = $this->dispatchRolloutForSubscriber($release, $evaluation, $subscriber, $package, $plan, $selectedBatch);
+            }
+        }
 
         return [
             'releaseVersion' => $release->getVersion(),
             'targetSubscriber' => $targetSubscriber ? $this->formatTargetSubscriber($targetSubscriber) : null,
-            'dispatch' => $dispatch,
-            'payload' => $payload,
+            'plan' => $plan,
+            'dispatches' => $dispatches,
+            'summary' => [
+                'dispatchCount' => count($dispatches),
+                'succeededCount' => count(array_filter($dispatches, static fn (array $item): bool => (string) (($item['dispatch']['status'] ?? '')) === 'dispatched')),
+                'failedCount' => count(array_filter($dispatches, static fn (array $item): bool => (string) (($item['dispatch']['status'] ?? '')) !== 'dispatched')),
+            ],
         ];
     }
 
@@ -338,6 +372,13 @@ class SystemUpdateService
                 'package' => $packageInfo,
                 'orchestratorDispatch' => $orchestratorDispatch,
                 'overlayPipeline' => $pipelineImpactReport['overlayPipelineSummary'] ?? [],
+                'rolloutAudit' => [
+                    'stage' => $orchestratorDispatch ? 'apply_and_dispatch' : 'apply_only',
+                    'dispatchCount' => $orchestratorDispatch ? 1 : 0,
+                    'entryAccessMode' => (($release->getMetadata()['saasBlockEntryUntilComplete'] ?? false) === true) ? 'blocked' : 'warning',
+                    'windowStatus' => $this->resolveSaasRolloutWindow($release->getMetadata())['status'] ?? 'unscheduled',
+                    'batchCode' => null,
+                ],
             ])
             ->setFinishedAt(new \DateTimeImmutable());
         $this->entityManager->flush();
@@ -365,6 +406,16 @@ class SystemUpdateService
     {
         return array_values(array_filter(
             array_map(fn (SystemUpdateConsent $item): array => $this->formatConsent($item), $this->consents->findRecent()),
+            static fn (array $item): bool => trim((string) $targetSubscriberCode) === ''
+                ? true
+                : (string) ($item['targetSubscriberCode'] ?? '') === trim((string) $targetSubscriberCode)
+        ));
+    }
+
+    public function listActivations(?string $targetSubscriberCode = null): array
+    {
+        return array_values(array_filter(
+            array_map(fn (SystemUpdateTenantActivation $item): array => $this->formatActivation($item), $this->activations->findRecent()),
             static fn (array $item): bool => trim((string) $targetSubscriberCode) === ''
                 ? true
                 : (string) ($item['targetSubscriberCode'] ?? '') === trim((string) $targetSubscriberCode)
@@ -414,6 +465,8 @@ class SystemUpdateService
         $result = $this->check(null, true, $autoQueue);
         $summary = $result['summary'];
         $deploymentMode = (string) ($summary['deploymentMode'] ?? $this->deploymentMode->resolve());
+        $criticalMode = $deploymentMode === 'onprem' ? $this->resolveOnPremCriticalMode() : null;
+        $criticalAccessPolicy = $deploymentMode === 'onprem' ? $this->resolveOnPremCriticalAccessPolicy() : 'warn';
         $criticalPending = array_values(array_map(
             static fn (array $item): string => (string) ($item['version'] ?? ''),
             array_filter((array) ($result['releases'] ?? []), static fn (array $item): bool => ($item['status'] ?? '') === 'pending' && ($item['severity'] ?? '') === 'critical')
@@ -421,25 +474,60 @@ class SystemUpdateService
         $summary['criticalActionRequired'] = count($criticalPending) > 0;
         $summary['pendingCriticalVersions'] = $criticalPending;
         $summary['recommendedScreenId'] = 'admin.atualizacoes';
-        $summary['criticalPolicy'] = $deploymentMode === 'onprem' ? $this->resolveOnPremCriticalPolicy() : 'warn';
+        $summary['criticalPolicy'] = $criticalAccessPolicy;
+        $summary['criticalMode'] = $criticalMode;
         $summary['canRunPendingLocally'] = $deploymentMode === 'onprem';
+        $summary['canDownloadPendingLocally'] = $deploymentMode === 'onprem';
         $summary['runtimeRunPendingEndpoint'] = $deploymentMode === 'onprem' ? '/api/runtime/system-updates/run-pending' : null;
+        $summary['runtimeDownloadPendingEndpoint'] = $deploymentMode === 'onprem' ? '/api/runtime/system-updates/download-pending-critical' : null;
         $summary['accessMode'] = 'ready';
         $summary['criticalActionTitle'] = '';
         $summary['criticalActionMessage'] = '';
+        $summary['criticalActionLabel'] = '';
+        $summary['criticalActionKind'] = '';
         if ($summary['criticalActionRequired'] === true) {
             $message = 'Existe atualizacao critica pendente: ' . implode(', ', $criticalPending) . '.';
-            if ($deploymentMode === 'onprem' && $summary['criticalPolicy'] === 'block') {
+            if ($deploymentMode === 'onprem') {
+                if ($criticalMode === 'download_only') {
+                    $summary['criticalActionKind'] = 'download';
+                    $summary['criticalActionLabel'] = 'Baixar pacote critico';
+                    $summary['criticalActionTitle'] = 'Atualizacao critica pendente';
+                    $summary['criticalActionMessage'] = $message . ' O pacote deve ser baixado localmente antes da aplicacao.';
+                } else {
+                    $summary['criticalActionKind'] = 'run';
+                    $summary['criticalActionLabel'] = $criticalMode === 'auto' ? 'Executar rotina automatica' : 'Executar atualizacao local';
+                    $summary['criticalActionTitle'] = $criticalMode === 'auto' ? 'Atualizacao critica automatica' : 'Atualizacao critica pendente';
+                    $summary['criticalActionMessage'] = $message . ' A politica atual do on-premise exige ' . $this->describeOnPremCriticalMode($criticalMode) . '.';
+                }
+            }
+            if ($deploymentMode === 'onprem' && $criticalAccessPolicy === 'block') {
                 $summary['accessMode'] = 'blocked';
-                $summary['criticalActionTitle'] = 'Atualizacao critica obrigatoria';
-                $summary['criticalActionMessage'] = $message . ' O acesso operacional deve aguardar a aplicacao local da atualizacao.';
             } else {
                 $summary['accessMode'] = 'warning';
-                $summary['criticalActionTitle'] = 'Atualizacao critica pendente';
-                $summary['criticalActionMessage'] = $message . ' Revise a politica de atualizacao antes de continuar.';
+                if ($deploymentMode !== 'onprem') {
+                    $summary['criticalActionTitle'] = 'Atualizacao critica pendente';
+                    $summary['criticalActionMessage'] = $message . ' Revise a politica de atualizacao antes de continuar.';
+                }
             }
             if (!empty($summary['autoQueuedRelease']['version'])) {
                 $summary['criticalActionMessage'] .= ' A release ' . (string) $summary['autoQueuedRelease']['version'] . ' foi enfileirada automaticamente.';
+            }
+        }
+
+        if ($deploymentMode === 'saas') {
+            $rolloutState = $this->resolveSaasRolloutState();
+            if ($rolloutState !== null) {
+                $summary['saasRolloutState'] = $rolloutState;
+                if (($rolloutState['active'] ?? false) === true) {
+                    $summary['criticalActionRequired'] = true;
+                    $summary['accessMode'] = (string) ($rolloutState['accessMode'] ?? 'warning');
+                    $summary['criticalActionTitle'] = (string) ($rolloutState['title'] ?? 'Atualizacao SaaS em andamento');
+                    $summary['criticalActionMessage'] = (string) ($rolloutState['message'] ?? 'Uma atualizacao SaaS esta em andamento para este ambiente.');
+                    $summary['criticalActionLabel'] = 'Atualizacao em andamento';
+                    $summary['criticalActionKind'] = 'wait';
+                    $summary['canRunPendingLocally'] = false;
+                    $summary['canDownloadPendingLocally'] = false;
+                }
             }
         }
 
@@ -454,10 +542,48 @@ class SystemUpdateService
             ]);
         }
 
-        $result = $this->runPending(null, $autoOnly, true);
+        $mode = $this->resolveOnPremCriticalMode();
+        if ($mode === 'download_only') {
+            throw new RuntimeHttpException('SYSTEM_UPDATE_RUNTIME_DOWNLOAD_ONLY', 'A politica atual permite apenas o download local do pacote critico.', 422, [
+                'criticalMode' => $mode,
+            ]);
+        }
+
+        $result = $this->runPending(null, $mode === 'auto' ? true : $autoOnly, true);
         $result['runtimeSummary'] = $this->runtimeSummary(false);
 
         return $result;
+    }
+
+    public function downloadPendingCriticalRuntime(): array
+    {
+        if ($this->deploymentMode->resolve() !== 'onprem') {
+            throw new RuntimeHttpException('SYSTEM_UPDATE_RUNTIME_MODE_INVALID', 'O download local de updates existe apenas no modo on-premise.', 422, [
+                'deploymentMode' => $this->deploymentMode->resolve(),
+            ]);
+        }
+
+        $check = $this->check(null, true, false);
+        $selected = null;
+        foreach ((array) ($check['releases'] ?? []) as $release) {
+            if (($release['status'] ?? '') === 'pending' && ($release['severity'] ?? '') === 'critical') {
+                $selected = $release;
+                break;
+            }
+        }
+
+        if (!$selected || trim((string) ($selected['version'] ?? '')) === '') {
+            throw new RuntimeHttpException('SYSTEM_UPDATE_NO_PENDING_CRITICAL', 'Nao existe release critica pendente para download local.', 404, []);
+        }
+
+        $download = $this->downloadPackage((string) $selected['version']);
+
+        return [
+            'status' => 'downloaded',
+            'releaseVersion' => (string) ($selected['version'] ?? ''),
+            'package' => $download['package'] ?? null,
+            'runtimeSummary' => $this->runtimeSummary(false),
+        ];
     }
 
     public function registerConsent(string $version, string $status = 'approved', ?string $reason = null, string $source = 'ui', ?string $targetSubscriberCode = null): array
@@ -482,6 +608,27 @@ class SystemUpdateService
         return $this->formatConsent($consent);
     }
 
+    public function registerTenantActivation(string $version, string $status = 'enabled', ?string $reason = null, string $source = 'ui', ?string $targetSubscriberCode = null): array
+    {
+        $release = $this->requireRelease($version);
+        $targetSubscriber = $this->resolveTargetSubscriber($targetSubscriberCode, true);
+        $environment = $this->environmentIdentity->resolve();
+        $activation = (new SystemUpdateTenantActivation())
+            ->setReleaseVersion($release->getVersion())
+            ->setStatus($this->normalizeActivationStatus($status))
+            ->setDecidedBy($this->permissions->getUserId() ?: 'system')
+            ->setSource($source)
+            ->setDeploymentMode($this->deploymentMode->resolve())
+            ->setDatabaseIdentity((string) ($environment['databaseIdentity'] ?? 'db:dev'))
+            ->setTargetSubscriberCode($targetSubscriber?->getCode() ?: '')
+            ->setTargetSubscriberName($targetSubscriber?->getName())
+            ->setReason($reason);
+        $this->entityManager->persist($activation);
+        $this->entityManager->flush();
+
+        return $this->formatActivation($activation);
+    }
+
     public function buildRolloutPlan(string $version, ?string $targetSubscriberCode = null): array
     {
         $release = $this->requireRelease($version);
@@ -490,6 +637,9 @@ class SystemUpdateService
         $metadata = $release->getMetadata();
         $requiresMaintenance = ($metadata['requiresMaintenanceMode'] ?? false) === true || in_array('migrate', $release->getSteps(), true);
         $requiresBackup = ($metadata['requiresBackup'] ?? false) === true || in_array('migrate', $release->getSteps(), true);
+        $rolloutWindow = $this->resolveSaasRolloutWindow($metadata);
+        $rolloutBatches = $this->resolveSaasRolloutBatches($release, $targetSubscriber?->getCode());
+        $entryBlockPlan = $this->buildSaasEntryBlockPlan($release, $rolloutWindow);
 
         return [
             'version' => $release->getVersion(),
@@ -502,6 +652,10 @@ class SystemUpdateService
             'steps' => $release->getSteps(),
             'consentStatus' => $evaluation['consentStatus'] ?? 'not-required',
             'impactReport' => $evaluation['impactReport'] ?? [],
+            'rolloutWindow' => $rolloutWindow,
+            'rolloutBatches' => $rolloutBatches,
+            'defaultBatchCode' => $rolloutBatches[0]['code'] ?? null,
+            'entryBlockPlan' => $entryBlockPlan,
             'suggestedSequence' => [
                 'validar manifesto e assinatura',
                 $requiresBackup ? 'executar backup antes da aplicacao' : 'backup opcional conforme politica do ambiente',
@@ -598,6 +752,13 @@ class SystemUpdateService
             'missingVersion' => 0,
             'pipelineFailed' => 0,
         ];
+        $rolloutAudit = [
+            'dispatchCount' => 0,
+            'blockedEntryCount' => 0,
+            'windowScheduledCount' => 0,
+            'batchCodes' => [],
+            'byStage' => [],
+        ];
         foreach ($rows as $row) {
             $rowStatus = (string) ($row['status'] ?? '');
             $rowCategory = (string) ($row['category'] ?? '');
@@ -617,6 +778,20 @@ class SystemUpdateService
             $overlayPipeline['frozen'] += (int) ($pipelineSummary['frozen'] ?? 0);
             $overlayPipeline['missingVersion'] += (int) ($pipelineSummary['missingVersion'] ?? 0);
             $overlayPipeline['pipelineFailed'] += (int) ($pipelineSummary['pipelineFailed'] ?? 0);
+            $rolloutInfo = is_array($row['summary']['rolloutAudit'] ?? null) ? $row['summary']['rolloutAudit'] : [];
+            if ($rolloutInfo) {
+                $rolloutAudit['dispatchCount'] += (int) ($rolloutInfo['dispatchCount'] ?? 0);
+                $rolloutAudit['blockedEntryCount'] += (($rolloutInfo['entryAccessMode'] ?? '') === 'blocked') ? 1 : 0;
+                $rolloutAudit['windowScheduledCount'] += (($rolloutInfo['windowStatus'] ?? '') === 'scheduled') ? 1 : 0;
+                $batchCode = trim((string) ($rolloutInfo['batchCode'] ?? ''));
+                if ($batchCode !== '') {
+                    $rolloutAudit['batchCodes'][$batchCode] = true;
+                }
+                $stage = trim((string) ($rolloutInfo['stage'] ?? ''));
+                if ($stage !== '') {
+                    $rolloutAudit['byStage'][$stage] = (int) ($rolloutAudit['byStage'][$stage] ?? 0) + 1;
+                }
+            }
         }
 
         return [
@@ -629,6 +804,13 @@ class SystemUpdateService
                 'byStatus' => $byStatus,
                 'byCategory' => $byCategory,
                 'overlayPipeline' => $overlayPipeline,
+                'rolloutAudit' => [
+                    'dispatchCount' => $rolloutAudit['dispatchCount'],
+                    'blockedEntryCount' => $rolloutAudit['blockedEntryCount'],
+                    'windowScheduledCount' => $rolloutAudit['windowScheduledCount'],
+                    'batchCodes' => array_values(array_keys($rolloutAudit['batchCodes'])),
+                    'byStage' => $rolloutAudit['byStage'],
+                ],
                 'filters' => [
                     'subscriberCode' => $subscriberCode,
                     'status' => $status,
@@ -776,6 +958,26 @@ class SystemUpdateService
         $consent = $this->resolveConsent((string) ($release['version'] ?? ''), $targetSubscriberCode);
         $consentStatus = $requiresConsent ? ($consent?->getStatus() ?? 'pending') : 'not-required';
         $consentApproved = $requiresConsent ? ($consent && $consent->getStatus() === 'approved') : true;
+        $scenarioBehavior = $this->buildScenarioBehavior($release, $deploymentMode);
+        $rolloutWindow = $deploymentMode === 'saas' ? $this->resolveSaasRolloutWindow((array) ($release['metadata'] ?? [])) : null;
+        $rolloutWindowStatus = is_array($rolloutWindow) ? (string) ($rolloutWindow['status'] ?? 'unscheduled') : 'not-applicable';
+        $autoQueueAllowed = $autoApplicable;
+        if ($autoQueueAllowed && $deploymentMode === 'saas' && is_array($rolloutWindow) && ($rolloutWindow['requiresWindow'] ?? false) === true) {
+            $autoQueueAllowed = $rolloutWindowStatus === 'open';
+            if (!$autoQueueAllowed) {
+                $dependencyIssues[] = 'A release automatica aguarda a janela SaaS configurada para rollout.';
+            }
+        }
+        $tenantActivationRequired = $deploymentMode === 'saas'
+            && trim((string) $targetSubscriberCode) !== ''
+            && (string) ($scenarioBehavior['applyMode'] ?? '') === 'tenant_activation';
+        $tenantActivation = $tenantActivationRequired ? $this->resolveActivation((string) ($release['version'] ?? ''), (string) $targetSubscriberCode) : null;
+        $tenantActivationStatus = $tenantActivationRequired ? ($tenantActivation?->getStatus() ?? 'pending') : 'not-required';
+        if ($status === 'pending' && $tenantActivationRequired && $tenantActivationStatus !== 'enabled') {
+            $status = 'awaiting_tenant_activation';
+            $dependencyIssues[] = 'A release opcional exige ativacao explicita para este assinante.';
+            $autoApplicable = false;
+        }
         $packageUrl = trim((string) ($release['metadata']['packageUrl'] ?? ''));
 
         return [
@@ -790,8 +992,15 @@ class SystemUpdateService
             'consentStatus' => $consentStatus,
             'consentApproved' => $consentApproved,
             'consentInfo' => $consent ? $this->formatConsent($consent) : null,
+            'tenantActivationRequired' => $tenantActivationRequired,
+            'tenantActivationStatus' => $tenantActivationStatus,
+            'tenantActivationInfo' => $tenantActivation ? $this->formatActivation($tenantActivation) : null,
             'autoApplicable' => $autoApplicable,
+            'autoQueueAllowed' => $autoQueueAllowed,
             'breakingLevel' => (string) ($release['breakingLevel'] ?? 'non_breaking'),
+            'scenarioBehavior' => $scenarioBehavior,
+            'rolloutWindow' => $rolloutWindow,
+            'rolloutWindowStatus' => $rolloutWindowStatus,
             'blocksNextUpdates' => ($release['blocksNextUpdates'] ?? false) === true,
             'dependencyIssues' => $dependencyIssues,
             'requiresVersionMin' => $requiresVersionMin !== '' ? $requiresVersionMin : null,
@@ -813,7 +1022,10 @@ class SystemUpdateService
     private function queueAutomaticRelease(array $items, string $deploymentMode): ?array
     {
         foreach ($items as $item) {
-            if (($item['status'] ?? '') !== 'pending' || ($item['autoApplicable'] ?? false) !== true) {
+            if (($item['status'] ?? '') !== 'pending' || ($item['autoQueueAllowed'] ?? false) !== true) {
+                continue;
+            }
+            if ($deploymentMode === 'onprem' && $this->resolveOnPremCriticalMode() === 'download_only') {
                 continue;
             }
             if ($this->executions->hasExecutionInStatuses((string) ($item['version'] ?? ''), ['queued', 'running', 'succeeded'])) {
@@ -848,10 +1060,34 @@ class SystemUpdateService
         return in_array($signatureStatus, ['verified', 'local-unsigned'], true);
     }
 
-    private function resolveOnPremCriticalPolicy(): string
+    private function resolveOnPremCriticalMode(): string
     {
-        $value = strtolower(trim((string) ($_SERVER['APP_UPDATE_ONPREM_CRITICAL_POLICY'] ?? $_ENV['APP_UPDATE_ONPREM_CRITICAL_POLICY'] ?? getenv('APP_UPDATE_ONPREM_CRITICAL_POLICY') ?: 'warn')));
-        return in_array($value, ['warn', 'block'], true) ? $value : 'warn';
+        $value = strtolower(trim((string) ($_SERVER['APP_UPDATE_ONPREM_CRITICAL_MODE'] ?? $_ENV['APP_UPDATE_ONPREM_CRITICAL_MODE'] ?? getenv('APP_UPDATE_ONPREM_CRITICAL_MODE') ?: '')));
+        if (in_array($value, ['auto', 'prompt_admin', 'download_only'], true)) {
+            return $value;
+        }
+
+        $legacy = strtolower(trim((string) ($_SERVER['APP_UPDATE_ONPREM_CRITICAL_POLICY'] ?? $_ENV['APP_UPDATE_ONPREM_CRITICAL_POLICY'] ?? getenv('APP_UPDATE_ONPREM_CRITICAL_POLICY') ?: '')));
+        if (in_array($legacy, ['auto', 'prompt_admin', 'download_only'], true)) {
+            return $legacy;
+        }
+
+        return 'prompt_admin';
+    }
+
+    private function resolveOnPremCriticalAccessPolicy(): string
+    {
+        $value = strtolower(trim((string) ($_SERVER['APP_UPDATE_ONPREM_CRITICAL_ACCESS_POLICY'] ?? $_ENV['APP_UPDATE_ONPREM_CRITICAL_ACCESS_POLICY'] ?? getenv('APP_UPDATE_ONPREM_CRITICAL_ACCESS_POLICY') ?: '')));
+        if (in_array($value, ['warn', 'block'], true)) {
+            return $value;
+        }
+
+        $legacy = strtolower(trim((string) ($_SERVER['APP_UPDATE_ONPREM_CRITICAL_POLICY'] ?? $_ENV['APP_UPDATE_ONPREM_CRITICAL_POLICY'] ?? getenv('APP_UPDATE_ONPREM_CRITICAL_POLICY') ?: '')));
+        if (in_array($legacy, ['warn', 'block'], true)) {
+            return $legacy;
+        }
+
+        return 'warn';
     }
 
     private function requireRelease(string $version): SystemUpdateRelease
@@ -935,6 +1171,12 @@ class SystemUpdateService
     {
         $normalized = strtolower(trim($status));
         return in_array($normalized, ['approved', 'rejected', 'revoked'], true) ? $normalized : 'approved';
+    }
+
+    private function normalizeActivationStatus(string $status): string
+    {
+        $normalized = strtolower(trim($status));
+        return in_array($normalized, ['enabled', 'disabled'], true) ? $normalized : 'enabled';
     }
 
     private function releaseToArray(SystemUpdateRelease $release): array
@@ -1062,9 +1304,81 @@ class SystemUpdateService
         return $normalized !== '' ? mb_substr($normalized, 0, 30) : 'non_breaking';
     }
 
+    private function describeOnPremCriticalMode(?string $mode): string
+    {
+        return match ($mode) {
+            'auto' => 'aplicacao automatica quando a release permitir',
+            'download_only' => 'download local do pacote antes da decisao administrativa',
+            default => 'acao administrativa local antes da continuidade',
+        };
+    }
+
+    private function buildScenarioBehavior(array $release, string $deploymentMode): array
+    {
+        $category = (string) ($release['category'] ?? 'recommended');
+        $metadata = is_array($release['metadata'] ?? null) ? $release['metadata'] : [];
+
+        if ($deploymentMode === 'saas') {
+            return match ($category) {
+                'security_critical' => [
+                    'control' => 'provider',
+                    'applyMode' => 'automatic',
+                    'rolloutMode' => (string) ($metadata['saasRolloutMode'] ?? 'short_window'),
+                    'tenantActivationRequired' => false,
+                    'entryBlockAllowed' => ($metadata['saasBlockEntryUntilComplete'] ?? false) === true,
+                ],
+                'required_structural' => [
+                    'control' => 'provider',
+                    'applyMode' => (($release['autoApplySaas'] ?? false) === true) ? 'automatic' : 'controlled',
+                    'rolloutMode' => (string) ($metadata['saasRolloutMode'] ?? 'progressive_by_tenant'),
+                    'tenantActivationRequired' => false,
+                    'entryBlockAllowed' => false,
+                ],
+                default => [
+                    'control' => 'provider',
+                    'applyMode' => 'tenant_activation',
+                    'rolloutMode' => 'opt_in',
+                    'tenantActivationRequired' => true,
+                    'entryBlockAllowed' => false,
+                ],
+            };
+        }
+
+        if ($deploymentMode === 'onprem') {
+            return match ($category) {
+                'security_critical' => [
+                    'control' => 'customer_governed',
+                    'applyMode' => $this->resolveOnPremCriticalMode(),
+                    'accessPolicy' => $this->resolveOnPremCriticalAccessPolicy(),
+                ],
+                'required_structural' => [
+                    'control' => 'customer_governed',
+                    'applyMode' => 'consent_or_manual',
+                    'accessPolicy' => 'blocks_next_updates',
+                ],
+                default => [
+                    'control' => 'customer_governed',
+                    'applyMode' => 'manual_optional',
+                    'accessPolicy' => 'panel_available',
+                ],
+            };
+        }
+
+        return [
+            'control' => 'shared',
+            'applyMode' => 'manual',
+            'accessPolicy' => 'warning',
+        ];
+    }
+
     private function resolveConsent(string $version, ?string $targetSubscriberCode = null): ?SystemUpdateConsent
     {
         return $this->consents->findLatestByVersionAndSubscriber($version, $targetSubscriberCode);
+    }
+
+    private function resolveActivation(string $version, string $targetSubscriberCode): ?SystemUpdateTenantActivation
+    {
+        return $this->activations->findLatestByVersionAndSubscriber($version, $targetSubscriberCode);
     }
 
     private function formatConsent(SystemUpdateConsent $consent): array
@@ -1082,6 +1396,265 @@ class SystemUpdateService
             'reason' => $consent->getReason(),
             'createdAt' => $consent->getCreatedAt()->format(DATE_ATOM),
         ];
+    }
+
+    private function formatActivation(SystemUpdateTenantActivation $activation): array
+    {
+        return [
+            'id' => $activation->getId(),
+            'releaseVersion' => $activation->getReleaseVersion(),
+            'status' => $activation->getStatus(),
+            'decidedBy' => $activation->getDecidedBy(),
+            'source' => $activation->getSource(),
+            'deploymentMode' => $activation->getDeploymentMode(),
+            'databaseIdentity' => $activation->getDatabaseIdentity(),
+            'targetSubscriberCode' => $activation->getTargetSubscriberCode(),
+            'targetSubscriberName' => $activation->getTargetSubscriberName(),
+            'reason' => $activation->getReason(),
+            'createdAt' => $activation->getCreatedAt()->format(DATE_ATOM),
+        ];
+    }
+
+    private function dispatchRolloutForSubscriber(SystemUpdateRelease $release, array $evaluation, AuthSubscriber $targetSubscriber, ?array $package, array $plan, ?array $batch = null): array
+    {
+        $payload = $this->buildOrchestratorPayload($release, $evaluation, $targetSubscriber, $package, null, $plan, $batch);
+        $dispatch = $this->orchestrator->dispatch($payload);
+
+        $execution = $this->newExecution($release, 'rollout_dispatch', 'ui', (array) ($evaluation['impactReport'] ?? []), $targetSubscriber)
+            ->setStatus(($dispatch['status'] ?? '') === 'dispatched' ? 'succeeded' : 'failed')
+            ->setSummary([
+                'message' => ($dispatch['status'] ?? '') === 'dispatched'
+                    ? 'Rollout SaaS despachado para o orquestrador.'
+                    : 'Falha ao despachar o rollout SaaS.',
+                'rolloutAudit' => [
+                    'stage' => 'dispatch',
+                    'dispatchCount' => 1,
+                    'entryAccessMode' => $payload['entryAccessMode'] ?? 'warning',
+                    'windowStatus' => $payload['rolloutWindow']['status'] ?? 'unscheduled',
+                    'batchCode' => $payload['rolloutBatch']['code'] ?? null,
+                    'batchTitle' => $payload['rolloutBatch']['title'] ?? null,
+                    'windowStartAt' => $payload['rolloutWindow']['startAt'] ?? null,
+                    'windowEndsAt' => $payload['rolloutWindow']['endAt'] ?? null,
+                ],
+                'orchestratorDispatch' => $dispatch,
+            ])
+            ->setFinishedAt(new \DateTimeImmutable());
+        $this->entityManager->persist($execution);
+        $this->entityManager->flush();
+
+        return [
+            'targetSubscriber' => $this->formatTargetSubscriber($targetSubscriber),
+            'batch' => $batch,
+            'dispatch' => $dispatch,
+            'payload' => $payload,
+            'execution' => $this->formatExecution($execution),
+        ];
+    }
+
+    private function resolveSaasRolloutWindow(array $metadata): array
+    {
+        $window = is_array($metadata['saasRolloutWindow'] ?? null) ? $metadata['saasRolloutWindow'] : [];
+        $startAt = trim((string) ($window['startAt'] ?? ''));
+        $durationMinutes = max(0, (int) ($window['durationMinutes'] ?? 0));
+        $requiresWindow = $startAt !== '' || $durationMinutes > 0;
+        $endAt = null;
+        $status = 'unscheduled';
+
+        if ($startAt !== '' && $durationMinutes > 0) {
+            try {
+                $start = new \DateTimeImmutable($startAt);
+                $end = $start->modify('+' . $durationMinutes . ' minutes');
+                $now = new \DateTimeImmutable();
+                $endAt = $end->format(DATE_ATOM);
+                if ($now < $start) {
+                    $status = 'scheduled';
+                } elseif ($now >= $start && $now <= $end) {
+                    $status = 'open';
+                } else {
+                    $status = 'closed';
+                }
+            } catch (\Throwable) {
+                $status = 'invalid';
+            }
+        }
+
+        return [
+            'requiresWindow' => $requiresWindow,
+            'startAt' => $startAt !== '' ? $startAt : null,
+            'durationMinutes' => $durationMinutes > 0 ? $durationMinutes : null,
+            'endAt' => $endAt,
+            'freezeNewSessions' => (($window['freezeNewSessions'] ?? false) === true) || (($metadata['saasBlockEntryUntilComplete'] ?? false) === true),
+            'status' => $status,
+        ];
+    }
+
+    private function buildSaasEntryBlockPlan(SystemUpdateRelease $release, array $rolloutWindow): array
+    {
+        $metadata = $release->getMetadata();
+        $blockEntry = (($metadata['saasBlockEntryUntilComplete'] ?? false) === true) || (($rolloutWindow['freezeNewSessions'] ?? false) === true);
+
+        return [
+            'enabled' => $blockEntry,
+            'accessMode' => $blockEntry ? 'blocked' : 'warning',
+            'message' => $blockEntry
+                ? 'A entrada do assinante deve ficar temporariamente bloqueada durante o rollout critico.'
+                : 'A atualizacao SaaS pode seguir sem bloquear novas sessoes.',
+        ];
+    }
+
+    private function resolveSaasRolloutBatches(SystemUpdateRelease $release, ?string $targetSubscriberCode = null): array
+    {
+        $metadata = $release->getMetadata();
+        $targetCode = trim((string) $targetSubscriberCode);
+        $availableSubscribers = $targetCode !== ''
+            ? array_values(array_filter($this->listTargetSubscribers(), static fn (array $item): bool => (string) ($item['code'] ?? '') === $targetCode))
+            : $this->listTargetSubscribers();
+        if (!$availableSubscribers) {
+            return [];
+        }
+
+        $configured = is_array($metadata['saasRolloutBatches'] ?? null) ? $metadata['saasRolloutBatches'] : [];
+        $batches = [];
+        if ($configured) {
+            foreach ($configured as $index => $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $code = trim((string) ($item['code'] ?? ''));
+                if ($code === '') {
+                    $code = 'batch-' . ($index + 1);
+                }
+                $subscriberCodes = array_values(array_filter(array_map(static function ($value): string {
+                    return trim((string) $value);
+                }, (array) ($item['subscriberCodes'] ?? [])), static fn (string $value): bool => $value !== ''));
+                $subscribers = array_values(array_filter($availableSubscribers, static function (array $subscriber) use ($subscriberCodes): bool {
+                    return in_array((string) ($subscriber['code'] ?? ''), $subscriberCodes, true);
+                }));
+                if (!$subscribers) {
+                    continue;
+                }
+                $batches[] = $this->formatRolloutBatch($release->getVersion(), [
+                    'code' => $code,
+                    'title' => trim((string) ($item['title'] ?? '')) ?: strtoupper($code),
+                    'kind' => trim((string) ($item['kind'] ?? 'wave')) ?: 'wave',
+                    'subscribers' => $subscribers,
+                ]);
+            }
+        }
+
+        if (!$batches) {
+            $canaryCount = count($availableSubscribers) > 1 ? 1 : count($availableSubscribers);
+            $canary = array_slice($availableSubscribers, 0, $canaryCount);
+            $remaining = array_slice($availableSubscribers, $canaryCount);
+            if ($canary) {
+                $batches[] = $this->formatRolloutBatch($release->getVersion(), [
+                    'code' => 'canary',
+                    'title' => 'Canario inicial',
+                    'kind' => 'canary',
+                    'subscribers' => $canary,
+                ]);
+            }
+            if ($remaining) {
+                $batches[] = $this->formatRolloutBatch($release->getVersion(), [
+                    'code' => 'wave-1',
+                    'title' => 'Lote principal',
+                    'kind' => 'wave',
+                    'subscribers' => $remaining,
+                ]);
+            }
+        }
+
+        return $batches;
+    }
+
+    private function formatRolloutBatch(string $releaseVersion, array $batch): array
+    {
+        $subscribers = array_values((array) ($batch['subscribers'] ?? []));
+        $subscriberCodes = array_values(array_filter(array_map(static function (array $subscriber): string {
+            return trim((string) ($subscriber['code'] ?? ''));
+        }, $subscribers), static fn (string $value): bool => $value !== ''));
+        $executions = $this->executions->findByReleaseAndSubscribers($releaseVersion, $subscriberCodes, 200);
+
+        $status = 'pending';
+        if ($executions) {
+            $latestStatuses = [];
+            foreach ($executions as $execution) {
+                $code = trim((string) $execution->getTargetSubscriberCode());
+                if ($code === '' || array_key_exists($code, $latestStatuses)) {
+                    continue;
+                }
+                $latestStatuses[$code] = $execution->getStatus();
+            }
+            $statuses = array_values($latestStatuses);
+            if ($statuses && count(array_filter($statuses, static fn (string $item): bool => $item === 'succeeded')) === count($subscriberCodes)) {
+                $status = 'completed';
+            } elseif (count(array_filter($statuses, static fn (string $item): bool => in_array($item, ['queued', 'running'], true))) > 0) {
+                $status = 'running';
+            } elseif (count(array_filter($statuses, static fn (string $item): bool => $item === 'failed')) > 0) {
+                $status = 'failed';
+            } elseif (count(array_filter($statuses, static fn (string $item): bool => $item === 'succeeded')) > 0) {
+                $status = 'partial';
+            }
+        }
+
+        return [
+            'code' => (string) ($batch['code'] ?? 'batch'),
+            'title' => (string) ($batch['title'] ?? 'Lote'),
+            'kind' => (string) ($batch['kind'] ?? 'wave'),
+            'status' => $status,
+            'subscriberCount' => count($subscribers),
+            'subscribers' => $subscribers,
+        ];
+    }
+
+    private function resolveSaasRolloutState(): ?array
+    {
+        $path = $this->resolveSaasRolloutStateFile();
+        if (!is_file($path)) {
+            return null;
+        }
+        try {
+            $decoded = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+        } catch (\Throwable) {
+            return null;
+        }
+        if (!is_array($decoded)) {
+            return null;
+        }
+
+        $active = ($decoded['active'] ?? false) === true;
+        $endAt = trim((string) ($decoded['windowEndsAt'] ?? ''));
+        if ($active && $endAt !== '') {
+            try {
+                if (new \DateTimeImmutable() > new \DateTimeImmutable($endAt)) {
+                    $active = false;
+                }
+            } catch (\Throwable) {
+                $active = false;
+            }
+        }
+
+        return [
+            'active' => $active,
+            'accessMode' => trim((string) ($decoded['accessMode'] ?? 'warning')) ?: 'warning',
+            'title' => trim((string) ($decoded['title'] ?? 'Atualizacao SaaS em andamento')) ?: 'Atualizacao SaaS em andamento',
+            'message' => trim((string) ($decoded['message'] ?? 'Uma atualizacao SaaS esta em andamento para este ambiente.')) ?: 'Uma atualizacao SaaS esta em andamento para este ambiente.',
+            'releaseVersion' => trim((string) ($decoded['releaseVersion'] ?? '')),
+            'windowStartsAt' => trim((string) ($decoded['windowStartsAt'] ?? '')) ?: null,
+            'windowEndsAt' => $endAt !== '' ? $endAt : null,
+            'batchCode' => trim((string) ($decoded['batchCode'] ?? '')) ?: null,
+            'subscriberCode' => trim((string) ($decoded['subscriberCode'] ?? '')) ?: null,
+        ];
+    }
+
+    private function resolveSaasRolloutStateFile(): string
+    {
+        $configured = trim((string) ($_SERVER['APP_SAAS_ROLLOUT_STATE_FILE'] ?? $_ENV['APP_SAAS_ROLLOUT_STATE_FILE'] ?? getenv('APP_SAAS_ROLLOUT_STATE_FILE') ?: ''));
+        if ($configured !== '') {
+            return $configured;
+        }
+
+        return dirname(__DIR__, 2) . '/var/runtime/saas-rollout-state.json';
     }
 
     private function analyzeProgramCustomizationImpact(array $programUpdates, ?string $targetSubscriberCode = null): array
@@ -1320,10 +1893,11 @@ class SystemUpdateService
         return $this->orchestrator->isEnabled();
     }
 
-    private function buildOrchestratorPayload(SystemUpdateRelease $release, array $evaluation, ?AuthSubscriber $targetSubscriber = null, ?array $package = null, ?SystemUpdateExecution $execution = null): array
+    private function buildOrchestratorPayload(SystemUpdateRelease $release, array $evaluation, ?AuthSubscriber $targetSubscriber = null, ?array $package = null, ?SystemUpdateExecution $execution = null, ?array $rolloutPlan = null, ?array $rolloutBatch = null): array
     {
         $environment = $this->environmentIdentity->resolve();
         $metadata = $release->getMetadata();
+        $resolvedPlan = is_array($rolloutPlan) ? $rolloutPlan : $this->buildRolloutPlan($release->getVersion(), $targetSubscriber?->getCode());
 
         return [
             'event' => 'system.update.rollout',
@@ -1339,8 +1913,11 @@ class SystemUpdateService
             'orchestratorAction' => (string) ($metadata['orchestratorAction'] ?? 'rolling-restart'),
             'requiresMaintenanceMode' => ($metadata['requiresMaintenanceMode'] ?? false) === true,
             'requiresBackup' => ($metadata['requiresBackup'] ?? false) === true,
+            'entryAccessMode' => (string) (($resolvedPlan['entryBlockPlan']['accessMode'] ?? 'warning')),
             'steps' => $release->getSteps(),
             'package' => $package,
+            'rolloutWindow' => $resolvedPlan['rolloutWindow'] ?? null,
+            'rolloutBatch' => $rolloutBatch,
             'impactReport' => $evaluation['impactReport'] ?? [],
         ];
     }

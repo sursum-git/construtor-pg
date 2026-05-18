@@ -236,7 +236,20 @@ Regras fechadas:
   - dependencia para versao nao anterior;
   - ciclos em `requiresAppliedUpdates[]`.
 - releases com `requiresSubscriberConsent=true` exigem anuencia formal antes da aplicacao normal.
-- no on-premise, o comportamento ao abrir o sistema pode ser endurecido por `APP_UPDATE_ONPREM_CRITICAL_POLICY=warn|block`.
+- no SaaS, releases opcionais podem depender de ativacao explicita por assinante antes do apply.
+- no SaaS, releases criticas e estruturais agora tambem podem declarar:
+  - `metadata.saasRolloutWindow.startAt`
+  - `metadata.saasRolloutWindow.durationMinutes`
+  - `metadata.saasRolloutWindow.freezeNewSessions`
+  - `metadata.saasRolloutBatches[]`
+- quando houver batches, a tela `admin.atualizacoes` pode despachar rollout progressivo por lote/canario sem perder o historico por assinante.
+- o estado temporario de bloqueio de entrada do tenant durante rollout SaaS critico fica em `APP_SAAS_ROLLOUT_STATE_FILE`, escrito pelo orquestrador externo e lido pela Home local.
+- no on-premise, o comportamento critico agora separa:
+  - modo de acao: `APP_UPDATE_ONPREM_CRITICAL_MODE=auto|prompt_admin|download_only`
+  - politica de acesso: `APP_UPDATE_ONPREM_CRITICAL_ACCESS_POLICY=warn|block`
+- `APP_UPDATE_ONPREM_CRITICAL_POLICY` continua aceito como legado:
+  - `warn|block` para acesso
+  - ou `auto|prompt_admin|download_only` em ambientes antigos que ainda usem a variavel unica
 - atualizacoes de programas padrao respeitam a politica atual de customizacao:
   - `standard`: atualiza pelo pacote da release;
   - `customer_overlay`: apenas gera impacto e fluxo de rebase, sem sobrescrita direta;
@@ -263,6 +276,8 @@ O runner:
 
 Quando `APP_UPDATE_ONPREM_CRITICAL_POLICY=block`, a Home passa a tratar release critica pendente como bloqueante e o runner assume `--fail-on-pending-critical` por padrao.
 
+Quando `APP_UPDATE_ONPREM_CRITICAL_MODE=download_only`, o runner nao aplica a release: ele baixa o primeiro pacote critico pendente e encerra a rotina.
+
 ### Runtime local no on-premise
 
 Ao abrir o sistema autenticado, a Home consulta:
@@ -279,6 +294,7 @@ Quando o deployment for `onprem` e a politica estiver em `block`, o resumo passa
 O endpoint local:
 
 - `POST /api/runtime/system-updates/run-pending`
+- `POST /api/runtime/system-updates/download-pending-critical`
 
 executa apenas a esteira local de updates pendentes e reavalia o resumo runtime sem depender da tela central SaaS.
 
@@ -327,6 +343,7 @@ Cada assinante pode declarar no JSON:
 - `projectName`
 - `composeFile`
 - `workdir`
+- `rolloutStateFile`
 - `services`
 - `backupCommand`
 - `maintenanceEnterCommand`

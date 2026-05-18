@@ -436,7 +436,8 @@
       const normalized = summary && typeof summary === "object" ? summary : {};
       if (this.systemUpdatesBlockWindow && this.systemUpdatesBlockWindow.wrapper && this.systemUpdatesBlockWindow.window) {
         this.systemUpdatesBlockWindow.message.text(normalized.criticalActionMessage || "Atualizacao critica obrigatoria pendente.");
-        this.systemUpdatesBlockWindow.runButton.toggle(normalized.canRunPendingLocally === true && !normalized.autoQueuedRelease);
+        this.systemUpdatesBlockWindow.runButton.text(normalized.criticalActionLabel || "Executar atualizacao local");
+        this.systemUpdatesBlockWindow.runButton.toggle((normalized.criticalActionKind === "run" && normalized.canRunPendingLocally === true) || (normalized.criticalActionKind === "download" && normalized.canDownloadPendingLocally === true));
         return;
       }
 
@@ -444,7 +445,7 @@
       const content = $("<div class=\"crud-confirm-content crud-blocking-message\"></div>").appendTo(wrapper);
       $("<p></p>").text(normalized.criticalActionMessage || "Atualizacao critica obrigatoria pendente.").appendTo(content);
       const actions = $("<div class=\"crud-form-actions\"></div>").appendTo(content);
-      const runButton = $("<button type=\"button\">Executar atualizacao local</button>").appendTo(actions);
+      const runButton = $("<button type=\"button\"></button>").text(normalized.criticalActionLabel || "Executar atualizacao local").appendTo(actions);
       const refreshButton = $("<button type=\"button\">Verificar novamente</button>").appendTo(actions);
       const exitButton = $("<button type=\"button\">Sair</button>").appendTo(actions);
       runButton.kendoButton({ themeColor: "primary", icon: "play" });
@@ -470,8 +471,8 @@
         exitButton: exitButton
       };
       this.systemUpdatesBlockWindow = state;
-      runButton.toggle(normalized.canRunPendingLocally === true && !normalized.autoQueuedRelease);
-      runButton.on("click", () => this.runPendingSystemUpdatesFromHome());
+      runButton.toggle((normalized.criticalActionKind === "run" && normalized.canRunPendingLocally === true) || (normalized.criticalActionKind === "download" && normalized.canDownloadPendingLocally === true));
+      runButton.on("click", () => this.handleSystemUpdatesPrimaryActionFromHome());
       refreshButton.on("click", () => this.maybeCheckSystemUpdatesSummary());
       exitButton.on("click", () => this.handleLogoutRequest());
       windowWidget.center().open();
@@ -486,6 +487,15 @@
       this.systemUpdatesBlockWindow = null;
       windowWidget.destroy();
       wrapper.remove();
+    }
+
+    handleSystemUpdatesPrimaryActionFromHome() {
+      const summary = this.systemUpdatesSummary || {};
+      if (String(summary.criticalActionKind || "") === "download") {
+        this.downloadPendingSystemUpdatesFromHome();
+        return;
+      }
+      this.runPendingSystemUpdatesFromHome();
     }
 
     runPendingSystemUpdatesFromHome() {
@@ -512,6 +522,38 @@
         }
       }).catch((error) => {
         const message = error && error.error && error.error.message || error && error.message || "Falha ao executar a atualizacao local.";
+        global.CrudUtils.showMessage(message, "error");
+      }).finally(() => {
+        if (this.systemUpdatesBlockWindow && this.systemUpdatesBlockWindow.runButton) {
+          this.systemUpdatesBlockWindow.runButton.prop("disabled", false);
+        }
+      });
+    }
+
+    downloadPendingSystemUpdatesFromHome() {
+      const summary = this.systemUpdatesSummary || {};
+      const endpoint = String(summary.runtimeDownloadPendingEndpoint || "").trim();
+      if (!endpoint || !this.httpClient || typeof this.httpClient.request !== "function") {
+        global.CrudUtils.showMessage("O download local do pacote critico nao esta disponivel neste ambiente.", "warning");
+        return;
+      }
+      if (this.systemUpdatesBlockWindow && this.systemUpdatesBlockWindow.runButton) {
+        this.systemUpdatesBlockWindow.runButton.prop("disabled", true);
+      }
+      this.httpClient.request({
+        method: "POST",
+        url: endpoint,
+        data: {}
+      }).then((payload) => {
+        const runtimeSummary = payload && payload.runtimeSummary ? payload.runtimeSummary : null;
+        global.CrudUtils.showMessage("Pacote critico baixado localmente.", "success");
+        if (runtimeSummary) {
+          this.handleSystemUpdatesSummary(runtimeSummary);
+        } else {
+          this.maybeCheckSystemUpdatesSummary();
+        }
+      }).catch((error) => {
+        const message = error && error.error && error.error.message || error && error.message || "Falha ao baixar o pacote critico.";
         global.CrudUtils.showMessage(message, "error");
       }).finally(() => {
         if (this.systemUpdatesBlockWindow && this.systemUpdatesBlockWindow.runButton) {

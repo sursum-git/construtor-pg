@@ -125,9 +125,21 @@
     if (pipelineSummary.blocked > 0) {
       this.appendBadge(badges, "Overlay bloqueado: " + String(pipelineSummary.blocked));
     }
+    const rolloutSummary = historySummary.rolloutAudit || {};
+    if (Number(rolloutSummary.dispatchCount || 0) > 0) {
+      this.appendBadge(badges, "Rollouts: " + String(rolloutSummary.dispatchCount));
+    }
+    if (Number(rolloutSummary.blockedEntryCount || 0) > 0) {
+      this.appendBadge(badges, "Entrada bloqueada: " + String(rolloutSummary.blockedEntryCount));
+    }
     if ((historySummary.byCategory && Object.keys(historySummary.byCategory).length) || (historySummary.byStatus && Object.keys(historySummary.byStatus).length)) {
       global.jQuery("<p class=\"manual-summary\"></p>")
         .text("Recorte atual: status " + this.describeMap(historySummary.byStatus) + " | categorias " + this.describeMap(historySummary.byCategory) + ".")
+        .appendTo(this.summaryBody);
+    }
+    if (rolloutSummary.batchCodes && rolloutSummary.batchCodes.length) {
+      global.jQuery("<p class=\"manual-summary\"></p>")
+        .text("Lotes SaaS observados: " + rolloutSummary.batchCodes.join(", ") + ".")
         .appendTo(this.summaryBody);
     }
   };
@@ -355,6 +367,11 @@
     this.appendDefinition(definition, "Modo", execution.mode || "-");
     this.appendDefinition(definition, "Origem", execution.initiatedSource || "-");
     this.appendDefinition(definition, "Job runtime", execution.runtimeJobId || "-");
+    if (execution.summary && execution.summary.rolloutAudit) {
+      this.appendDefinition(definition, "Rollout", String(execution.summary.rolloutAudit.stage || "-"));
+      this.appendDefinition(definition, "Lote", execution.summary.rolloutAudit.batchCode || "-");
+      this.appendDefinition(definition, "Acesso", execution.summary.rolloutAudit.entryAccessMode || "-");
+    }
 
     const pipelineSummary = this.resolveOverlayPipelineSummary(execution);
     if (pipelineSummary.total > 0) {
