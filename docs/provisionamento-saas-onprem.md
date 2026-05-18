@@ -79,6 +79,26 @@ Regras importantes:
 - o ambiente runtime do assinante pode ser diferente do principal;
 - no modo `shared_program_shared_db`, varios assinantes podem apontar para o mesmo ambiente runtime;
 - esse ambiente compartilhado nao substitui o ambiente principal isolado.
+- o cadastro administrativo agora tambem registra `updateChannel` por assinante (`stable`, `pilot`, `canary`, `lts`);
+- a tela central agora tambem expõe:
+  - auditoria dos ambientes runtime compartilhados;
+  - matriz operacional por assinante;
+  - catalogo das entidades persistentes globais x filtradas por assinante;
+  - riscos de isolamento quando a tabela persistente nao estiver claramente marcada.
+
+## Isolamento por assinante nas entidades persistentes
+
+O construtor agora formaliza dois comportamentos para entidade persistente:
+
+- `subscriberIsolation.mode=none`
+- `subscriberIsolation.mode=subscriber_column`
+
+Regras:
+
+- `subscriber_column` exige coluna fisica do assinante na entidade;
+- `none` agora exige confirmacao explicita da tabela como global compartilhada;
+- o runtime CRUD injeta o assinante no `create`, filtra `read/get` e limita `update/delete` quando a entidade usa `subscriber_column`;
+- tabelas globais continuam permitidas para catalogos compartilhados, como estado, cidade e referencias publicas.
 
 Job assíncrono:
 

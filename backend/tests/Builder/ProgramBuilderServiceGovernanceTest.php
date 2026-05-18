@@ -148,6 +148,58 @@ class ProgramBuilderServiceGovernanceTest extends TestCase
         }
     }
 
+    public function testPersistentEntityRequiresExplicitGlobalTableConfirmation(): void
+    {
+        $service = $this->serviceForNormalizePayload(null);
+        $method = new \ReflectionMethod($service, 'normalizeEntityPayload');
+        $method->setAccessible(true);
+
+        $this->expectException(RuntimeHttpException::class);
+        $this->expectExceptionMessage('Marque explicitamente quando a tabela persistente for global e compartilhada entre assinantes.');
+
+        $method->invoke($service, [
+            'code' => 'estado',
+            'name' => 'Estados',
+            'entityType' => 'persistence',
+            'tableName' => 'estado',
+            'structureModuleCode' => 'cadastros',
+            'structureType' => 'main',
+            'structureBaseNumber' => 1001,
+            'fields' => [
+                ['code' => 'id', 'columnName' => 'id', 'label' => 'ID', 'dataType' => 'integer', 'primaryKey' => true],
+                ['code' => 'nome', 'columnName' => 'nome', 'label' => 'Nome', 'dataType' => 'string'],
+            ],
+            'subscriberIsolationMode' => 'none',
+            'subscriberGlobalTable' => false,
+        ]);
+    }
+
+    public function testPersistentEntityAllowsExplicitGlobalTableConfirmation(): void
+    {
+        $service = $this->serviceForNormalizePayload(null);
+        $method = new \ReflectionMethod($service, 'normalizeEntityPayload');
+        $method->setAccessible(true);
+
+        $result = $method->invoke($service, [
+            'code' => 'estado',
+            'name' => 'Estados',
+            'entityType' => 'persistence',
+            'tableName' => 'estado',
+            'structureModuleCode' => 'cadastros',
+            'structureType' => 'main',
+            'structureBaseNumber' => 1001,
+            'fields' => [
+                ['code' => 'id', 'columnName' => 'id', 'label' => 'ID', 'dataType' => 'integer', 'primaryKey' => true],
+                ['code' => 'nome', 'columnName' => 'nome', 'label' => 'Nome', 'dataType' => 'string'],
+            ],
+            'subscriberIsolationMode' => 'none',
+            'subscriberGlobalTable' => true,
+        ]);
+
+        self::assertSame('none', $result['subscriberIsolation']['mode']);
+        self::assertTrue($result['subscriberIsolation']['globalTable']);
+    }
+
     private function service(RuntimeEnvironmentIdentityResolver $environment): ProgramBuilderService
     {
         return new ProgramBuilderService(

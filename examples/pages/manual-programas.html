@@ -728,6 +728,9 @@
               "Cadastro e atualizacao do assinante.",
               "Escolha do modelo de deployment do assinante.",
               "Separacao entre ambiente principal isolado e ambiente runtime do assinante.",
+              "Canal operacional de update por assinante.",
+              "Auditoria de ambientes runtime compartilhados e matriz operacional por assinante.",
+              "Catalogo administrativo de tabelas globais e tabelas filtradas por assinante.",
               "Disparo do job `subscriber.environment.provision`.",
               "Acompanhamento do processamento por SSE quando disponivel, com fallback por polling.",
               "Geracao do pacote zip on-premise com `install.sh`."
@@ -735,6 +738,9 @@
             outputs: [
               "Assinante salvo com metadados de provisionamento.",
               "Modo de deployment e ambientes logicos persistidos no cadastro do assinante.",
+              "Canal de update persistido no assinante.",
+              "Visao de ambientes runtime compartilhados, divergencias e quantidade de assinantes por runtime.",
+              "Catalogo de isolamento das entidades persistentes com riscos de configuracao.",
               "Job de provisionamento enfileirado e acompanhado pela tela.",
               "Pacote on-premise pronto para download."
             ]
@@ -748,7 +754,9 @@
             steps: [
               "Cadastrar ou localizar o assinante e preencher os dados de provisionamento.",
               "Definir o modelo de deployment e, quando houver compartilhamento, informar o ambiente runtime comum.",
+              "Definir o canal de update do assinante e revisar a matriz operacional do ambiente compartilhado.",
               "Salvar o assinante antes de iniciar o ambiente.",
+              "Revisar o catalogo de isolamento para confirmar quais tabelas sao globais e quais exigem filtro por assinante.",
               "Usar `Criar ambiente` para enfileirar o job SaaS e acompanhar o detalhe do processamento.",
               "Usar `Baixar pacote on-premise` quando precisar entregar uma instalacao nova com bootstrap automatico.",
               "No on-premise, extrair o zip em Ubuntu 24.04 e executar `install.sh`."
@@ -756,6 +764,7 @@
             cautions: [
               "Esta tela existe apenas no sistema central SaaS.",
               "No modo compartilhado por coluna de assinante, varios assinantes podem apontar para o mesmo ambiente runtime.",
+              "Tabela persistente sem filtro por assinante agora exige confirmacao explicita como tabela global.",
               "O ambiente principal continua isolado mesmo quando o runtime compartilhado atende varios assinantes.",
               "Sem worker ativo, o job fica enfileirado e nao conclui.",
               "A tela tenta SSE primeiro e cai para polling quando o stream nao estiver disponivel.",

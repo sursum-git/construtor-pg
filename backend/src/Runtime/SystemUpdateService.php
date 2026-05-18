@@ -1094,6 +1094,7 @@ class SystemUpdateService
         $consentStatus = $requiresConsent ? ($consent?->getStatus() ?? 'pending') : 'not-required';
         $consentApproved = $requiresConsent ? ($consent && $consent->getStatus() === 'approved') : true;
         $scenarioBehavior = $this->buildScenarioBehavior($release, $deploymentMode);
+        $deploymentRule = $this->buildSubscriberDeploymentRule($targetSubscriberCode, $release, $scenarioBehavior);
         $rolloutWindow = $deploymentMode === 'saas' ? $this->resolveSaasRolloutWindow((array) ($release['metadata'] ?? [])) : null;
         $rolloutWindowStatus = is_array($rolloutWindow) ? (string) ($rolloutWindow['status'] ?? 'unscheduled') : 'not-applicable';
         $autoQueueAllowed = $autoApplicable;
@@ -1108,6 +1109,14 @@ class SystemUpdateService
             && (string) ($scenarioBehavior['applyMode'] ?? '') === 'tenant_activation';
         $tenantActivation = $tenantActivationRequired ? $this->resolveActivation((string) ($release['version'] ?? ''), (string) $targetSubscriberCode) : null;
         $tenantActivationStatus = $tenantActivationRequired ? ($tenantActivation?->getStatus() ?? 'pending') : 'not-required';
+        if ($status === 'pending' && $tenantActivationRequired && ($deploymentRule['supportsPerTenantActivation'] ?? true) !== true) {
+            $tenantActivationStatus = $this->resolveSharedRuntimeActivationStatus((string) ($release['version'] ?? ''), $deploymentRule);
+            if ($tenantActivationStatus !== 'enabled') {
+                $status = 'awaiting_runtime_activation';
+                $dependencyIssues[] = 'A release opcional exige ativacao do runtime compartilhado antes do apply.';
+                $autoApplicable = false;
+            }
+        }
         if ($status === 'pending' && $tenantActivationRequired && $tenantActivationStatus !== 'enabled') {
             $status = 'awaiting_tenant_activation';
             $dependencyIssues[] = 'A release opcional exige ativacao explicita para este assinante.';
@@ -1147,6 +1156,7 @@ class SystemUpdateService
             'autoQueueAllowed' => $autoQueueAllowed,
             'breakingLevel' => (string) ($release['breakingLevel'] ?? 'non_breaking'),
             'scenarioBehavior' => $scenarioBehavior,
+            'deploymentRule' => $deploymentRule,
             'channels' => $channels,
             'targetChannel' => $targetChannel,
             'channelStatus' => in_array($targetChannel, $channels, true) ? 'eligible' : 'out_of_channel',
@@ -2450,14 +2460,107 @@ class SystemUpdateService
     {
         $metadata = $subscriber->getMetadata();
         $provisioning = is_array($metadata['provisioning'] ?? null) ? $metadata['provisioning'] : [];
+        $deployment = is_array($metadata['deployment'] ?? null) ? $metadata['deployment'] : [];
 
         return [
             'code' => $subscriber->getCode(),
             'name' => $subscriber->getName(),
             'document' => $subscriber->getDocument(),
+            'deploymentMode' => (string) ($deployment['mode'] ?? 'dedicated_stack'),
+            'runtimeEnvironmentCode' => (string) ($deployment['runtimeEnvironmentCode'] ?? ''),
+            'primaryEnvironmentCode' => (string) ($deployment['primaryEnvironmentCode'] ?? ''),
+            'sharedRuntimeEnvironment' => ($deployment['sharedRuntimeEnvironment'] ?? false) === true,
+            'updateChannel' => (string) ($provisioning['updateChannel'] ?? 'stable'),
             'databaseEnvironment' => (string) ($provisioning['databaseEnvironment'] ?? ''),
             'databaseIdentity' => (string) ($provisioning['databaseIdentity'] ?? ''),
         ];
+    }
+
+    private function buildSubscriberDeploymentRule(?string $targetSubscriberCode, array $release, array $scenarioBehavior): array
+    {
+        $subscriber = $this->resolveTargetSubscriber($targetSubscriberCode, false);
+        if (!$subscriber) {
+            return [
+                'mode' => $this->deploymentMode->resolve(),
+                'applyScope' => $this->deploymentMode->resolve() === 'onprem' ? 'remote_instance' : 'saas_runtime',
+                'supportsPerTenantActivation' => $this->deploymentMode->resolve() !== 'onprem',
+                'sharedRuntimeSubscriberCount' => 0,
+                'runtimeEnvironmentCode' => null,
+                'requiresSharedRuntimeCoordination' => false,
+            ];
+        }
+
+        $metadata = $subscriber->getMetadata();
+        $deployment = is_array($metadata['deployment'] ?? null) ? $metadata['deployment'] : [];
+        $mode = strtolower(trim((string) ($deployment['mode'] ?? 'dedicated_stack'))) ?: 'dedicated_stack';
+        $runtimeEnvironmentCode = trim((string) ($deployment['runtimeEnvironmentCode'] ?? ''));
+        $sharedCodes = $this->resolveSharedRuntimeSubscriberCodes($runtimeEnvironmentCode);
+        $supportsPerTenantActivation = !in_array($mode, ['shared_program_shared_db', 'shared_program_dedicated_db'], true);
+
+        return [
+            'mode' => $mode,
+            'applyScope' => match ($mode) {
+                'shared_program_shared_db' => 'runtime_environment',
+                'shared_program_dedicated_db' => 'subscriber_database',
+                'onprem_remote' => 'remote_instance',
+                default => 'subscriber_stack',
+            },
+            'rolloutScope' => match ($mode) {
+                'shared_program_shared_db' => 'runtime_environment',
+                'shared_program_dedicated_db' => 'shared_application',
+                'onprem_remote' => 'remote_instance',
+                default => 'subscriber_stack',
+            },
+            'consentScope' => $supportsPerTenantActivation ? 'subscriber' : 'runtime_environment',
+            'supportsPerTenantActivation' => $supportsPerTenantActivation,
+            'runtimeEnvironmentCode' => $runtimeEnvironmentCode !== '' ? $runtimeEnvironmentCode : null,
+            'sharedRuntimeSubscriberCount' => count($sharedCodes),
+            'sharedRuntimeSubscriberCodes' => $sharedCodes,
+            'requiresSharedRuntimeCoordination' => !$supportsPerTenantActivation && count($sharedCodes) > 1,
+            'entryBlockAllowed' => (string) ($release['category'] ?? '') === 'security_critical'
+                || (string) ($scenarioBehavior['entryBlockAllowed'] ?? false) === '1'
+                || ($scenarioBehavior['entryBlockAllowed'] ?? false) === true,
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolveSharedRuntimeSubscriberCodes(string $runtimeEnvironmentCode): array
+    {
+        $runtimeCode = trim($runtimeEnvironmentCode);
+        if ($runtimeCode === '') {
+            return [];
+        }
+
+        $codes = [];
+        foreach ($this->subscribers->findEnabledOrdered() as $subscriber) {
+            $metadata = $subscriber->getMetadata();
+            $deployment = is_array($metadata['deployment'] ?? null) ? $metadata['deployment'] : [];
+            if (trim((string) ($deployment['runtimeEnvironmentCode'] ?? '')) !== $runtimeCode) {
+                continue;
+            }
+            $codes[] = $subscriber->getCode();
+        }
+
+        return array_values(array_unique(array_filter($codes, static fn (string $value): bool => trim($value) !== '')));
+    }
+
+    private function resolveSharedRuntimeActivationStatus(string $version, array $deploymentRule): string
+    {
+        $codes = array_values(array_filter(array_map('strval', (array) ($deploymentRule['sharedRuntimeSubscriberCodes'] ?? [])), static fn (string $value): bool => trim($value) !== ''));
+        if (!$codes) {
+            return 'pending';
+        }
+
+        foreach ($codes as $subscriberCode) {
+            $activation = $this->resolveActivation($version, $subscriberCode);
+            if (!$activation || $activation->getStatus() !== 'enabled') {
+                return 'pending';
+            }
+        }
+
+        return 'enabled';
     }
 
     private function resolveTargetSubscriber(?string $targetSubscriberCode, bool $required): ?AuthSubscriber

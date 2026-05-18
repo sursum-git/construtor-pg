@@ -671,6 +671,13 @@
       change: this.syncSubscriberIsolationState.bind(this)
     }).data("kendoDropDownList");
     this.entitySubscriberColumnInput = this.createTextField(splitC, "Coluna do assinante", this.entityFieldTechnicalProperties("subscriberIsolation"));
+    const subscriberGlobalField = this.appendField(splitC, "Confirmacao da tabela", this.entityFieldTechnicalProperties("subscriberIsolation"));
+    const subscriberGlobalLabel = $("<label class=\"program-builder-inline-checkbox\"></label>").appendTo(subscriberGlobalField);
+    this.entitySubscriberGlobalTableInput = $("<input type=\"checkbox\">").appendTo(subscriberGlobalLabel);
+    $("<span></span>").text("Tabela global compartilhada entre assinantes").appendTo(subscriberGlobalLabel);
+    this.entitySubscriberGlobalTableInput.kendoCheckBox({
+      change: this.syncSubscriberIsolationState.bind(this)
+    });
     this.entityTypeHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(form);
     this.entityTypeHint.text("Fluxo completo atual: tipo persistence com tabela fisica e programa CRUD.");
     this.renderApiSourceEditor(form);
@@ -4472,6 +4479,8 @@
       })) {
         validation.entityIssues.push("A coluna do assinante precisa existir na lista de campos.");
       }
+    } else if (payload.entityType === "persistence" && payload.subscriberGlobalTable !== true) {
+      validation.entityIssues.push("Confirme explicitamente quando a tabela for global e compartilhada entre assinantes.");
     }
     if (payload.entityType === "api") {
       if (!String(payload.apiSourceCode || "").trim()) {
@@ -5113,6 +5122,7 @@
     this.entitySituationFieldInput.value(item.situationFieldCode || "status");
     this.entitySubscriberIsolationSelect.value(item.subscriberIsolationMode || "none");
     this.entitySubscriberColumnInput.value(item.subscriberColumnName || "subscriber_id");
+    this.entitySubscriberGlobalTableInput.prop("checked", item.subscriberGlobalTable === true);
     this.entityVersioningEnabledInput.prop("checked", item.versioningEnabled === true);
     this.entityVersioningDeduplicateInput.prop("checked", item.versioningDeduplicate !== false);
     this.apiCatalogSourceSelect.value(item.apiSourceCode || "");
@@ -5818,6 +5828,9 @@
       if (this.entitySubscriberColumnInput) {
         this.entitySubscriberColumnInput.value("");
       }
+      if (this.entitySubscriberGlobalTableInput) {
+        this.entitySubscriberGlobalTableInput.prop("checked", false);
+      }
       if (apiEntity) {
         this.entityTypeHint.text("Tipo api gera CRUD somente leitura, sem tabela fisica e sem lock de escrita.");
       } else {
@@ -5842,24 +5855,33 @@
   };
 
   ProgramBuilder.prototype.syncSubscriberIsolationState = function() {
-    if (!this.entitySubscriberIsolationSelect || !this.entitySubscriberColumnInput) {
+    if (!this.entitySubscriberIsolationSelect || !this.entitySubscriberColumnInput || !this.entitySubscriberGlobalTableInput) {
       return;
     }
     const persistence = (this.entityTypeSelect.value() || "persistence") === "persistence";
     const filtered = String(this.entitySubscriberIsolationSelect.value() || "none") === "subscriber_column";
+    const globalTable = this.entitySubscriberGlobalTableInput.is(":checked");
     this.entitySubscriberColumnInput.enable(persistence && filtered);
+    this.entitySubscriberGlobalTableInput.data("kendoCheckBox").enable(persistence && !filtered);
     if (!persistence) {
       this.entitySubscriberIsolationSelect.value("none");
       this.entitySubscriberColumnInput.value("");
+      this.entitySubscriberGlobalTableInput.prop("checked", false);
+      this.entityTypeHint.text("Entidades nao persistentes nao usam isolamento por coluna de assinante.");
       return;
     }
     if (!filtered) {
       this.entitySubscriberColumnInput.value("");
+      this.entityTypeHint.text(globalTable
+        ? "Tabela global confirmada. O runtime nao filtrara registros por assinante."
+        : "Defina se a tabela e global compartilhada ou filtrada por coluna de assinante.");
       return;
     }
+    this.entitySubscriberGlobalTableInput.prop("checked", false);
     if (!String(this.entitySubscriberColumnInput.value() || "").trim()) {
       this.entitySubscriberColumnInput.value("subscriber_id");
     }
+    this.entityTypeHint.text("Tabela filtrada por assinante. O runtime vai aplicar a coluna configurada automaticamente.");
   };
 
   ProgramBuilder.prototype.syncStructureState = function() {
@@ -6109,6 +6131,7 @@
       situationFieldCode: this.entitySituationFieldInput.value(),
       subscriberIsolationMode: this.entitySubscriberIsolationSelect.value(),
       subscriberColumnName: this.entitySubscriberColumnInput.value(),
+      subscriberGlobalTable: this.entitySubscriberGlobalTableInput.is(":checked"),
       uniqueKeys: uniqueKeys,
       rules: rules,
       versioningEnabled: this.entityVersioningEnabledInput.is(":checked"),
@@ -6682,6 +6705,7 @@
     this.entitySituationFieldInput.value("status");
     this.entitySubscriberIsolationSelect.value("none");
     this.entitySubscriberColumnInput.value("");
+    this.entitySubscriberGlobalTableInput.prop("checked", false);
     this.entityCreateTableInput.prop("checked", true);
     this.entityAllowTableRenameInput.prop("checked", true);
     this.entityAllowColumnRenameInput.prop("checked", true);

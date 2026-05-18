@@ -108,6 +108,12 @@ Quando o modo for `subscriber_column`:
 
 Isso cobre o cenario em que varios assinantes apontam para o mesmo programa e o mesmo banco, mas a separacao dos registros acontece pela coluna do assinante.
 
+Quando o modo for `none` em entidade `persistence`:
+
+- a entidade precisa confirmar explicitamente que a tabela e global compartilhada;
+- o builder bloqueia persistencia sem essa confirmacao;
+- o catalogo administrativo do provisionamento passa a listar a tabela como global, filtrada por assinante ou em risco de configuracao.
+
 Na definicao gerada:
 
 - o `pageType` continua `crud`;

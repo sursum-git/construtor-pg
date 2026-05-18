@@ -35,6 +35,11 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - `runtimeEnvironmentCode`
   - `primaryEnvironmentCode`
 - no modo `shared_program_shared_db`, varios assinantes podem apontar para o mesmo ambiente runtime, sem misturar o ambiente principal isolado.
+- a tela `admin.assinante-ambientes` agora tambem mostra:
+  - auditoria de ambientes runtime compartilhados;
+  - matriz operacional por assinante;
+  - catalogo administrativo de tabelas globais x filtradas por assinante;
+  - canal de update por assinante.
 - existe agora uma tela administrativa propria:
   - `production/app.html?screenId=admin.assinante-ambientes`
   - pagina local: `examples/pages/admin-subscriber-provisioning.html`
@@ -92,7 +97,8 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `production/app.html?screenId=admin.atualizacoes-assinantes`
     - pagina local: `examples/pages/admin-system-update-subscriber-log.html`
   - a esteira da release agora tambem cria draft de rebase para overlay limpo (`rebase_ok`), mantendo `review_required` para conflito leve e bloqueio total para conflito critico;
-  - o construtor de entidades persistentes agora tambem aceita `subscriberIsolation.mode=none|subscriber_column`, aplicando filtro automatico do assinante atual no runtime CRUD quando a entidade usar coluna de assinante;
+- o construtor de entidades persistentes agora tambem aceita `subscriberIsolation.mode=none|subscriber_column`, aplicando filtro automatico do assinante atual no runtime CRUD quando a entidade usar coluna de assinante;
+- para entidade persistente sem filtro por assinante, o builder agora exige confirmacao explicita de tabela global compartilhada;
   - a consulta por assinante agora tambem usa `GET /api/admin/system-updates/executions` com filtros por status, categoria e periodo, alem de exportacao local JSON/CSV;
   - releases opcionais no SaaS agora podem exigir ativacao por assinante antes do apply:
     - `POST /api/admin/system-updates/tenant-activation`

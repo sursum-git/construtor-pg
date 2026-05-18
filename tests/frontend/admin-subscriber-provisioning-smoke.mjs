@@ -64,10 +64,21 @@ async function main() {
 
     const result = await page.evaluate(() => {
       const detail = window.jQuery(".program-builder-json-preview").text();
+      const runtimeGrid = window.jQuery(".k-grid").filter(function() {
+        return window.jQuery(this).find("th[data-title='Runtime']").length > 0
+          && window.jQuery(this).find("th[data-title='Assinantes']").length > 0;
+      }).first();
+      const isolationGrid = window.jQuery(".k-grid").filter(function() {
+        return window.jQuery(this).find("th[data-title='Entidade']").length > 0
+          && window.jQuery(this).find("th[data-title='Escopo']").length > 0;
+      }).first();
       return {
         shell: window.jQuery(".subscriber-provisioning-shell").length,
         subscriberRows: window.jQuery(".k-grid tbody tr").length,
-        detailText: detail
+        detailText: detail,
+        runtimeEnvironmentRows: runtimeGrid.find("tbody tr").length,
+        isolationRows: isolationGrid.find("tbody tr").length,
+        updateChannelSelected: window.jQuery("label:contains('Canal de update')").find("input").val() || ""
       };
     });
 
@@ -76,6 +87,15 @@ async function main() {
     }
     if (!/construtor-pg-onprem-cliente-smoke\.zip$/i.test(download.suggestedFilename())) {
       throw new Error("Nome do pacote on-premise inesperado: " + download.suggestedFilename());
+    }
+    if (result.runtimeEnvironmentRows < 1) {
+      throw new Error("Grid de ambientes runtime nao carregou registros.");
+    }
+    if (result.isolationRows < 1) {
+      throw new Error("Grid de catalogo de isolamento nao carregou registros.");
+    }
+    if (!String(result.updateChannelSelected || "").trim()) {
+      throw new Error("Canal de update nao ficou selecionado.");
     }
 
     await page.screenshot({ path: path.join(outputDir, "admin-subscriber-provisioning-smoke.png"), fullPage: true });

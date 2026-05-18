@@ -2,6 +2,7 @@
 
 namespace App\Tests\Runtime;
 
+use App\Entity\AuthSubscriber;
 use App\Entity\SystemUpdateRelease;
 use App\Entity\SystemUpdateTenantActivation;
 use App\Repository\AuthSubscriberRepository;
@@ -151,11 +152,166 @@ class SystemUpdateServiceVersionChainTest extends TestCase
         self::assertSame('channel_unavailable', $evaluation['status']);
     }
 
+    public function testSharedRuntimeOptionalReleaseRequiresRuntimeActivationForAllSubscribers(): void
+    {
+        $release = (new SystemUpdateRelease())
+            ->setVersion('2.8.0')
+            ->setTitle('Melhoria compartilhada')
+            ->setCategory('optional_visual');
+
+        $executions = $this->createStub(SystemUpdateExecutionRepository::class);
+        $executions->method('findLatestSuccessfulVersionBySubscriber')->willReturn('2.7.0');
+        $executions->method('findSuccessfulVersionsBySubscriber')->willReturn(['2.7.0']);
+
+        $subscriberA = (new AuthSubscriber())
+            ->setCode('empresa-a')
+            ->setName('Empresa A')
+            ->setMetadata([
+                'deployment' => [
+                    'mode' => 'shared_program_shared_db',
+                    'runtimeEnvironmentCode' => 'runtime-compartilhado',
+                ],
+                'provisioning' => [
+                    'updateChannel' => 'stable',
+                ],
+            ]);
+        $subscriberB = (new AuthSubscriber())
+            ->setCode('empresa-b')
+            ->setName('Empresa B')
+            ->setMetadata([
+                'deployment' => [
+                    'mode' => 'shared_program_shared_db',
+                    'runtimeEnvironmentCode' => 'runtime-compartilhado',
+                ],
+                'provisioning' => [
+                    'updateChannel' => 'stable',
+                ],
+            ]);
+
+        $activationA = (new SystemUpdateTenantActivation())
+            ->setReleaseVersion('2.8.0')
+            ->setTargetSubscriberCode('empresa-a')
+            ->setStatus('enabled');
+
+        $activations = $this->createStub(SystemUpdateTenantActivationRepository::class);
+        $activations->method('findLatestByVersionAndSubscriber')->willReturnCallback(
+            static function (string $version, string $subscriberCode) use ($activationA) {
+                if ($version === '2.8.0' && $subscriberCode === 'empresa-a') {
+                    return $activationA;
+                }
+
+                return null;
+            }
+        );
+
+        $service = $this->service([$release], $executions, $activations, [$subscriberA, $subscriberB]);
+        $method = new \ReflectionMethod($service, 'evaluateReleaseEntity');
+        $method->setAccessible(true);
+
+        $waiting = $method->invoke($service, $release, 'empresa-a');
+        self::assertSame('awaiting_runtime_activation', $waiting['status']);
+        self::assertSame('runtime_environment', $waiting['deploymentRule']['applyScope']);
+        self::assertFalse($waiting['deploymentRule']['supportsPerTenantActivation']);
+        self::assertSame(2, $waiting['deploymentRule']['sharedRuntimeSubscriberCount']);
+
+        $activationB = (new SystemUpdateTenantActivation())
+            ->setReleaseVersion('2.8.0')
+            ->setTargetSubscriberCode('empresa-b')
+            ->setStatus('enabled');
+        $activationsEnabled = $this->createStub(SystemUpdateTenantActivationRepository::class);
+        $activationsEnabled->method('findLatestByVersionAndSubscriber')->willReturnCallback(
+            static function (string $version, string $subscriberCode) use ($activationA, $activationB) {
+                if ($version !== '2.8.0') {
+                    return null;
+                }
+
+                return match ($subscriberCode) {
+                    'empresa-a' => $activationA,
+                    'empresa-b' => $activationB,
+                    default => null,
+                };
+            }
+        );
+
+        $serviceEnabled = $this->service([$release], $executions, $activationsEnabled, [$subscriberA, $subscriberB]);
+        $methodEnabled = new \ReflectionMethod($serviceEnabled, 'evaluateReleaseEntity');
+        $methodEnabled->setAccessible(true);
+        $enabled = $methodEnabled->invoke($serviceEnabled, $release, 'empresa-a');
+
+        self::assertSame('pending', $enabled['status']);
+    }
+
+    public function testDeploymentRuleUsesSubscriberDatabaseScopeForSharedProgramDedicatedDb(): void
+    {
+        $release = (new SystemUpdateRelease())
+            ->setVersion('2.9.0')
+            ->setTitle('Release dedicada')
+            ->setCategory('required_structural');
+
+        $executions = $this->createStub(SystemUpdateExecutionRepository::class);
+        $executions->method('findLatestSuccessfulVersionBySubscriber')->willReturn('2.8.0');
+        $executions->method('findSuccessfulVersionsBySubscriber')->willReturn(['2.8.0']);
+
+        $subscriber = (new AuthSubscriber())
+            ->setCode('empresa-db')
+            ->setName('Empresa DB')
+            ->setMetadata([
+                'deployment' => [
+                    'mode' => 'shared_program_dedicated_db',
+                    'runtimeEnvironmentCode' => 'runtime-compartilhado',
+                ],
+                'provisioning' => [
+                    'updateChannel' => 'stable',
+                ],
+            ]);
+
+        $service = $this->service([$release], $executions, null, [$subscriber]);
+        $method = new \ReflectionMethod($service, 'evaluateReleaseEntity');
+        $method->setAccessible(true);
+
+        $evaluation = $method->invoke($service, $release, 'empresa-db');
+
+        self::assertSame('subscriber_database', $evaluation['deploymentRule']['applyScope']);
+        self::assertSame('shared_application', $evaluation['deploymentRule']['rolloutScope']);
+        self::assertSame('runtime_environment', $evaluation['deploymentRule']['consentScope']);
+        self::assertFalse($evaluation['deploymentRule']['requiresSharedRuntimeCoordination']);
+        self::assertFalse($evaluation['deploymentRule']['supportsPerTenantActivation']);
+    }
+
     /**
      * @param list<SystemUpdateRelease> $catalog
      */
-    private function service(array $catalog, SystemUpdateExecutionRepository $executions, ?SystemUpdateTenantActivationRepository $activations = null): SystemUpdateService
+    private function service(array $catalog, SystemUpdateExecutionRepository $executions, ?SystemUpdateTenantActivationRepository $activations = null, array $subscribers = []): SystemUpdateService
     {
+        if ($subscribers === []) {
+            $subscribers = [
+                (new AuthSubscriber())
+                    ->setCode('empresa-a')
+                    ->setName('Empresa A')
+                    ->setMetadata([
+                        'deployment' => [
+                            'mode' => 'dedicated_stack',
+                            'runtimeEnvironmentCode' => 'runtime-a',
+                        ],
+                        'provisioning' => [
+                            'updateChannel' => 'stable',
+                        ],
+                    ]),
+                (new AuthSubscriber())
+                    ->setCode('empresa-b')
+                    ->setName('Empresa B')
+                    ->setMetadata([
+                        'deployment' => [
+                            'mode' => 'dedicated_stack',
+                            'runtimeEnvironmentCode' => 'runtime-b',
+                        ],
+                        'provisioning' => [
+                            'updateChannel' => 'stable',
+                        ],
+                    ]),
+            ];
+        }
+
         $releases = $this->createStub(SystemUpdateReleaseRepository::class);
         $releases->method('findAllOrdered')->willReturn($catalog);
 
@@ -177,6 +333,34 @@ class SystemUpdateServiceVersionChainTest extends TestCase
         $central = $this->createStub(CentralControlResolver::class);
         $central->method('isCentralControl')->willReturn(true);
 
+        $subscriberRepository = $this->createStub(AuthSubscriberRepository::class);
+        $subscriberRepository->method('findEnabledByCode')->willReturnCallback(
+            static function (string $code) use ($subscribers): ?AuthSubscriber {
+                foreach ($subscribers as $subscriber) {
+                    if ($subscriber instanceof AuthSubscriber && $subscriber->getCode() === $code && $subscriber->isEnabled()) {
+                        return $subscriber;
+                    }
+                }
+
+                return null;
+            }
+        );
+        $subscriberRepository->method('findOneBy')->willReturnCallback(
+            static function (array $criteria) use ($subscribers): ?AuthSubscriber {
+                $code = (string) ($criteria['code'] ?? '');
+                foreach ($subscribers as $subscriber) {
+                    if ($subscriber instanceof AuthSubscriber && $subscriber->getCode() === $code) {
+                        return $subscriber;
+                    }
+                }
+
+                return null;
+            }
+        );
+        $subscriberRepository->method('findEnabledOrdered')->willReturn(
+            array_values(array_filter($subscribers, static fn ($subscriber): bool => $subscriber instanceof AuthSubscriber && $subscriber->isEnabled()))
+        );
+
         return new SystemUpdateService(
             $this->createStub(SystemUpdateManifestLoader::class),
             $releases,
@@ -194,7 +378,7 @@ class SystemUpdateServiceVersionChainTest extends TestCase
             $this->createStub(BuilderProgramOverlayRepository::class),
             $this->createStub(BuilderProgramOverlayVersionRepository::class),
             $this->createStub(BuilderProgramVersionRepository::class),
-            $this->createStub(AuthSubscriberRepository::class),
+            $subscriberRepository,
             $central,
             $this->createStub(SystemUpdateStepRunner::class),
             $this->createStub(SystemUpdatePackageDownloader::class),

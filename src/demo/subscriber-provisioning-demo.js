@@ -15,6 +15,7 @@
         primaryEnvironmentCode: "default-principal",
         sharedRuntimeEnvironment: false,
         principalEnvironmentIsolated: true,
+        updateChannel: "stable",
         instanceCode: "construtor-pg-default",
         databaseEnvironment: "prod",
         databaseIdentity: "saas:default",
@@ -37,7 +38,15 @@
     const data = request.data || {};
 
     if (method === "GET" && url === "/api/admin/subscriber-provisioning/bootstrap") {
-      return Promise.resolve({ centralControl: { centralControl: true }, environment: { databaseEnvironment: "dev", databaseIdentity: "db:demo" }, subscribers: this.subscribers.slice(), jobs: this.jobs.slice().reverse() });
+      return Promise.resolve({
+        centralControl: { centralControl: true },
+        environment: { databaseEnvironment: "dev", databaseIdentity: "db:demo" },
+        subscribers: this.subscribers.slice(),
+        jobs: this.jobs.slice().reverse(),
+        runtimeEnvironments: this.buildRuntimeEnvironments(),
+        operationalMatrix: this.buildOperationalMatrix(),
+        isolationCatalog: this.buildIsolationCatalog()
+      });
     }
     if (method === "POST" && url === "/api/admin/subscriber-provisioning/subscribers") {
       const payload = Object.assign({}, data);
@@ -54,6 +63,7 @@
         primaryEnvironmentCode: payload.primaryEnvironmentCode || ((payload.code || "") + "-principal"),
         sharedRuntimeEnvironment: payload.deploymentMode === "shared_program_shared_db",
         principalEnvironmentIsolated: true,
+        updateChannel: payload.updateChannel || "stable",
         instanceCode: payload.instanceCode || "",
         databaseEnvironment: payload.databaseEnvironment || "",
         databaseIdentity: payload.databaseIdentity || "",
@@ -99,6 +109,7 @@
         deploymentMode: data.deploymentMode || "dedicated_stack",
         runtimeEnvironmentCode: data.runtimeEnvironmentCode || data.subscriberCode || data.code || "",
         primaryEnvironmentCode: data.primaryEnvironmentCode || ((data.subscriberCode || data.code || "") + "-principal"),
+        updateChannel: data.updateChannel || "stable",
         result: { phase: "queued", message: "Provisionamento enfileirado." },
         createdAt: now,
         updatedAt: now,
@@ -141,6 +152,99 @@
     link.click();
     document.body.removeChild(link);
     global.URL.revokeObjectURL(url);
+  };
+
+  SubscriberProvisioningDemoHttpClient.prototype.buildRuntimeEnvironments = function() {
+    const grouped = {};
+    this.subscribers.forEach((item) => {
+      const code = String(item.runtimeEnvironmentCode || "");
+      if (!code) {
+        return;
+      }
+      grouped[code] = grouped[code] || [];
+      grouped[code].push(item);
+    });
+    return Object.keys(grouped).sort().map((runtimeCode) => {
+      const items = grouped[runtimeCode];
+      const versions = Array.from(new Set(items.map((item) => String(item.latestSuccessfulVersion || "")).filter(Boolean)));
+      const divergences = [];
+      if (items.length > 1 && new Set(items.map((item) => String(item.databaseIdentity || ""))).size > 1) {
+        divergences.push("Identidade de banco divergente entre assinantes do mesmo runtime.");
+      }
+      return {
+        runtimeEnvironmentCode: runtimeCode,
+        sharedRuntime: items.length > 1 || items.some((item) => item.sharedRuntimeEnvironment === true),
+        subscriberCount: items.length,
+        deploymentModes: Array.from(new Set(items.map((item) => String(item.deploymentMode || "")))).filter(Boolean),
+        databaseEnvironments: Array.from(new Set(items.map((item) => String(item.databaseEnvironment || "")))).filter(Boolean),
+        databaseIdentities: Array.from(new Set(items.map((item) => String(item.databaseIdentity || "")))).filter(Boolean),
+        latestSuccessfulVersions: versions,
+        activeProgramCount: 12,
+        divergences: divergences,
+        subscribers: items.map((item) => ({
+          code: item.code,
+          name: item.name,
+          deploymentMode: item.deploymentMode,
+          updateChannel: item.updateChannel || "stable",
+          latestSuccessfulVersion: item.latestSuccessfulVersion || ""
+        }))
+      };
+    });
+  };
+
+  SubscriberProvisioningDemoHttpClient.prototype.buildOperationalMatrix = function() {
+    const countByRuntime = {};
+    this.buildRuntimeEnvironments().forEach((item) => {
+      countByRuntime[item.runtimeEnvironmentCode] = item.subscriberCount;
+    });
+    return this.subscribers.map((item) => ({
+      code: item.code,
+      name: item.name,
+      deploymentMode: item.deploymentMode,
+      deploymentModeLabel: item.deploymentMode,
+      primaryEnvironmentCode: item.primaryEnvironmentCode,
+      runtimeEnvironmentCode: item.runtimeEnvironmentCode,
+      sharedRuntimeSubscriberCount: countByRuntime[item.runtimeEnvironmentCode] || 0,
+      updateChannel: item.updateChannel || "stable",
+      databaseEnvironment: item.databaseEnvironment || "",
+      databaseIdentity: item.databaseIdentity || "",
+      latestSuccessfulVersion: item.latestSuccessfulVersion || "",
+      versionStatus: item.latestSuccessfulVersion ? "atual" : "sem-historico"
+    }));
+  };
+
+  SubscriberProvisioningDemoHttpClient.prototype.buildIsolationCatalog = function() {
+    return {
+      summary: {
+        globalTables: 1,
+        subscriberTables: 1,
+        riskTables: 0
+      },
+      items: [
+        {
+          entityCode: "estado",
+          name: "Estados",
+          tableName: "estado",
+          scopeLabel: "Global",
+          subscriberIsolationMode: "none",
+          subscriberColumnName: null,
+          globalTable: true,
+          riskStatus: "ok",
+          riskMessage: ""
+        },
+        {
+          entityCode: "cliente",
+          name: "Clientes",
+          tableName: "cliente",
+          scopeLabel: "Filtrada por assinante",
+          subscriberIsolationMode: "subscriber_column",
+          subscriberColumnName: "subscriber_id",
+          globalTable: false,
+          riskStatus: "ok",
+          riskMessage: ""
+        }
+      ]
+    };
   };
 
   global.SubscriberProvisioningDemoHttpClient = SubscriberProvisioningDemoHttpClient;

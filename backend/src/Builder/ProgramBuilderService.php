@@ -2126,6 +2126,7 @@ class ProgramBuilderService
             'structureRightEntityCode' => (string) ($entity->getMetadata()['structure']['rightEntityCode'] ?? ''),
             'subscriberIsolationMode' => (string) ($entity->getMetadata()['subscriberIsolation']['mode'] ?? 'none'),
             'subscriberColumnName' => (string) ($entity->getMetadata()['subscriberIsolation']['columnName'] ?? ''),
+            'subscriberGlobalTable' => ($entity->getMetadata()['subscriberIsolation']['globalTable'] ?? false) === true,
             'uniqueKeys' => $this->entityUniqueKeysPayload($entity->getMetadata()['uniqueKeys'] ?? []),
             'rules' => $this->entityRulesPayload($entity->getMetadata()['rules'] ?? []),
             'versioningEnabled' => ($entity->getMetadata()['versioning']['enabled'] ?? false) === true,
@@ -2620,6 +2621,7 @@ class ProgramBuilderService
             return [
                 'mode' => 'none',
                 'columnName' => null,
+                'globalTable' => false,
             ];
         }
 
@@ -2628,10 +2630,15 @@ class ProgramBuilderService
             $mode = 'none';
         }
         $columnName = $this->safeSqlIdentifier((string) ($payload['subscriberColumnName'] ?? ''));
+        $globalTable = ($payload['subscriberGlobalTable'] ?? false) === true;
         if ($mode !== 'subscriber_column') {
+            if (!$globalTable) {
+                throw new RuntimeHttpException('ENTITY_GLOBAL_TABLE_CONFIRMATION_REQUIRED', 'Marque explicitamente quando a tabela persistente for global e compartilhada entre assinantes.', 422);
+            }
             return [
                 'mode' => 'none',
                 'columnName' => null,
+                'globalTable' => true,
             ];
         }
         if ($columnName === '') {
@@ -2646,6 +2653,7 @@ class ProgramBuilderService
         return [
             'mode' => 'subscriber_column',
             'columnName' => $columnName,
+            'globalTable' => false,
         ];
     }
 
@@ -3711,6 +3719,7 @@ class ProgramBuilderService
             'structureRightEntityCode' => (string) ($config['structure']['rightEntityCode'] ?? ''),
             'subscriberIsolationMode' => (string) ($config['subscriberIsolation']['mode'] ?? 'none'),
             'subscriberColumnName' => (string) ($config['subscriberIsolation']['columnName'] ?? ''),
+            'subscriberGlobalTable' => ($config['subscriberIsolation']['globalTable'] ?? false) === true,
             'uniqueKeys' => $config['uniqueKeys'],
             'rules' => $config['rules'],
             'versioningEnabled' => $config['versioningEnabled'],

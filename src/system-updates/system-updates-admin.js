@@ -481,6 +481,21 @@
         global.jQuery("<p></p>").text("Entrada do tenant pode ser bloqueada durante o rollout.").appendTo(scenario);
       }
     }
+    if (item.deploymentRule && typeof item.deploymentRule === "object") {
+      const deployment = item.deploymentRule;
+      const block = global.jQuery("<div class=\"manual-summary\"></div>").appendTo(this.detailSummaryElement);
+      global.jQuery("<p></p>").text("Regra do deployment: " + String(deployment.mode || "-")).appendTo(block);
+      global.jQuery("<p></p>").text("Escopo de aplicacao: " + String(deployment.applyScope || "-")).appendTo(block);
+      global.jQuery("<p></p>").text("Escopo de rollout: " + String(deployment.rolloutScope || "-")).appendTo(block);
+      global.jQuery("<p></p>").text("Escopo de anuencia: " + String(deployment.consentScope || "-")).appendTo(block);
+      if (deployment.runtimeEnvironmentCode) {
+        global.jQuery("<p></p>").text("Runtime alvo: " + String(deployment.runtimeEnvironmentCode || "-")).appendTo(block);
+      }
+      if (deployment.sharedRuntimeSubscriberCount) {
+        global.jQuery("<p></p>").text("Assinantes no mesmo runtime: " + String(deployment.sharedRuntimeSubscriberCount || 0)).appendTo(block);
+      }
+      global.jQuery("<p></p>").text("Ativacao por tenant: " + ((deployment.supportsPerTenantActivation === true) ? "suportada" : "nao suportada")).appendTo(block);
+    }
     if (item.compatibilityPrecheck && Array.isArray(item.compatibilityPrecheck.checks)) {
       const precheck = global.jQuery("<div class=\"manual-summary\"></div>").appendTo(this.detailSummaryElement);
       global.jQuery("<p></p>").text("Pre-check: " + String(item.compatibilityPrecheck.status || "-")).appendTo(precheck);

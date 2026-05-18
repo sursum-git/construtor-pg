@@ -442,6 +442,7 @@ class RuntimeEntityDefinitionResolver
                 'enabled' => false,
                 'mode' => 'none',
                 'column' => null,
+                'globalTable' => ($config['globalTable'] ?? false) === true,
             ];
         }
 
@@ -464,6 +465,7 @@ class RuntimeEntityDefinitionResolver
             'enabled' => true,
             'mode' => 'subscriber_column',
             'column' => $columnName,
+            'globalTable' => false,
         ];
     }
 
@@ -537,6 +539,8 @@ class RuntimeEntityDefinitionResolver
         }
         if (($entityMetadata['subscriberIsolation']['mode'] ?? 'none') === 'subscriber_column') {
             $properties[] = ['section' => 'Tenancy', 'label' => 'Filtro por assinante', 'value' => (string) ($entityMetadata['subscriberIsolation']['columnName'] ?? ''), 'critical' => true];
+        } elseif (($entityMetadata['subscriberIsolation']['globalTable'] ?? false) === true) {
+            $properties[] = ['section' => 'Tenancy', 'label' => 'Tabela global', 'value' => 'Sim'];
         }
 
         return $properties;

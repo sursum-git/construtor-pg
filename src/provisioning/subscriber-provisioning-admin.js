@@ -11,6 +11,9 @@
     this.subscribers = [];
     this.jobs = [];
     this.centralControl = {};
+    this.runtimeEnvironments = [];
+    this.operationalMatrix = [];
+    this.isolationCatalog = { summary: {}, items: [] };
   }
 
   SubscriberProvisioningAdmin.DEPLOYMENT_MODES = [
@@ -18,6 +21,13 @@
     { value: "shared_program_dedicated_db", text: "Programa compartilhado e banco dedicado" },
     { value: "dedicated_stack", text: "Container e banco dedicados no SaaS" },
     { value: "onprem_remote", text: "Instalacao on-premise remota" }
+  ];
+
+  SubscriberProvisioningAdmin.UPDATE_CHANNELS = [
+    { value: "stable", text: "Stable" },
+    { value: "pilot", text: "Pilot" },
+    { value: "canary", text: "Canary" },
+    { value: "lts", text: "LTS" }
   ];
 
   SubscriberProvisioningAdmin.prototype.init = function() {
@@ -41,6 +51,8 @@
 
     this.renderSubscriberCard();
     this.renderJobCard();
+    this.renderRuntimeEnvironmentCard();
+    this.renderIsolationCatalogCard();
   };
 
   SubscriberProvisioningAdmin.prototype.renderSubscriberCard = function() {
@@ -57,6 +69,7 @@
     this.deploymentModeSelect = this.createSelectField(form, "Modelo de deployment", SubscriberProvisioningAdmin.DEPLOYMENT_MODES, "dedicated_stack", this.syncDeploymentHint.bind(this));
     this.runtimeEnvironmentCodeInput = this.createTextField(form, "Ambiente runtime");
     this.primaryEnvironmentCodeInput = this.createTextField(form, "Ambiente principal isolado");
+    this.updateChannelSelect = this.createSelectField(form, "Canal de update", SubscriberProvisioningAdmin.UPDATE_CHANNELS, "stable");
     this.deploymentHint = global.jQuery("<div class=\"program-builder-inline-hint\"></div>").appendTo(form);
     this.instanceCodeInput = this.createTextField(form, "Instance code");
     this.databaseEnvironmentInput = this.createTextField(form, "Ambiente do banco");
@@ -84,17 +97,39 @@
     this.jobDetailElement.text("Nenhum job selecionado.");
   };
 
+  SubscriberProvisioningAdmin.prototype.renderRuntimeEnvironmentCard = function() {
+    const card = this.createCard(this.rightColumn, "Ambientes runtime compartilhados");
+    const body = card.body;
+    this.runtimeEnvironmentGridElement = global.jQuery("<div class=\"program-builder-governance-list\"></div>").appendTo(body);
+    this.runtimeEnvironmentDetailElement = global.jQuery("<div class=\"program-builder-json-preview\"></div>").appendTo(body);
+    this.runtimeEnvironmentDetailElement.text("Nenhum ambiente runtime carregado.");
+  };
+
+  SubscriberProvisioningAdmin.prototype.renderIsolationCatalogCard = function() {
+    const card = this.createCard(this.leftColumn, "Catalogo de isolamento");
+    const body = card.body;
+    this.isolationSummaryElement = global.jQuery("<div class=\"program-builder-inline-hint\"></div>").appendTo(body);
+    this.isolationGridElement = global.jQuery("<div class=\"program-builder-governance-list\"></div>").appendTo(body);
+    this.isolationDetailElement = global.jQuery("<div class=\"program-builder-json-preview\"></div>").appendTo(body);
+    this.isolationDetailElement.text("Nenhuma entidade selecionada.");
+  };
+
   SubscriberProvisioningAdmin.prototype.loadBootstrap = function(preferredSubscriberCode) {
     this.setStatus("Carregando");
     return this.request("GET", "/api/admin/subscriber-provisioning/bootstrap").then((payload) => {
       this.centralControl = payload.centralControl || {};
       this.subscribers = global.CrudUtils.ensureArray(payload.subscribers);
       this.jobs = global.CrudUtils.ensureArray(payload.jobs);
+      this.runtimeEnvironments = global.CrudUtils.ensureArray(payload.runtimeEnvironments);
+      this.operationalMatrix = global.CrudUtils.ensureArray(payload.operationalMatrix);
+      this.isolationCatalog = payload.isolationCatalog || { summary: {}, items: [] };
       if (this.centralControl.centralControl !== true) {
         global.CrudUtils.showMessage("Esta tela existe apenas no sistema central SaaS.", "warning");
       }
       this.renderSubscribersGrid(preferredSubscriberCode || this.currentSubscriberCode || "");
       this.renderJobsGrid();
+      this.renderRuntimeEnvironmentGrid();
+      this.renderIsolationCatalogGrid();
       this.setStatus("Pronto");
       return payload;
     }).catch((error) => {
@@ -110,8 +145,13 @@
       return {
         code: item.code,
         name: item.name,
-        deploymentMode: item.deploymentMode || "-",
+        deploymentMode: item.deploymentModeLabel || item.deploymentMode || "-",
         runtimeEnvironmentCode: item.runtimeEnvironmentCode || "-",
+        primaryEnvironmentCode: item.primaryEnvironmentCode || "-",
+        updateChannel: item.updateChannel || "stable",
+        latestSuccessfulVersion: item.latestSuccessfulVersion || "-",
+        versionStatus: item.versionStatus || "sem-historico",
+        runtimeSubscriberCount: item.runtimeSubscriberCount || 0,
         databaseEnvironment: item.databaseEnvironment || "-",
         databaseIdentity: item.databaseIdentity || "-",
         updatedAt: item.updatedAt || ""
@@ -130,9 +170,12 @@
       columns: [
         { field: "code", title: "Codigo", width: 160 },
         { field: "name", title: "Nome" },
-        { field: "deploymentMode", title: "Modelo", width: 220 },
+        { field: "deploymentMode", title: "Modelo", width: 240 },
         { field: "runtimeEnvironmentCode", title: "Runtime", width: 180 },
-        { field: "databaseEnvironment", title: "Ambiente", width: 120 },
+        { field: "runtimeSubscriberCount", title: "Assinantes no runtime", width: 160 },
+        { field: "updateChannel", title: "Canal", width: 110 },
+        { field: "latestSuccessfulVersion", title: "Versao", width: 120 },
+        { field: "versionStatus", title: "Status", width: 120 },
         { field: "updatedAt", title: "Atualizado", width: 180 }
       ],
       change: function() {
@@ -202,6 +245,92 @@
     this.jobsGrid = this.jobsGridElement.data("kendoGrid");
   };
 
+  SubscriberProvisioningAdmin.prototype.renderRuntimeEnvironmentGrid = function() {
+    const self = this;
+    const rows = this.runtimeEnvironments.map(function(item) {
+      return {
+        runtimeEnvironmentCode: item.runtimeEnvironmentCode || "-",
+        subscriberCount: item.subscriberCount || 0,
+        sharedRuntime: item.sharedRuntime === true ? "sim" : "nao",
+        latestSuccessfulVersions: global.CrudUtils.ensureArray(item.latestSuccessfulVersions).join(", ") || "-",
+        divergences: global.CrudUtils.ensureArray(item.divergences).length
+      };
+    });
+    if (this.runtimeEnvironmentGrid) {
+      this.runtimeEnvironmentGrid.destroy();
+      this.runtimeEnvironmentGridElement.empty();
+    }
+    this.runtimeEnvironmentGridElement.kendoGrid({
+      dataSource: { data: rows },
+      sortable: true,
+      selectable: "row",
+      scrollable: true,
+      height: 240,
+      columns: [
+        { field: "runtimeEnvironmentCode", title: "Runtime", width: 180 },
+        { field: "subscriberCount", title: "Assinantes", width: 100 },
+        { field: "sharedRuntime", title: "Compartilhado", width: 120 },
+        { field: "latestSuccessfulVersions", title: "Versoes", width: 180 },
+        { field: "divergences", title: "Divergencias", width: 120 }
+      ],
+      change: function() {
+        const selected = this.dataItem(this.select());
+        if (!selected) {
+          return;
+        }
+        const runtimeEnvironment = self.runtimeEnvironments.find(function(item) {
+          return item.runtimeEnvironmentCode === selected.runtimeEnvironmentCode;
+        });
+        self.runtimeEnvironmentDetailElement.text(JSON.stringify(runtimeEnvironment || {}, null, 2));
+      }
+    });
+    this.runtimeEnvironmentGrid = this.runtimeEnvironmentGridElement.data("kendoGrid");
+    if (this.runtimeEnvironments.length) {
+      this.runtimeEnvironmentDetailElement.text(JSON.stringify(this.runtimeEnvironments[0], null, 2));
+    } else {
+      this.runtimeEnvironmentDetailElement.text("Nenhum ambiente runtime carregado.");
+    }
+  };
+
+  SubscriberProvisioningAdmin.prototype.renderIsolationCatalogGrid = function() {
+    const self = this;
+    const catalog = this.isolationCatalog || { summary: {}, items: [] };
+    const summary = catalog.summary || {};
+    this.isolationSummaryElement.text(
+      "Globais: " + String(summary.globalTables || 0)
+      + " | Filtradas por assinante: " + String(summary.subscriberTables || 0)
+      + " | Riscos: " + String(summary.riskTables || 0)
+    );
+    if (this.isolationGrid) {
+      this.isolationGrid.destroy();
+      this.isolationGridElement.empty();
+    }
+    this.isolationGridElement.kendoGrid({
+      dataSource: { data: global.CrudUtils.ensureArray(catalog.items) },
+      sortable: true,
+      selectable: "row",
+      scrollable: true,
+      height: 240,
+      columns: [
+        { field: "entityCode", title: "Entidade", width: 160 },
+        { field: "tableName", title: "Tabela", width: 180 },
+        { field: "scopeLabel", title: "Escopo", width: 180 },
+        { field: "subscriberColumnName", title: "Coluna do assinante", width: 160 },
+        { field: "riskStatus", title: "Risco", width: 100 }
+      ],
+      change: function() {
+        const selected = this.dataItem(this.select());
+        self.isolationDetailElement.text(JSON.stringify(selected || {}, null, 2));
+      }
+    });
+    this.isolationGrid = this.isolationGridElement.data("kendoGrid");
+    if (global.CrudUtils.ensureArray(catalog.items).length) {
+      this.isolationDetailElement.text(JSON.stringify(catalog.items[0], null, 2));
+    } else {
+      this.isolationDetailElement.text("Nenhuma entidade persistente catalogada.");
+    }
+  };
+
   SubscriberProvisioningAdmin.prototype.applySubscriber = function(subscriber) {
     this.currentSubscriberCode = subscriber.code || "";
     this.codeInput.value(subscriber.code || "");
@@ -211,6 +340,7 @@
     this.deploymentModeSelect.value(subscriber.deploymentMode || "dedicated_stack");
     this.runtimeEnvironmentCodeInput.value(subscriber.runtimeEnvironmentCode || "");
     this.primaryEnvironmentCodeInput.value(subscriber.primaryEnvironmentCode || "");
+    this.updateChannelSelect.value(subscriber.updateChannel || "stable");
     this.databaseEnvironmentInput.value(subscriber.databaseEnvironment || "");
     this.databaseIdentityInput.value(subscriber.databaseIdentity || "");
     this.databaseNameInput.value(subscriber.databaseName || "");
@@ -231,6 +361,7 @@
       deploymentMode: this.deploymentModeSelect.value(),
       runtimeEnvironmentCode: this.runtimeEnvironmentCodeInput.value(),
       primaryEnvironmentCode: this.primaryEnvironmentCodeInput.value(),
+      updateChannel: this.updateChannelSelect.value(),
       instanceCode: this.instanceCodeInput.value(),
       databaseEnvironment: this.databaseEnvironmentInput.value(),
       databaseIdentity: this.databaseIdentityInput.value(),
