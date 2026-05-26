@@ -30,6 +30,28 @@ Se o objetivo for validar tudo com backend real, os pontos minimos sao:
 - worker ativo para jobs;
 - banco com migrations aplicadas.
 
+Se o ambiente ainda nao foi instalado, seguir primeiro o manual:
+
+- `docs/manual-instalacao.md`
+
+Validar qual cenario sera usado:
+
+1. Linux Docker on-premise;
+2. Linux sem Docker on-premise;
+3. Windows teste sem Docker;
+4. Docker SaaS provisionado pelo orquestrador.
+
+Resultado esperado da instalacao inicial:
+
+- licenca cadastrada em `admin.instalacao-licencas` ou fallback configurado no `.env`;
+- executavel do perfil correto usado;
+- codigo do assinante validado;
+- codigo enviado por e-mail confirmado, exceto no SaaS com token interno;
+- precheck sem `ERRO`;
+- sessao local de instalacao criada;
+- `production/install.html` mostrando perfil, assinante e validade da sessao;
+- `APP_SYSTEM_INSTALLED=1` gravado apos sucesso.
+
 ---
 
 ## 2. Trilha principal: do login ate gerar um programa novo
@@ -390,6 +412,30 @@ Validar:
 12. auditoria de runtime compartilhado;
 13. matriz operacional.
 
+Tambem validar a instalacao inicial quando o objetivo for entregar um ambiente novo:
+
+1. cadastrar a licenca em `admin.instalacao-licencas`, informando e-mail, perfis permitidos, modos permitidos, validade e limite de ativacoes.
+2. gerar ou baixar o instalador correto:
+   - Construtor de Sistemas;
+   - Assinante.
+3. executar `--precheck` no modo escolhido.
+4. confirmar que erro bloqueante impede continuidade.
+5. executar a ativacao com codigo do assinante.
+6. confirmar o codigo recebido por e-mail.
+7. abrir `production/install.html`.
+8. conferir perfil autorizado, codigo do assinante, modo e validade da sessao.
+9. informar senha do instalador, admin inicial e dados do assinante.
+10. executar instalacao.
+11. em reinstalacao, confirmar que nova ativacao, senha e confirmacao explicita sao obrigatorias.
+
+No Docker local, validar tambem:
+
+1. `docker compose build`;
+2. `APP_HTTP_PORT=18080 docker compose up -d`, se `8080` estiver ocupada;
+3. `GET /health`;
+4. `GET /api/install/status`;
+5. `docker compose down`.
+
 ## 3.12. Atualizacoes do sistema
 
 Programas:
@@ -466,4 +512,3 @@ Ao fim desse roteiro, o analista deve conseguir responder:
 6. o isolamento por assinante esta coerente?
 7. o provisionamento de ambientes funciona?
 8. a esteira de atualizacao esta controlada?
-

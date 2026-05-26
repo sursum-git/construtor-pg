@@ -2,7 +2,11 @@
 
 namespace App\Install;
 
+use App\Entity\InstallerActivationLicense;
+use App\Repository\InstallerActivationLicenseRepository;
 use App\Runtime\RuntimeHttpException;
+use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\HttpKernel\KernelInterface;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
@@ -12,6 +16,9 @@ class InstallerActivationCenterService
     public function __construct(
         private readonly KernelInterface $kernel,
         private readonly MailerInterface $mailer,
+        private readonly InstallerActivationLicenseRepository $licenses,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly ManagerRegistry $registry,
     ) {
     }
 
@@ -24,7 +31,8 @@ class InstallerActivationCenterService
     {
         $profile = $this->profile((string) ($payload['profile'] ?? ''));
         $subscriberCode = $this->subscriberCode((string) ($payload['subscriberCode'] ?? ''));
-        $subscriber = $this->resolveSubscriber($subscriberCode);
+        $mode = $this->text($payload['mode'] ?? 'docker');
+        $subscriber = $this->resolveSubscriber($subscriberCode, $profile, $mode);
         $requestId = bin2hex(random_bytes(18));
         $code = (string) random_int(100000, 999999);
         $request = [
@@ -32,7 +40,7 @@ class InstallerActivationCenterService
             'codeHash' => password_hash($code, PASSWORD_DEFAULT),
             'profile' => $profile,
             'subscriberCode' => $subscriberCode,
-            'mode' => $this->text($payload['mode'] ?? 'docker'),
+            'mode' => $mode,
             'fingerprint' => $this->text($payload['fingerprint'] ?? ''),
             'platform' => $this->text($payload['platform'] ?? ''),
             'arch' => $this->text($payload['arch'] ?? ''),
@@ -96,13 +104,14 @@ class InstallerActivationCenterService
 
         $profile = $this->profile((string) ($payload['profile'] ?? ''));
         $subscriberCode = $this->subscriberCode((string) ($payload['subscriberCode'] ?? ''));
-        $this->resolveSubscriber($subscriberCode);
+        $mode = $this->text($payload['mode'] ?? 'saas-docker');
+        $this->resolveSubscriber($subscriberCode, $profile, $mode);
 
         return $this->issueSession([
             'requestId' => 'service-' . bin2hex(random_bytes(12)),
             'profile' => $profile,
             'subscriberCode' => $subscriberCode,
-            'mode' => $this->text($payload['mode'] ?? 'saas-docker'),
+            'mode' => $mode,
             'fingerprint' => $this->text($payload['fingerprint'] ?? ''),
             'platform' => $this->text($payload['platform'] ?? ''),
             'arch' => $this->text($payload['arch'] ?? ''),
@@ -130,6 +139,7 @@ class InstallerActivationCenterService
             'expiresAt' => $now->modify('+2 hours')->format(DATE_ATOM),
         ];
         $proof = $this->sign($session);
+        $this->registerActivationIssued($session);
 
         return $session + [
             'activationProof' => $proof,
@@ -152,8 +162,19 @@ class InstallerActivationCenterService
     /**
      * @return array<string, string>
      */
-    private function resolveSubscriber(string $subscriberCode): array
+    private function resolveSubscriber(string $subscriberCode, string $profile, string $mode): array
     {
+        $license = $this->findLicense($subscriberCode);
+        if ($license !== null) {
+            $this->assertLicenseAllows($license, $profile, $mode);
+
+            return [
+                'email' => $license->getActivationEmail(),
+                'name' => $license->getSubscriberName(),
+                'source' => 'database',
+            ];
+        }
+
         $subscribers = json_decode($this->readEnv('APP_INSTALLER_ACTIVATION_SUBSCRIBERS') ?: '{}', true);
         if (!is_array($subscribers) || !isset($subscribers[$subscriberCode]) || !is_array($subscribers[$subscriberCode])) {
             throw new RuntimeHttpException('INSTALLER_ACTIVATION_SUBSCRIBER_NOT_FOUND', 'Codigo do assinante nao encontrado na central.', 404);
@@ -163,7 +184,79 @@ class InstallerActivationCenterService
             throw new RuntimeHttpException('INSTALLER_ACTIVATION_EMAIL_NOT_CONFIGURED', 'Assinante sem e-mail cadastrado para ativacao.', 422);
         }
 
-        return ['email' => $email];
+        return ['email' => $email, 'source' => 'env'];
+    }
+
+    private function findLicense(string $subscriberCode): ?InstallerActivationLicense
+    {
+        try {
+            if (!$this->tableExists('installer_activation_license')) {
+                return null;
+            }
+
+            return $this->licenses->findOneBySubscriberCode($subscriberCode);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function assertLicenseAllows(InstallerActivationLicense $license, string $profile, string $mode): void
+    {
+        if ($license->getStatus() !== 'active') {
+            throw new RuntimeHttpException('INSTALLER_ACTIVATION_LICENSE_INACTIVE', 'Licenca de instalacao inativa.', 422);
+        }
+        if ($license->getActivationEmail() === '') {
+            throw new RuntimeHttpException('INSTALLER_ACTIVATION_EMAIL_NOT_CONFIGURED', 'Assinante sem e-mail cadastrado para ativacao.', 422);
+        }
+        if ($license->getExpiresAt() !== null && $license->getExpiresAt() <= new \DateTimeImmutable()) {
+            throw new RuntimeHttpException('INSTALLER_ACTIVATION_LICENSE_EXPIRED', 'Licenca de instalacao expirada.', 422);
+        }
+        if (!in_array($profile, $license->getAllowedProfiles(), true)) {
+            throw new RuntimeHttpException('INSTALLER_ACTIVATION_PROFILE_NOT_ALLOWED', 'Perfil de instalador nao autorizado para este assinante.', 422);
+        }
+        if (!in_array($mode, $license->getAllowedModes(), true)) {
+            throw new RuntimeHttpException('INSTALLER_ACTIVATION_MODE_NOT_ALLOWED', 'Modo de instalacao nao autorizado para este assinante.', 422);
+        }
+        if ($license->getMaxActivations() > 0 && $license->getActivationCount() >= $license->getMaxActivations()) {
+            throw new RuntimeHttpException('INSTALLER_ACTIVATION_LIMIT_REACHED', 'Limite de ativacoes da licenca atingido.', 422);
+        }
+    }
+
+    /**
+     * @param array<string, string> $session
+     */
+    private function registerActivationIssued(array $session): void
+    {
+        $license = $this->findLicense((string) $session['subscriberCode']);
+        if ($license === null) {
+            return;
+        }
+
+        $metadata = $license->getMetadata();
+        $history = is_array($metadata['activationHistory'] ?? null) ? $metadata['activationHistory'] : [];
+        $history[] = [
+            'sessionId' => (string) $session['sessionId'],
+            'requestId' => (string) $session['requestId'],
+            'profile' => (string) $session['profile'],
+            'mode' => (string) $session['mode'],
+            'fingerprint' => (string) ($session['fingerprint'] ?? ''),
+            'platform' => (string) ($session['platform'] ?? ''),
+            'arch' => (string) ($session['arch'] ?? ''),
+            'issuedAt' => (string) $session['issuedAt'],
+            'expiresAt' => (string) $session['expiresAt'],
+        ];
+        $metadata['activationHistory'] = array_slice($history, -20);
+        $license->setMetadata($metadata)->incrementActivationCount();
+        $this->entityManager->flush();
+    }
+
+    private function tableExists(string $tableName): bool
+    {
+        try {
+            return $this->registry->getConnection()->createSchemaManager()->tablesExist([$tableName]);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /**

@@ -20,6 +20,24 @@ Na producao inicial, o backend Symfony ja entrega telas por `screenId`, endpoint
 Para uma primeira versao de producao, o motor tambem aceita carregar a tela por `screenId`.
 Nesse modo o frontend nao recebe uma URL livre de JSON: ele pede ao backend uma tela conhecida, e o backend devolve somente a definicao autorizada para o usuario.
 
+## Instalacao inicial
+
+A instalacao inicial tambem segue o principio "backend decide, frontend renderiza".
+
+O executavel Go prepara e autoriza o ambiente antes da pagina web:
+
+- perfil compilado: `system_builder` ou `subscriber`;
+- precheck do host conforme modo;
+- ativacao central por codigo do assinante e codigo enviado ao e-mail cadastrado;
+- emissao de sessao curta e manifesto assinado;
+- gravacao de sessao local em arquivo de estado.
+
+A pagina `production/install.html` nao recebe token livre do usuario. Ela consulta o backend local, mostra a ativacao autorizada e coleta apenas dados operacionais: senha do instalador, administrador inicial, dados do assinante e opcoes fechadas de bootstrap.
+
+A API local so executa `/api/install/run` quando `InstallationActivationService` valida a sessao local criada pelo executavel. Depois do sucesso, o backend grava `APP_SYSTEM_INSTALLED=1` e o hash da senha do instalador em `.env.local`.
+
+No Docker Linux, a stack tem `app` e `database`, mas o boot do container nao instala o sistema automaticamente. A execucao das migrations, seed, catalogo padrao e integridade continua no fluxo controlado da pagina.
+
 ## Notificacoes runtime
 
 Existe agora um modulo proprio de notificacoes runtime, separado das listas agregadas antigas de `alerts`, `requests` e `jobs`.

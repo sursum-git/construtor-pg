@@ -24,6 +24,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - `scripts/provision-saas-subscriber.ps1`
   - `scripts/provision-saas-subscriber.sh`
 - a documentacao operacional desta frente fica em `docs/provisionamento-saas-onprem.md`.
+- o manual detalhado da instalacao fica em `docs/manual-instalacao.md`.
 - essa automacao so encadeia:
   - criacao opcional do banco;
   - migrations;
@@ -58,6 +59,23 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - `GET /api/admin/subscriber-provisioning/jobs/{jobId}/events`
   - `GET /api/admin/subscriber-provisioning/onprem-package`
   - o provisionamento SaaS roda no job `subscriber.environment.provision`.
+  - existe tambem a instalacao inicial por executaveis Go:
+    - `installer/cmd/system-builder` gera o perfil `system_builder`;
+    - `installer/cmd/subscriber` gera o perfil `subscriber`;
+    - `installer/build.ps1` e `installer/build.sh` geram Linux e Windows;
+    - os binarios ficam em `installer/dist/`, que nao entra no Git;
+    - Windows e somente teste sem Docker.
+  - a central de ativacao agora pode usar a tabela `installer_activation_license`:
+    - tela `admin.instalacao-licencas`;
+    - controla e-mail de confirmacao, perfis, modos, status, validade e limite de ativacoes;
+    - registra historico resumido em `metadata.activationHistory`;
+    - se a tabela nao existir ou nao houver cadastro, ainda existe fallback por `APP_INSTALLER_ACTIVATION_SUBSCRIBERS`.
+  - a stack Docker Linux fica em `Dockerfile`, `compose.yaml` e `docker/`:
+    - `app` contem Nginx, PHP-FPM e Supervisor;
+    - `database` usa PostgreSQL 16;
+    - o worker fica inativo por padrao e exige `APP_WORKER_ENABLED=1`;
+    - a instalacao nao roda no boot do container, apenas pela pagina `production/install.html` liberada pelo executavel.
+  - quando validar Docker local, se a porta `8080` estiver ocupada por outro servico, usar `APP_HTTP_PORT=18080`.
   - existe agora tambem a frente de atualizacao operacional:
   - manifesto inicial em `backend/config/system-updates/manifest.json`;
   - comandos:

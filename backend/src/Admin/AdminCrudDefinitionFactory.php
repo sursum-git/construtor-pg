@@ -149,6 +149,25 @@ final class AdminCrudDefinitionFactory
                 defaultSort: [['field' => 'updated_at', 'dir' => 'desc']],
             ),
             self::screen(
+                'admin.instalacao-licencas',
+                'admin-instalacao-licencas',
+                'installer_activation_license',
+                'Licencas de Instalacao',
+                'Cadastro central dos assinantes autorizados a ativar instaladores compilados.',
+                self::installerActivationLicenseFields(),
+                ['subscriber_code', 'subscriber_name', 'activation_email', 'status'],
+                ['id', 'subscriber_code', 'subscriber_name', 'activation_email', 'status', 'activation_count', 'max_activations', 'expires_at', 'updated_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'subscriber_code', 'subscriber_name', 'activation_email', 'status']],
+                    ['id' => 'permissoes', 'title' => 'Permissoes', 'fields' => ['allowed_profiles', 'allowed_modes', 'max_activations']],
+                    ['id' => 'controle', 'title' => 'Controle', 'fields' => ['activation_count', 'expires_at', 'last_activated_at']],
+                    ['id' => 'metadata', 'title' => 'Metadata', 'fields' => ['notes', 'metadata']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['created_at', 'updated_at']],
+                ],
+                editable: true,
+                defaultSort: [['field' => 'subscriber_code', 'dir' => 'asc']],
+            ),
+            self::screen(
                 'admin.listas-opcoes',
                 'admin-listas-opcoes',
                 'system_option_list',
@@ -994,6 +1013,41 @@ final class AdminCrudDefinitionFactory
             'status' => self::field('enum', 'Status', false, false, ['options' => $statusOptions]),
             'delivered_at' => self::field('datetime', 'Entregue em', false, true),
             'read_at' => self::field('datetime', 'Lida em', false, true),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+        ];
+    }
+
+    private static function installerActivationLicenseFields(): array
+    {
+        $profileOptions = [
+            ['value' => 'system_builder', 'text' => 'Construtor de Sistemas'],
+            ['value' => 'subscriber', 'text' => 'Assinante'],
+        ];
+        $modeOptions = [
+            ['value' => 'docker', 'text' => 'Linux Docker on-premise'],
+            ['value' => 'native', 'text' => 'Linux/Windows sem Docker'],
+            ['value' => 'saas-docker', 'text' => 'Docker SaaS'],
+        ];
+
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'subscriber_code' => self::field('string', 'Codigo do assinante', true, false),
+            'subscriber_name' => self::field('string', 'Nome do assinante', true, false),
+            'activation_email' => self::field('string', 'E-mail de ativacao', true, false),
+            'status' => self::field('enum', 'Status', true, false, ['options' => [
+                ['value' => 'active', 'text' => 'Ativa'],
+                ['value' => 'suspended', 'text' => 'Suspensa'],
+                ['value' => 'revoked', 'text' => 'Revogada'],
+            ]]),
+            'allowed_profiles' => self::field('json', 'Perfis permitidos', true, false, ['editor' => 'textarea', 'options' => $profileOptions]),
+            'allowed_modes' => self::field('json', 'Modos permitidos', true, false, ['editor' => 'textarea', 'options' => $modeOptions]),
+            'max_activations' => self::field('integer', 'Limite de ativacoes', true, false),
+            'activation_count' => self::field('integer', 'Ativacoes emitidas', false, false),
+            'expires_at' => self::field('datetime', 'Expira em', true, true),
+            'last_activated_at' => self::field('datetime', 'Ultima ativacao', false, true),
+            'notes' => self::field('text', 'Observacoes', true, true, ['editor' => 'textarea']),
+            'metadata' => self::field('json', 'Metadata', true, false, ['editor' => 'textarea']),
             'created_at' => self::field('datetime', 'Criado em', false, false),
             'updated_at' => self::field('datetime', 'Atualizado em', false, false),
         ];

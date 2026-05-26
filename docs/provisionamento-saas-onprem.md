@@ -2,6 +2,10 @@
 
 Este fluxo nao altera a estrutura atual do sistema. Ele so automatiza passos que hoje seriam manuais.
 
+Manual detalhado da instalacao:
+
+- [manual-instalacao.md](manual-instalacao.md)
+
 ## O que entrou
 
 Comandos novos no backend:
@@ -27,6 +31,21 @@ Instalador inicial via navegador:
 - para reinstalar tambem e obrigatorio executar nova ativacao pelo instalador compilado.
 - quando a opcao de salvar configuracao estiver marcada, a API atualiza tambem as demais chaves permitidas em `backend/.env.local`.
 - depois de salvar `.env.local`, reinicie o processo web para que o backend passe a usar as novas variaveis.
+
+Docker Linux de producao:
+
+- `Dockerfile`
+- `compose.yaml`
+- `docker/nginx/default.conf`
+- `docker/supervisor/construtor-pg.conf`
+- `docker/entrypoint.sh`
+- servicos:
+  - `app`: Nginx, PHP-FPM e Supervisor no mesmo container;
+  - `database`: PostgreSQL 16;
+- volumes persistentes para banco, `.env.local`, estado de ativacao e arquivos compartilhados;
+- o container nao instala automaticamente ao iniciar;
+- o worker fica parado por padrao e so consome fila quando `APP_WORKER_ENABLED=1`;
+- se `8080` estiver ocupada, usar `APP_HTTP_PORT=<porta>` antes de `docker compose up -d`.
 
 Variaveis da ativacao local:
 
@@ -70,6 +89,13 @@ O proprio backend entrega uma primeira central de ativacao por esses endpoints. 
 - `APP_INSTALLER_ACTIVATION_SERVICE_TOKEN=<token-interno-saas>`
 
 A resposta final da central deve devolver `activationProof`, `profile`, `subscriberCode`, `mode`, `sessionId`, `issuedAt` e `expiresAt`; opcionalmente `manifestUrl`, `dockerComposeUrl` e `packageUrl`.
+
+Licencas de instalacao:
+
+- tabela: `installer_activation_license`;
+- tela: `production/app.html?screenId=admin.instalacao-licencas`;
+- controla e-mail de ativacao, perfis permitidos, modos permitidos, validade, status, limite de ativacoes e historico resumido;
+- a central consulta a tabela primeiro e usa `APP_INSTALLER_ACTIVATION_SUBSCRIBERS` apenas como fallback de transicao.
 
 Scripts operacionais:
 

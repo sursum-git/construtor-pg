@@ -2,6 +2,10 @@
 
 Fonte dos instaladores Go do Construtor PG.
 
+Manual completo:
+
+- `../docs/manual-instalacao.md`
+
 ## Perfis
 
 - `cmd/system-builder`: gera o instalador do Construtor de Sistemas.
@@ -51,3 +55,26 @@ Teste local sem central real:
 ```
 
 Nesse modo, configure o backend local com a mesma chave em `APP_INSTALLATION_SESSION_SIGNING_KEY`.
+
+## Fluxo resumido
+
+1. executar `--precheck` no modo escolhido;
+2. corrigir qualquer item com status `ERRO`;
+3. ativar com codigo do assinante;
+4. confirmar o codigo recebido por e-mail;
+5. gravar a sessao local de instalacao;
+6. abrir `production/install.html`;
+7. concluir senha do instalador, admin inicial, assinante, migrations, seed, catalogo e integridade.
+
+No SaaS, o orquestrador usa token interno e nao exige confirmacao manual por e-mail.
+
+Windows e apenas para teste sem Docker.
+
+## Licencas na central
+
+Antes da ativacao, cadastre o assinante na central:
+
+- tela: `production/app.html?screenId=admin.instalacao-licencas`
+- tabela: `installer_activation_license`
+
+O cadastro define e-mail de confirmacao, perfis permitidos, modos permitidos, validade, status e limite de ativacoes. O fallback por `APP_INSTALLER_ACTIVATION_SUBSCRIBERS` continua existindo apenas para transicao.

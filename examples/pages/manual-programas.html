@@ -283,6 +283,111 @@
             notes: ["Documento: ../../docs/roteiro-validacao-funcional-analista.md", "Use este item como primeira leitura antes de percorrer os demais programas do manual."]
           }
         },
+        "manual-instalacao": {
+          title: "Manual de instalacao",
+          module: "Documentacao",
+          type: "Guia operacional",
+          route: "../../docs/manual-instalacao.md",
+          screenId: "",
+          summary: "Manual da instalacao inicial por executavel Go, ativacao central, precheck obrigatorio, Docker Linux, Linux nativo, Windows teste e SaaS provisionado.",
+          functional: {
+            objective: "Orientar a preparacao segura de um ambiente novo antes do primeiro acesso ao sistema.",
+            scope: [
+              "Perfis separados para Construtor de Sistemas e Assinante.",
+              "Ativacao por codigo do assinante e codigo enviado ao e-mail cadastrado.",
+              "Sessao local curta exigida antes de liberar a pagina de instalacao.",
+              "Licenca central em `admin.instalacao-licencas` com e-mail, perfil, modo, validade e limite.",
+              "Precheck bloqueante para Docker, Linux nativo e Windows teste.",
+              "Stack Docker Linux com app e banco, sem instalacao automatica no boot."
+            ],
+            outputs: [
+              "Ambiente validado antes da instalacao.",
+              "Sessao local criada pelo executavel.",
+              "Pagina `production/install.html` liberada apenas para o perfil autorizado.",
+              "`APP_SYSTEM_INSTALLED=1` gravado apos sucesso."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Executavel do perfil correto disponivel.",
+              "Codigo do assinante cadastrado na central.",
+              "E-mail do assinante apto a receber o codigo de confirmacao.",
+              "Chave de assinatura da sessao configurada no backend local.",
+              "Docker instalado quando o modo escolhido for Docker."
+            ],
+            steps: [
+              "Cadastrar ou revisar a licenca em `admin.instalacao-licencas`.",
+              "Executar o instalador com `--precheck` no modo escolhido.",
+              "Corrigir qualquer item marcado como `ERRO` antes de continuar.",
+              "Executar a ativacao com `--subscriber-code` e `--activation-url`.",
+              "Informar o codigo recebido por e-mail, exceto no SaaS com token interno.",
+              "Abrir `production/install.html` e conferir perfil, assinante, modo e validade da sessao.",
+              "Informar senha do instalador, admin inicial e dados operacionais.",
+              "Executar a instalacao e confirmar a gravacao de `APP_SYSTEM_INSTALLED=1`.",
+              "Para reinstalar, executar nova ativacao, informar a senha do instalador e confirmar explicitamente a reinstalacao."
+            ],
+            cautions: [
+              "Windows e somente para teste sem Docker.",
+              "O instalador de Assinante nao deve expor opcao de instalar Construtor de Sistemas.",
+              "O container Docker nao instala o sistema sozinho ao iniciar.",
+              "O worker do container fica inativo por padrao e deve ser ativado com `APP_WORKER_ENABLED=1` depois da instalacao.",
+              "Se a porta `8080` estiver ocupada, usar `APP_HTTP_PORT` para publicar em outra porta."
+            ]
+          },
+          references: {
+            permissions: ["admin.install"],
+            relatedPrograms: ["Provisionamento de assinantes", "Atualizacoes do sistema"],
+            notes: ["Documento: ../../docs/manual-instalacao.md", "Licencas: ../../production/app.html?screenId=admin.instalacao-licencas", "Pagina real: ../../production/install.html", "Pagina demo: ../../examples/pages/system-install.html", "Fonte dos executaveis: ../../installer/"]
+          }
+        },
+        "admin-instalacao-licencas": {
+          title: "Licencas de instalacao",
+          module: "Administracao",
+          type: "CRUD administrativo",
+          route: "../../production/app.html?screenId=admin.instalacao-licencas",
+          screenId: "admin.instalacao-licencas",
+          summary: "Cadastro central que autoriza os instaladores compilados por assinante, perfil e modo de instalacao.",
+          functional: {
+            objective: "Substituir a liberacao manual por variavel de ambiente por um cadastro auditavel de licencas.",
+            scope: [
+              "Codigo e nome do assinante.",
+              "E-mail que recebe o codigo de confirmacao.",
+              "Perfis permitidos: Construtor de Sistemas e/ou Assinante.",
+              "Modos permitidos: Docker, nativo e SaaS.",
+              "Status, validade e limite de ativacoes."
+            ],
+            outputs: [
+              "Assinante autorizado ou bloqueado pela central.",
+              "Historico resumido das ativacoes emitidas.",
+              "Base para o instalador liberar a pagina `production/install.html`."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Sistema central SaaS ou central de ativacao operacional.",
+              "Migration `Version20260526160000` aplicada.",
+              "Metadados runtime publicados por seed."
+            ],
+            steps: [
+              "Cadastrar o assinante com codigo unico.",
+              "Informar o e-mail que recebera o codigo de confirmacao.",
+              "Definir `allowed_profiles` como JSON, por exemplo `[\"subscriber\"]`.",
+              "Definir `allowed_modes` como JSON, por exemplo `[\"docker\",\"native\"]`.",
+              "Informar validade e limite de ativacoes quando houver restricao contratual.",
+              "Suspender ou revogar a licenca quando o assinante nao puder instalar."
+            ],
+            cautions: [
+              "O perfil `system_builder` deve ser liberado apenas para instalacoes internas ou controladas.",
+              "Quando `max_activations` for maior que zero, cada sessao emitida consome uma ativacao.",
+              "Se a tabela ainda nao existir, a central usa o fallback antigo por `APP_INSTALLER_ACTIVATION_SUBSCRIBERS`."
+            ]
+          },
+          references: {
+            permissions: ["admin.read", "admin.write"],
+            relatedPrograms: ["Manual de instalacao", "Provisionamento de assinantes"],
+            notes: ["Tabela: installer_activation_license", "Manual: ../../docs/manual-instalacao.md"]
+          }
+        },
         "login": {
           title: "Login",
           module: "Acesso",
@@ -781,7 +886,8 @@
               "Validacao previa de conflitos e checklist de prerequisitos antes do enfileiramento.",
               "Painel de progresso por etapa e retry parcial a partir da etapa escolhida.",
               "Acompanhamento do processamento por SSE quando disponivel, com fallback por polling.",
-              "Geracao do pacote zip on-premise com `install.sh`, checksum SHA-256 e assinatura opcional."
+              "Geracao do pacote zip on-premise com `install.sh`, checksum SHA-256 e assinatura opcional.",
+              "Fluxo de instalacao inicial por executavel Go antes da pagina `production/install.html`."
             ],
             outputs: [
               "Assinante salvo com metadados de provisionamento.",
@@ -791,7 +897,8 @@
               "Catalogo de isolamento das entidades persistentes com riscos de configuracao.",
               "Job de provisionamento enfileirado e acompanhado pela tela.",
               "Pacote on-premise pronto para download.",
-              "Checksum e assinatura do pacote exibidos antes do download."
+              "Checksum e assinatura do pacote exibidos antes do download.",
+              "Manual de instalacao referenciado para Docker, Linux nativo, Windows teste e SaaS."
             ]
           },
           operational: {
@@ -810,7 +917,8 @@
               "Usar `Criar ambiente` para enfileirar o job SaaS e acompanhar o detalhe do processamento.",
               "Se o job falhar no meio, usar o retry parcial a partir da etapa necessaria.",
               "Usar `Baixar pacote on-premise` quando precisar entregar uma instalacao nova com bootstrap automatico.",
-              "No on-premise, extrair o zip em Ubuntu 24.04 e executar `install.sh`."
+              "No on-premise, extrair o zip em Ubuntu 24.04 e executar `install.sh`.",
+              "Quando usar o novo fluxo compilado, executar o instalador do perfil correto, concluir a ativacao e so entao abrir `production/install.html`."
             ],
             cautions: [
               "Esta tela existe apenas no sistema central SaaS.",
@@ -820,6 +928,7 @@
               "Sem worker ativo, o job fica enfileirado e nao conclui.",
               "A tela tenta SSE primeiro e cai para polling quando o stream nao estiver disponivel.",
               "O pacote on-premise foi pensado para Ubuntu 24.04 e nao substitui validacao operacional do host.",
+              "A pagina de instalacao real recusa `/api/install/run` sem sessao local criada pelo executavel.",
               "Em outros ambientes, publicar a tela exige rodar `php backend/bin/console app:seed-runtime-metadata --no-interaction`.",
               "No on-premise, a politica critica agora separa modo (`auto|prompt_admin|download_only`) de acesso (`warn|block`)."
             ]
@@ -827,7 +936,7 @@
           references: {
             permissions: ["admin.read", "admin.write"],
             relatedPrograms: ["Usuarios", "Usuarios por assinante", "Integridade estrutural"],
-            notes: ["Tela de producao: ../../production/app.html?screenId=admin.assinante-ambientes", "Entrada custom local: ../../production/admin/subscriber-provisioning.html", "Exemplo local: ../../examples/pages/admin-subscriber-provisioning.html", "Scripts: `scripts/provision-saas-subscriber.sh|ps1` e `scripts/install-onprem.sh|ps1`", "Comandos base: `app:install:bootstrap`, `app:subscriber:create` e `app:runtime:publish-defaults`"]
+            notes: ["Tela de producao: ../../production/app.html?screenId=admin.assinante-ambientes", "Entrada custom local: ../../production/admin/subscriber-provisioning.html", "Exemplo local: ../../examples/pages/admin-subscriber-provisioning.html", "Manual: ../../docs/manual-instalacao.md", "Scripts: `scripts/provision-saas-subscriber.sh|ps1` e `scripts/install-onprem.sh|ps1`", "Comandos base: `app:install:bootstrap`, `app:subscriber:create` e `app:runtime:publish-defaults`"]
           }
         },
         "admin-atualizacoes": {
@@ -1808,7 +1917,7 @@
       };
 
       const treeData = [
-        { text: "Roteiro inicial", expanded: true, items: [{ id: "roteiro-analista-funcional", text: "Roteiro do analista funcional" }] },
+        { text: "Roteiro inicial", expanded: true, items: [{ id: "roteiro-analista-funcional", text: "Roteiro do analista funcional" }, { id: "manual-instalacao", text: "Manual de instalacao" }] },
         { text: "Acesso e navegacao", expanded: true, items: [{ id: "login", text: "Login" }, { id: "home", text: "Home" }] },
         { text: "Operacional", expanded: true, items: [{ id: "clientes", text: "Cadastro de clientes" }, { id: "processamento-clientes", text: "Processamento de clientes" }, { id: "jobs", text: "Meus Jobs / Jobs" }] },
         { text: "Administracao", expanded: true, items: [
@@ -1817,6 +1926,7 @@
           { id: "admin-literais", text: "Literais e traducoes" },
           { id: "admin-notificacoes", text: "Administracao de notificacoes" },
           { id: "admin-notificacao-destinatarios", text: "Destinatarios de notificacoes" },
+          { id: "admin-instalacao-licencas", text: "Licencas de instalacao" },
           { id: "admin-integracoes", text: "Importacao e exportacao" },
           { id: "admin-assinante-ambientes", text: "Provisionamento de assinantes" },
           { id: "admin-atualizacoes", text: "Atualizacoes do sistema" },
