@@ -342,6 +342,11 @@ class InstallerActivationCenterService
 
     private function readEnv(string $name): string
     {
-        return trim((string) ($_SERVER[$name] ?? $_ENV[$name] ?? getenv($name) ?: ''));
+        $value = getenv($name);
+        if ($value !== false && trim((string) $value) !== '') {
+            return trim((string) $value);
+        }
+
+        return trim((string) ($_SERVER[$name] ?? $_ENV[$name] ?? ''));
     }
 }
