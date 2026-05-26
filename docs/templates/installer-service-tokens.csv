@@ -1,0 +1,2 @@
+code,name,status,token_hash,allowed_profiles,allowed_modes,expires_at,metadata
+saas-orchestrator,Orquestrador SaaS,active,"cole-aqui-o-hash-gerado","[""subscriber""]","[""saas-docker""]",2027-12-31T23:59:59-03:00,"{""allowedSubscribers"":[],""revokedFingerprints"":[]}"

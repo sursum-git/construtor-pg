@@ -34,6 +34,17 @@ Binarios previstos em `dist/`:
 - `construtor-builder-installer.exe`
 - `construtor-subscriber-installer.exe`
 
+## Release operacional
+
+Para gerar binarios, checksums e manifesto assinado:
+
+```powershell
+$env:APP_INSTALLER_ARTIFACT_SIGNING_KEY="chave-real"
+..\scripts\installer\build-release.ps1 -PublicBaseUrl "https://downloads.seudominio.com.br/construtor"
+```
+
+Os arquivos ficam em `outputs/installer-artifacts`.
+
 ## Uso
 
 Precheck Docker Linux:
@@ -78,3 +89,11 @@ Antes da ativacao, cadastre o assinante na central:
 - tabela: `installer_activation_license`
 
 O cadastro define e-mail de confirmacao, perfis permitidos, modos permitidos, validade, status e limite de ativacoes. O fallback por `APP_INSTALLER_ACTIVATION_SUBSCRIBERS` continua existindo apenas para transicao.
+
+Para tokens SaaS, use:
+
+```powershell
+php ..\scripts\installer\generate-service-token.php
+```
+
+Cadastre o hash em `production/app.html?screenId=admin.instalacao-tokens`.

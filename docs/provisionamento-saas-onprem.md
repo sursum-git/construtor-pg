@@ -121,10 +121,21 @@ Tokens internos SaaS:
 
 Scripts operacionais:
 
+- [C:\construtor-pg\scripts\installer\generate-service-token.php](C:/construtor-pg/scripts/installer/generate-service-token.php)
+- [C:\construtor-pg\scripts\installer\validate-central-config.php](C:/construtor-pg/scripts/installer/validate-central-config.php)
+- [C:\construtor-pg\scripts\installer\publish-installer-artifacts.php](C:/construtor-pg/scripts/installer/publish-installer-artifacts.php)
+- [C:\construtor-pg\scripts\installer\build-release.ps1](C:/construtor-pg/scripts/installer/build-release.ps1)
 - [C:\construtor-pg\scripts\install-onprem.ps1](C:/construtor-pg/scripts/install-onprem.ps1)
 - [C:\construtor-pg\scripts\install-onprem.sh](C:/construtor-pg/scripts/install-onprem.sh)
 - [C:\construtor-pg\scripts\provision-saas-subscriber.ps1](C:/construtor-pg/scripts/provision-saas-subscriber.ps1)
 - [C:\construtor-pg\scripts\provision-saas-subscriber.sh](C:/construtor-pg/scripts/provision-saas-subscriber.sh)
+
+Templates operacionais:
+
+- `docs/instalacao-central-real.env.example`
+- `docs/templates/installer-licenses.csv`
+- `docs/templates/installer-service-tokens.csv`
+- `docs/checklist-producao-instalacao.md`
 
 Atualizacao operacional:
 

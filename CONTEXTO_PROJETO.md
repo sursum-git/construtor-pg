@@ -171,6 +171,9 @@ Documentos importantes:
 - `docs/estado-local-persistido.md`: guia operacional do que fica salvo localmente, por contexto, e o que deve ser limpo no logout.
 - `docs/provisionamento-saas-onprem.md`: guia operacional do provisionamento SaaS e on-premise sem alterar a estrutura atual.
 - `docs/manual-instalacao.md`: manual detalhado da instalacao por executavel Go, ativacao, precheck, Docker, Linux nativo, Windows teste e SaaS.
+- `docs/checklist-producao-instalacao.md`: checklist dos passos finais para central real, cadastros, artefatos, testes externos, distribuicao e endurecimento.
+- `docs/instalacao-central-real.env.example`: modelo de variaveis da central real.
+- `scripts/installer/`: scripts para gerar token SaaS, validar configuracao da central e publicar artefatos assinados.
 - `docs/roteiro-validacao-funcional-analista.md`: passo a passo para analista funcional validar o sistema partindo do login e chegando ate a criacao/publicacao de um programa novo.
 - os estados JSON persistidos localmente agora usam envelope versionado, com compatibilidade de leitura para chaves antigas.
 - `docs/guia-ia-padrao-kendo-grids-formularios.pdf`: guia para IA padronizar outro projeto Kendo/PHP/Symfony.

@@ -17,6 +17,7 @@ O perfil fica compilado no binario. O instalador de assinante nao oferece opcao 
 ## Artefatos principais
 
 - instaladores Go: `installer/`
+- scripts operacionais de instalacao: `scripts/installer/`
 - pagina real de instalacao: `production/install.html`
 - pagina demo: `examples/pages/system-install.html`
 - API local: `GET /api/install/status`, `POST /api/install/precheck`, `POST /api/install/run`
@@ -126,6 +127,12 @@ Com cadastro em banco, `APP_INSTALLER_ACTIVATION_SUBSCRIBERS` passa a ser apenas
 
 O fluxo Docker SaaS pode usar tokens cadastrados na tabela `installer_activation_service_token`, publicada em `production/app.html?screenId=admin.instalacao-tokens`. O campo `token_hash` aceita `password_hash` ou SHA-256 hexadecimal do token. A central valida status, validade, perfis, modos, `metadata.allowedSubscribers` e `metadata.revokedFingerprints`.
 
+Para gerar token e hash:
+
+```powershell
+php scripts\installer\generate-service-token.php
+```
+
 Configuracao minima do ambiente local instalado:
 
 ```dotenv
@@ -137,6 +144,21 @@ APP_INSTALLATION_SESSION_FILE=/srv/app-state/install/activation-session.json
 ## Assinatura de artefatos
 
 Quando a central tiver `APP_INSTALLER_ARTIFACT_SIGNING_KEY`, ela devolve assinaturas HMAC para manifesto, Compose e pacote. O executavel valida antes de baixar usando `CONSTRUTOR_INSTALLER_ARTIFACT_SIGNING_KEY` no host.
+
+Para gerar os binarios, checksums e manifesto de distribuicao:
+
+```powershell
+$env:APP_INSTALLER_ARTIFACT_SIGNING_KEY="chave-real"
+.\scripts\installer\build-release.ps1 -PublicBaseUrl "https://downloads.seudominio.com.br/construtor"
+```
+
+O resultado fica em `outputs/installer-artifacts`.
+
+Para validar a configuracao minima da central:
+
+```powershell
+php scripts\installer\validate-central-config.php
+```
 
 Apos sucesso da instalacao, o backend grava em `.env.local`:
 
@@ -364,3 +386,10 @@ Resultado esperado:
 - Docker subindo `app` e `database`;
 - `/health` retornando `200`;
 - `/api/install/status` retornando `200`, mesmo que a ativacao ainda esteja bloqueada.
+
+Checklist final de producao:
+
+- `docs/checklist-producao-instalacao.md`
+- `docs/instalacao-central-real.env.example`
+- `docs/templates/installer-licenses.csv`
+- `docs/templates/installer-service-tokens.csv`

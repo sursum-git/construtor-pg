@@ -1,0 +1,2 @@
+subscriber_code,subscriber_name,activation_email,status,allowed_profiles,allowed_modes,max_activations,expires_at,metadata
+cliente-x,Cliente X,responsavel@cliente.com.br,active,"[""subscriber""]","[""docker"",""native""]",3,2027-12-31T23:59:59-03:00,"{""maxHosts"":2,""allowedFingerprints"":[],""revokedFingerprints"":[]}"
