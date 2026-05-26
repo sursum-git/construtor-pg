@@ -79,6 +79,11 @@ Nesse modo, configure o backend local com a mesma chave em `APP_INSTALLATION_SES
 
 No SaaS, o orquestrador usa token interno e nao exige confirmacao manual por e-mail.
 
+Tentativas invalidas de confirmacao por e-mail sao bloqueadas pela central por requisicao. Variaveis:
+
+- `APP_INSTALLER_ACTIVATION_MAX_ATTEMPTS`
+- `APP_INSTALLER_ACTIVATION_BLOCK_MINUTES`
+
 Windows e apenas para teste sem Docker.
 
 ## Licencas na central
@@ -97,3 +102,9 @@ php ..\scripts\installer\generate-service-token.php
 ```
 
 Cadastre o hash em `production/app.html?screenId=admin.instalacao-tokens`.
+
+Para operacao diaria da central, use tambem:
+
+- `production/app.html?screenId=admin.central-operacoes`
+
+Essa tela mostra licencas, tokens, artefatos, chaves, auditoria, saude dos assinantes, alertas e notificacoes derivadas.

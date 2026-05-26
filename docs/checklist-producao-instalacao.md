@@ -6,6 +6,9 @@
 - Configurar SMTP real em `MAILER_DSN`.
 - Configurar remetente real em `APP_INSTALLER_ACTIVATION_FROM`.
 - Gerar chaves fortes para ativacao, sessao local e artefatos.
+- Configurar bloqueio de tentativas do codigo de e-mail:
+  - `APP_INSTALLER_ACTIVATION_MAX_ATTEMPTS=5`
+  - `APP_INSTALLER_ACTIVATION_BLOCK_MINUTES=30`
 - Rodar:
 
 ```powershell
@@ -16,6 +19,13 @@ php scripts\installer\validate-central-config.php
 
 - Cadastrar assinantes em `admin.instalacao-licencas`.
 - Cadastrar tokens SaaS em `admin.instalacao-tokens`.
+- Revisar o painel `admin.central-operacoes` antes de liberar a central:
+  - licencas ativas;
+  - tokens ativos;
+  - chaves configuradas;
+  - artefatos publicados;
+  - alertas e notificacoes derivadas;
+  - saude dos assinantes.
 - Gerar token SaaS com:
 
 ```powershell
@@ -44,7 +54,7 @@ $env:APP_INSTALLER_ARTIFACT_SIGNING_KEY="chave-real"
 - Linux nativo: precheck de PHP/Composer/PostgreSQL client, download assinado e instalacao web.
 - Docker SaaS: ativacao por token interno e provisionamento sem e-mail.
 - Reinstalacao: nova ativacao, senha do instalador, politica de backup e confirmacao.
-- Casos negativos: token invalido, codigo expirado, fingerprint revogado, porta ocupada, Docker ausente.
+- Casos negativos: token invalido, codigo expirado, excesso de tentativas, fingerprint revogado, porta ocupada, Docker ausente.
 
 ## 5. Distribuicao dos executaveis
 
@@ -58,5 +68,6 @@ $env:APP_INSTALLER_ARTIFACT_SIGNING_KEY="chave-real"
 - Rotacionar chaves periodicamente.
 - Revogar tokens antigos.
 - Revisar `metadata.activationHistory`, `metadata.fingerprints` e `metadata.usageHistory`.
+- Revisar `metadata.auditTrail` e `metadata.revocationHistory` em `admin.central-operacoes`.
 - Registrar incidentes e fingerprints bloqueados.
 - Monitorar excesso de tentativas e falhas de ativacao.

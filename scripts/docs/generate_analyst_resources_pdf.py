@@ -522,6 +522,9 @@ def build_content():
         ["Precheck", "Valida dependencias por modo; ERRO bloqueia e AVISO permite continuar registrado."],
         ["Ativacao central", "Codigo do assinante, e-mail de confirmacao, sessao curta e manifesto autorizado."],
         ["Licencas", "`admin.instalacao-licencas` controla e-mail, perfil, modo, validade, status e limite."],
+        ["Tokens internos", "`admin.instalacao-tokens` controla tokens para provisionamento SaaS sem e-mail manual."],
+        ["Operacoes da central", "`admin.central-operacoes` consolida painel operacional, auditoria, revogacao, tentativas/bloqueio, chaves, artefatos, saude dos assinantes e notificacoes derivadas."],
+        ["Bloqueio de tentativas", "Codigos de e-mail invalidos sao bloqueados por requisicao conforme `APP_INSTALLER_ACTIVATION_MAX_ATTEMPTS` e `APP_INSTALLER_ACTIVATION_BLOCK_MINUTES`."],
         ["Pagina web", "`production/install.html` mostra ativacao e executa etapas finais."],
         ["Docker Linux", "`app` com Nginx/PHP-FPM/Supervisor e `database` PostgreSQL 16."],
         ["Worker", "No Docker fica inativo por padrao; ativar com `APP_WORKER_ENABLED=1` apos instalacao."],
@@ -618,7 +621,7 @@ def build_content():
         ["Governanca", "admin.programa-governanca e entradas focadas de grants, aprovacoes, retencao, auditoria e overlays"],
         ["Administracao", "admin.parametros, admin.parametro-valores, admin.literais, admin.notificacoes, admin.integridade"],
         ["Integracoes", "admin.integracoes"],
-        ["Provisionamento", "admin.assinante-ambientes, admin.instalacao-licencas, production/install.html"],
+        ["Provisionamento", "admin.assinante-ambientes, admin.instalacao-licencas, admin.instalacao-tokens, admin.central-operacoes, production/install.html"],
         ["Atualizacoes", "admin.atualizacoes, admin.atualizacoes-assinantes"],
     ]
     story.append(table(map_rows, [4.0 * cm, 13.1 * cm]))
@@ -647,6 +650,7 @@ def build_content():
     checklist_rows = [
         ["Area", "Validacoes minimas"],
         ["Instalacao", "Licenca ativa, perfil correto, modo autorizado, e-mail recebido, precheck sem ERRO, sessao local gravada, install finalizado."],
+        ["Central operacional", "Painel sem alerta critico, chaves fortes, artefatos configurados, token SaaS valido, auditoria e saude dos assinantes revisadas."],
         ["Login", "Senha valida, senha invalida, manter logado, recuperar senha, limpar sessao local, expiracao e logout."],
         ["Assinante", "Selecao apos login, troca pela Home quando habilitada, permissao por assinante e fallback para principal."],
         ["Home", "Menu, favoritos, busca, ultimo programa, notificacoes, jobs, chat, suporte e persistencia de contexto."],

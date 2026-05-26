@@ -2,6 +2,39 @@
 
 Este arquivo registra pendencias que nao dependem mais de codigo no repositorio e precisam ser executadas depois, no ambiente correto.
 
+## Central real de instalacao e atualizacao
+
+Status atual:
+
+- a central ja possui CRUD de licencas em `admin.instalacao-licencas`;
+- a central ja possui CRUD de tokens internos em `admin.instalacao-tokens`;
+- a central ja possui painel consolidado em `admin.central-operacoes`;
+- a API `/api/admin/central-operations/dashboard` consolida licencas, tokens, artefatos, chaves, auditoria, saude dos assinantes e notificacoes derivadas;
+- a confirmacao por e-mail ja bloqueia tentativas repetidas por requisicao usando `APP_INSTALLER_ACTIVATION_MAX_ATTEMPTS` e `APP_INSTALLER_ACTIVATION_BLOCK_MINUTES`.
+
+Pendencias a executar depois:
+
+1. configurar a central real com dominio HTTPS e SMTP real
+   - preencher `MAILER_DSN`;
+   - preencher `APP_INSTALLER_ACTIVATION_FROM`;
+   - validar com `php scripts/installer/validate-central-config.php`.
+
+2. cadastrar licencas reais e tokens internos
+   - usar `admin.instalacao-licencas`;
+   - usar `admin.instalacao-tokens`;
+   - revisar limites de ativacao, perfis, modos e validade.
+
+3. revisar o painel `admin.central-operacoes` antes da liberacao
+   - confirmar chaves fortes;
+   - confirmar artefatos publicados;
+   - confirmar ausencia de alertas criticos;
+   - revisar saude dos assinantes.
+
+4. definir rotina operacional
+   - periodicidade de rotacao de chaves;
+   - politica de revogacao de tokens e fingerprints;
+   - responsavel por tratar alertas/notificacoes da central.
+
 ## Orquestrador de rollout SaaS
 
 Status atual:

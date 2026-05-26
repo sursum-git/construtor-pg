@@ -33,6 +33,30 @@ php bin/console messenger:consume async -vv
 
 `app:param:copy` usa `pg_dump` e `pg_restore`; os binários do PostgreSQL precisam estar no `PATH`.
 
+## Central SaaS
+
+O sistema central e identificado por `APP_SYSTEM_ROLE=saas_central` ou `APP_CENTRAL_CONTROL_ENABLED=1`.
+
+Telas administrativas principais:
+
+- `admin.assinante-ambientes`: provisionamento de assinantes;
+- `admin.instalacao-licencas`: licencas de instalacao;
+- `admin.instalacao-tokens`: tokens internos SaaS;
+- `admin.central-operacoes`: painel operacional de licencas, tokens, artefatos, chaves, auditoria, saude dos assinantes e notificacoes derivadas;
+- `admin.atualizacoes`: releases e aplicacao controlada;
+- `admin.atualizacoes-assinantes`: historico por assinante.
+
+Endpoints da operacao central:
+
+- `GET /api/admin/central-operations/dashboard`;
+- `POST /api/admin/central-operations/license-action`;
+- `POST /api/admin/central-operations/token-action`.
+
+Na ativacao por e-mail, a central bloqueia excesso de tentativas por requisicao com:
+
+- `APP_INSTALLER_ACTIVATION_MAX_ATTEMPTS`;
+- `APP_INSTALLER_ACTIVATION_BLOCK_MINUTES`.
+
 ## Jobs
 
 A decisao de usar fila fica nos metadados do backend:

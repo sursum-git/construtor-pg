@@ -44,9 +44,11 @@ Validar qual cenario sera usado:
 Resultado esperado da instalacao inicial:
 
 - licenca cadastrada em `admin.instalacao-licencas` ou fallback configurado no `.env`;
+- painel `admin.central-operacoes` sem alerta critico de chave, artefato ou licenca;
 - executavel do perfil correto usado;
 - codigo do assinante validado;
 - codigo enviado por e-mail confirmado, exceto no SaaS com token interno;
+- excesso de tentativas de codigo bloqueado conforme politica da central;
 - precheck sem `ERRO`;
 - sessao local de instalacao criada;
 - `production/install.html` mostrando perfil, assinante e validade da sessao;
@@ -415,18 +417,28 @@ Validar:
 Tambem validar a instalacao inicial quando o objetivo for entregar um ambiente novo:
 
 1. cadastrar a licenca em `admin.instalacao-licencas`, informando e-mail, perfis permitidos, modos permitidos, validade e limite de ativacoes.
-2. gerar ou baixar o instalador correto:
+2. se for SaaS, cadastrar o token interno em `admin.instalacao-tokens`.
+3. abrir `admin.central-operacoes` e revisar:
+   - licencas;
+   - tokens;
+   - chaves;
+   - artefatos;
+   - auditoria;
+   - saude dos assinantes;
+   - alertas/notificacoes.
+4. gerar ou baixar o instalador correto:
    - Construtor de Sistemas;
    - Assinante.
-3. executar `--precheck` no modo escolhido.
-4. confirmar que erro bloqueante impede continuidade.
-5. executar a ativacao com codigo do assinante.
-6. confirmar o codigo recebido por e-mail.
-7. abrir `production/install.html`.
-8. conferir perfil autorizado, codigo do assinante, modo e validade da sessao.
-9. informar senha do instalador, admin inicial e dados do assinante.
-10. executar instalacao.
-11. em reinstalacao, confirmar que nova ativacao, senha e confirmacao explicita sao obrigatorias.
+5. executar `--precheck` no modo escolhido.
+6. confirmar que erro bloqueante impede continuidade.
+7. executar a ativacao com codigo do assinante.
+8. confirmar o codigo recebido por e-mail.
+9. testar codigo incorreto ate o bloqueio temporario quando a trilha incluir caso negativo.
+10. abrir `production/install.html`.
+11. conferir perfil autorizado, codigo do assinante, modo e validade da sessao.
+12. informar senha do instalador, admin inicial e dados do assinante.
+13. executar instalacao.
+14. em reinstalacao, confirmar que nova ativacao, senha e confirmacao explicita sao obrigatorias.
 
 No Docker local, validar tambem:
 
