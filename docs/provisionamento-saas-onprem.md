@@ -27,7 +27,7 @@ Instalador inicial via navegador:
 - o instalador executa somente comandos fechados, sem comando livre vindo da tela.
 - na primeira instalacao, a senha do instalador informada na tela e salva como hash em `APP_INSTALLER_PASSWORD_HASH`.
 - depois do sucesso, a API grava `APP_SYSTEM_INSTALLED=1` em `backend/.env.local`.
-- para reinstalar, a tela exige a senha do instalador e uma confirmacao explicita de reinstalacao.
+- para reinstalar, a tela exige a senha do instalador, politica de backup e uma confirmacao explicita de reinstalacao.
 - para reinstalar tambem e obrigatorio executar nova ativacao pelo instalador compilado.
 - quando a opcao de salvar configuracao estiver marcada, a API atualiza tambem as demais chaves permitidas em `backend/.env.local`.
 - depois de salvar `.env.local`, reinicie o processo web para que o backend passe a usar as novas variaveis.
@@ -46,6 +46,18 @@ Docker Linux de producao:
 - o container nao instala automaticamente ao iniciar;
 - o worker fica parado por padrao e so consome fila quando `APP_WORKER_ENABLED=1`;
 - se `8080` estiver ocupada, usar `APP_HTTP_PORT=<porta>` antes de `docker compose up -d`.
+
+Docker Linux separado para producao:
+
+- `Dockerfile.runtime`
+- `compose.production.yaml`
+- `docker/nginx/production.conf`
+- `docker/php/entrypoint.sh`
+- servicos:
+  - `nginx`: frontend e proxy FastCGI;
+  - `php`: PHP-FPM da aplicacao;
+  - `worker`: fila Messenger;
+  - `database`: PostgreSQL 16.
 
 Variaveis da ativacao local:
 
@@ -90,12 +102,22 @@ O proprio backend entrega uma primeira central de ativacao por esses endpoints. 
 
 A resposta final da central deve devolver `activationProof`, `profile`, `subscriberCode`, `mode`, `sessionId`, `issuedAt` e `expiresAt`; opcionalmente `manifestUrl`, `dockerComposeUrl` e `packageUrl`.
 
+Quando `APP_INSTALLER_ARTIFACT_SIGNING_KEY` estiver configurado, a central tambem devolve assinatura HMAC dos artefatos. O executavel valida com `CONSTRUTOR_INSTALLER_ARTIFACT_SIGNING_KEY` antes de baixar.
+
 Licencas de instalacao:
 
 - tabela: `installer_activation_license`;
 - tela: `production/app.html?screenId=admin.instalacao-licencas`;
 - controla e-mail de ativacao, perfis permitidos, modos permitidos, validade, status, limite de ativacoes e historico resumido;
+- aceita controles opcionais em `metadata.maxHosts`, `metadata.allowedFingerprints` e `metadata.revokedFingerprints`;
 - a central consulta a tabela primeiro e usa `APP_INSTALLER_ACTIVATION_SUBSCRIBERS` apenas como fallback de transicao.
+
+Tokens internos SaaS:
+
+- tabela: `installer_activation_service_token`;
+- tela: `production/app.html?screenId=admin.instalacao-tokens`;
+- `token_hash` aceita `password_hash` ou SHA-256 hexadecimal;
+- controla perfis, modos, validade, assinantes permitidos e historico de uso.
 
 Scripts operacionais:
 

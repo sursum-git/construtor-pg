@@ -168,6 +168,24 @@ final class AdminCrudDefinitionFactory
                 defaultSort: [['field' => 'subscriber_code', 'dir' => 'asc']],
             ),
             self::screen(
+                'admin.instalacao-tokens',
+                'admin-instalacao-tokens',
+                'installer_activation_service_token',
+                'Tokens Internos de Instalacao',
+                'Tokens cadastrados para provisionamento SaaS sem confirmacao manual por e-mail.',
+                self::installerActivationServiceTokenFields(),
+                ['code', 'name', 'status'],
+                ['id', 'code', 'name', 'status', 'usage_count', 'expires_at', 'last_used_at', 'updated_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'code', 'name', 'status']],
+                    ['id' => 'seguranca', 'title' => 'Seguranca', 'fields' => ['token_hash', 'allowed_profiles', 'allowed_modes', 'expires_at']],
+                    ['id' => 'uso', 'title' => 'Uso', 'fields' => ['usage_count', 'last_used_at', 'metadata']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['created_at', 'updated_at']],
+                ],
+                editable: true,
+                defaultSort: [['field' => 'updated_at', 'dir' => 'desc']],
+            ),
+            self::screen(
                 'admin.listas-opcoes',
                 'admin-listas-opcoes',
                 'system_option_list',
@@ -1047,6 +1065,39 @@ final class AdminCrudDefinitionFactory
             'expires_at' => self::field('datetime', 'Expira em', true, true),
             'last_activated_at' => self::field('datetime', 'Ultima ativacao', false, true),
             'notes' => self::field('text', 'Observacoes', true, true, ['editor' => 'textarea']),
+            'metadata' => self::field('json', 'Metadata', true, false, ['editor' => 'textarea']),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+        ];
+    }
+
+    private static function installerActivationServiceTokenFields(): array
+    {
+        $profileOptions = [
+            ['value' => 'system_builder', 'text' => 'Construtor de Sistemas'],
+            ['value' => 'subscriber', 'text' => 'Assinante'],
+        ];
+        $modeOptions = [
+            ['value' => 'docker', 'text' => 'Linux Docker on-premise'],
+            ['value' => 'native', 'text' => 'Linux/Windows sem Docker'],
+            ['value' => 'saas-docker', 'text' => 'Docker SaaS'],
+        ];
+
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'code' => self::field('string', 'Codigo', true, false),
+            'name' => self::field('string', 'Nome', true, false),
+            'status' => self::field('enum', 'Status', true, false, ['options' => [
+                ['value' => 'active', 'text' => 'Ativo'],
+                ['value' => 'suspended', 'text' => 'Suspenso'],
+                ['value' => 'revoked', 'text' => 'Revogado'],
+            ]]),
+            'token_hash' => self::field('string', 'Hash do token', true, false),
+            'allowed_profiles' => self::field('json', 'Perfis permitidos', true, false, ['editor' => 'textarea', 'options' => $profileOptions]),
+            'allowed_modes' => self::field('json', 'Modos permitidos', true, false, ['editor' => 'textarea', 'options' => $modeOptions]),
+            'expires_at' => self::field('datetime', 'Expira em', true, true),
+            'last_used_at' => self::field('datetime', 'Ultimo uso', false, true),
+            'usage_count' => self::field('integer', 'Usos', false, false),
             'metadata' => self::field('json', 'Metadata', true, false, ['editor' => 'textarea']),
             'created_at' => self::field('datetime', 'Criado em', false, false),
             'updated_at' => self::field('datetime', 'Atualizado em', false, false),

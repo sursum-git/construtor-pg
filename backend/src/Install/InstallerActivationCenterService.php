@@ -3,7 +3,9 @@
 namespace App\Install;
 
 use App\Entity\InstallerActivationLicense;
+use App\Entity\InstallerActivationServiceToken;
 use App\Repository\InstallerActivationLicenseRepository;
+use App\Repository\InstallerActivationServiceTokenRepository;
 use App\Runtime\RuntimeHttpException;
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\Persistence\ManagerRegistry;
@@ -17,6 +19,7 @@ class InstallerActivationCenterService
         private readonly KernelInterface $kernel,
         private readonly MailerInterface $mailer,
         private readonly InstallerActivationLicenseRepository $licenses,
+        private readonly InstallerActivationServiceTokenRepository $serviceTokens,
         private readonly EntityManagerInterface $entityManager,
         private readonly ManagerRegistry $registry,
     ) {
@@ -32,7 +35,8 @@ class InstallerActivationCenterService
         $profile = $this->profile((string) ($payload['profile'] ?? ''));
         $subscriberCode = $this->subscriberCode((string) ($payload['subscriberCode'] ?? ''));
         $mode = $this->text($payload['mode'] ?? 'docker');
-        $subscriber = $this->resolveSubscriber($subscriberCode, $profile, $mode);
+        $fingerprint = $this->text($payload['fingerprint'] ?? '');
+        $subscriber = $this->resolveSubscriber($subscriberCode, $profile, $mode, $fingerprint);
         $requestId = bin2hex(random_bytes(18));
         $code = (string) random_int(100000, 999999);
         $request = [
@@ -41,7 +45,7 @@ class InstallerActivationCenterService
             'profile' => $profile,
             'subscriberCode' => $subscriberCode,
             'mode' => $mode,
-            'fingerprint' => $this->text($payload['fingerprint'] ?? ''),
+            'fingerprint' => $fingerprint,
             'platform' => $this->text($payload['platform'] ?? ''),
             'arch' => $this->text($payload['arch'] ?? ''),
             'email' => $subscriber['email'],
@@ -96,26 +100,35 @@ class InstallerActivationCenterService
      */
     public function service(array $payload, string $authorization): array
     {
-        $expected = $this->readEnv('APP_INSTALLER_ACTIVATION_SERVICE_TOKEN');
         $provided = preg_replace('/^Bearer\s+/i', '', trim($authorization));
-        if ($expected === '' || !hash_equals($expected, (string) $provided)) {
-            throw new RuntimeHttpException('INSTALLER_ACTIVATION_SERVICE_UNAUTHORIZED', 'Token interno de ativacao invalido.', 401);
-        }
-
         $profile = $this->profile((string) ($payload['profile'] ?? ''));
         $subscriberCode = $this->subscriberCode((string) ($payload['subscriberCode'] ?? ''));
         $mode = $this->text($payload['mode'] ?? 'saas-docker');
-        $this->resolveSubscriber($subscriberCode, $profile, $mode);
+        $fingerprint = $this->text($payload['fingerprint'] ?? '');
+        $serviceToken = $this->assertServiceTokenAllows((string) $provided, $profile, $mode, $subscriberCode, $fingerprint);
+        $this->resolveSubscriber($subscriberCode, $profile, $mode, $fingerprint);
 
-        return $this->issueSession([
+        $session = $this->issueSession([
             'requestId' => 'service-' . bin2hex(random_bytes(12)),
             'profile' => $profile,
             'subscriberCode' => $subscriberCode,
             'mode' => $mode,
-            'fingerprint' => $this->text($payload['fingerprint'] ?? ''),
+            'fingerprint' => $fingerprint,
             'platform' => $this->text($payload['platform'] ?? ''),
             'arch' => $this->text($payload['arch'] ?? ''),
         ]);
+        if ($serviceToken !== null) {
+            $serviceToken->registerUse([
+                'subscriberCode' => $subscriberCode,
+                'profile' => $profile,
+                'mode' => $mode,
+                'fingerprint' => $fingerprint,
+                'sessionId' => (string) $session['sessionId'],
+            ]);
+            $this->entityManager->flush();
+        }
+
+        return $session;
     }
 
     /**
@@ -141,11 +154,10 @@ class InstallerActivationCenterService
         $proof = $this->sign($session);
         $this->registerActivationIssued($session);
 
-        return $session + [
+        $artifacts = $this->artifactContract($session);
+
+        return $session + $artifacts + [
             'activationProof' => $proof,
-            'manifestUrl' => $this->readEnv('APP_INSTALLER_MANIFEST_URL'),
-            'dockerComposeUrl' => $this->readEnv('APP_INSTALLER_DOCKER_COMPOSE_URL'),
-            'packageUrl' => $this->readEnv('APP_INSTALLER_PACKAGE_URL'),
         ];
     }
 
@@ -162,11 +174,11 @@ class InstallerActivationCenterService
     /**
      * @return array<string, string>
      */
-    private function resolveSubscriber(string $subscriberCode, string $profile, string $mode): array
+    private function resolveSubscriber(string $subscriberCode, string $profile, string $mode, string $fingerprint = ''): array
     {
         $license = $this->findLicense($subscriberCode);
         if ($license !== null) {
-            $this->assertLicenseAllows($license, $profile, $mode);
+            $this->assertLicenseAllows($license, $profile, $mode, $fingerprint);
 
             return [
                 'email' => $license->getActivationEmail(),
@@ -200,7 +212,7 @@ class InstallerActivationCenterService
         }
     }
 
-    private function assertLicenseAllows(InstallerActivationLicense $license, string $profile, string $mode): void
+    private function assertLicenseAllows(InstallerActivationLicense $license, string $profile, string $mode, string $fingerprint): void
     {
         if ($license->getStatus() !== 'active') {
             throw new RuntimeHttpException('INSTALLER_ACTIVATION_LICENSE_INACTIVE', 'Licenca de instalacao inativa.', 422);
@@ -219,6 +231,20 @@ class InstallerActivationCenterService
         }
         if ($license->getMaxActivations() > 0 && $license->getActivationCount() >= $license->getMaxActivations()) {
             throw new RuntimeHttpException('INSTALLER_ACTIVATION_LIMIT_REACHED', 'Limite de ativacoes da licenca atingido.', 422);
+        }
+        $metadata = $license->getMetadata();
+        $revoked = is_array($metadata['revokedFingerprints'] ?? null) ? $metadata['revokedFingerprints'] : [];
+        if ($fingerprint !== '' && in_array($fingerprint, $revoked, true)) {
+            throw new RuntimeHttpException('INSTALLER_ACTIVATION_FINGERPRINT_REVOKED', 'Este host foi revogado para a licenca.', 422);
+        }
+        $allowed = is_array($metadata['allowedFingerprints'] ?? null) ? $metadata['allowedFingerprints'] : [];
+        if ($fingerprint !== '' && $allowed !== [] && !in_array($fingerprint, $allowed, true)) {
+            throw new RuntimeHttpException('INSTALLER_ACTIVATION_FINGERPRINT_NOT_ALLOWED', 'Este host nao esta autorizado para a licenca.', 422);
+        }
+        $maxHosts = (int) ($metadata['maxHosts'] ?? 0);
+        $known = is_array($metadata['fingerprints'] ?? null) ? $metadata['fingerprints'] : [];
+        if ($fingerprint !== '' && $maxHosts > 0 && !array_key_exists($fingerprint, $known) && count($known) >= $maxHosts) {
+            throw new RuntimeHttpException('INSTALLER_ACTIVATION_HOST_LIMIT_REACHED', 'Limite de hosts distintos da licenca atingido.', 422);
         }
     }
 
@@ -246,8 +272,111 @@ class InstallerActivationCenterService
             'expiresAt' => (string) $session['expiresAt'],
         ];
         $metadata['activationHistory'] = array_slice($history, -20);
+        $fingerprint = (string) ($session['fingerprint'] ?? '');
+        if ($fingerprint !== '') {
+            $fingerprints = is_array($metadata['fingerprints'] ?? null) ? $metadata['fingerprints'] : [];
+            $fingerprintEntry = is_array($fingerprints[$fingerprint] ?? null) ? $fingerprints[$fingerprint] : ['count' => 0];
+            $fingerprintEntry['count'] = (int) ($fingerprintEntry['count'] ?? 0) + 1;
+            $fingerprintEntry['lastSessionId'] = (string) $session['sessionId'];
+            $fingerprintEntry['lastActivatedAt'] = (string) $session['issuedAt'];
+            $fingerprints[$fingerprint] = $fingerprintEntry;
+            $metadata['fingerprints'] = $fingerprints;
+        }
         $license->setMetadata($metadata)->incrementActivationCount();
         $this->entityManager->flush();
+    }
+
+    private function assertServiceTokenAllows(string $provided, string $profile, string $mode, string $subscriberCode, string $fingerprint): ?InstallerActivationServiceToken
+    {
+        if ($provided === '') {
+            throw new RuntimeHttpException('INSTALLER_ACTIVATION_SERVICE_UNAUTHORIZED', 'Token interno de ativacao invalido.', 401);
+        }
+        $token = $this->findServiceToken($provided);
+        if ($token !== null) {
+            if ($token->getExpiresAt() !== null && $token->getExpiresAt() <= new \DateTimeImmutable()) {
+                throw new RuntimeHttpException('INSTALLER_ACTIVATION_SERVICE_TOKEN_EXPIRED', 'Token interno expirado.', 401);
+            }
+            if (!in_array($profile, $token->getAllowedProfiles(), true) || !in_array($mode, $token->getAllowedModes(), true)) {
+                throw new RuntimeHttpException('INSTALLER_ACTIVATION_SERVICE_SCOPE_DENIED', 'Token interno nao autorizado para este perfil ou modo.', 403);
+            }
+            $metadata = $token->getMetadata();
+            $allowedSubscribers = is_array($metadata['allowedSubscribers'] ?? null) ? $metadata['allowedSubscribers'] : [];
+            if ($allowedSubscribers !== [] && !in_array($subscriberCode, $allowedSubscribers, true)) {
+                throw new RuntimeHttpException('INSTALLER_ACTIVATION_SERVICE_SUBSCRIBER_DENIED', 'Token interno nao autorizado para este assinante.', 403);
+            }
+            $revokedFingerprints = is_array($metadata['revokedFingerprints'] ?? null) ? $metadata['revokedFingerprints'] : [];
+            if ($fingerprint !== '' && in_array($fingerprint, $revokedFingerprints, true)) {
+                throw new RuntimeHttpException('INSTALLER_ACTIVATION_SERVICE_FINGERPRINT_REVOKED', 'Host revogado para este token interno.', 403);
+            }
+
+            return $token;
+        }
+
+        $expected = $this->readEnv('APP_INSTALLER_ACTIVATION_SERVICE_TOKEN');
+        if ($expected === '' || !hash_equals($expected, $provided)) {
+            throw new RuntimeHttpException('INSTALLER_ACTIVATION_SERVICE_UNAUTHORIZED', 'Token interno de ativacao invalido.', 401);
+        }
+
+        return null;
+    }
+
+    private function findServiceToken(string $provided): ?InstallerActivationServiceToken
+    {
+        try {
+            if (!$this->tableExists('installer_activation_service_token')) {
+                return null;
+            }
+            foreach ($this->serviceTokens->findActiveCandidates() as $token) {
+                $hash = $token->getTokenHash();
+                if ($hash !== '' && (password_verify($provided, $hash) || hash_equals($hash, hash('sha256', $provided)))) {
+                    return $token;
+                }
+            }
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, string> $session
+     *
+     * @return array<string, mixed>
+     */
+    private function artifactContract(array $session): array
+    {
+        $artifacts = [
+            'manifestUrl' => $this->readEnv('APP_INSTALLER_MANIFEST_URL'),
+            'dockerComposeUrl' => $this->readEnv('APP_INSTALLER_DOCKER_COMPOSE_URL'),
+            'packageUrl' => $this->readEnv('APP_INSTALLER_PACKAGE_URL'),
+        ];
+        $key = $this->readEnv('APP_INSTALLER_ARTIFACT_SIGNING_KEY') ?: $this->readEnv('APP_INSTALLER_ACTIVATION_SIGNING_KEY');
+        if ($key === '') {
+            return $artifacts + ['artifactSignatureAlgorithm' => 'none'];
+        }
+
+        $signatures = [];
+        foreach ($artifacts as $name => $url) {
+            if ($url === '') {
+                continue;
+            }
+            $payload = [
+                'name' => $name,
+                'url' => $url,
+                'profile' => (string) $session['profile'],
+                'subscriberCode' => (string) $session['subscriberCode'],
+                'mode' => (string) $session['mode'],
+                'sessionId' => (string) $session['sessionId'],
+                'expiresAt' => (string) $session['expiresAt'],
+            ];
+            $signatures[$name] = hash_hmac('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES) ?: '', $key);
+        }
+
+        return $artifacts + [
+            'artifactSignatureAlgorithm' => 'hmac-sha256',
+            'artifactSignatures' => $signatures,
+        ];
     }
 
     private function tableExists(string $tableName): bool

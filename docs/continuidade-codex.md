@@ -70,11 +70,19 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - controla e-mail de confirmacao, perfis, modos, status, validade e limite de ativacoes;
     - registra historico resumido em `metadata.activationHistory`;
     - se a tabela nao existir ou nao houver cadastro, ainda existe fallback por `APP_INSTALLER_ACTIVATION_SUBSCRIBERS`.
+  - a central de ativacao agora tambem pode usar a tabela `installer_activation_service_token`:
+    - tela `admin.instalacao-tokens`;
+    - `token_hash` aceita `password_hash` ou SHA-256 hexadecimal;
+    - controla perfis, modos, validade e historico de uso.
+  - licencas podem limitar hosts por `metadata.maxHosts`, `metadata.allowedFingerprints` e `metadata.revokedFingerprints`; a central atualiza `metadata.fingerprints`.
+  - a reinstalacao exige politica de backup: backup validado, pular com justificativa ou ambiente descartavel/teste.
+  - artefatos do instalador podem ser assinados por `APP_INSTALLER_ARTIFACT_SIGNING_KEY` e validados no executavel por `CONSTRUTOR_INSTALLER_ARTIFACT_SIGNING_KEY`.
   - a stack Docker Linux fica em `Dockerfile`, `compose.yaml` e `docker/`:
     - `app` contem Nginx, PHP-FPM e Supervisor;
     - `database` usa PostgreSQL 16;
     - o worker fica inativo por padrao e exige `APP_WORKER_ENABLED=1`;
     - a instalacao nao roda no boot do container, apenas pela pagina `production/install.html` liberada pelo executavel.
+  - a stack separada de producao fica em `Dockerfile.runtime`, `compose.production.yaml`, `docker/nginx/production.conf` e `docker/php/entrypoint.sh`, com `nginx`, `php`, `worker` e `database`.
   - quando validar Docker local, se a porta `8080` estiver ocupada por outro servico, usar `APP_HTTP_PORT=18080`.
   - existe agora tambem a frente de atualizacao operacional:
   - manifesto inicial em `backend/config/system-updates/manifest.json`;

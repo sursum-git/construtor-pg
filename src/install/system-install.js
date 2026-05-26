@@ -16,6 +16,13 @@
     { value: "runtime", text: "Runtime comum" }
   ];
 
+  SystemInstallPage.BACKUP_POLICIES = [
+    { value: "", text: "Selecione quando for reinstalacao" },
+    { value: "validated", text: "Backup validado" },
+    { value: "skip_with_reason", text: "Pular backup com justificativa" },
+    { value: "discardable_test", text: "Ambiente descartavel/teste" }
+  ];
+
   SystemInstallPage.prototype.init = function() {
     this.root = global.jQuery(this.rootSelector);
     this.root.empty().addClass("system-install-root");
@@ -52,6 +59,8 @@
     const card = this.createCard(this.leftColumn, "Senha do instalador");
     this.installerPasswordInput = this.createTextField(card.body, "Senha do instalador", "password");
     this.reinstallConfirmedCheckbox = this.createCheckboxField(card.body, "Confirmo que desejo reinstalar quando o sistema ja estiver instalado", false);
+    this.backupPolicySelect = this.createSelectField(card.body, "Politica de backup para reinstalacao", SystemInstallPage.BACKUP_POLICIES, "");
+    this.backupJustificationInput = this.createTextField(card.body, "Justificativa quando pular backup");
     this.statusPanel = global.jQuery("<div class=\"system-install-panel\"></div>").text("Status ainda nao carregado.").appendTo(card.body);
     const actions = global.jQuery("<div class=\"system-install-actions\"></div>").appendTo(card.body);
     this.createButton(actions, "Atualizar status", "reload", this.loadStatus.bind(this));
@@ -227,6 +236,8 @@
     return {
       installerPassword: this.installerPasswordInput.value(),
       reinstallConfirmed: this.reinstallConfirmedCheckbox.is(":checked"),
+      backupPolicy: this.backupPolicySelect.value(),
+      backupJustification: this.backupJustificationInput.value(),
       databaseUrl: this.databaseUrlInput.value(),
       saveEnv: this.saveEnvCheckbox.is(":checked"),
       createDatabase: this.createDatabaseCheckbox.is(":checked"),

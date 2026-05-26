@@ -21,7 +21,8 @@ O perfil fica compilado no binario. O instalador de assinante nao oferece opcao 
 - pagina demo: `examples/pages/system-install.html`
 - API local: `GET /api/install/status`, `POST /api/install/precheck`, `POST /api/install/run`
 - central de ativacao inicial: `POST /api/installer/activation/request`, `POST /api/installer/activation/confirm`, `POST /api/installer/activation/service`, `GET /health`
-- Docker de producao Linux: `Dockerfile`, `compose.yaml`, `docker/nginx/default.conf`, `docker/supervisor/construtor-pg.conf`, `docker/entrypoint.sh`
+- Docker simples Linux: `Dockerfile`, `compose.yaml`, `docker/nginx/default.conf`, `docker/supervisor/construtor-pg.conf`, `docker/entrypoint.sh`
+- Docker producao separado: `Dockerfile.runtime`, `compose.production.yaml`, `docker/nginx/production.conf`, `docker/php/entrypoint.sh`
 
 ## Binarios
 
@@ -98,6 +99,8 @@ Campos principais:
 
 Quando a tabela existir, a central procura primeiro a licenca nesse cadastro. Se a tabela ainda nao existir ou nao houver cadastro correspondente, o fallback antigo por `APP_INSTALLER_ACTIVATION_SUBSCRIBERS` continua funcionando para ambientes em transicao.
 
+A licenca tambem aceita controles opcionais em `metadata`: `maxHosts`, `allowedFingerprints`, `revokedFingerprints` e `fingerprints` atualizado automaticamente pela central.
+
 A central bloqueia:
 
 - licenca inativa, suspensa ou revogada;
@@ -119,6 +122,10 @@ MAILER_DSN=null://null
 
 Com cadastro em banco, `APP_INSTALLER_ACTIVATION_SUBSCRIBERS` passa a ser apenas fallback operacional.
 
+## Tokens internos SaaS
+
+O fluxo Docker SaaS pode usar tokens cadastrados na tabela `installer_activation_service_token`, publicada em `production/app.html?screenId=admin.instalacao-tokens`. O campo `token_hash` aceita `password_hash` ou SHA-256 hexadecimal do token. A central valida status, validade, perfis, modos, `metadata.allowedSubscribers` e `metadata.revokedFingerprints`.
+
 Configuracao minima do ambiente local instalado:
 
 ```dotenv
@@ -126,6 +133,10 @@ APP_INSTALLATION_SESSION_REQUIRED=1
 APP_INSTALLATION_SESSION_SIGNING_KEY=mesma-chave-da-sessao
 APP_INSTALLATION_SESSION_FILE=/srv/app-state/install/activation-session.json
 ```
+
+## Assinatura de artefatos
+
+Quando a central tiver `APP_INSTALLER_ARTIFACT_SIGNING_KEY`, ela devolve assinaturas HMAC para manifesto, Compose e pacote. O executavel valida antes de baixar usando `CONSTRUTOR_INSTALLER_ARTIFACT_SIGNING_KEY` no host.
 
 Apos sucesso da instalacao, o backend grava em `.env.local`:
 
@@ -206,6 +217,19 @@ Stack atual:
 - volumes persistentes para banco, `.env.local`, estado de ativacao e arquivos compartilhados.
 
 O container nao instala o sistema automaticamente ao iniciar. A instalacao continua sendo feita pela pagina local liberada pelo executavel.
+
+Stack separada de producao:
+
+- `nginx`: publica HTML/CSS/JS e encaminha `/api/*`;
+- `php`: PHP-FPM da aplicacao;
+- `worker`: consumidor Messenger, ativado por `APP_WORKER_ENABLED=1`;
+- `database`: PostgreSQL 16.
+
+Uso:
+
+```bash
+docker compose -f compose.production.yaml up -d --build
+```
 
 Por padrao, o worker fica inativo ate o ambiente estar instalado. Para ativar o consumo da fila depois das migrations:
 
@@ -305,7 +329,10 @@ Reinstalar exige:
 1. nova ativacao pelo executavel;
 2. senha do instalador ja cadastrada;
 3. confirmacao explicita na tela;
-4. nova execucao controlada de `/api/install/run`.
+4. politica de backup: backup validado, pular com justificativa ou ambiente descartavel/teste;
+5. nova execucao controlada de `/api/install/run`.
+
+Em banco marcado como `prod`, a opcao de ambiente descartavel/teste e bloqueada.
 
 O objetivo e evitar que alguem reinstale o ambiente apenas alterando arquivos locais.
 

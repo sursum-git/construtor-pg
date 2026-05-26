@@ -36,7 +36,9 @@ A pagina `production/install.html` nao recebe token livre do usuario. Ela consul
 
 A API local so executa `/api/install/run` quando `InstallationActivationService` valida a sessao local criada pelo executavel. Depois do sucesso, o backend grava `APP_SYSTEM_INSTALLED=1` e o hash da senha do instalador em `.env.local`.
 
-No Docker Linux, a stack tem `app` e `database`, mas o boot do container nao instala o sistema automaticamente. A execucao das migrations, seed, catalogo padrao e integridade continua no fluxo controlado da pagina.
+No Docker Linux, a stack simples tem `app` e `database`. Para producao operacional, `compose.production.yaml` separa `nginx`, `php`, `worker` e `database`. O boot do container nao instala o sistema automaticamente. A execucao das migrations, seed, catalogo padrao e integridade continua no fluxo controlado da pagina.
+
+A central de ativacao tambem valida fingerprints, limite de hosts, fingerprints revogados, tokens internos cadastraveis para SaaS e assinatura HMAC dos artefatos antes do download pelo executavel.
 
 ## Notificacoes runtime
 

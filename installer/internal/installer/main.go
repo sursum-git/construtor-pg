@@ -45,16 +45,18 @@ type checkItem struct {
 }
 
 type activationSession struct {
-	Profile         string `json:"profile"`
-	SubscriberCode  string `json:"subscriberCode"`
-	Mode            string `json:"mode"`
-	SessionID       string `json:"sessionId"`
-	IssuedAt        string `json:"issuedAt"`
-	ExpiresAt       string `json:"expiresAt"`
-	ActivationProof string `json:"activationProof"`
-	ManifestURL     string `json:"manifestUrl,omitempty"`
-	ComposeURL      string `json:"dockerComposeUrl,omitempty"`
-	PackageURL      string `json:"packageUrl,omitempty"`
+	Profile                    string            `json:"profile"`
+	SubscriberCode             string            `json:"subscriberCode"`
+	Mode                       string            `json:"mode"`
+	SessionID                  string            `json:"sessionId"`
+	IssuedAt                   string            `json:"issuedAt"`
+	ExpiresAt                  string            `json:"expiresAt"`
+	ActivationProof            string            `json:"activationProof"`
+	ManifestURL                string            `json:"manifestUrl,omitempty"`
+	ComposeURL                 string            `json:"dockerComposeUrl,omitempty"`
+	PackageURL                 string            `json:"packageUrl,omitempty"`
+	ArtifactSignatureAlgorithm string            `json:"artifactSignatureAlgorithm,omitempty"`
+	ArtifactSignatures         map[string]string `json:"artifactSignatures,omitempty"`
 }
 
 func Run(profile string) {
@@ -266,12 +268,26 @@ func writeSession(opts options, session activationSession) error {
 }
 
 func prepareArtifacts(opts options, session activationSession) error {
+	if session.ManifestURL != "" {
+		if err := verifyArtifactSignature(session, "manifestUrl", session.ManifestURL); err != nil {
+			return err
+		}
+		if err := downloadFile(session.ManifestURL, filepath.Join(opts.installRootAbs(), "installer-manifest.json")); err != nil {
+			return err
+		}
+	}
 	if session.ComposeURL != "" {
+		if err := verifyArtifactSignature(session, "dockerComposeUrl", session.ComposeURL); err != nil {
+			return err
+		}
 		if err := downloadFile(session.ComposeURL, filepath.Join(opts.installRootAbs(), "compose.installer.yaml")); err != nil {
 			return err
 		}
 	}
 	if session.PackageURL != "" {
+		if err := verifyArtifactSignature(session, "packageUrl", session.PackageURL); err != nil {
+			return err
+		}
 		if err := downloadFile(session.PackageURL, filepath.Join(opts.installRootAbs(), "construtor-pg-package.zip")); err != nil {
 			return err
 		}
@@ -286,6 +302,48 @@ func prepareArtifacts(opts options, session activationSession) error {
 		command.Stdout = os.Stdout
 		command.Stderr = os.Stderr
 		return command.Run()
+	}
+	return nil
+}
+
+func verifyArtifactSignature(session activationSession, name string, url string) error {
+	if session.ArtifactSignatureAlgorithm == "" || session.ArtifactSignatureAlgorithm == "none" {
+		return nil
+	}
+	if session.ArtifactSignatureAlgorithm != "hmac-sha256" {
+		return fmt.Errorf("algoritmo de assinatura de artefato nao suportado: %s", session.ArtifactSignatureAlgorithm)
+	}
+	key := env("CONSTRUTOR_INSTALLER_ARTIFACT_SIGNING_KEY", "")
+	if key == "" {
+		return fmt.Errorf("assinatura de artefato recebida, mas CONSTRUTOR_INSTALLER_ARTIFACT_SIGNING_KEY nao foi configurada")
+	}
+	expected := session.ArtifactSignatures[name]
+	if expected == "" {
+		return fmt.Errorf("assinatura ausente para artefato %s", name)
+	}
+	payload := struct {
+		Name           string `json:"name"`
+		URL            string `json:"url"`
+		Profile        string `json:"profile"`
+		SubscriberCode string `json:"subscriberCode"`
+		Mode           string `json:"mode"`
+		SessionID      string `json:"sessionId"`
+		ExpiresAt      string `json:"expiresAt"`
+	}{
+		Name:           name,
+		URL:            url,
+		Profile:        session.Profile,
+		SubscriberCode: session.SubscriberCode,
+		Mode:           session.Mode,
+		SessionID:      session.SessionID,
+		ExpiresAt:      session.ExpiresAt,
+	}
+	encoded, _ := json.Marshal(payload)
+	mac := hmac.New(sha256.New, []byte(key))
+	mac.Write(encoded)
+	actual := fmt.Sprintf("%x", mac.Sum(nil))
+	if !hmac.Equal([]byte(actual), []byte(expected)) {
+		return fmt.Errorf("assinatura invalida para artefato %s", name)
 	}
 	return nil
 }

@@ -77,6 +77,12 @@ class SystemInstallService
         if ($state['systemInstalled'] && !$normalized['reinstallConfirmed']) {
             $blocking[] = $this->issue('reinstall_confirmation', 'O sistema ja foi instalado. Confirme explicitamente que deseja reinstalar.');
         }
+        if ($state['systemInstalled']) {
+            $backupIssue = $this->validateBackupPolicy($normalized);
+            if ($backupIssue !== null) {
+                $blocking[] = $backupIssue;
+            }
+        }
         if (!$state['canRun'] && $state['installerPasswordAccepted']) {
             $blocking[] = $this->issue('installer_locked', $state['lockReason'] ?: 'Instalador bloqueado.');
         }
@@ -109,6 +115,7 @@ class SystemInstallService
             $this->check('activation', 'Ativacao pelo instalador compilado', $this->activation->status()['valid'] ? 'ok' : 'error', (string) $this->activation->status()['message']),
             $this->check('installer_password', 'Senha do instalador', !$state['requiresInstallerPassword'] || $state['installerPasswordAccepted'] ? 'ok' : 'error', $state['installerPasswordMessage']),
             $this->check('reinstall_confirmation', 'Confirmacao de reinstalacao', !$state['systemInstalled'] || $normalized['reinstallConfirmed'] ? 'ok' : 'error', $state['systemInstalled'] ? 'Confirme a reinstalacao antes de executar.' : 'Nao se aplica a primeira instalacao.'),
+            $this->check('reinstall_backup', 'Backup antes da reinstalacao', !$state['systemInstalled'] || $this->validateBackupPolicy($normalized) === null ? 'ok' : 'error', $state['systemInstalled'] ? $this->backupPolicyMessage($normalized) : 'Nao se aplica a primeira instalacao.'),
             $this->check('database', 'Banco configurado', $normalized['databaseUrl'] !== '' || $state['databaseAvailable'] ? 'ok' : 'warning', $normalized['databaseUrl'] !== '' ? 'DATABASE_URL informado para a execucao.' : 'Usando configuracao atual do backend.'),
             $this->check('subscriber', 'Assinante principal', $normalized['subscriberCode'] !== '' && $normalized['subscriberName'] !== '' ? 'ok' : 'error', 'Sera criado ou atualizado pelo comando app:subscriber:create.'),
             $this->check('admin', 'Administrador inicial', $normalized['adminUsername'] !== '' && $passwordPolicy['status'] === 'ok' ? 'ok' : 'error', $passwordPolicy['message']),
@@ -257,6 +264,8 @@ class SystemInstallService
         $normalized = [
             'installerPassword' => (string) ($payload['installerPassword'] ?? $payload['installToken'] ?? ''),
             'reinstallConfirmed' => $this->bool($payload['reinstallConfirmed'] ?? false),
+            'backupPolicy' => $this->text($payload['backupPolicy'] ?? ''),
+            'backupJustification' => $this->text($payload['backupJustification'] ?? ''),
             'databaseUrl' => $this->text($payload['databaseUrl'] ?? ''),
             'saveEnv' => $this->bool($payload['saveEnv'] ?? false),
             'createDatabase' => $this->bool($payload['createDatabase'] ?? true),
@@ -563,6 +572,39 @@ class SystemInstallService
             'status' => 'ok',
             'message' => 'Senha do instalador definida para proteger reinstalacoes futuras.',
         ];
+    }
+
+    private function validateBackupPolicy(array $payload): ?array
+    {
+        $policy = (string) ($payload['backupPolicy'] ?? '');
+        if (!in_array($policy, ['validated', 'skip_with_reason', 'discardable_test'], true)) {
+            return $this->issue('reinstall_backup_policy', 'Escolha a politica de backup antes de reinstalar.');
+        }
+        if ($policy === 'skip_with_reason' && mb_strlen((string) ($payload['backupJustification'] ?? '')) < 20) {
+            return $this->issue('reinstall_backup_justification', 'Informe uma justificativa com pelo menos 20 caracteres para pular o backup.');
+        }
+        if ($policy === 'discardable_test') {
+            $environment = strtolower((string) ($payload['databaseEnvironment'] ?? 'prod'));
+            if (!in_array($environment, ['dev', 'test', 'homolog', 'sandbox'], true)) {
+                return $this->issue('reinstall_backup_discardable_prod', 'Ambiente descartavel/teste nao pode ser usado com banco marcado como producao.');
+            }
+        }
+
+        return null;
+    }
+
+    private function backupPolicyMessage(array $payload): string
+    {
+        $issue = $this->validateBackupPolicy($payload);
+        if ($issue !== null) {
+            return (string) $issue['message'];
+        }
+        return match ((string) ($payload['backupPolicy'] ?? '')) {
+            'validated' => 'Backup validado antes da reinstalacao.',
+            'skip_with_reason' => 'Backup pulado com justificativa registrada.',
+            'discardable_test' => 'Ambiente descartavel/teste confirmado.',
+            default => 'Politica de backup informada.',
+        };
     }
 
     private function verifyInstallerPassword(string $password, string $configuredHash, string $plainConfiguredPassword): bool
