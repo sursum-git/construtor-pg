@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Operacoes da central (demo local)</title>
+  <link rel="stylesheet" href="../../kendo/styles/default-urban.css">
+  <link rel="stylesheet" href="../../src/styles/crud-engine.css">
+  <link rel="stylesheet" href="../../src/styles/program-builder.css">
+  <style>
+    .central-operations-notes {
+      margin: 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--crud-border);
+      border-radius: 6px;
+      background: var(--crud-readonly-bg);
+      color: var(--crud-text);
+    }
+    .central-operations-notes h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      color: var(--crud-title);
+    }
+    .central-operations-notes ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+  </style>
+</head>
+<body>
+  <section class="central-operations-notes" aria-label="Observacoes operacionais">
+    <h2>Observacoes operacionais</h2>
+    <ul>
+      <li>Esta pagina local usa dados em memoria para validar a UI da central.</li>
+      <li>No sistema real, a tela roda apenas no SaaS central por <code>screenId=admin.central-operacoes</code>.</li>
+      <li>Os segredos reais nunca aparecem na UI; a tela mostra apenas status e tamanho das chaves.</li>
+    </ul>
+  </section>
+  <main id="central-operations-admin-root" class="program-builder-root"></main>
+
+  <script src="../../vendor/jquery/jquery-4.0.0.min.js"></script>
+  <script src="../../kendo/js/kendo.all.min.js"></script>
+  <script src="../../kendo/kendo-license.js"></script>
+  <script src="../../kendo/js/cultures/kendo.culture.pt-BR.min.js"></script>
+  <script src="../../kendo/js/messages/kendo.messages.pt-BR.min.js"></script>
+  <script src="../../src/bootstrap/kendo-ptbr.js"></script>
+  <script src="../../src/crud-engine/CrudUtils.js"></script>
+  <script src="../../src/central-operations/central-operations-admin.js"></script>
+  <script src="../../src/demo/central-operations-demo.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      new window.CentralOperationsAdmin({
+        root: "#central-operations-admin-root",
+        httpClient: new window.CentralOperationsDemoHttpClient()
+      }).init();
+    });
+  </script>
+</body>
+</html>

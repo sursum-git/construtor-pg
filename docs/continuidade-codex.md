@@ -75,6 +75,8 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `token_hash` aceita `password_hash` ou SHA-256 hexadecimal;
     - controla perfis, modos, validade e historico de uso.
   - licencas podem limitar hosts por `metadata.maxHosts`, `metadata.allowedFingerprints` e `metadata.revokedFingerprints`; a central atualiza `metadata.fingerprints`.
+  - existe tambem a tela `admin.central-operacoes`, publicada apenas no sistema central, para consolidar painel operacional, auditoria, revogacao, tentativas/bloqueio, chaves, artefatos, saude dos assinantes e notificacoes derivadas.
+  - a confirmacao por e-mail da ativacao bloqueia tentativas repetidas por requisicao com `APP_INSTALLER_ACTIVATION_MAX_ATTEMPTS` e `APP_INSTALLER_ACTIVATION_BLOCK_MINUTES`.
   - a reinstalacao exige politica de backup: backup validado, pular com justificativa ou ambiente descartavel/teste.
   - artefatos do instalador podem ser assinados por `APP_INSTALLER_ARTIFACT_SIGNING_KEY` e validados no executavel por `CONSTRUTOR_INSTALLER_ARTIFACT_SIGNING_KEY`.
   - a stack Docker Linux fica em `Dockerfile`, `compose.yaml` e `docker/`:
@@ -124,7 +126,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
     - `scripts/update-onprem.sh`
     - `scripts/update-onprem.ps1`
   - o sistema central SaaS agora e identificado por `APP_SYSTEM_ROLE=saas_central` ou `APP_CENTRAL_CONTROL_ENABLED=1`;
-  - `admin.assinante-ambientes`, `admin.atualizacoes` e `admin.atualizacoes-assinantes` devem ficar apenas nesse sistema central;
+  - `admin.assinante-ambientes`, `admin.atualizacoes`, `admin.atualizacoes-assinantes` e `admin.central-operacoes` devem ficar apenas nesse sistema central;
   - existe a consulta focada:
     - `production/app.html?screenId=admin.atualizacoes-assinantes`
     - pagina local: `examples/pages/admin-system-update-subscriber-log.html`

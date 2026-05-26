@@ -119,6 +119,22 @@ Tokens internos SaaS:
 - `token_hash` aceita `password_hash` ou SHA-256 hexadecimal;
 - controla perfis, modos, validade, assinantes permitidos e historico de uso.
 
+Operacoes da central:
+
+- tela: `production/app.html?screenId=admin.central-operacoes`;
+- pagina direta: [C:\construtor-pg\production\admin\central-operations.html](C:/construtor-pg/production/admin/central-operations.html);
+- API: `GET /api/admin/central-operations/dashboard`;
+- acoes:
+  - `POST /api/admin/central-operations/license-action`;
+  - `POST /api/admin/central-operations/token-action`;
+- cobre painel operacional, auditoria, revogacao, tentativas/bloqueio, chaves, artefatos, saude dos assinantes e notificacoes derivadas.
+
+Tentativas da confirmacao por e-mail:
+
+- `APP_INSTALLER_ACTIVATION_MAX_ATTEMPTS=5`;
+- `APP_INSTALLER_ACTIVATION_BLOCK_MINUTES=30`;
+- ao atingir o limite, a central bloqueia a requisicao e retorna `INSTALLER_ACTIVATION_BLOCKED`.
+
 Scripts operacionais:
 
 - [C:\construtor-pg\scripts\installer\generate-service-token.php](C:/construtor-pg/scripts/installer/generate-service-token.php)

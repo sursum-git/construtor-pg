@@ -343,6 +343,14 @@
       page: pagePath + "admin-system-update-subscriber-log.html"
     },
     {
+      id: "admin-central-operations",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Operacoes da central",
+      summary: "Tela administrativa central para painel operacional, auditoria, revogacao, chaves, artefatos, saude dos assinantes e notificacoes derivadas.",
+      page: pagePath + "admin-central-operations.html"
+    },
+    {
       id: "programa-ajuda-logs",
       category: "Programa",
       title: "Cabecalho com ajuda e logs",

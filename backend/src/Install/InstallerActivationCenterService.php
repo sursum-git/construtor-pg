@@ -42,6 +42,8 @@ class InstallerActivationCenterService
         $request = [
             'requestId' => $requestId,
             'codeHash' => password_hash($code, PASSWORD_DEFAULT),
+            'attemptCount' => 0,
+            'blockedUntil' => null,
             'profile' => $profile,
             'subscriberCode' => $subscriberCode,
             'mode' => $mode,
@@ -85,8 +87,35 @@ class InstallerActivationCenterService
         if ($expiresAt <= new \DateTimeImmutable()) {
             throw new RuntimeHttpException('INSTALLER_ACTIVATION_EXPIRED', 'Codigo de ativacao expirado.', 422);
         }
+        $blockedUntil = $this->text($request['blockedUntil'] ?? '');
+        if ($blockedUntil !== '') {
+            $blockedDate = new \DateTimeImmutable($blockedUntil);
+            if ($blockedDate > new \DateTimeImmutable()) {
+                throw new RuntimeHttpException('INSTALLER_ACTIVATION_BLOCKED', 'Muitas tentativas invalidas. Solicite novo codigo depois do bloqueio temporario.', 429, [
+                    'blockedUntil' => $blockedDate->format(DATE_ATOM),
+                ]);
+            }
+        }
         if (!password_verify($code, (string) $request['codeHash'])) {
-            throw new RuntimeHttpException('INSTALLER_ACTIVATION_CODE_INVALID', 'Codigo de ativacao invalido.', 422);
+            $attemptCount = (int) ($request['attemptCount'] ?? 0) + 1;
+            $maxAttempts = max(1, (int) ($this->readEnv('APP_INSTALLER_ACTIVATION_MAX_ATTEMPTS') ?: 5));
+            $request['attemptCount'] = $attemptCount;
+            $request['lastInvalidAttemptAt'] = (new \DateTimeImmutable())->format(DATE_ATOM);
+            if ($attemptCount >= $maxAttempts) {
+                $blockedDate = (new \DateTimeImmutable())->modify('+' . max(1, (int) ($this->readEnv('APP_INSTALLER_ACTIVATION_BLOCK_MINUTES') ?: 30)) . ' minutes');
+                $request['blockedUntil'] = $blockedDate->format(DATE_ATOM);
+                $this->writeRequest($requestId, $request);
+                throw new RuntimeHttpException('INSTALLER_ACTIVATION_BLOCKED', 'Muitas tentativas invalidas. Solicite novo codigo depois do bloqueio temporario.', 429, [
+                    'blockedUntil' => $request['blockedUntil'],
+                    'attemptCount' => $attemptCount,
+                    'maxAttempts' => $maxAttempts,
+                ]);
+            }
+            $this->writeRequest($requestId, $request);
+            throw new RuntimeHttpException('INSTALLER_ACTIVATION_CODE_INVALID', 'Codigo de ativacao invalido.', 422, [
+                'attemptCount' => $attemptCount,
+                'maxAttempts' => $maxAttempts,
+            ]);
         }
 
         return $this->issueSession($request);

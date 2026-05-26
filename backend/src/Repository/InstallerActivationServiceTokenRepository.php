@@ -25,4 +25,14 @@ class InstallerActivationServiceTokenRepository extends ServiceEntityRepository
             ->getQuery()
             ->getResult();
     }
+
+    public function findOneByCode(string $code): ?InstallerActivationServiceToken
+    {
+        return $this->createQueryBuilder('t')
+            ->andWhere('t.code = :code')
+            ->setParameter('code', trim($code))
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 }

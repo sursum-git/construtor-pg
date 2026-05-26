@@ -133,6 +133,34 @@ Para gerar token e hash:
 php scripts\installer\generate-service-token.php
 ```
 
+## Operacoes da central
+
+A central tambem possui uma tela consolidada:
+
+- `production/app.html?screenId=admin.central-operacoes`
+- pagina direta: `production/admin/central-operations.html`
+- API: `GET /api/admin/central-operations/dashboard`
+
+Ela cobre os 8 controles operacionais principais:
+
+- painel operacional da central;
+- auditoria de ativacoes, usos de tokens e acoes administrativas;
+- revogacao/suspensao/reativacao de licencas, tokens e fingerprints;
+- politica de tentativas e bloqueio temporario do codigo de e-mail;
+- gestao de chaves por status, sem exibir segredo bruto;
+- artefatos de instalacao e atualizacao;
+- saude dos assinantes com versao aplicada, ultima ativacao e ultimo update;
+- notificacoes derivadas para pendencias e riscos.
+
+A confirmacao por e-mail agora bloqueia tentativas repetidas por requisicao. Variaveis:
+
+```dotenv
+APP_INSTALLER_ACTIVATION_MAX_ATTEMPTS=5
+APP_INSTALLER_ACTIVATION_BLOCK_MINUTES=30
+```
+
+Ao atingir o limite, `POST /api/installer/activation/confirm` retorna `INSTALLER_ACTIVATION_BLOCKED` com `blockedUntil`.
+
 Configuracao minima do ambiente local instalado:
 
 ```dotenv

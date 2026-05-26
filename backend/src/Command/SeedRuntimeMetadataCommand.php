@@ -380,6 +380,22 @@ class SeedRuntimeMetadataCommand extends Command
                 'frameTitle' => 'Atualizacoes por assinante',
             ],
         ];
+        $centralOperationsAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.central-operacoes',
+            'program' => [
+                'id' => 'admin-central-operacoes',
+                'title' => 'Operacoes da central',
+                'subtitle' => 'Painel operacional de licencas, tokens, artefatos, chaves e saude dos assinantes',
+                'version' => '1.0.0',
+                'screenId' => 'admin.central-operacoes',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/central-operations.html',
+                'frameTitle' => 'Operacoes da central',
+            ],
+        ];
 
         $clientesDefinition['screenId'] = 'cadastros.clientes';
         $clientesDefinition['program']['screenId'] = 'cadastros.clientes';
@@ -408,6 +424,7 @@ class SeedRuntimeMetadataCommand extends Command
             $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-assinante-ambientes', 'Provisionamento de assinantes', 'Criacao do assinante, SaaS e pacote on-premise', 'admin.assinante-ambientes');
             $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-atualizacoes', 'Atualizacoes do sistema', 'Releases, anuencia e aplicacao de atualizacoes', 'admin.atualizacoes');
             $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-atualizacoes-assinantes', 'Atualizacoes por assinante', 'Consulta central do historico aplicado em cada assinante', 'admin.atualizacoes-assinantes');
+            $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-central-operacoes', 'Operacoes da central', 'Licencas, tokens, artefatos, chaves e saude dos assinantes', 'admin.central-operacoes');
         }
 
         foreach (($homeDefinition['programs'] ?? []) as $index => $program) {
@@ -432,6 +449,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertProgram('admin-assinante-ambientes', 'Provisionamento de assinantes', 'administracao', 'custom', 'admin.assinante-ambientes');
         $this->upsertProgram('admin-atualizacoes', 'Atualizacoes do sistema', 'administracao', 'custom', 'admin.atualizacoes');
         $this->upsertProgram('admin-atualizacoes-assinantes', 'Atualizacoes por assinante', 'administracao', 'custom', 'admin.atualizacoes-assinantes');
+        $this->upsertProgram('admin-central-operacoes', 'Operacoes da central', 'administracao', 'custom', 'admin.central-operacoes');
         $this->upsertProgram('processamento-clientes', 'Processamento de Clientes', 'operacional', 'process', 'processamento.relatorio-clientes');
         $this->upsertProgram('home', 'Home', 'global', 'home', 'home');
         foreach ($adminScreens as $screen) {
@@ -457,6 +475,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertScreen('admin.assinante-ambientes', 'custom', $subscriberProvisioningAdminDefinition);
         $this->upsertScreen('admin.atualizacoes', 'custom', $systemUpdatesAdminDefinition);
         $this->upsertScreen('admin.atualizacoes-assinantes', 'custom', $systemUpdateSubscriberLogAdminDefinition);
+        $this->upsertScreen('admin.central-operacoes', 'custom', $centralOperationsAdminDefinition);
         $this->upsertScreen('processamento.relatorio-clientes', 'process', $processDefinition);
         $this->upsertScreen('assistente.codificacao.produto-pdm', 'process', $customCodePdmDefinition);
         foreach ($adminScreens as $screen) {
