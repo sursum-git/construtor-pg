@@ -1,0 +1,11 @@
+.git
+node_modules
+tmp
+outputs
+playwright-report
+test-results
+backend/var/cache
+backend/var/log
+backend/vendor
+backend/.env.local
+installer/dist

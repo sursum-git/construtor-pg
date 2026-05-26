@@ -237,6 +237,52 @@
       "use strict";
 
       const manuals = {
+        "roteiro-analista-funcional": {
+          title: "Roteiro do analista funcional",
+          module: "Documentacao",
+          type: "Guia operacional",
+          route: "../../docs/roteiro-validacao-funcional-analista.md",
+          screenId: "",
+          summary: "Trilha guiada para um analista funcional validar o sistema partindo do zero, comecando no login, passando pela Home, pela area administrativa e chegando ate a criacao e publicacao de um programa novo.",
+          functional: {
+            objective: "Orientar uma validacao de ponta a ponta para quem ainda nao conhece o produto.",
+            scope: [
+              "Login, sessao, selecao de assinante e escolha de area.",
+              "Home, navegacao e contexto operacional.",
+              "CRUDs, processos e programas administrativos.",
+              "Program Builder, governanca, integracoes, provisionamento e atualizacoes."
+            ],
+            outputs: [
+              "Roteiro completo de validacao funcional.",
+              "Sequencia recomendada para evitar lacunas na homologacao.",
+              "Lista de evidencias esperadas por trilha."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Usuario administrativo disponivel.",
+              "Metadados runtime publicados.",
+              "Worker ativo quando a trilha depender de fila."
+            ],
+            steps: [
+              "Comecar pelo login e validar autenticacao, selecao de assinante e escolha de area.",
+              "Entrar na Home e validar navegacao, favoritos, notificacoes e jobs.",
+              "Abrir a area administrativa e seguir para o Program Builder.",
+              "Criar modulo, entidade, programa, preview e publicacao.",
+              "Depois percorrer as trilhas de CRUD, processos, governanca, integracoes, provisionamento e atualizacoes."
+            ],
+            cautions: [
+              "O roteiro completo esta no documento Markdown para consulta fora da interface.",
+              "Sempre registrar qual `screenId`, usuario e assinante foram usados em cada trilha.",
+              "Quando houver falha, separar defeito funcional de problema de ambiente ou permissao."
+            ]
+          },
+          references: {
+            permissions: ["admin.read"],
+            relatedPrograms: ["Login", "Home", "Program Builder", "Governanca de programas", "Provisionamento de assinantes", "Atualizacoes do sistema"],
+            notes: ["Documento: ../../docs/roteiro-validacao-funcional-analista.md", "Use este item como primeira leitura antes de percorrer os demais programas do manual."]
+          }
+        },
         "login": {
           title: "Login",
           module: "Acesso",
@@ -1762,6 +1808,7 @@
       };
 
       const treeData = [
+        { text: "Roteiro inicial", expanded: true, items: [{ id: "roteiro-analista-funcional", text: "Roteiro do analista funcional" }] },
         { text: "Acesso e navegacao", expanded: true, items: [{ id: "login", text: "Login" }, { id: "home", text: "Home" }] },
         { text: "Operacional", expanded: true, items: [{ id: "clientes", text: "Cadastro de clientes" }, { id: "processamento-clientes", text: "Processamento de clientes" }, { id: "jobs", text: "Meus Jobs / Jobs" }] },
         { text: "Administracao", expanded: true, items: [

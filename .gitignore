@@ -5,5 +5,6 @@ test-results/
 **/obj/
 tmp/
 outputs/
+installer/dist/
 scripts/orchestrator/system-update-orchestrator.config.json
 var/orchestrator-update/

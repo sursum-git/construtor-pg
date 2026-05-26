@@ -319,6 +319,14 @@
       page: pagePath + "admin-subscriber-provisioning.html"
     },
     {
+      id: "system-install",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Instalacao inicial do sistema",
+      summary: "Assistente standalone para validar dados da primeira instalacao e executar migrations, seed, assinante principal, admin inicial, catalogo padrao e integridade.",
+      page: pagePath + "system-install.html"
+    },
+    {
       id: "admin-system-updates",
       engine: "program-builder",
       category: "Administracao",

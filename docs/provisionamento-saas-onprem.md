@@ -10,6 +10,67 @@ Comandos novos no backend:
 - `php backend/bin/console app:subscriber:create`
 - `php backend/bin/console app:runtime:publish-defaults`
 
+Instalador inicial via navegador:
+
+- pagina de producao: [C:\construtor-pg\production\install.html](C:/construtor-pg/production/install.html)
+- API: `GET /api/install/status`, `POST /api/install/precheck` e `POST /api/install/run`
+- pagina local de demonstracao: [C:\construtor-pg\examples\pages\system-install.html](C:/construtor-pg/examples/pages/system-install.html)
+- antes de executar a pagina real, rode o instalador compilado do perfil correto:
+  - `construtor-builder-installer-*` para Construtor de Sistemas;
+  - `construtor-subscriber-installer-*` para Assinante.
+- o instalador compilado valida o codigo do assinante na central, confirma o codigo enviado ao e-mail cadastrado e grava a sessao local em `backend/var/install/activation-session.json`.
+- a API `/api/install/run` recusa instalacao sem sessao de ativacao valida.
+- o instalador executa somente comandos fechados, sem comando livre vindo da tela.
+- na primeira instalacao, a senha do instalador informada na tela e salva como hash em `APP_INSTALLER_PASSWORD_HASH`.
+- depois do sucesso, a API grava `APP_SYSTEM_INSTALLED=1` em `backend/.env.local`.
+- para reinstalar, a tela exige a senha do instalador e uma confirmacao explicita de reinstalacao.
+- para reinstalar tambem e obrigatorio executar nova ativacao pelo instalador compilado.
+- quando a opcao de salvar configuracao estiver marcada, a API atualiza tambem as demais chaves permitidas em `backend/.env.local`.
+- depois de salvar `.env.local`, reinicie o processo web para que o backend passe a usar as novas variaveis.
+
+Variaveis da ativacao local:
+
+- `APP_INSTALLATION_SESSION_REQUIRED=1`
+- `APP_INSTALLATION_SESSION_SIGNING_KEY=<chave compartilhada com a central>`
+- `APP_INSTALLATION_SESSION_FILE=<arquivo da sessao criada pelo executavel>`
+- depois do sucesso, o backend grava:
+  - `APP_INSTALLATION_TYPE`
+  - `APP_ACTIVATION_SUBSCRIBER_CODE`
+  - `APP_ACTIVATION_PROOF_HASH`
+
+Executaveis de instalacao:
+
+- fonte: `installer/`
+- tecnologia: Go
+- binarios previstos:
+  - `construtor-builder-installer-linux`
+  - `construtor-subscriber-installer-linux`
+  - `construtor-builder-installer.exe`
+  - `construtor-subscriber-installer.exe`
+- Windows e apenas para teste sem Docker.
+- Linux cobre Docker on-premise, nativo on-premise e Docker SaaS por token interno.
+- modo de precheck:
+
+```bash
+./construtor-subscriber-installer-linux --precheck --mode=docker --subscriber-code=cliente-x --activation-url=https://central.exemplo
+```
+
+Contrato HTTP esperado da central:
+
+- `POST /api/installer/activation/request`
+- `POST /api/installer/activation/confirm`
+- `POST /api/installer/activation/service`
+- `GET /health`
+
+O proprio backend entrega uma primeira central de ativacao por esses endpoints. Configuracao minima:
+
+- `APP_INSTALLER_ACTIVATION_SUBSCRIBERS='{"cliente-x":{"email":"responsavel@cliente.com"}}'`
+- `APP_INSTALLER_ACTIVATION_SIGNING_KEY=<chave-para-assinar-sessoes>`
+- `APP_INSTALLER_ACTIVATION_FROM=no-reply@seudominio.com`
+- `APP_INSTALLER_ACTIVATION_SERVICE_TOKEN=<token-interno-saas>`
+
+A resposta final da central deve devolver `activationProof`, `profile`, `subscriberCode`, `mode`, `sessionId`, `issuedAt` e `expiresAt`; opcionalmente `manifestUrl`, `dockerComposeUrl` e `packageUrl`.
+
 Scripts operacionais:
 
 - [C:\construtor-pg\scripts\install-onprem.ps1](C:/construtor-pg/scripts/install-onprem.ps1)
@@ -201,8 +262,12 @@ O script:
 
 O cenario on-premise agora pode ser atendido de duas formas:
 
-1. execucao direta do script de instalacao no repositorio;
-2. download do pacote zip pela tela administrativa.
+1. instalador compilado com Docker;
+2. instalador compilado sem Docker;
+3. execucao direta do script de instalacao no repositorio, apenas para ambiente controlado;
+4. download do pacote zip pela tela administrativa.
+
+Para producao on-premise nova, prefira o instalador compilado. A pagina `production/install.html` continua responsavel pelas etapas finais, mas so fica liberada depois da sessao local de ativacao.
 
 O pacote zip e gerado por:
 

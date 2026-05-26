@@ -1,0 +1,175 @@
+.system-install-root {
+  min-height: 100vh;
+  background: var(--crud-page-bg, #f4f7fb);
+  color: var(--crud-text, #1f2937);
+}
+
+.system-install-shell {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 18px;
+}
+
+.system-install-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--crud-border, #d7dee8);
+  border-radius: 6px;
+  background: var(--crud-surface, #fff);
+}
+
+.system-install-header h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  color: var(--crud-title, #1d4e89);
+}
+
+.system-install-header p {
+  margin: 0;
+  color: var(--crud-muted, #526173);
+}
+
+.system-install-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.system-install-stack {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.system-install-card {
+  border: 1px solid var(--crud-border, #d7dee8);
+  border-radius: 6px;
+  background: var(--crud-surface, #fff);
+}
+
+.system-install-card h2 {
+  margin: 0;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--crud-border, #d7dee8);
+  font-size: 16px;
+  color: var(--crud-title, #1d4e89);
+}
+
+.system-install-card-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+}
+
+.system-install-field,
+.system-install-checkbox {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--crud-muted, #526173);
+}
+
+.system-install-field .k-input,
+.system-install-field .k-picker {
+  width: 100%;
+}
+
+.system-install-checkbox {
+  flex-direction: row;
+  align-items: center;
+  color: var(--crud-text, #1f2937);
+}
+
+.system-install-checkbox input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.system-install-panel,
+.system-install-output {
+  grid-column: 1 / -1;
+  min-height: 96px;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  border: 1px solid var(--crud-border, #d7dee8);
+  border-radius: 6px;
+  background: var(--crud-readonly-bg, #f7f9fc);
+  white-space: pre-wrap;
+  color: var(--crud-text, #1f2937);
+}
+
+.system-install-output {
+  min-height: 260px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+}
+
+.system-install-activation {
+  border-left: 4px solid #64748b;
+}
+
+.system-install-activation-ok {
+  border-left-color: #287d3c;
+}
+
+.system-install-activation-error {
+  border-left-color: #b91c1c;
+}
+
+.system-install-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.system-install-steps {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.system-install-steps li + li {
+  margin-top: 4px;
+}
+
+.system-install-notes {
+  margin: 16px auto 0;
+  max-width: 1440px;
+  padding: 12px 14px;
+  border: 1px solid var(--crud-border, #d7dee8);
+  border-radius: 6px;
+  background: var(--crud-readonly-bg, #f7f9fc);
+  color: var(--crud-text, #1f2937);
+}
+
+.system-install-notes h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  color: var(--crud-title, #1d4e89);
+}
+
+.system-install-notes ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+@media (max-width: 960px) {
+  .system-install-grid,
+  .system-install-card-body {
+    grid-template-columns: 1fr;
+  }
+
+  .system-install-header {
+    flex-direction: column;
+  }
+}

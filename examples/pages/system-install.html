@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Instalacao do sistema (demo local)</title>
+  <link rel="stylesheet" href="../../kendo/styles/default-urban.css">
+  <link rel="stylesheet" href="../../src/styles/crud-engine.css">
+  <link rel="stylesheet" href="../../src/styles/system-install.css">
+</head>
+<body>
+  <section class="system-install-notes" aria-label="Observacoes operacionais">
+    <h2>Observacoes operacionais</h2>
+    <ul>
+      <li>Esta pagina usa demo em memoria e nao executa banco, migrations ou escrita em <code>.env.local</code>.</li>
+      <li>A entrada real fica em <code>production/install.html</code> e chama <code>/api/install</code>.</li>
+      <li>O backend real executa apenas comandos conhecidos: <code>app:install:bootstrap</code>, <code>app:subscriber:create</code>, <code>app:runtime:publish-defaults</code> e <code>app:integrity:monitor</code>.</li>
+      <li>Na primeira instalacao, a senha do instalador informada na tela passa a proteger reinstalacoes futuras.</li>
+      <li>Depois do sucesso, o backend grava <code>APP_SYSTEM_INSTALLED=1</code> e <code>APP_INSTALLER_PASSWORD_HASH</code>.</li>
+      <li>Para reinstalar, a tela exige a senha do instalador e confirmacao explicita.</li>
+    </ul>
+  </section>
+  <main id="system-install-root"></main>
+
+  <script src="../../vendor/jquery/jquery-4.0.0.min.js"></script>
+  <script src="../../kendo/js/kendo.all.min.js"></script>
+  <script src="../../kendo/kendo-license.js"></script>
+  <script src="../../kendo/js/cultures/kendo.culture.pt-BR.min.js"></script>
+  <script src="../../kendo/js/messages/kendo.messages.pt-BR.min.js"></script>
+  <script src="../../src/bootstrap/kendo-ptbr.js"></script>
+  <script src="../../src/crud-engine/CrudUtils.js"></script>
+  <script src="../../src/install/system-install-demo.js"></script>
+  <script src="../../src/install/system-install.js"></script>
+  <script src="../../src/install/system-install.boot.js"></script>
+</body>
+</html>
