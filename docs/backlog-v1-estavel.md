@@ -45,3 +45,26 @@ Registro para fechar a primeira versao estavel do motor CRUD dinamico.
 - Frontend renderiza dinamicamente.
 - Todas as chamadas de dados passam por uma camada runtime controlada pelo backend.
 - O JSON define experiencia visual, mas nao autoriza acesso a dados.
+
+## Roadmap: rollback e downgrade de atualizacoes
+
+Situacao atual:
+
+- Existe rollback formal de release quando o manifesto declara `rollbackStep`, `rollbackSteps[]` ou `rollbackTargetVersion`.
+- Existe historico por assinante em `system_update_execution`.
+- Nao existe downgrade livre para qualquer versao antiga.
+
+Evolucao planejada:
+
+- Definir politica central de rollback e downgrade por release.
+- Exigir matriz de compatibilidade entre versao atual, versoes de update e versoes permitidas para retorno.
+- Indicar na tela `admin.atualizacoes` se a release permite rollback seguro, rollback parcial ou rollback proibido.
+- Indicar na tela `admin.atualizacoes-assinantes` a versao atual do assinante, o historico aplicado e as acoes de retorno permitidas.
+- Bloquear rollback quando houver migracao de banco sem passo reversivel ou sem backup validado.
+- Permitir downgrade apenas quando a cadeia declarar explicitamente o alvo permitido e os passos reversiveis.
+- Criar testes cobrindo apply, historico por assinante, rollback permitido e rollback proibido.
+
+Decisao de produto:
+
+- Tratar rollback como operacao controlada de recuperacao.
+- Tratar downgrade livre como recurso futuro e restrito, nao como acao administrativa comum.
