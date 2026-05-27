@@ -844,5 +844,6 @@ Implementado ate agora, em nivel demo/frontend:
 - LDAP, SSO e OAuth/OIDC ja possuem provedores fechados, mas dependem de cadastro real em `auth_provider_config` e infraestrutura externa.
 - Envio real de e-mail depende de configurar `MAILER_DSN`; no ambiente atual o envio fica preparado/logado com `null://null`.
 - `subscriber.enabled` fica `false` por padrao. Para testar selecao de assinante, altere o valor vigente em `system_parameter_value` para `true` e depois volte para `false` se quiser manter o fluxo local direto.
+- `doctrine:schema:validate --skip-sync` e a validacao de mapping sao os checks confiaveis para codigo/migrations neste ambiente. O `doctrine:schema:validate` completo pode acusar schema local fora de sync porque o banco de desenvolvimento contem tabelas dinamicas/de teste criadas pelo construtor (`pedido_builder_v2`, `produto_builder`, `t3300` etc.) e diferencas de representacao PostgreSQL/Doctrine em identity, defaults, comentarios e nomes de indices. Isso nao indica, por si so, falha da ultima migration; para validar uma migration especifica, usar banco limpo ou revisar o `doctrine:schema:update --dump-sql` filtrando objetos dinamicos/locais.
 - Antes de uma versao estavel, revisar `docs/backlog-v1-estavel.md`.
 - O remote `origin` ja esta configurado e os pushes recentes foram concluidos em `origin/master`.
