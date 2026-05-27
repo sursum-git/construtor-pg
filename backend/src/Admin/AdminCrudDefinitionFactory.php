@@ -437,6 +437,58 @@ final class AdminCrudDefinitionFactory
                 editable: false,
                 defaultSort: [['field' => 'created_at', 'dir' => 'desc']],
             ),
+            self::screen(
+                'admin.eventos-runtime',
+                'admin-eventos-runtime',
+                'runtime_event',
+                'Eventos Runtime',
+                'Outbox dos eventos publicados pelo runtime e pelo construtor.',
+                self::runtimeEventFields(),
+                ['event_id', 'event_code', 'source', 'tenant_id', 'status', 'entity_code', 'record_id'],
+                ['id', 'event_id', 'event_code', 'source', 'status', 'entity_code', 'record_id', 'created_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'event_id', 'event_code', 'source', 'tenant_id', 'status']],
+                    ['id' => 'origem', 'title' => 'Origem', 'fields' => ['user_id', 'session_id', 'screen_id', 'program_code', 'entity_code', 'record_id', 'operation', 'transaction_id']],
+                    ['id' => 'dados', 'title' => 'Dados', 'fields' => ['payload', 'metadata']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['occurred_at', 'created_at', 'updated_at', 'processed_at']],
+                ],
+                editable: false,
+                defaultSort: [['field' => 'created_at', 'dir' => 'desc']],
+            ),
+            self::screen(
+                'admin.evento-assinaturas',
+                'admin-evento-assinaturas',
+                'runtime_event_subscription',
+                'Assinaturas de Eventos',
+                'Contratos declarativos do EventBus para executar handlers fechados.',
+                self::runtimeEventSubscriptionFields(),
+                ['code', 'event_code', 'tenant_id', 'handler_type', 'status'],
+                ['id', 'code', 'event_code', 'handler_type', 'enabled', 'priority', 'status', 'updated_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'code', 'tenant_id', 'event_code', 'title', 'enabled', 'status']],
+                    ['id' => 'handler', 'title' => 'Handler', 'fields' => ['handler_type', 'condition', 'handler_config', 'max_attempts', 'priority', 'idempotency_key_template']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['created_at', 'updated_at']],
+                ],
+                editable: true,
+                defaultSort: [['field' => 'priority', 'dir' => 'asc']],
+            ),
+            self::screen(
+                'admin.evento-entregas',
+                'admin-evento-entregas',
+                'runtime_event_delivery',
+                'Entregas de Eventos',
+                'Execucoes das assinaturas com tentativas, erros e idempotencia.',
+                self::runtimeEventDeliveryFields(),
+                ['event_id', 'subscription_id', 'tenant_id', 'status', 'idempotency_key'],
+                ['id', 'event_id', 'subscription_id', 'status', 'attempts', 'idempotency_key', 'created_at', 'finished_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'event_id', 'subscription_id', 'transaction_id', 'tenant_id', 'status', 'attempts']],
+                    ['id' => 'execucao', 'title' => 'Execucao', 'fields' => ['idempotency_key', 'last_error', 'result']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['created_at', 'updated_at', 'started_at', 'finished_at']],
+                ],
+                editable: false,
+                defaultSort: [['field' => 'created_at', 'dir' => 'desc']],
+            ),
         ];
 
         $result = [];
@@ -734,6 +786,9 @@ final class AdminCrudDefinitionFactory
             'runtime_notification_recipient' => 'admin.notificacao-destinatarios',
             'runtime_user_session' => 'admin.sessoes',
             'runtime_transaction' => 'admin.transacoes',
+            'runtime_event' => 'admin.eventos-runtime',
+            'runtime_event_subscription' => 'admin.evento-assinaturas',
+            'runtime_event_delivery' => 'admin.evento-entregas',
             'program_change_request' => 'admin.programa-solicitacoes',
             'program_change_grant' => 'admin.programa-grants',
             'program_test_execution' => 'admin.programa-testes',
@@ -1242,6 +1297,79 @@ final class AdminCrudDefinitionFactory
             'diff_data' => self::field('json', 'Diff', false, false),
             'metadata' => self::field('json', 'Metadata', false, false),
             'created_at' => self::field('datetime', 'Criado em', false, false),
+        ];
+    }
+
+    private static function runtimeEventFields(): array
+    {
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'transaction_id' => self::field('integer', 'Transacao original', false, true),
+            'event_id' => self::field('string', 'ID do evento', false, false),
+            'event_code' => self::field('string', 'Evento', false, false),
+            'source' => self::field('string', 'Origem', false, false),
+            'tenant_id' => self::field('string', 'Tenant', false, false),
+            'user_id' => self::field('string', 'Usuario', false, true),
+            'session_id' => self::field('string', 'Sessao', false, true),
+            'screen_id' => self::field('string', 'Tela', false, true),
+            'program_code' => self::field('string', 'Programa', false, true),
+            'entity_code' => self::field('string', 'Entidade', false, true),
+            'record_id' => self::field('string', 'Registro', false, true),
+            'operation' => self::field('string', 'Operacao', false, true),
+            'status' => self::field('string', 'Status', false, false),
+            'payload' => self::field('json', 'Payload', false, false, ['editor' => 'textarea']),
+            'metadata' => self::field('json', 'Metadata', false, false, ['editor' => 'textarea']),
+            'occurred_at' => self::field('datetime', 'Ocorrido em', false, false),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+            'processed_at' => self::field('datetime', 'Processado em', false, true),
+        ];
+    }
+
+    private static function runtimeEventSubscriptionFields(): array
+    {
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'code' => self::field('string', 'Codigo', true, false),
+            'tenant_id' => self::field('string', 'Tenant', true, false),
+            'event_code' => self::field('string', 'Evento', true, false),
+            'title' => self::field('string', 'Titulo', true, false),
+            'enabled' => self::field('boolean', 'Habilitada', true, false),
+            'handler_type' => self::field('enum', 'Handler', true, false, ['options' => [
+                ['value' => 'notification', 'text' => 'Notificacao'],
+                ['value' => 'job', 'text' => 'Job'],
+                ['value' => 'log', 'text' => 'Log'],
+                ['value' => 'integration', 'text' => 'Integracao fechada'],
+                ['value' => 'webhook', 'text' => 'Webhook cadastrado'],
+            ]]),
+            'condition' => self::field('json', 'Condicao declarativa', true, false, ['editor' => 'textarea']),
+            'handler_config' => self::field('json', 'Configuracao do handler', true, false, ['editor' => 'textarea']),
+            'max_attempts' => self::field('integer', 'Tentativas maximas', true, false),
+            'priority' => self::field('integer', 'Prioridade', true, false),
+            'idempotency_key_template' => self::field('string', 'Chave de idempotencia', true, false),
+            'status' => self::field('string', 'Status', true, false),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+        ];
+    }
+
+    private static function runtimeEventDeliveryFields(): array
+    {
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'event_id' => self::field('integer', 'Evento', false, false),
+            'subscription_id' => self::field('integer', 'Assinatura', false, false),
+            'transaction_id' => self::field('integer', 'Transacao', false, true),
+            'tenant_id' => self::field('string', 'Tenant', false, false),
+            'status' => self::field('string', 'Status', false, false),
+            'attempts' => self::field('integer', 'Tentativas', false, false),
+            'idempotency_key' => self::field('string', 'Chave de idempotencia', false, false),
+            'last_error' => self::field('text', 'Ultimo erro', false, true, ['editor' => 'textarea']),
+            'result' => self::field('json', 'Resultado', false, false, ['editor' => 'textarea']),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+            'started_at' => self::field('datetime', 'Iniciado em', false, true),
+            'finished_at' => self::field('datetime', 'Finalizado em', false, true),
         ];
     }
 }

@@ -20,6 +20,7 @@ use App\Runtime\ProgramGovernanceService;
 use App\Runtime\ProgramOverlayService;
 use App\Runtime\PermissionResolver;
 use App\Runtime\RuntimeEnvironmentIdentityResolver;
+use App\Runtime\RuntimeEventService;
 use App\Runtime\RuntimeNotificationService;
 use App\Runtime\RuntimeSessionGuard;
 use App\Runtime\StructuralIntegrityService;
@@ -179,6 +180,7 @@ SQL
             $this->createStub(PermissionResolver::class),
             $this->createStub(RuntimeSessionGuard::class),
             $this->createStub(OdooClient::class),
+            $this->createStub(RuntimeEventService::class),
         );
     }
 

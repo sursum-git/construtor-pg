@@ -149,6 +149,9 @@ Paginas principais:
 - `production/app.html?screenId=admin.programa-overlay-versoes-operacao`: entrada focada para historico, comparacao e publish das versoes do overlay.
 - `production/app.html?screenId=admin.programa-overlays`: tela administrativa para overlays e variantes por assinante.
 - `production/app.html?screenId=admin.programa-overlay-versoes`: tela administrativa para o historico versionado dessas customizacoes.
+- `production/app.html?screenId=admin.eventos-runtime`: tela administrativa para consultar a outbox de eventos runtime.
+- `production/app.html?screenId=admin.evento-assinaturas`: tela administrativa para configurar assinaturas declarativas do EventBus.
+- `production/app.html?screenId=admin.evento-entregas`: tela administrativa para acompanhar execucoes, tentativas, erros e idempotencia das assinaturas.
 
 Arquivos de configuracao e dados:
 

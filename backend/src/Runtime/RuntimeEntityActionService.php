@@ -23,6 +23,7 @@ class RuntimeEntityActionService
         private readonly RuntimeNotificationService $notifications,
         private readonly StructuralIntegrityService $integrity,
         private readonly PermissionResolver $permissions,
+        private readonly RuntimeEventService $events,
     ) {
     }
 
@@ -37,9 +38,9 @@ class RuntimeEntityActionService
         return match ($operation) {
             'read' => $this->read($definition, $payload),
             'get' => $this->get($definition, $this->payloadId($definition, $payload)),
-            'create' => $this->create($definition, $payload, $actionId),
-            'update', 'edit' => $this->update($definition, $this->payloadId($definition, $payload), $payload, $actionId),
-            'delete' => $this->delete($definition, $this->payloadId($definition, $payload), $payload, $actionId),
+            'create' => $this->create($screenId, $definition, $payload, $actionId),
+            'update', 'edit' => $this->update($screenId, $definition, $this->payloadId($definition, $payload), $payload, $actionId),
+            'delete' => $this->delete($screenId, $definition, $this->payloadId($definition, $payload), $payload, $actionId),
             default => throw new RuntimeHttpException('ENTITY_OPERATION_NOT_FOUND', 'Operacao generica da entidade nao encontrada.', 404, [
                 'screenId' => $screenId,
                 'endpointId' => $endpointId,
@@ -88,7 +89,7 @@ class RuntimeEntityActionService
         return $response;
     }
 
-    private function create(array $definition, array $payload, string $actionId): array
+    private function create(string $screenId, array $definition, array $payload, string $actionId): array
     {
         $values = $this->extractValues($definition, $payload, true);
         if ($definition['entityCode'] === 'runtime_notification') {
@@ -165,10 +166,13 @@ class RuntimeEntityActionService
         $this->rules->afterCommit($context);
         $this->configuredRules->runPhase('afterCommit', $context);
 
-        return $this->situations->applyTransitionEffects($after, $situationTransition);
+        $after = $this->situations->applyTransitionEffects($after, $situationTransition);
+        $this->publishEntityEvent('runtime.entity.created', $screenId, $definition, 'create', null, $after);
+
+        return $after;
     }
 
-    private function update(array $definition, string|int $id, array $payload, string $actionId): array
+    private function update(string $screenId, array $definition, string|int $id, array $payload, string $actionId): array
     {
         $beforeRow = $this->findRow($definition, $id);
         $before = $this->formatRow($definition, $beforeRow);
@@ -248,10 +252,16 @@ class RuntimeEntityActionService
         $this->rules->afterCommit($context);
         $this->configuredRules->runPhase('afterCommit', $context);
 
-        return $this->situations->applyTransitionEffects($after, $situationTransition);
+        $after = $this->situations->applyTransitionEffects($after, $situationTransition);
+        $this->publishEntityEvent('runtime.entity.updated', $screenId, $definition, 'update', $before, $after);
+        if ($this->statusChanged($definition, $before, $after)) {
+            $this->publishEntityEvent('runtime.entity.status_changed', $screenId, $definition, 'status_changed', $before, $after);
+        }
+
+        return $after;
     }
 
-    private function delete(array $definition, string|int $id, array $payload, string $actionId): array
+    private function delete(string $screenId, array $definition, string|int $id, array $payload, string $actionId): array
     {
         $before = $this->formatRow($definition, $this->findRow($definition, $id));
         $this->locks->validateWriteLock($definition['entityCode'], $id, 'delete', $payload);
@@ -279,8 +289,55 @@ class RuntimeEntityActionService
         $this->configuredRules->runPhase('afterPersist', $context);
         $this->rules->afterCommit($context);
         $this->configuredRules->runPhase('afterCommit', $context);
+        $this->publishEntityEvent('runtime.entity.deleted', $screenId, $definition, 'delete', $before, null);
 
         return ['ok' => true];
+    }
+
+    private function publishEntityEvent(string $eventCode, string $screenId, array $definition, string $operation, ?array $before, ?array $after): void
+    {
+        $recordId = $after[$definition['primaryKey']] ?? $before[$definition['primaryKey']] ?? null;
+        $this->events->publish($eventCode, [
+            'tenantId' => $this->permissions->getTenantId(),
+            'userId' => $this->permissions->getUserId(),
+            'screenId' => $screenId,
+            'programCode' => null,
+            'entityCode' => $definition['entityCode'],
+            'recordId' => $recordId,
+            'operation' => $operation,
+            'before' => $before,
+            'after' => $after,
+            'changes' => $this->eventChanges($before ?? [], $after ?? []),
+            'transactionId' => $this->transactions->getCurrent()?->getId(),
+            'occurredAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+        ], [
+            'source' => 'runtime.crud',
+            'screenId' => $screenId,
+            'entityCode' => $definition['entityCode'],
+            'recordId' => $recordId,
+            'operation' => $operation,
+        ]);
+    }
+
+    private function statusChanged(array $definition, array $before, array $after): bool
+    {
+        $field = (string) ($definition['situationFieldCode'] ?? 'status');
+        return array_key_exists($field, $before) && array_key_exists($field, $after) && $before[$field] !== $after[$field];
+    }
+
+    private function eventChanges(array $before, array $after): array
+    {
+        $changes = [];
+        foreach (array_unique(array_merge(array_keys($before), array_keys($after))) as $key) {
+            if (str_starts_with((string) $key, '_')) {
+                continue;
+            }
+            if (($before[$key] ?? null) !== ($after[$key] ?? null)) {
+                $changes[$key] = ['before' => $before[$key] ?? null, 'after' => $after[$key] ?? null];
+            }
+        }
+
+        return $changes;
     }
 
     private function withResolvedRuntimePayload(array $definition, array $payload, string $actionId, string $operation): array

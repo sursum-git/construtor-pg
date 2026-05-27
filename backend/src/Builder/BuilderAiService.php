@@ -204,48 +204,70 @@ class BuilderAiService
         }
 
         $entityDraft = $draft['entityDraft'];
-        if (!is_array($entityDraft['rules'] ?? null)) {
-            return ['draft' => $draft, 'diagnostics' => [], 'blocked' => false];
-        }
-
         $blocked = false;
-        $safeRules = [];
         $diagnostics = [];
-        foreach ($entityDraft['rules'] as $index => $rule) {
-            if (!is_array($rule)) {
-                continue;
+
+        if (is_array($entityDraft['rules'] ?? null)) {
+            $safeRules = [];
+            foreach ($entityDraft['rules'] as $index => $rule) {
+                if (!is_array($rule)) {
+                    continue;
+                }
+                $type = strtolower(trim((string) ($rule['ruleType'] ?? $rule['type'] ?? 'requiredWhen')));
+                $hasExecutableReference = trim(implode(' ', [
+                    (string) ($rule['className'] ?? ''),
+                    (string) ($rule['class'] ?? ''),
+                    (string) ($rule['methodName'] ?? ''),
+                    (string) ($rule['method'] ?? ''),
+                ])) !== '';
+                if ($type === 'class_method' || $type === 'class-method' || $hasExecutableReference) {
+                    $blocked = true;
+                    $diagnostics[] = [
+                        'level' => 'warn',
+                        'message' => 'A regra ' . (string) ($rule['label'] ?? $rule['id'] ?? ('#' . ($index + 1))) . ' exige implementacao tecnica e nao foi carregada automaticamente pela IA.',
+                        'source' => 'ai_rule_safety',
+                    ];
+                    continue;
+                }
+                if ($type !== 'requiredwhen' && $type !== 'requiredWhen') {
+                    $blocked = true;
+                    $diagnostics[] = [
+                        'level' => 'warn',
+                        'message' => 'A regra ' . (string) ($rule['label'] ?? $rule['id'] ?? ('#' . ($index + 1))) . ' usa tipo declarativo nao suportado pelo assistente.',
+                        'source' => 'ai_rule_safety',
+                    ];
+                    continue;
+                }
+                $rule['type'] = 'requiredWhen';
+                unset($rule['ruleType'], $rule['className'], $rule['class'], $rule['methodName'], $rule['method']);
+                $safeRules[] = $rule;
             }
-            $type = strtolower(trim((string) ($rule['ruleType'] ?? $rule['type'] ?? 'requiredWhen')));
-            $hasExecutableReference = trim(implode(' ', [
-                (string) ($rule['className'] ?? ''),
-                (string) ($rule['class'] ?? ''),
-                (string) ($rule['methodName'] ?? ''),
-                (string) ($rule['method'] ?? ''),
-            ])) !== '';
-            if ($type === 'class_method' || $type === 'class-method' || $hasExecutableReference) {
-                $blocked = true;
-                $diagnostics[] = [
-                    'level' => 'warn',
-                    'message' => 'A regra ' . (string) ($rule['label'] ?? $rule['id'] ?? ('#' . ($index + 1))) . ' exige implementacao tecnica e nao foi carregada automaticamente pela IA.',
-                    'source' => 'ai_rule_safety',
-                ];
-                continue;
-            }
-            if ($type !== 'requiredwhen' && $type !== 'requiredWhen') {
-                $blocked = true;
-                $diagnostics[] = [
-                    'level' => 'warn',
-                    'message' => 'A regra ' . (string) ($rule['label'] ?? $rule['id'] ?? ('#' . ($index + 1))) . ' usa tipo declarativo nao suportado pelo assistente.',
-                    'source' => 'ai_rule_safety',
-                ];
-                continue;
-            }
-            $rule['type'] = 'requiredWhen';
-            unset($rule['ruleType'], $rule['className'], $rule['class'], $rule['methodName'], $rule['method']);
-            $safeRules[] = $rule;
+            $draft['entityDraft']['rules'] = $safeRules;
         }
 
-        $draft['entityDraft']['rules'] = $safeRules;
+        if (is_array($entityDraft['eventSubscriptions'] ?? null)) {
+            $safeSubscriptions = [];
+            foreach ($entityDraft['eventSubscriptions'] as $index => $subscription) {
+                if (!is_array($subscription)) {
+                    continue;
+                }
+                $handlerType = strtolower(trim((string) ($subscription['handlerType'] ?? '')));
+                $encoded = strtolower((string) json_encode($subscription, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+                if (!in_array($handlerType, ['notification', 'job', 'log', 'integration', 'webhook'], true)
+                    || preg_match('/(<\\?php|function\\s*\\(|=>|\\beval\\b|\\bselect\\b|\\binsert\\b|\\bupdate\\b|\\bdelete\\b|javascript:|https?:\\/\\/|className|methodName)/i', $encoded)
+                ) {
+                    $blocked = true;
+                    $diagnostics[] = [
+                        'level' => 'warn',
+                        'message' => 'A assinatura de evento ' . (string) ($subscription['code'] ?? ('#' . ($index + 1))) . ' exige contrato fechado e nao foi carregada automaticamente pela IA.',
+                        'source' => 'ai_event_safety',
+                    ];
+                    continue;
+                }
+                $safeSubscriptions[] = $subscription;
+            }
+            $draft['entityDraft']['eventSubscriptions'] = $safeSubscriptions;
+        }
 
         return ['draft' => $draft, 'diagnostics' => $diagnostics, 'blocked' => $blocked];
     }

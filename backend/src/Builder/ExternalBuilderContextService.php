@@ -56,6 +56,7 @@ class ExternalBuilderContextService
                     $this->capabilityProgramDraft(),
                     $this->capabilityField(),
                     $this->capabilityBusinessRuleDeclarative(),
+                    $this->capabilityEventSubscriptionDeclarative(),
                 ],
             ],
             'contract' => [
@@ -177,6 +178,7 @@ class ExternalBuilderContextService
                     'tableName' => ['type' => 'string'],
                     'fields' => ['type' => 'array', 'items' => ['$ref' => 'builder.field']],
                     'rules' => ['type' => 'array', 'items' => ['$ref' => 'builder.businessRule.declarative']],
+                    'eventSubscriptions' => ['type' => 'array', 'items' => ['$ref' => 'builder.eventSubscription.declarative']],
                 ],
             ],
             'example' => [
@@ -288,6 +290,61 @@ class ExternalBuilderContextService
                 'field' => 'd_vl_preco',
                 'when' => ['field' => 'log_ativo', 'equals' => true],
                 'message' => 'Informe o preco quando o produto estiver ativo.',
+            ],
+        ];
+    }
+
+    private function capabilityEventSubscriptionDeclarative(): array
+    {
+        return [
+            'capabilityCode' => 'builder.eventSubscription.declarative',
+            'schemaVersion' => '1.0',
+            'description' => 'Assinatura declarativa do EventBus. O assistente nao pode gerar PHP, JavaScript, SQL, URL livre, classe ou metodo.',
+            'required' => ['code', 'eventCode', 'enabled', 'handlerType', 'condition', 'handlerConfig', 'maxAttempts', 'idempotencyKeyTemplate'],
+            'jsonSchema' => [
+                'type' => 'object',
+                'required' => ['code', 'eventCode', 'handlerType', 'handlerConfig'],
+                'properties' => [
+                    'code' => ['type' => 'string'],
+                    'title' => ['type' => 'string'],
+                    'eventCode' => ['enum' => [
+                        'runtime.entity.created',
+                        'runtime.entity.updated',
+                        'runtime.entity.deleted',
+                        'runtime.entity.status_changed',
+                        'runtime.job.completed',
+                        'runtime.job.failed',
+                        'builder.program.published',
+                    ]],
+                    'enabled' => ['type' => 'boolean'],
+                    'handlerType' => ['enum' => ['notification', 'job', 'log', 'integration', 'webhook']],
+                    'condition' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'field' => ['type' => 'string'],
+                            'operator' => ['enum' => ['eq', 'neq', 'exists', 'not_empty', 'changed']],
+                            'value' => [],
+                        ],
+                    ],
+                    'handlerConfig' => ['type' => 'object'],
+                    'maxAttempts' => ['type' => 'integer'],
+                    'idempotencyKeyTemplate' => ['type' => 'string'],
+                ],
+            ],
+            'example' => [
+                'code' => 'produto-criado-notificar-admin',
+                'title' => 'Avisar produto criado',
+                'eventCode' => 'runtime.entity.created',
+                'enabled' => true,
+                'handlerType' => 'notification',
+                'condition' => ['field' => 'entityCode', 'operator' => 'eq', 'value' => 'produto'],
+                'handlerConfig' => [
+                    'title' => 'Produto criado',
+                    'message' => 'Registro {recordId} criado em {entityCode}.',
+                    'severity' => 'info',
+                ],
+                'maxAttempts' => 3,
+                'idempotencyKeyTemplate' => '{tenantId}:{subscriptionCode}:{recordId}:created',
             ],
         ];
     }

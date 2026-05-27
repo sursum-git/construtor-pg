@@ -69,6 +69,33 @@ class BuilderAiServiceSessionTest extends TestCase
         self::assertSame([], $result['diagnostics']);
     }
 
+    public function testAiSafetyBlocksExecutableEventSubscription(): void
+    {
+        $service = new BuilderAiService(
+            $this->createStub(BuilderAiSettingsService::class),
+            $this->createStub(ExternalBuilderContextService::class),
+            $this->createStub(BuilderAiSessionService::class),
+            $this->createStub(ProgramBuilderService::class),
+            $this->createStub(LoggerInterface::class),
+        );
+
+        $result = $this->invokePrivate($service, 'enforceAiDeclarativeRules', [[
+            'entityDraft' => [
+                'eventSubscriptions' => [[
+                    'code' => 'assinatura-url-livre',
+                    'eventCode' => 'runtime.entity.created',
+                    'handlerType' => 'webhook',
+                    'handlerConfig' => ['url' => 'https://example.invalid/hook'],
+                ]],
+            ],
+            'programDraft' => [],
+        ]]);
+
+        self::assertTrue($result['blocked']);
+        self::assertSame([], $result['draft']['entityDraft']['eventSubscriptions']);
+        self::assertSame('ai_event_safety', $result['diagnostics'][0]['source']);
+    }
+
     private function invokePrivate(object $target, string $method, array $arguments): mixed
     {
         $reflection = new \ReflectionMethod($target, $method);

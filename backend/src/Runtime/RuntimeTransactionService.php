@@ -70,6 +70,49 @@ class RuntimeTransactionService
         return $this->current;
     }
 
+    /**
+     * @param array<string, mixed> $context
+     */
+    public function beginOperational(array $context): RuntimeTransaction
+    {
+        $tenantId = (string) ($context['tenantId'] ?? $this->permissions->getTenantId());
+        $sessionId = (string) ($context['sessionId'] ?? $this->permissions->getSessionId());
+        $screenId = (string) ($context['screenId'] ?? 'system.eventbus');
+        $endpointId = (string) ($context['endpointId'] ?? 'eventbus.worker');
+        $operation = (string) ($context['operation'] ?? 'runtime.event.process');
+        $entityCode = isset($context['entityCode']) && $context['entityCode'] !== '' ? (string) $context['entityCode'] : null;
+
+        $transaction = (new RuntimeTransaction())
+            ->setTenantId($tenantId)
+            ->setSessionId($sessionId)
+            ->setScreenId($screenId)
+            ->setProgramId(isset($context['programId']) ? (string) $context['programId'] : null)
+            ->setEntityCode($entityCode)
+            ->setRecordId($this->normalizeRecordId($context['recordId'] ?? null))
+            ->setEndpointId($endpointId)
+            ->setActionId(isset($context['actionId']) ? (string) $context['actionId'] : $endpointId)
+            ->setOperation($operation)
+            ->setRequestContext($this->redactSensitiveValues($context));
+
+        $this->entityManager->persist($transaction);
+        $this->current = $transaction;
+        $this->executionContext->open(array_merge($context, [
+            'tenantId' => $tenantId,
+            'sessionId' => $sessionId,
+            'screenId' => $screenId,
+            'endpointId' => $endpointId,
+            'operation' => $operation,
+            'source' => (string) ($context['source'] ?? 'eventbus'),
+        ]), $transaction);
+        $this->log('runtime.operational_transaction.started', 'Transacao operacional iniciada.', metadata: [
+            'operation' => $operation,
+            'source' => $context['source'] ?? 'eventbus',
+        ]);
+        $this->entityManager->flush();
+
+        return $transaction;
+    }
+
     public function success(array $metadata = []): void
     {
         if (!$this->current) {
@@ -96,6 +139,12 @@ class RuntimeTransactionService
         $this->log($error instanceof RuntimeValidationException ? 'runtime.validation' : 'runtime.error', $error->getMessage(), metadata: $metadata);
         $this->current->finish($error instanceof RuntimeHttpException ? 'failed' : 'error');
         $this->entityManager->flush();
+    }
+
+    public function clear(): void
+    {
+        $this->current = null;
+        $this->executionContext->clear();
     }
 
     public function log(

@@ -122,6 +122,9 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - **admin.notificacoes**: Cadastro de notificacoes runtime.
 - **admin.notificacao-destinatarios**: Acompanhamento de entrega e leitura.
 - **admin.integridade**: Monitor de assinaturas estruturais e reassinatura controlada.
+- **admin.eventos-runtime**: Consulta da outbox de eventos publicados pelo CRUD, Program Builder e jobs.
+- **admin.evento-assinaturas**: Cadastro de assinaturas declarativas do EventBus com handlers fechados.
+- **admin.evento-entregas**: Acompanhamento de execucoes, tentativas, erros e idempotencia das assinaturas.
 - **admin.transacoes / admin.logs-transacoes**: Auditoria de operacoes runtime.
 - **admin.jobs**: Consulta de jobs assincronos.
 

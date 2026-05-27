@@ -22,6 +22,7 @@ use App\Repository\ScreenDefinitionRepository;
 use App\Runtime\ProgramGovernanceService;
 use App\Runtime\ProgramOverlayService;
 use App\Runtime\RuntimeEnvironmentIdentityResolver;
+use App\Runtime\RuntimeEventService;
 use App\Runtime\RuntimeNotificationService;
 use App\Runtime\RuntimeSessionGuard;
 use App\Runtime\StructuralIntegrityService;
@@ -168,6 +169,7 @@ class ProgramBuilderServicePublishFlowTest extends TestCase
             $permissions,
             $this->createStub(RuntimeSessionGuard::class),
             $this->createStub(OdooClient::class),
+            $this->createStub(RuntimeEventService::class),
         );
 
         $result = $service->publishVersion(77);

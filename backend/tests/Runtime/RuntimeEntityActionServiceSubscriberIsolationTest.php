@@ -9,6 +9,7 @@ use App\Runtime\RuntimeConcurrencyGuard;
 use App\Runtime\RuntimeConfiguredRuleExecutor;
 use App\Runtime\RuntimeCustomCodeService;
 use App\Runtime\RuntimeEntityActionService;
+use App\Runtime\RuntimeEventService;
 use App\Runtime\RuntimeEntityDefinitionResolver;
 use App\Runtime\RuntimeEntityVersionService;
 use App\Runtime\RuntimeHttpException;
@@ -179,6 +180,7 @@ class RuntimeEntityActionServiceSubscriberIsolationTest extends TestCase
 
         $permissions = $this->createStub(PermissionResolver::class);
         $permissions->method('getTenantId')->willReturn($tenantId);
+        $events = $this->createStub(RuntimeEventService::class);
 
         return new RuntimeEntityActionService(
             $definitions,
@@ -195,6 +197,7 @@ class RuntimeEntityActionServiceSubscriberIsolationTest extends TestCase
             $notifications,
             $integrity,
             $permissions,
+            $events,
         );
     }
 }

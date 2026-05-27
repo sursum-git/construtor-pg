@@ -778,6 +778,8 @@ Implementado ate agora, em nivel demo/frontend:
 - Entidades podem ter situacao por `builder_entity_situation` e transicoes por `builder_entity_situation_transition`; o runtime valida situacao inicial, transicoes e regras fechadas por transicao.
 - O CRUD generico trata cadastro incompleto com erros fechados: se so existir classe/tabela e faltar metadado do construtor, retorna `ENTITY_METADATA_NOT_CONFIGURED` com `details.minimumRequired`.
 - Backend possui fila async inicial com Symfony Messenger/Doctrine em PostgreSQL, rastreamento em `runtime_async_job` e job fechado `cliente.email_confirmation`.
+- Backend possui EventBus runtime incremental com outbox/inbox minima: `runtime_event`, `runtime_event_subscription` e `runtime_event_delivery`. CRUD, Program Builder e jobs publicam eventos estaveis, assinaturas rodam handlers fechados e os logs continuam em `runtime_transaction`/`runtime_transaction_log`.
+- Telas administrativas do EventBus: `admin.eventos-runtime`, `admin.evento-assinaturas` e `admin.evento-entregas`.
 - A decisao de enfileirar fica no backend por `builder_entity.metadata.jobs` ou `runtime_endpoint.config.jobs`; `mode="async"` usa worker, sem job configurado a acao segue na chamada normal.
 - Acoes manuais podem usar `handler="runtime.job.enqueue"`; exemplo atual: `sendWhatsapp` agenda `cliente.whatsapp_welcome`.
 - Tela `admin.jobs` consulta os jobs assincronos pelo runtime generico.

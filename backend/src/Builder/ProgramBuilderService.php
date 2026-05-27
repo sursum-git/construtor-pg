@@ -29,6 +29,7 @@ use App\Runtime\ProgramOverlayService;
 use App\Runtime\ProgramGovernanceService;
 use App\Runtime\PermissionResolver;
 use App\Runtime\RuntimeEnvironmentIdentityResolver;
+use App\Runtime\RuntimeEventService;
 use App\Runtime\RuntimeHttpException;
 use App\Runtime\RuntimeNotificationService;
 use App\Runtime\RuntimeSessionGuard;
@@ -124,6 +125,7 @@ class ProgramBuilderService
         private readonly PermissionResolver $permissions,
         private readonly RuntimeSessionGuard $sessions,
         private readonly OdooClient $odoo,
+        private readonly RuntimeEventService $events,
     ) {
     }
 
@@ -2178,6 +2180,31 @@ class ProgramBuilderService
             $this->integrity->signTarget('program_change_grant', (int) $grant->getId(), ['source' => 'publishVersion.consumeGrant']);
         }
         $this->entityManager->flush();
+        $this->events->publish('builder.program.published', [
+            'tenantId' => $this->permissions->getTenantId(),
+            'userId' => $this->permissions->getUserId(),
+            'screenId' => $version->getScreenId(),
+            'programCode' => $version->getProgramCode(),
+            'entityCode' => $version->getBuilderEntityCode(),
+            'recordId' => $version->getId(),
+            'operation' => 'publish',
+            'before' => [],
+            'after' => [
+                'versionId' => $version->getId(),
+                'version' => $version->getVersion(),
+                'status' => $version->getStatus(),
+            ],
+            'changes' => [],
+            'transactionId' => null,
+            'occurredAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+        ], [
+            'source' => 'program_builder',
+            'screenId' => $version->getScreenId(),
+            'programCode' => $version->getProgramCode(),
+            'entityCode' => $version->getBuilderEntityCode(),
+            'recordId' => $version->getId(),
+            'operation' => 'publish',
+        ]);
 
         return $this->getProgram($version->getProgramCode());
     }
@@ -2539,6 +2566,26 @@ class ProgramBuilderService
         $resolutions = is_array($payload['resolutions'] ?? null) ? $payload['resolutions'] : [];
         $result = $this->overlays->rebase($overlayVersionId, $resolutions);
         $this->entityManager->flush();
+        $this->events->publish('builder.overlay.rebased', [
+            'tenantId' => $this->permissions->getTenantId(),
+            'userId' => $this->permissions->getUserId(),
+            'screenId' => 'admin.programa-overlay-versoes',
+            'programCode' => (string) ($result['programCode'] ?? ''),
+            'entityCode' => null,
+            'recordId' => $overlayVersionId,
+            'operation' => 'rebase',
+            'before' => $preview,
+            'after' => $result,
+            'changes' => [],
+            'transactionId' => null,
+            'occurredAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+        ], [
+            'source' => 'program_builder',
+            'screenId' => 'admin.programa-overlay-versoes',
+            'programCode' => (string) ($result['programCode'] ?? ''),
+            'recordId' => $overlayVersionId,
+            'operation' => 'rebase',
+        ]);
         return $result;
     }
 
@@ -4432,6 +4479,31 @@ class ProgramBuilderService
 
         $this->entityManager->persist($version);
         $this->entityManager->flush();
+        $this->events->publish('builder.entity.versioned', [
+            'tenantId' => $this->permissions->getTenantId(),
+            'userId' => $this->permissions->getUserId(),
+            'screenId' => 'admin.program-builder',
+            'programCode' => null,
+            'entityCode' => $entity->getCode(),
+            'recordId' => $version->getId(),
+            'operation' => $action,
+            'before' => [],
+            'after' => [
+                'entityCode' => $entity->getCode(),
+                'revision' => $version->getRevision(),
+                'status' => $version->getStatus(),
+                'action' => $action,
+            ],
+            'changes' => [],
+            'transactionId' => null,
+            'occurredAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+        ], [
+            'source' => 'program_builder',
+            'screenId' => 'admin.program-builder',
+            'entityCode' => $entity->getCode(),
+            'recordId' => $version->getId(),
+            'operation' => $action,
+        ]);
 
         return $version;
     }

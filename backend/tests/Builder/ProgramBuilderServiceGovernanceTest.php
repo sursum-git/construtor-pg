@@ -19,6 +19,7 @@ use App\Repository\ScreenDefinitionRepository;
 use App\Runtime\ProgramGovernanceService;
 use App\Runtime\ProgramOverlayService;
 use App\Runtime\RuntimeEnvironmentIdentityResolver;
+use App\Runtime\RuntimeEventService;
 use App\Runtime\RuntimeNotificationService;
 use App\Runtime\RuntimeHttpException;
 use App\Runtime\RuntimeSessionGuard;
@@ -222,6 +223,7 @@ class ProgramBuilderServiceGovernanceTest extends TestCase
             $this->createStub(PermissionResolver::class),
             $this->createStub(RuntimeSessionGuard::class),
             $this->createStub(OdooClient::class),
+            $this->createStub(RuntimeEventService::class),
         );
     }
 
@@ -270,6 +272,7 @@ class ProgramBuilderServiceGovernanceTest extends TestCase
             $this->createStub(PermissionResolver::class),
             $this->createStub(RuntimeSessionGuard::class),
             $this->createStub(OdooClient::class),
+            $this->createStub(RuntimeEventService::class),
         );
     }
 }

@@ -1232,6 +1232,39 @@ Objetivo:
 
 O bloqueio real, expiracao por entidade/programa/acao, auditoria e validacao de versao ficam no backend.
 
+## EventBus Runtime
+
+O backend possui uma primeira camada incremental de EventBus declarativo. Ela nao substitui regras, jobs, notificacoes ou logs atuais: apenas orquestra acontecimentos e registra tudo nas mesmas tabelas operacionais.
+
+Tabelas novas:
+
+- `runtime_event`: outbox dos eventos publicados, com `eventCode`, origem, tenant, usuario, tela, programa, entidade, registro, payload, status e transacao original quando existir.
+- `runtime_event_subscription`: assinaturas declarativas por evento, com filtro simples, handler fechado, prioridade, tentativa maxima e template de idempotencia.
+- `runtime_event_delivery`: execucao de cada assinatura, com status, tentativas, ultimo erro, resultado, transacao operacional e chave de idempotencia.
+
+Eventos publicados inicialmente:
+
+- CRUD generico: `runtime.entity.created`, `runtime.entity.updated`, `runtime.entity.deleted`, `runtime.entity.status_changed`.
+- Program Builder: `builder.program.published`, `builder.entity.versioned`, `builder.overlay.rebased`.
+- Jobs: `runtime.job.completed`, `runtime.job.failed`.
+
+Handlers fechados da primeira versao:
+
+- `notification`: cria notificacao runtime administrativa.
+- `job`: agenda job existente em `runtime_async_job`.
+- `log`: grava log operacional na transacao da entrega.
+- `integration` e `webhook`: aceitam apenas contrato cadastrado (`integrationCode`/`webhookCode`), sem URL livre no JSON.
+
+Logs padronizados em `runtime_transaction_log`:
+
+- `runtime.event.published`;
+- `runtime.event.subscription.started`;
+- `runtime.event.subscription.completed`;
+- `runtime.event.subscription.failed`;
+- `runtime.event.subscription.skipped_idempotent`.
+
+Quando o evento nasce dentro de uma transacao runtime, o log de publicacao fica vinculado a ela. Quando a assinatura roda no worker, o EventBus abre uma transacao operacional propria. A mensagem `App\Runtime\RuntimeEventMessage` usa o transporte async do Symfony Messenger.
+
 ## Exemplos
 
 `exemplos.html` e o indice central.
