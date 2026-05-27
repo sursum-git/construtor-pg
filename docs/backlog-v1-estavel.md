@@ -68,3 +68,12 @@ Decisao de produto:
 
 - Tratar rollback como operacao controlada de recuperacao.
 - Tratar downgrade livre como recurso futuro e restrito, nao como acao administrativa comum.
+
+## Roadmap: arquitetura complementar pos-v1
+
+Itens importantes para evolucao do construtor e do runtime, mas que nao bloqueiam a primeira entrada em producao:
+
+- **Workflow/state machine visual**: importante para processos longos e fluxos com varias etapas, aprovacoes e retornos. Pode vir depois porque ja existe a base de situacao/transicao por entidade, que atende o ciclo de vida simples de registros.
+- **Observabilidade operacional**: adicionar metricas, saude de filas, saude do EventBus, atrasos, falhas por handler, tentativas e alertas operacionais. Deve comecar simples, aproveitando `runtime_transaction`, `runtime_transaction_log`, `runtime_async_job`, `runtime_event` e `runtime_event_delivery`.
+- **Feature flags**: permitir liberar recursos por release, assinante, ambiente ou canal. E util para SaaS e on-premise, mas a base atual de parametros, canais e politicas de update ja cobre parte do controle inicial.
+- **Cache distribuido**: avaliar Redis ou equivalente quando houver volume real, concorrencia alta ou necessidade de cache compartilhado entre workers/containers. Nao deve ser prioridade antes de haver medicao de gargalo.
