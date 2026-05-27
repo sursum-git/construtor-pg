@@ -137,6 +137,9 @@ class RuntimeMetadataSanitizer
         $definition = $this->sanitizeHomeEndpointGroup($definition, ['layout', 'appbar', 'requests'], [
             'list' => 'home.requests.list',
         ]);
+        $definition = $this->sanitizeHomeEndpointGroup($definition, ['layout', 'appbar', 'jobs'], [
+            'list' => 'home.jobs.list',
+        ]);
         $definition = $this->sanitizeHomeEndpointGroup($definition, ['layout', 'appbar', 'subscriberSwitch'], [
             'change' => 'home.subscriber.change',
         ]);

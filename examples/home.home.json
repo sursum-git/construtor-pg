@@ -196,14 +196,17 @@
         "programId": "meus-jobs",
         "pollIntervalSeconds": 15,
         "endpoints": {
-          "list": "/api/home/jobs"
+          "list": {
+            "endpointId": "home.jobs.list",
+            "method": "POST"
+          }
         }
       },
         "runtimeMessages": {
           "enabled": true,
           "pollIntervalSeconds": 30,
           "events": {
-            "enabled": true
+            "enabled": false
           },
           "endpoints": {
           "poll": {

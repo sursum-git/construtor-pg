@@ -51,6 +51,7 @@ class HomeRuntimeHandler
             'notificationsAck' => $this->notificationsAck($payload),
             'alerts' => $this->alerts($payload),
             'requests' => $this->requests($payload),
+            'jobs' => $this->jobs($payload),
             'aiHistory' => $this->aiHistory($payload),
             'aiSend' => $this->aiSend($payload),
             'subscriberChange' => $this->subscriberChange($payload),
@@ -247,6 +248,27 @@ class HomeRuntimeHandler
                         ['section' => 'Contexto', 'labelKey' => 'technical.label.module', 'label' => 'Modulo', 'value' => $context['moduleId'] ?: '-'],
                         ['section' => 'Fluxo', 'labelKey' => 'technical.label.type', 'label' => 'Tipo', 'value' => 'Solicitacao pendente', 'critical' => true],
                     ],
+                ],
+            ],
+            'context' => $context,
+        ];
+    }
+
+    private function jobs(array $payload): array
+    {
+        $context = $this->normalizeContext($payload);
+
+        return [
+            'items' => [
+                [
+                    'id' => 'runtime-jobs-entry',
+                    'title' => 'Consulta de jobs disponivel',
+                    'description' => 'Abra a tela Meus Jobs para consultar execucoes assincronas do runtime.',
+                    'type' => 'Runtime',
+                    'status' => 'Info',
+                    'programId' => 'runtime-jobs',
+                    'programTitle' => 'Jobs Assincronos',
+                    'createdAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
                 ],
             ],
             'context' => $context,

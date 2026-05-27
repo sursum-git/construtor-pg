@@ -122,6 +122,7 @@ class RuntimeEndpointDispatcher
             'home.notifications.ack' => $this->home->handle('notificationsAck', $payload),
             'home.alerts.list' => $this->home->handle('alerts', $payload),
             'home.requests.list' => $this->home->handle('requests', $payload),
+            'home.jobs.list' => $this->home->handle('jobs', $payload),
             'home.subscriber.change' => $this->home->handle('subscriberChange', $payload),
             'runtime.lock.acquire' => $this->system->handle('lockAcquire', $screenId, $payload),
             'runtime.lock.heartbeat' => $this->system->handle('lockHeartbeat', $screenId, $payload),

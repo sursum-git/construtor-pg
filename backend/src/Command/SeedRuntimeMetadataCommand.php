@@ -99,6 +99,7 @@ class SeedRuntimeMetadataCommand extends Command
         'home.notifications.ack' => 'home.notifications.ack',
         'home.alerts.list' => 'home.alerts.list',
         'home.requests.list' => 'home.requests.list',
+        'home.jobs.list' => 'home.jobs.list',
         'home.subscriber.change' => 'home.subscriber.change',
     ];
 
@@ -896,7 +897,7 @@ class SeedRuntimeMetadataCommand extends Command
                 'subtitle' => 'Consulta das acoes executadas por fila',
                 'type' => 'crud',
                 'icon' => 'gear',
-                'permission' => 'runtime.jobs.read',
+                'permission' => 'jobs.read',
                 'screenId' => 'admin.jobs',
             ];
         }
