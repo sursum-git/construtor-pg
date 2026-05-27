@@ -468,6 +468,61 @@ class ProgramBuilderService
         ];
     }
 
+    public function inspectDatabaseDdl(array $payload): array
+    {
+        $this->assertAdminRead();
+
+        $table = $this->parseDatabaseDdl((string) ($payload['ddl'] ?? ''));
+        $entityDraft = $this->buildImportedEntityDraft($table, $payload);
+        $programDraft = $this->buildImportedProgramDraft($entityDraft, array_merge([
+            'subtitle' => 'Gerado a partir de script de tabela',
+            'icon' => 'file-txt',
+            'changeSummary' => 'Rascunho gerado por importacao de script SQL/DDL.',
+        ], $payload));
+
+        return [
+            'table' => [
+                'schema' => $table['schema'],
+                'tableName' => $table['tableName'],
+                'qualifiedName' => $table['schema'] . '.' . $table['tableName'],
+            ],
+            'classification' => $table['classification'],
+            'diagnostics' => $table['diagnostics'],
+            'entityDraft' => $entityDraft,
+            'programDraft' => $programDraft,
+            'source' => 'ddl',
+        ];
+    }
+
+    public function importDatabaseDdl(array $payload): array
+    {
+        $this->assertAdminWrite();
+
+        $inspection = $this->inspectDatabaseDdl($payload);
+        $entityConfig = $this->normalizeEntityPayload($inspection['entityDraft']);
+        $entity = $this->applyEntityConfig($entityConfig);
+        $entityVersion = $this->createEntityVersionSnapshot($entity, 'import', 'Entidade importada de script SQL/DDL.');
+
+        $programVersion = null;
+        $programPayload = $inspection['programDraft'];
+        $generateProgramDraft = ($payload['generateProgramDraft'] ?? true) !== false;
+        if ($generateProgramDraft && (string) ($programPayload['programCode'] ?? '') !== '' && (string) ($programPayload['module'] ?? '') !== '' && (string) ($programPayload['screenId'] ?? '') !== '') {
+            $programVersion = $this->saveDraft($programPayload);
+        }
+
+        return [
+            'table' => $inspection['table'],
+            'classification' => $inspection['classification'],
+            'diagnostics' => $inspection['diagnostics'],
+            'entity' => $this->entityPayload($entity),
+            'entityVersion' => $this->entityVersionPayload($entityVersion),
+            'entityVersions' => array_map(fn (BuilderEntityVersion $item): array => $this->entityVersionPayload($item), $this->entityVersions->findByEntityCodeOrdered($entity->getCode())),
+            'programVersion' => $programVersion,
+            'programDraftGenerated' => $programVersion !== null,
+            'source' => 'ddl',
+        ];
+    }
+
     private function normalizeDatabaseTableTarget(array $payload): array
     {
         $qualifiedName = strtolower(trim((string) ($payload['qualifiedName'] ?? '')));
@@ -623,10 +678,505 @@ class ProgramBuilderService
         ];
     }
 
+    private function parseDatabaseDdl(string $ddl): array
+    {
+        $ddl = trim(str_replace("\0", '', $ddl));
+        if ($ddl === '') {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_IMPORT_DDL_REQUIRED', 'Cole o script CREATE TABLE para analisar.', 422);
+        }
+        if (strlen($ddl) > 200000) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_IMPORT_DDL_TOO_LARGE', 'O script SQL informado e muito grande para importacao direta.', 422);
+        }
+
+        $statements = $this->splitSqlStatements($ddl);
+        $createTable = '';
+        $comments = [];
+        foreach ($statements as $statement) {
+            $statement = trim($statement);
+            if ($statement === '') {
+                continue;
+            }
+            if (preg_match('/^\s*create\s+table\b/i', $statement) === 1) {
+                if ($createTable !== '') {
+                    throw new RuntimeHttpException('PROGRAM_BUILDER_IMPORT_DDL_SINGLE_TABLE_ONLY', 'Informe apenas um CREATE TABLE por importacao.', 422);
+                }
+                $createTable = $statement;
+                continue;
+            }
+            if (preg_match('/^\s*comment\s+on\s+(table|column)\b/i', $statement) === 1) {
+                $comments[] = $statement;
+                continue;
+            }
+            throw new RuntimeHttpException('PROGRAM_BUILDER_IMPORT_DDL_STATEMENT_NOT_ALLOWED', 'O importador aceita apenas CREATE TABLE e COMMENT ON TABLE/COLUMN.', 422, [
+                'statement' => substr($statement, 0, 120),
+            ]);
+        }
+
+        if ($createTable === '') {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_IMPORT_DDL_CREATE_TABLE_REQUIRED', 'O script precisa conter um CREATE TABLE.', 422);
+        }
+
+        $table = $this->parseCreateTableStatement($createTable);
+        $this->applyDdlComments($table, $comments);
+        $table['classification'] = $this->classifyImportedTable($table['tableName'], $table['columns'], $table['primaryKeys'], $table['uniqueConstraints'], $table['foreignKeys']);
+        $table['diagnostics'] = array_merge(
+            $this->buildImportDiagnostics($table['columns'], $table['primaryKeys'], $table['foreignKeys']),
+            [[
+                'level' => 'info',
+                'message' => 'Script analisado sem executar comandos no schema real.',
+            ]]
+        );
+
+        return $table;
+    }
+
+    private function parseCreateTableStatement(string $statement): array
+    {
+        $statement = trim($statement);
+        $start = stripos($statement, '(');
+        if ($start === false) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_IMPORT_DDL_INVALID_CREATE', 'CREATE TABLE invalido: lista de colunas nao encontrada.', 422);
+        }
+        $prefix = trim(substr($statement, 0, $start));
+        if (!preg_match('/^create\s+table\s+(?:if\s+not\s+exists\s+)?(.+)$/i', $prefix, $matches)) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_IMPORT_DDL_INVALID_CREATE', 'CREATE TABLE invalido ou nao suportado.', 422);
+        }
+
+        $end = $this->findMatchingSqlParenthesis($statement, $start);
+        if ($end === null) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_IMPORT_DDL_INVALID_CREATE', 'CREATE TABLE invalido: parenteses nao balanceados.', 422);
+        }
+
+        [$schema, $tableName] = $this->parseQualifiedSqlName(trim($matches[1]));
+        if (!$this->isImportableTable($schema, $tableName)) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_IMPORT_TABLE_NOT_ALLOWED', 'Esta tabela nao pode ser importada pelo construtor.', 422, [
+                'schema' => $schema,
+                'tableName' => $tableName,
+            ]);
+        }
+
+        $columns = [];
+        $primaryKeys = [];
+        $uniqueConstraints = [];
+        $foreignKeys = [];
+        $ordinal = 1;
+        foreach ($this->splitSqlTopLevel(substr($statement, $start + 1, $end - $start - 1), ',') as $definition) {
+            $definition = trim($definition);
+            if ($definition === '') {
+                continue;
+            }
+
+            if ($this->parseTableConstraintDefinition($definition, $tableName, $primaryKeys, $uniqueConstraints, $foreignKeys)) {
+                continue;
+            }
+
+            $column = $this->parseColumnDefinition($definition, $ordinal, $tableName, $primaryKeys, $uniqueConstraints, $foreignKeys);
+            if ($column !== null) {
+                $columns[] = $column;
+                ++$ordinal;
+            }
+        }
+
+        if (!$columns) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_IMPORT_DDL_NO_COLUMNS', 'Nenhuma coluna valida foi encontrada no CREATE TABLE.', 422);
+        }
+
+        return [
+            'schema' => $schema,
+            'tableName' => $tableName,
+            'tableComment' => '',
+            'columns' => $columns,
+            'primaryKeys' => array_values(array_unique(array_map('strtolower', $primaryKeys))),
+            'uniqueConstraints' => $uniqueConstraints,
+            'foreignKeys' => $foreignKeys,
+            'classification' => [],
+            'diagnostics' => [],
+        ];
+    }
+
+    private function parseColumnDefinition(array|string $definition, int $ordinal, string $tableName, array &$primaryKeys, array &$uniqueConstraints, array &$foreignKeys): ?array
+    {
+        $definition = trim((string) $definition);
+        if (!preg_match('/^("[^"]+"|[A-Za-z_][A-Za-z0-9_]*)\s+(.+)$/s', $definition, $matches)) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_IMPORT_DDL_COLUMN_INVALID', 'Definicao de coluna invalida no CREATE TABLE.', 422, [
+                'definition' => substr($definition, 0, 120),
+            ]);
+        }
+
+        $columnName = $this->normalizeSqlIdentifier($matches[1]);
+        $rest = trim($matches[2]);
+        $constraintOffset = $this->findColumnConstraintOffset($rest);
+        $typeSql = trim($constraintOffset === null ? $rest : substr($rest, 0, $constraintOffset));
+        $constraintsSql = trim($constraintOffset === null ? '' : substr($rest, $constraintOffset));
+        $typeInfo = $this->mapDdlTypeToInformationSchema($typeSql);
+        $defaultValue = $this->extractColumnDefault($constraintsSql);
+        $isNullable = preg_match('/\bnot\s+null\b/i', $constraintsSql) === 1 ? 'NO' : 'YES';
+
+        if (preg_match('/\bprimary\s+key\b/i', $constraintsSql) === 1) {
+            $primaryKeys[] = $columnName;
+            $isNullable = 'NO';
+        }
+        if (preg_match('/\bunique\b/i', $constraintsSql) === 1) {
+            $uniqueConstraints[] = [
+                'name' => 'uk_' . $tableName . '_' . $columnName,
+                'columns' => [$columnName],
+            ];
+        }
+        if (preg_match('/\breferences\s+((?:"[^"]+"|[A-Za-z_][A-Za-z0-9_]*)(?:\.(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_]*))?)\s*\(([^)]+)\)/i', $constraintsSql, $fkMatches)) {
+            [$foreignSchema, $foreignTable] = $this->parseQualifiedSqlName($fkMatches[1]);
+            $foreignColumn = $this->normalizeSqlIdentifier(trim($fkMatches[2]));
+            $foreignKeys[$columnName] = [
+                'table' => $foreignTable,
+                'column' => $foreignColumn,
+                'schema' => $foreignSchema,
+                'onDelete' => $this->extractForeignKeyAction($constraintsSql, 'delete'),
+                'onUpdate' => $this->extractForeignKeyAction($constraintsSql, 'update'),
+                'dependencyType' => 'reference',
+            ];
+        }
+
+        return [
+            'column_name' => $columnName,
+            'data_type' => $typeInfo['data_type'],
+            'udt_name' => $typeInfo['udt_name'],
+            'is_nullable' => $isNullable,
+            'column_default' => $defaultValue,
+            'character_maximum_length' => $typeInfo['character_maximum_length'],
+            'numeric_precision' => $typeInfo['numeric_precision'],
+            'numeric_scale' => $typeInfo['numeric_scale'],
+            'ordinal_position' => $ordinal,
+            'column_comment' => '',
+        ];
+    }
+
+    private function parseTableConstraintDefinition(string $definition, string $tableName, array &$primaryKeys, array &$uniqueConstraints, array &$foreignKeys): bool
+    {
+        $normalized = preg_replace('/^constraint\s+("[^"]+"|[A-Za-z_][A-Za-z0-9_]*)\s+/i', '', trim($definition), 1, $count);
+        $constraintName = $count > 0 && preg_match('/^constraint\s+("[^"]+"|[A-Za-z_][A-Za-z0-9_]*)/i', trim($definition), $nameMatch)
+            ? $this->normalizeSqlIdentifier($nameMatch[1])
+            : '';
+        $normalized = trim((string) $normalized);
+
+        if (preg_match('/^primary\s+key\s*\(([^)]+)\)/i', $normalized, $matches)) {
+            foreach ($this->parseSqlIdentifierList($matches[1]) as $column) {
+                $primaryKeys[] = $column;
+            }
+            return true;
+        }
+        if (preg_match('/^unique\s*\(([^)]+)\)/i', $normalized, $matches)) {
+            $columns = $this->parseSqlIdentifierList($matches[1]);
+            if ($columns) {
+                $uniqueConstraints[] = [
+                    'name' => $constraintName !== '' ? $constraintName : 'uk_' . $tableName . '_' . implode('_', $columns),
+                    'columns' => $columns,
+                ];
+            }
+            return true;
+        }
+        if (preg_match('/^foreign\s+key\s*\(([^)]+)\)\s+references\s+((?:"[^"]+"|[A-Za-z_][A-Za-z0-9_]*)(?:\.(?:"[^"]+"|[A-Za-z_][A-Za-z0-9_]*))?)\s*\(([^)]+)\)(.*)$/is', $normalized, $matches)) {
+            $columns = $this->parseSqlIdentifierList($matches[1]);
+            [$foreignSchema, $foreignTable] = $this->parseQualifiedSqlName($matches[2]);
+            $foreignColumns = $this->parseSqlIdentifierList($matches[3]);
+            $tail = (string) ($matches[4] ?? '');
+            foreach ($columns as $index => $column) {
+                $foreignKeys[$column] = [
+                    'table' => $foreignTable,
+                    'column' => $foreignColumns[$index] ?? ($foreignColumns[0] ?? 'id'),
+                    'schema' => $foreignSchema,
+                    'onDelete' => $this->extractForeignKeyAction($tail, 'delete'),
+                    'onUpdate' => $this->extractForeignKeyAction($tail, 'update'),
+                    'dependencyType' => 'reference',
+                ];
+            }
+            return true;
+        }
+
+        if (preg_match('/^(check|exclude)\b/i', $normalized) === 1) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function applyDdlComments(array &$table, array $comments): void
+    {
+        foreach ($comments as $comment) {
+            if (preg_match('/^comment\s+on\s+table\s+(.+?)\s+is\s+(.+)$/is', trim($comment), $matches)) {
+                [$schema, $tableName] = $this->parseQualifiedSqlName(trim($matches[1]));
+                if ($schema === $table['schema'] && $tableName === $table['tableName']) {
+                    $table['tableComment'] = $this->unquoteSqlLiteral(trim($matches[2]));
+                }
+                continue;
+            }
+            if (preg_match('/^comment\s+on\s+column\s+(.+?)\s+is\s+(.+)$/is', trim($comment), $matches)) {
+                $target = trim($matches[1]);
+                $literal = $this->unquoteSqlLiteral(trim($matches[2]));
+                $parts = array_map(fn (string $part): string => $this->normalizeSqlIdentifier($part), $this->splitSqlTopLevel($target, '.'));
+                $columnName = end($parts);
+                $targetTable = count($parts) >= 2 ? $parts[count($parts) - 2] : $table['tableName'];
+                if ($targetTable !== $table['tableName'] || $columnName === false) {
+                    continue;
+                }
+                foreach ($table['columns'] as &$column) {
+                    if (($column['column_name'] ?? '') === $columnName) {
+                        $column['column_comment'] = $literal;
+                        break;
+                    }
+                }
+                unset($column);
+            }
+        }
+    }
+
+    private function splitSqlStatements(string $sql): array
+    {
+        return $this->splitSqlTopLevel($sql, ';');
+    }
+
+    private function splitSqlTopLevel(string $value, string $separator): array
+    {
+        $items = [];
+        $buffer = '';
+        $depth = 0;
+        $inSingle = false;
+        $inDouble = false;
+        $length = strlen($value);
+        for ($i = 0; $i < $length; ++$i) {
+            $char = $value[$i];
+            $next = $i + 1 < $length ? $value[$i + 1] : '';
+            if ($inSingle) {
+                $buffer .= $char;
+                if ($char === "'" && $next === "'") {
+                    $buffer .= $next;
+                    ++$i;
+                    continue;
+                }
+                if ($char === "'") {
+                    $inSingle = false;
+                }
+                continue;
+            }
+            if ($inDouble) {
+                $buffer .= $char;
+                if ($char === '"' && $next === '"') {
+                    $buffer .= $next;
+                    ++$i;
+                    continue;
+                }
+                if ($char === '"') {
+                    $inDouble = false;
+                }
+                continue;
+            }
+            if ($char === "'") {
+                $inSingle = true;
+                $buffer .= $char;
+                continue;
+            }
+            if ($char === '"') {
+                $inDouble = true;
+                $buffer .= $char;
+                continue;
+            }
+            if ($char === '(') {
+                ++$depth;
+            } elseif ($char === ')' && $depth > 0) {
+                --$depth;
+            }
+            if ($char === $separator && $depth === 0) {
+                $items[] = trim($buffer);
+                $buffer = '';
+                continue;
+            }
+            $buffer .= $char;
+        }
+        if (trim($buffer) !== '') {
+            $items[] = trim($buffer);
+        }
+        return $items;
+    }
+
+    private function findMatchingSqlParenthesis(string $value, int $start): ?int
+    {
+        $depth = 0;
+        $inSingle = false;
+        $inDouble = false;
+        $length = strlen($value);
+        for ($i = $start; $i < $length; ++$i) {
+            $char = $value[$i];
+            $next = $i + 1 < $length ? $value[$i + 1] : '';
+            if ($inSingle) {
+                if ($char === "'" && $next === "'") {
+                    ++$i;
+                    continue;
+                }
+                if ($char === "'") {
+                    $inSingle = false;
+                }
+                continue;
+            }
+            if ($inDouble) {
+                if ($char === '"' && $next === '"') {
+                    ++$i;
+                    continue;
+                }
+                if ($char === '"') {
+                    $inDouble = false;
+                }
+                continue;
+            }
+            if ($char === "'") {
+                $inSingle = true;
+                continue;
+            }
+            if ($char === '"') {
+                $inDouble = true;
+                continue;
+            }
+            if ($char === '(') {
+                ++$depth;
+            } elseif ($char === ')') {
+                --$depth;
+                if ($depth === 0) {
+                    return $i;
+                }
+            }
+        }
+        return null;
+    }
+
+    private function parseQualifiedSqlName(string $value): array
+    {
+        $value = trim($value);
+        $parts = array_map(fn (string $part): string => $this->normalizeSqlIdentifier($part), $this->splitSqlTopLevel($value, '.'));
+        if (count($parts) === 1) {
+            return ['public', $parts[0]];
+        }
+        return [$parts[count($parts) - 2], $parts[count($parts) - 1]];
+    }
+
+    private function normalizeSqlIdentifier(string $value): string
+    {
+        $value = trim($value);
+        if (str_starts_with($value, '"') && str_ends_with($value, '"')) {
+            $value = str_replace('""', '"', substr($value, 1, -1));
+        }
+        $value = strtolower(trim($value));
+        if (!preg_match('/^[a-z_][a-z0-9_]*$/', $value)) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_IMPORT_DDL_IDENTIFIER_INVALID', 'Identificador SQL invalido ou nao suportado na importacao.', 422, [
+                'identifier' => $value,
+            ]);
+        }
+        return $value;
+    }
+
+    private function parseSqlIdentifierList(string $value): array
+    {
+        $columns = [];
+        foreach ($this->splitSqlTopLevel($value, ',') as $column) {
+            $columns[] = $this->normalizeSqlIdentifier(trim($column));
+        }
+        return array_values(array_filter($columns));
+    }
+
+    private function findColumnConstraintOffset(string $rest): ?int
+    {
+        $patterns = [
+            '\bconstraint\b',
+            '\bnot\s+null\b',
+            '\bprimary\s+key\b',
+            '\bdefault\b',
+            '\breferences\b',
+            '\bunique\b',
+            '\bcheck\b',
+            '\bgenerated\b',
+            '\bcollate\b',
+        ];
+        $best = null;
+        foreach ($patterns as $pattern) {
+            if (preg_match('/' . $pattern . '/i', $rest, $matches, PREG_OFFSET_CAPTURE) === 1) {
+                $offset = (int) $matches[0][1];
+                $best = $best === null ? $offset : min($best, $offset);
+            }
+        }
+        return $best;
+    }
+
+    private function mapDdlTypeToInformationSchema(string $typeSql): array
+    {
+        $typeSql = strtolower(trim(preg_replace('/\s+/', ' ', $typeSql) ?? ''));
+        $length = null;
+        $precision = null;
+        $scale = null;
+
+        if (preg_match('/^(character varying|varchar|character|char)\s*\((\d+)\)$/', $typeSql, $matches)) {
+            $length = (int) $matches[2];
+            return [
+                'data_type' => in_array($matches[1], ['character', 'char'], true) ? 'character' : 'character varying',
+                'udt_name' => in_array($matches[1], ['character', 'char'], true) ? 'bpchar' : 'varchar',
+                'character_maximum_length' => $length,
+                'numeric_precision' => null,
+                'numeric_scale' => null,
+            ];
+        }
+        if (preg_match('/^(numeric|decimal)\s*\((\d+)(?:\s*,\s*(\d+))?\)$/', $typeSql, $matches)) {
+            $precision = (int) $matches[2];
+            $scale = isset($matches[3]) ? (int) $matches[3] : 0;
+            return [
+                'data_type' => 'numeric',
+                'udt_name' => 'numeric',
+                'character_maximum_length' => null,
+                'numeric_precision' => $precision,
+                'numeric_scale' => $scale,
+            ];
+        }
+
+        return match ($typeSql) {
+            'serial', 'serial4', 'integer', 'int', 'int4' => ['data_type' => 'integer', 'udt_name' => 'int4', 'character_maximum_length' => null, 'numeric_precision' => 32, 'numeric_scale' => 0],
+            'bigserial', 'serial8', 'bigint', 'int8' => ['data_type' => 'bigint', 'udt_name' => 'int8', 'character_maximum_length' => null, 'numeric_precision' => 64, 'numeric_scale' => 0],
+            'smallserial', 'serial2', 'smallint', 'int2' => ['data_type' => 'smallint', 'udt_name' => 'int2', 'character_maximum_length' => null, 'numeric_precision' => 16, 'numeric_scale' => 0],
+            'boolean', 'bool' => ['data_type' => 'boolean', 'udt_name' => 'bool', 'character_maximum_length' => null, 'numeric_precision' => null, 'numeric_scale' => null],
+            'date' => ['data_type' => 'date', 'udt_name' => 'date', 'character_maximum_length' => null, 'numeric_precision' => null, 'numeric_scale' => null],
+            'timestamp', 'timestamp without time zone' => ['data_type' => 'timestamp without time zone', 'udt_name' => 'timestamp', 'character_maximum_length' => null, 'numeric_precision' => null, 'numeric_scale' => null],
+            'timestamp with time zone', 'timestamptz' => ['data_type' => 'timestamp with time zone', 'udt_name' => 'timestamptz', 'character_maximum_length' => null, 'numeric_precision' => null, 'numeric_scale' => null],
+            'text' => ['data_type' => 'text', 'udt_name' => 'text', 'character_maximum_length' => null, 'numeric_precision' => null, 'numeric_scale' => null],
+            'json' => ['data_type' => 'json', 'udt_name' => 'json', 'character_maximum_length' => null, 'numeric_precision' => null, 'numeric_scale' => null],
+            'jsonb' => ['data_type' => 'jsonb', 'udt_name' => 'jsonb', 'character_maximum_length' => null, 'numeric_precision' => null, 'numeric_scale' => null],
+            'uuid' => ['data_type' => 'uuid', 'udt_name' => 'uuid', 'character_maximum_length' => null, 'numeric_precision' => null, 'numeric_scale' => null],
+            default => ['data_type' => $typeSql !== '' ? $typeSql : 'text', 'udt_name' => $typeSql !== '' ? $typeSql : 'text', 'character_maximum_length' => null, 'numeric_precision' => null, 'numeric_scale' => null],
+        };
+    }
+
+    private function extractColumnDefault(string $constraintsSql): ?string
+    {
+        if (preg_match('/\bdefault\s+(.+?)(?=\s+\bconstraint\b|\s+\bnot\s+null\b|\s+\bprimary\s+key\b|\s+\breferences\b|\s+\bunique\b|\s+\bcheck\b|$)/is', $constraintsSql, $matches) !== 1) {
+            return null;
+        }
+        $default = trim($matches[1]);
+        return $default !== '' ? $default : null;
+    }
+
+    private function extractForeignKeyAction(string $sql, string $kind): ?string
+    {
+        if (preg_match('/\bon\s+' . preg_quote($kind, '/') . '\s+(cascade|restrict|set\s+null|set\s+default|no\s+action)\b/i', $sql, $matches) !== 1) {
+            return null;
+        }
+        return $this->normalizeForeignKeyAction(str_replace(' ', '_', strtolower($matches[1])));
+    }
+
+    private function unquoteSqlLiteral(string $value): string
+    {
+        $value = trim($value);
+        if (str_starts_with($value, "'") && str_ends_with($value, "'")) {
+            return str_replace("''", "'", substr($value, 1, -1));
+        }
+        return trim($value, "'");
+    }
+
     private function buildImportedEntityDraft(array $table, array $payload): array
     {
         $entityCode = $this->safeSqlIdentifier((string) ($payload['entityCode'] ?? $table['tableName']));
-        $entityName = trim((string) ($payload['entityName'] ?? $this->humanizeIdentifier((string) $table['tableName'])));
+        $entityName = trim((string) ($payload['entityName'] ?? ($table['tableComment'] ?? $this->humanizeIdentifier((string) $table['tableName']))));
         $fields = [];
         $singleUniqueColumns = [];
         $uniqueKeys = [];
@@ -785,7 +1335,10 @@ class ProgramBuilderService
         }
 
         $dataType = $this->mapDatabaseTypeToBuilderType((string) ($column['data_type'] ?? ''), (string) ($column['udt_name'] ?? ''));
-        $label = $this->humanizeIdentifier($columnName);
+        $label = trim((string) ($column['column_comment'] ?? ''));
+        if ($label === '') {
+            $label = $this->humanizeIdentifier($columnName);
+        }
         $length = $column['character_maximum_length'] !== null ? (int) $column['character_maximum_length'] : null;
         $precision = $column['numeric_precision'] !== null ? (int) $column['numeric_precision'] : null;
         $scale = $column['numeric_scale'] !== null ? (int) $column['numeric_scale'] : null;

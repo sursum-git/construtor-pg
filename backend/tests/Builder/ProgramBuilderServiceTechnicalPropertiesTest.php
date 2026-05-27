@@ -117,6 +117,46 @@ class ProgramBuilderServiceTechnicalPropertiesTest extends TestCase
         self::assertSame('nome', $this->findPropertyValue($filterProperties, 'Coluna'));
     }
 
+    public function testParseDatabaseDdlBuildsTableMetadataWithoutExecutingSql(): void
+    {
+        $service = $this->service();
+        $table = $this->invokePrivate($service, 'parseDatabaseDdl', [
+            <<<'SQL'
+CREATE TABLE public.produto (
+  id SERIAL PRIMARY KEY,
+  c_nome VARCHAR(120) NOT NULL,
+  d_vl NUMERIC(14, 2) DEFAULT 0,
+  categoria_id INTEGER REFERENCES categoria(id) ON DELETE RESTRICT,
+  CONSTRAINT uk_produto_nome UNIQUE (c_nome)
+);
+COMMENT ON TABLE public.produto IS 'Produto';
+COMMENT ON COLUMN public.produto.c_nome IS 'Nome do produto';
+SQL
+        ]);
+
+        self::assertSame('public', $table['schema']);
+        self::assertSame('produto', $table['tableName']);
+        self::assertSame('Produto', $table['tableComment']);
+        self::assertSame(['id'], $table['primaryKeys']);
+        self::assertSame('c_nome', $table['uniqueConstraints'][0]['columns'][0]);
+        self::assertSame('categoria', $table['foreignKeys']['categoria_id']['table']);
+        self::assertSame('restrict', $table['foreignKeys']['categoria_id']['onDelete']);
+        self::assertSame('Nome do produto', $table['columns'][1]['column_comment']);
+        self::assertSame('numeric', $table['columns'][2]['data_type']);
+        self::assertSame(14, $table['columns'][2]['numeric_precision']);
+        self::assertSame(2, $table['columns'][2]['numeric_scale']);
+    }
+
+    public function testParseDatabaseDdlRejectsUnsafeStatements(): void
+    {
+        $service = $this->service();
+
+        $this->expectException(\App\Runtime\RuntimeHttpException::class);
+        $this->invokePrivate($service, 'parseDatabaseDdl', [
+            'CREATE TABLE public.produto (id SERIAL PRIMARY KEY); DROP TABLE auth_user;',
+        ]);
+    }
+
     private function service(): ProgramBuilderService
     {
         return new ProgramBuilderService(

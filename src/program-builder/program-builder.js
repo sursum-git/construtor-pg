@@ -27,6 +27,7 @@
       preview: null,
       databaseTables: [],
       importInspection: null,
+      ddlImportInspection: null,
       externalImportInspection: null,
       aiSettings: null,
       aiSessionId: "",
@@ -181,6 +182,7 @@
     this.toolbarElement = $("<div class=\"program-builder-toolbar\"></div>").appendTo(appbar);
     this.newEntityButton = this.createToolbarButton(this.t("program_builder.button.new_entity", "Nova entidade"), "plus", "primary", this.handleNewEntity.bind(this));
     this.importTableButton = this.createToolbarButton(this.t("program_builder.button.import_table", "Importar tabela"), "folder-open", null, this.openDatabaseImportDialog.bind(this));
+    this.importDdlButton = this.createToolbarButton(this.t("program_builder.button.import_ddl", "Importar SQL"), "file-txt", null, this.openDdlImportDialog.bind(this));
     this.apiCatalogButton = this.createToolbarButton(this.t("program_builder.button.api_catalog", "Gerenciar APIs"), "globe", null, this.openApiSourceManagerDialog.bind(this));
     this.integrationAssistantButton = this.createToolbarButton(this.t("program_builder.button.integration_assistant", "Integracao"), "link-horizontal", null, this.openIntegrationAssistantDialog.bind(this));
     this.importExternalButton = this.createToolbarButton(this.t("program_builder.button.import_external_json", "Importar JSON externo"), "file-txt", null, this.openExternalJsonImportDialog.bind(this));
@@ -627,6 +629,7 @@
     const form = this.entityFormElement;
 
     this.renderDatabaseImportPanel(form);
+    this.renderDdlImportPanel(form);
     this.renderExternalJsonImportPanel(form);
 
     const entitySelectorField = this.appendField(form, "Entidade existente", this.entityFieldTechnicalProperties("existingEntity"));
@@ -787,6 +790,59 @@
 
     this.databaseImportSummary = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(importForm);
     this.databaseImportSummary.text("A importacao cria a entidade em rascunho no construtor. A publicacao do programa continua manual.");
+  };
+
+  ProgramBuilder.prototype.renderDdlImportPanel = function(form) {
+    this.ddlImportPanel = $("<section class=\"program-builder-subpanel\"></section>").appendTo(form);
+    $("<div class=\"program-builder-versions-header\"><h3>Importar SQL/DDL</h3><p>Cole um CREATE TABLE PostgreSQL, valide no backend e carregue a entidade sem executar o script no schema real.</p></div>").appendTo(this.ddlImportPanel);
+
+    const importForm = $("<div class=\"program-builder-form\"></div>").appendTo(this.ddlImportPanel);
+    const ddlField = this.appendField(importForm, "Script da tabela");
+    this.ddlImportTextInput = $("<textarea rows=\"12\" class=\"program-builder-large-textarea\"></textarea>").appendTo(ddlField).kendoTextArea({
+      inputMode: "text",
+      placeholder: "CREATE TABLE public.produto (\n  id SERIAL PRIMARY KEY,\n  c_nome VARCHAR(120) NOT NULL\n);"
+    }).data("kendoTextArea");
+
+    const splitA = $("<div class=\"program-builder-split\"></div>").appendTo(importForm);
+    this.ddlImportEntityCodeInput = this.createTextField(splitA, "Codigo da entidade");
+    this.ddlImportEntityNameInput = this.createTextField(splitA, "Nome da entidade");
+
+    const splitB = $("<div class=\"program-builder-split\"></div>").appendTo(importForm);
+    this.ddlImportProgramEnabledInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(this.appendField(splitB, "Gerar rascunho CRUD")));
+    $("<span></span>").text("Criar rascunho de programa").appendTo(this.ddlImportProgramEnabledInput.parent());
+    this.ddlImportProgramEnabledInput.kendoCheckBox({
+      change: this.syncDdlImportState.bind(this)
+    });
+    const moduleField = this.appendField(splitB, "Modulo do programa");
+    this.ddlImportProgramModuleSelect = $("<input>").appendTo(moduleField).kendoDropDownList({
+      dataTextField: "name",
+      dataValueField: "code",
+      optionLabel: "Selecione o modulo"
+    }).data("kendoDropDownList");
+    this.ddlImportProgramCodeInput = this.createTextField(splitB, "Codigo do programa");
+
+    const splitC = $("<div class=\"program-builder-split\"></div>").appendTo(importForm);
+    this.ddlImportProgramTitleInput = this.createTextField(splitC, "Titulo do programa");
+    this.ddlImportScreenIdInput = this.createTextField(splitC, "Screen ID");
+    this.ddlImportVersionInput = this.createTextField(splitC, "Versao");
+
+    const actions = $("<div class=\"program-builder-fields-header\"></div>").appendTo(importForm);
+    $("<span></span>").text("Fluxo de importacao SQL").appendTo(actions);
+    $("<button type=\"button\"></button>").text("Analisar SQL").appendTo(actions).kendoButton({
+      icon: "search",
+      click: this.handleInspectDdlImport.bind(this)
+    });
+    $("<button type=\"button\"></button>").text("Carregar na modelagem").appendTo(actions).kendoButton({
+      icon: "download",
+      click: this.handleApplyDdlImportedDraft.bind(this)
+    });
+    $("<button type=\"button\"></button>").text("Importar como rascunho").appendTo(actions).kendoButton({
+      icon: "file-add",
+      click: this.handleImportDdlDraft.bind(this)
+    });
+
+    this.ddlImportSummary = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(importForm);
+    this.ddlImportSummary.text("O script e analisado como metadado. O SQL nao e executado no banco real.");
   };
 
   ProgramBuilder.prototype.renderApiSourceEditor = function(form) {
@@ -1323,6 +1379,13 @@
     }
   };
 
+  ProgramBuilder.prototype.openDdlImportDialog = function() {
+    this.activateEditorTab(1);
+    if (this.ddlImportTextInput && this.ddlImportTextInput.focus) {
+      this.ddlImportTextInput.focus();
+    }
+  };
+
   ProgramBuilder.prototype.syncDatabaseImportState = function() {
     const enabled = this.databaseImportProgramEnabledInput.is(":checked");
     this.databaseImportProgramModuleSelect.enable(enabled);
@@ -1331,6 +1394,22 @@
       this.databaseImportProgramTitleInput,
       this.databaseImportScreenIdInput,
       this.databaseImportVersionInput
+    ].forEach(function(widget) {
+      const input = widget && (widget.input || widget.element);
+      if (input && typeof input.prop === "function") {
+        input.prop("disabled", !enabled);
+      }
+    });
+  };
+
+  ProgramBuilder.prototype.syncDdlImportState = function() {
+    const enabled = this.ddlImportProgramEnabledInput.is(":checked");
+    this.ddlImportProgramModuleSelect.enable(enabled);
+    [
+      this.ddlImportProgramCodeInput,
+      this.ddlImportProgramTitleInput,
+      this.ddlImportScreenIdInput,
+      this.ddlImportVersionInput
     ].forEach(function(widget) {
       const input = widget && (widget.input || widget.element);
       if (input && typeof input.prop === "function") {
@@ -1357,6 +1436,20 @@
       programTitle: String(this.databaseImportProgramTitleInput.value() || "").trim(),
       screenId: String(this.databaseImportScreenIdInput.value() || "").trim(),
       version: String(this.databaseImportVersionInput.value() || "").trim() || "1.0.0"
+    };
+  };
+
+  ProgramBuilder.prototype.collectDdlImportPayload = function() {
+    return {
+      ddl: String(this.ddlImportTextInput.value() || "").trim(),
+      entityCode: String(this.ddlImportEntityCodeInput.value() || "").trim(),
+      entityName: String(this.ddlImportEntityNameInput.value() || "").trim(),
+      generateProgramDraft: this.ddlImportProgramEnabledInput.is(":checked"),
+      module: String(this.ddlImportProgramModuleSelect.value() || "").trim(),
+      programCode: String(this.ddlImportProgramCodeInput.value() || "").trim(),
+      programTitle: String(this.ddlImportProgramTitleInput.value() || "").trim(),
+      screenId: String(this.ddlImportScreenIdInput.value() || "").trim(),
+      version: String(this.ddlImportVersionInput.value() || "").trim() || "1.0.0"
     };
   };
 
@@ -1463,6 +1556,120 @@
       }.bind(this));
     }.bind(this)).catch(function(error) {
       this.handleError(error, "Nao foi possivel importar a tabela.");
+    }.bind(this));
+  };
+
+  ProgramBuilder.prototype.handleInspectDdlImport = function() {
+    const payload = this.collectDdlImportPayload();
+    if (!payload.ddl) {
+      global.CrudUtils.showMessage("Cole o script CREATE TABLE para analisar.", "warning");
+      return Promise.resolve(null);
+    }
+    return this.http.request({
+      url: "/api/admin/program-builder/database/inspect-ddl",
+      method: "POST",
+      data: payload
+    }).then(function(response) {
+      this.state.ddlImportInspection = response || null;
+      this.applyDdlImportInspection(response || {});
+      global.CrudUtils.showMessage("Analise do SQL concluida.", "success");
+      return response;
+    }.bind(this)).catch(function(error) {
+      this.state.ddlImportInspection = null;
+      this.renderDdlImportSummary();
+      this.handleError(error, "Nao foi possivel analisar o SQL.");
+      return null;
+    }.bind(this));
+  };
+
+  ProgramBuilder.prototype.applyDdlImportInspection = function(response) {
+    const entityDraft = response && response.entityDraft ? response.entityDraft : null;
+    const programDraft = response && response.programDraft ? response.programDraft : null;
+    if (entityDraft) {
+      this.ddlImportEntityCodeInput.value(entityDraft.code || "");
+      this.ddlImportEntityNameInput.value(entityDraft.name || "");
+    }
+    if (programDraft) {
+      if (!this.ddlImportProgramCodeInput.value()) {
+        this.ddlImportProgramCodeInput.value(programDraft.programCode || "");
+      }
+      if (!this.ddlImportProgramTitleInput.value()) {
+        this.ddlImportProgramTitleInput.value(programDraft.programTitle || "");
+      }
+      if (!this.ddlImportScreenIdInput.value()) {
+        this.ddlImportScreenIdInput.value(programDraft.screenId || "");
+      }
+      if (!this.ddlImportVersionInput.value()) {
+        this.ddlImportVersionInput.value(programDraft.version || "1.0.0");
+      }
+    }
+    this.renderDdlImportSummary(response || {});
+  };
+
+  ProgramBuilder.prototype.renderDdlImportSummary = function(response) {
+    const classification = response && response.classification ? response.classification : null;
+    const diagnostics = response && Array.isArray(response.diagnostics) ? response.diagnostics : [];
+    const entityDraft = response && response.entityDraft ? response.entityDraft : null;
+    const table = response && response.table ? response.table : null;
+    const parts = [];
+    if (table && table.qualifiedName) {
+      parts.push("Tabela detectada: " + table.qualifiedName + ".");
+    }
+    if (classification && classification.label) {
+      parts.push("Classificacao: " + classification.label + ".");
+    }
+    if (entityDraft) {
+      parts.push("Campos importados: " + String((entityDraft.fields || []).length) + ".");
+    }
+    if (diagnostics.length) {
+      parts.push(diagnostics.map(function(item) { return String(item.message || ""); }).join(" "));
+    } else {
+      parts.push("O SQL sera convertido em rascunho para revisao antes de publicar.");
+    }
+    this.ddlImportSummary.text(parts.join(" "));
+  };
+
+  ProgramBuilder.prototype.handleApplyDdlImportedDraft = function() {
+    if (!this.state.ddlImportInspection || !this.state.ddlImportInspection.entityDraft) {
+      return this.handleInspectDdlImport().then(function(response) {
+        if (response && response.entityDraft) {
+          this.handleApplyDdlImportedDraft();
+        }
+      }.bind(this));
+    }
+    this.populateEntityForm(this.state.ddlImportInspection.entityDraft, []);
+    if (this.ddlImportProgramEnabledInput.is(":checked") && this.state.ddlImportInspection.programDraft) {
+      this.populateProgramForm(this.state.ddlImportInspection.programDraft);
+    }
+    this.bannerElement.text("Modelagem carregada a partir do script SQL. Revise o rascunho antes de salvar.");
+  };
+
+  ProgramBuilder.prototype.handleImportDdlDraft = function() {
+    const payload = this.collectDdlImportPayload();
+    if (!payload.ddl) {
+      global.CrudUtils.showMessage("Cole o script CREATE TABLE para importar.", "warning");
+      return;
+    }
+    if (payload.generateProgramDraft && (!payload.programCode || !payload.module || !payload.screenId)) {
+      global.CrudUtils.showMessage("Para gerar o rascunho CRUD informe modulo, codigo do programa e screen ID.", "warning");
+      return;
+    }
+    this.http.request({
+      url: "/api/admin/program-builder/database/import-ddl",
+      method: "POST",
+      data: payload
+    }).then(function(response) {
+      this.state.ddlImportInspection = response || null;
+      this.refreshBootstrap().then(function() {
+        this.populateEntityForm(response.entity || {}, response.entityVersions || []);
+        if (response.programVersion && response.programVersion.programCode) {
+          this.refreshProgramVersions(response.programVersion.programCode);
+        }
+        global.CrudUtils.showMessage(response.programDraftGenerated ? "SQL importado com entidade e rascunho CRUD." : "SQL importado para a modelagem.", "success");
+        this.bannerElement.text("Importacao por SQL concluida. Revise a entidade e publique o programa quando estiver pronto.");
+      }.bind(this));
+    }.bind(this)).catch(function(error) {
+      this.handleError(error, "Nao foi possivel importar o SQL.");
     }.bind(this));
   };
 
@@ -4008,6 +4215,9 @@
     this.moduleInput.setDataSource(new kendo.data.DataSource({ data: modules }));
     if (this.databaseImportProgramModuleSelect) {
       this.databaseImportProgramModuleSelect.setDataSource(new kendo.data.DataSource({ data: modules }));
+    }
+    if (this.ddlImportProgramModuleSelect) {
+      this.ddlImportProgramModuleSelect.setDataSource(new kendo.data.DataSource({ data: modules }));
     }
     this.refreshApiSourceSelectors();
     this.entityStructureModuleSelect.setDataSource(new kendo.data.DataSource({ data: modules }));

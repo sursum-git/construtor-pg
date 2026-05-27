@@ -11,7 +11,7 @@ Esse mesmo principio tambem existe para a pagina inicial via `HomeEngine`.
 O `HomeEngine` e separado do `CrudEngine`: ele monta o shell global e pode chamar um CRUD como um dos tipos fechados de programa.
 Para paginas de processamento por parametros existe tambem o `ProcessEngine`, separado do CRUD para evitar misturar consultas com execucoes de jobs.
 Para geracao visual de novos programas existe uma interface administrativa separada, que gera definicoes CRUD ou registra programas custom e publica o resultado no runtime.
-Esse editor agora tambem possui painel contextual de propriedades, visao de relacionamentos, comparativo entre revisoes/versoes, reordenacao por drag-and-drop para campos/regras/chaves, lock de edicao com heartbeat no backend e importacao de tabelas PostgreSQL existentes.
+Esse editor agora tambem possui painel contextual de propriedades, visao de relacionamentos, comparativo entre revisoes/versoes, reordenacao por drag-and-drop para campos/regras/chaves, lock de edicao com heartbeat no backend, importacao de tabelas PostgreSQL existentes e importacao de SQL/DDL com `CREATE TABLE`.
 Existe tambem um MVP opcional e separado em `desktop-wpf/`, criado apenas para validar uma experiencia desktop de autoria sem impactar o frontend web atual.
 
 Na demo, o JSON pode vir de arquivo/local embed e as chamadas podem passar pelo mock HTTP.
@@ -529,6 +529,32 @@ Decisoes do fluxo:
 - a importacao administrativa nao salva nem publica automaticamente;
 - o frontend apenas carrega o rascunho normalizado para revisao humana no proprio construtor.
 
+## Importacao de SQL/DDL no construtor
+
+O `program-builder` tambem aceita colar um script de definicao de tabela PostgreSQL para gerar a modelagem inicial sem executar o SQL no schema real.
+
+Fluxo:
+
+1. `POST /api/admin/program-builder/database/inspect-ddl`
+   - recebe um `CREATE TABLE`;
+   - aceita opcionalmente `COMMENT ON TABLE` e `COMMENT ON COLUMN`;
+   - recusa comandos fora desse escopo;
+   - devolve `classification`, `diagnostics`, `entityDraft` e `programDraft`.
+2. `POST /api/admin/program-builder/database/import-ddl`
+   - valida o mesmo script;
+   - grava a entidade importada;
+   - gera revisao da entidade;
+   - opcionalmente cria um rascunho de programa CRUD.
+
+Decisoes do fluxo:
+
+- o SQL nao e executado no banco real;
+- a importacao aceita um `CREATE TABLE` por vez;
+- a publicacao do programa continua manual;
+- comandos como `DROP`, `ALTER`, `INSERT`, `UPDATE`, funcoes, triggers e scripts livres sao bloqueados;
+- o parser cobre colunas, tipos PostgreSQL comuns, PK, UNIQUE, FK, defaults simples, nulidade e comentarios usados como labels;
+- casos complexos devem ser revisados pelo analista antes de salvar/publicar.
+
 ## Assistente de IA interno no construtor
 
 O `program-builder` agora tambem tem um fluxo interno por chat para montar rascunhos CRUD dentro do proprio sistema.
@@ -835,6 +861,8 @@ Endpoints atuais:
 - `POST /api/admin/program-builder/drafts`: salva ou atualiza um rascunho;
 - `POST /api/admin/program-builder/versions/{id}/publish`: publica a versao selecionada;
 - `POST /api/admin/program-builder/versions/{id}/duplicate`: cria novo rascunho com incremento de versao;
+- `POST /api/admin/program-builder/database/inspect-ddl`: analisa `CREATE TABLE` e devolve rascunhos sem executar o SQL;
+- `POST /api/admin/program-builder/database/import-ddl`: importa o rascunho gerado de SQL/DDL para entidade e opcionalmente programa CRUD;
 - `POST /api/admin/program-builder/external/validate`: valida JSON externo e devolve rascunho normalizado para revisao.
 
 Novos conceitos de ownership e customizacao:

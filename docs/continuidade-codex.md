@@ -202,6 +202,11 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - analisar tabela;
   - carregar a modelagem na UI;
   - importar entidade e gerar rascunho CRUD.
+- existe importacao de SQL/DDL PostgreSQL pelo proprio editor:
+  - colar um `CREATE TABLE`;
+  - aceitar `COMMENT ON TABLE` e `COMMENT ON COLUMN`;
+  - bloquear comandos fora desse escopo;
+  - gerar `entityDraft` e `programDraft` sem executar o script no schema real.
 - existe tambem importacao de JSON externo pelo proprio editor:
   - colar `entityDraft + programDraft`;
   - validar sintaxe no frontend;

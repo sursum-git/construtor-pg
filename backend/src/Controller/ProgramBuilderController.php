@@ -75,6 +75,30 @@ class ProgramBuilderController extends AbstractController
         }
     }
 
+    #[Route('/database/inspect-ddl', methods: ['POST'])]
+    public function inspectDatabaseDdl(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->inspectDatabaseDdl(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/database/import-ddl', methods: ['POST'])]
+    public function importDatabaseDdl(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            return $this->json($this->builder->importDatabaseDdl(is_array($payload) ? $payload : []));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
     #[Route('/api-sources/{apiSourceCode}', methods: ['GET'])]
     public function apiSource(string $apiSourceCode): JsonResponse
     {

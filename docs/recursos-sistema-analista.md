@@ -79,6 +79,7 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - **Campos**: Tipos, obrigatoriedade, readonly, defaults, FKs, chaves unicas e nomenclatura.
 - **Tabela fisica**: Criacao/alteracao controlada, rename, defaults, nullability, precision/scale e rollback.
 - **Importacao PostgreSQL**: Lista, inspeciona e importa tabelas existentes como entidade + rascunho CRUD.
+- **Importacao SQL/DDL**: Converte `CREATE TABLE` PostgreSQL em entidade + rascunho CRUD sem executar o script no schema real.
 - **Importacao JSON externo**: Valida `entityDraft + programDraft` antes de carregar para revisao.
 - **Assistente IA**: Chat interno com provider mock/openai_compatible, validacao backend e carga de rascunho.
 - **API/Odoo**: Entidades API readonly ou CRUD previsivel; Odoo readonly por XML-RPC/JSON-RPC.
