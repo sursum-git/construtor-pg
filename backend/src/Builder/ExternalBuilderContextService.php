@@ -49,6 +49,15 @@ class ExternalBuilderContextService
         return [
             'schemaVersion' => '1.0',
             'type' => 'program-builder-external-context',
+            'catalog' => [
+                'version' => '2026.05.27.1',
+                'capabilities' => [
+                    $this->capabilityEntityDraft(),
+                    $this->capabilityProgramDraft(),
+                    $this->capabilityField(),
+                    $this->capabilityBusinessRuleDeclarative(),
+                ],
+            ],
             'contract' => [
                 'acceptedPayload' => 'builderDraft',
                 'pageTypesAllowed' => ['crud'],
@@ -148,6 +157,138 @@ class ExternalBuilderContextService
                     'fields' => $fields,
                 ];
             }, $this->entities->findBy([], ['name' => 'ASC'])),
+        ];
+    }
+
+    private function capabilityEntityDraft(): array
+    {
+        return [
+            'capabilityCode' => 'builder.entityDraft',
+            'schemaVersion' => '1.0',
+            'description' => 'Rascunho de entidade do Program Builder.',
+            'required' => ['code', 'name', 'entityType', 'tableName', 'fields'],
+            'jsonSchema' => [
+                'type' => 'object',
+                'required' => ['code', 'name', 'entityType', 'tableName', 'fields'],
+                'properties' => [
+                    'code' => ['type' => 'string'],
+                    'name' => ['type' => 'string'],
+                    'entityType' => ['enum' => ['persistence', 'query', 'io', 'api']],
+                    'tableName' => ['type' => 'string'],
+                    'fields' => ['type' => 'array', 'items' => ['$ref' => 'builder.field']],
+                    'rules' => ['type' => 'array', 'items' => ['$ref' => 'builder.businessRule.declarative']],
+                ],
+            ],
+            'example' => [
+                'code' => 'produto',
+                'name' => 'Produto',
+                'entityType' => 'persistence',
+                'tableName' => 't1',
+                'fields' => [
+                    ['code' => 'id', 'label' => 'ID', 'dataType' => 'integer', 'primaryKey' => true, 'required' => true],
+                    ['code' => 'c_descr', 'label' => 'Descricao', 'dataType' => 'string', 'length' => 160, 'required' => true],
+                ],
+            ],
+        ];
+    }
+
+    private function capabilityProgramDraft(): array
+    {
+        return [
+            'capabilityCode' => 'builder.programDraft',
+            'schemaVersion' => '1.0',
+            'description' => 'Rascunho de programa CRUD.',
+            'required' => ['pageType', 'module', 'programCode', 'programTitle', 'screenId', 'version'],
+            'jsonSchema' => [
+                'type' => 'object',
+                'required' => ['pageType', 'module', 'programCode', 'programTitle', 'screenId', 'version'],
+                'properties' => [
+                    'pageType' => ['const' => 'crud'],
+                    'module' => ['type' => 'string'],
+                    'programCode' => ['type' => 'string'],
+                    'programTitle' => ['type' => 'string'],
+                    'screenId' => ['type' => 'string'],
+                    'version' => ['type' => 'string'],
+                ],
+            ],
+            'example' => [
+                'pageType' => 'crud',
+                'module' => 'cadastros',
+                'programCode' => 'cd0101',
+                'programTitle' => 'Produto',
+                'screenId' => 'cadastros.produto',
+                'version' => '1.0.0',
+            ],
+        ];
+    }
+
+    private function capabilityField(): array
+    {
+        return [
+            'capabilityCode' => 'builder.field',
+            'schemaVersion' => '1.0',
+            'description' => 'Campo de entidade.',
+            'required' => ['code', 'label', 'dataType'],
+            'jsonSchema' => [
+                'type' => 'object',
+                'required' => ['code', 'label', 'dataType'],
+                'properties' => [
+                    'code' => ['type' => 'string'],
+                    'label' => ['type' => 'string'],
+                    'dataType' => ['enum' => ['string', 'text', 'integer', 'decimal', 'boolean', 'date', 'datetime', 'enum', 'dropdown', 'email', 'json', 'custom_code']],
+                    'required' => ['type' => 'boolean'],
+                    'primaryKey' => ['type' => 'boolean'],
+                    'length' => ['type' => 'integer'],
+                    'precision' => ['type' => 'integer'],
+                    'scale' => ['type' => 'integer'],
+                    'unique' => ['type' => 'boolean'],
+                ],
+            ],
+            'example' => ['code' => 'd_vl_preco', 'label' => 'Preco', 'dataType' => 'decimal', 'precision' => 14, 'scale' => 2, 'required' => true],
+        ];
+    }
+
+    private function capabilityBusinessRuleDeclarative(): array
+    {
+        return [
+            'capabilityCode' => 'builder.businessRule.declarative',
+            'schemaVersion' => '1.0',
+            'description' => 'Regra declarativa segura. O assistente nao pode gerar classe, metodo, PHP, JavaScript ou expressao livre.',
+            'required' => ['id', 'label', 'type', 'phase', 'field', 'when', 'message'],
+            'jsonSchema' => [
+                'type' => 'object',
+                'required' => ['id', 'label', 'type', 'phase', 'field', 'when', 'message'],
+                'properties' => [
+                    'id' => ['type' => 'string'],
+                    'label' => ['type' => 'string'],
+                    'type' => ['const' => 'requiredWhen'],
+                    'phase' => ['enum' => ['beforeValidate', 'beforePersist', 'afterPersist', 'afterCommit']],
+                    'order' => ['type' => 'integer'],
+                    'enabled' => ['type' => 'boolean'],
+                    'continueOnError' => ['type' => 'boolean'],
+                    'field' => ['type' => 'string'],
+                    'when' => [
+                        'type' => 'object',
+                        'required' => ['field', 'equals'],
+                        'properties' => [
+                            'field' => ['type' => 'string'],
+                            'equals' => [],
+                        ],
+                    ],
+                    'message' => ['type' => 'string'],
+                    'messageKey' => ['type' => 'string'],
+                    'params' => ['type' => 'object'],
+                ],
+            ],
+            'example' => [
+                'id' => 'preco-obrigatorio-quando-ativo',
+                'label' => 'Preco obrigatorio quando ativo',
+                'type' => 'requiredWhen',
+                'phase' => 'beforeValidate',
+                'field' => 'd_vl_preco',
+                'when' => ['field' => 'log_ativo', 'equals' => true],
+                'message' => 'Informe o preco quando o produto estiver ativo.',
+            ],
         ];
     }
 

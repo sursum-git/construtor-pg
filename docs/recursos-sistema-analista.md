@@ -81,7 +81,7 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - **Importacao PostgreSQL**: Lista, inspeciona e importa tabelas existentes como entidade + rascunho CRUD.
 - **Importacao SQL/DDL**: Converte `CREATE TABLE` PostgreSQL em entidade + rascunho CRUD sem executar o script no schema real.
 - **Importacao JSON externo**: Valida `entityDraft + programDraft` antes de carregar para revisao.
-- **Assistente IA**: Chat interno com provider mock/openai_compatible, validacao backend e carga de rascunho.
+- **Assistente IA**: Chat interno com provider mock/openai_compatible, sessao persistente no backend, catalogo versionado de capacidades, validacao backend e carga de rascunho.
 - **API/Odoo**: Entidades API readonly ou CRUD previsivel; Odoo readonly por XML-RPC/JSON-RPC.
 - **Historico**: Entidades mestres versionadas e snapshots em `runtime_entity_record_version`.
 - **Codificacao customizada**: Campo `custom_code` com padrao declarativo ou metodo restrito no backend.
@@ -234,6 +234,7 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - **Historico**: Snapshot de mestre e referencia historica em transacional. Observar: Validar que registro antigo continua mostrando dado da epoca.
 - **Codificacao**: Pattern declarativo, sequencia, assistente seguro, metodo estatico restrito. Observar: Valor final deve ser gerado no backend.
 - **Regras**: requiredWhen, class_method, ordem, fase, continueOnError. Observar: Mensagens devem preferir messageKey/messageParams.
+- **IA do Builder**: sessionId, catalog_hash, catalog_version, rascunho persistido e diagnosticos. Observar: Token autentica cada chamada; sessionId sozinho nao autoriza e a IA nao pode publicar, executar SQL nem criar regra executavel.
 - **Publicacao**: Draft, published, archived, duplicacao, rollback e gate de ambiente. Observar: Publicar programa padrao pode exigir governanca.
 
 ## 23. Matriz de instalacao e operacao

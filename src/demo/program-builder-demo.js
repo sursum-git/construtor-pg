@@ -66,6 +66,65 @@
     if (url === "/api/admin/program-builder/api-sources/odoo/test-connection" && method === "POST") {
       return Promise.resolve({ ok: true, transport: data.transport || "jsonrpc", uid: 7 });
     }
+    if (url === "/api/admin/program-builder/ai/settings" && method === "GET") {
+      return Promise.resolve({
+        enabled: true,
+        provider: "mock",
+        agentName: "Assistente do construtor",
+        apiTokenConfigured: false,
+        transcriptionEnabled: false
+      });
+    }
+    if (url === "/api/admin/program-builder/ai/session" && method === "POST") {
+      const sessionId = data.forceNew || !data.sessionId ? "builder-ai-demo-" + Date.now() : data.sessionId;
+      return Promise.resolve({
+        sessionId: sessionId,
+        session: buildAiSession(sessionId, null),
+        messages: [{
+          id: "builder-ai-demo-welcome",
+          text: "Descreva o cadastro que voce quer montar. Esta e uma sessao persistente simulada na demo.",
+          authorId: "ia-builder",
+          authorName: "Assistente do construtor",
+          timestamp: new Date().toISOString()
+        }],
+        draft: null,
+        diagnostics: [],
+        readyToApply: false
+      });
+    }
+    if (url === "/api/admin/program-builder/ai/message" && method === "POST") {
+      const sessionId = data.sessionId || "builder-ai-demo";
+      const draft = buildAiDraftFromText(String(data.message && data.message.text || data.text || ""));
+      return Promise.resolve({
+        sessionId: sessionId,
+        session: buildAiSession(sessionId, draft),
+        messages: [{
+          id: "builder-ai-demo-response-" + Date.now(),
+          text: "Montei um rascunho inicial em uma sessao persistente simulada. Revise antes de carregar.",
+          authorId: "ia-builder",
+          authorName: "Assistente do construtor",
+          timestamp: new Date().toISOString()
+        }],
+        draft: draft,
+        generatedDefinition: {},
+        diagnostics: [{ level: "info", message: "Resposta gerada pelo mock local do Program Builder." }],
+        readyToApply: true,
+        missingInputs: []
+      });
+    }
+    if (url === "/api/admin/program-builder/ai/finalize-draft" && method === "POST") {
+      const draft = data.draft || buildAiDraftFromText("produto");
+      return Promise.resolve({
+        sessionId: data.sessionId || "builder-ai-demo",
+        session: buildAiSession(data.sessionId || "builder-ai-demo", draft),
+        readyToApply: true,
+        entityDraft: draft.entityDraft,
+        programDraft: draft.programDraft,
+        normalizedDraft: draft,
+        generatedDefinition: {},
+        diagnostics: [{ level: "info", message: "Rascunho validado pelo mock local." }]
+      });
+    }
     if (url === "/api/admin/program-builder/preview" && method === "POST") {
       return Promise.resolve({
         definition: {
@@ -162,6 +221,47 @@
         return part.charAt(0).toUpperCase() + part.slice(1);
       })
       .join(" ");
+  }
+
+  function buildAiSession(sessionId, draft) {
+    return {
+      sessionId: sessionId,
+      purpose: "program_builder",
+      catalogHash: "demo-catalog",
+      catalogVersion: "demo",
+      status: "active",
+      expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+      lastSeenAt: new Date().toISOString(),
+      currentDraft: draft || {},
+      currentDiagnostics: []
+    };
+  }
+
+  function buildAiDraftFromText(text) {
+    const slug = String(text || "produto").toLowerCase().indexOf("cliente") >= 0 ? "cliente_ia" : "produto_ia";
+    const name = humanize(slug);
+    return {
+      entityDraft: {
+        code: slug,
+        name: name,
+        entityType: "persistence",
+        tableName: "t900",
+        fields: [
+          { code: "id", label: "ID", dataType: "integer", primaryKey: true, required: true },
+          { code: "c_descr", label: "Descricao", dataType: "string", length: 160, required: true },
+          { code: "log_ativo", label: "Ativo", dataType: "boolean", required: false }
+        ],
+        rules: []
+      },
+      programDraft: {
+        pageType: "crud",
+        module: "cadastros",
+        programCode: "cd0900",
+        programTitle: name,
+        screenId: "cadastros." + slug.replace(/_/g, "-"),
+        version: "1.0.0"
+      }
+    };
   }
 
   document.addEventListener("DOMContentLoaded", function() {

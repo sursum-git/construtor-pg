@@ -10,6 +10,7 @@ class BuilderAiService
     public function __construct(
         private readonly BuilderAiSettingsService $settings,
         private readonly ExternalBuilderContextService $externalContext,
+        private readonly BuilderAiSessionService $aiSessions,
         private readonly ProgramBuilderService $builder,
         private readonly LoggerInterface $logger,
     ) {
@@ -18,48 +19,60 @@ class BuilderAiService
     public function startSession(array $payload = []): array
     {
         $settings = $this->settings->getUiSettings();
-
-        return [
-            'sessionId' => 'builder-ai-' . bin2hex(random_bytes(8)),
-            'settings' => $settings,
-            'messages' => [[
+        $session = $this->aiSessions->startOrResume($payload);
+        $sessionPayload = $this->aiSessions->sessionPayload($session);
+        $messages = $this->formatPersistedMessages($session);
+        if (!$messages) {
+            $messages = [[
                 'id' => 'builder-ai-welcome',
                 'text' => 'Descreva a tabela ou o cadastro que voce quer criar. Eu monto um rascunho CRUD e voce revisa no construtor.',
                 'authorId' => 'ia-builder',
                 'authorName' => $settings['agentName'] ?: 'Assistente do construtor',
                 'timestamp' => (new \DateTimeImmutable())->format(DATE_ATOM),
-            ]],
-            'draft' => null,
-            'diagnostics' => [],
-            'readyToApply' => false,
+            ]];
+        }
+
+        return [
+            'sessionId' => $session->getSessionId(),
+            'session' => $sessionPayload,
+            'settings' => $settings,
+            'messages' => $messages,
+            'draft' => $sessionPayload['currentDraft'] ?: null,
+            'diagnostics' => $sessionPayload['currentDiagnostics'],
+            'readyToApply' => $sessionPayload['currentDraft'] !== [],
         ];
     }
 
     public function sendMessage(array $payload): array
     {
         $settings = $this->settings->resolveOperationalSettings();
+        $session = $this->aiSessions->requireOwnedActive((string) ($payload['sessionId'] ?? ''));
         $text = trim((string) (($payload['message']['text'] ?? null) ?: ($payload['text'] ?? '')));
         if ($text === '') {
             throw new RuntimeHttpException('BUILDER_AI_MESSAGE_REQUIRED', 'Informe a mensagem para o assistente de IA.', 422);
         }
 
-        $history = $this->normalizeHistory($payload['history'] ?? []);
+        $history = $this->aiSessions->recentHistory($session);
         $context = $this->externalContext->buildContextPayload();
         $result = $settings['provider'] === 'mock'
             ? $this->sendMock($text, $history, $context, $settings)
             : $this->sendOpenAiCompatible($text, $history, $context, $settings);
 
+        $this->aiSessions->appendMessage($session, 'user', $text);
         $validatedDraft = null;
         $diagnostics = is_array($result['diagnostics'] ?? null) ? $result['diagnostics'] : [];
         $readyToApply = ($result['readyToApply'] ?? false) === true;
         $missingInputs = array_values(array_filter(array_map('strval', is_array($result['missingInputs'] ?? null) ? $result['missingInputs'] : [])));
         $draft = is_array($result['draft'] ?? null) ? $result['draft'] : null;
+        $ruleSafety = $this->enforceAiDeclarativeRules($draft);
+        $draft = $ruleSafety['draft'];
+        $diagnostics = array_merge($diagnostics, $ruleSafety['diagnostics']);
 
         if ($draft && is_array($draft['entityDraft'] ?? null) && is_array($draft['programDraft'] ?? null)) {
             try {
                 $validatedDraft = $this->builder->validateExternalDraft(['payload' => $draft]);
                 $diagnostics = array_merge($diagnostics, $validatedDraft['diagnostics'] ?? []);
-                $readyToApply = true;
+                $readyToApply = !$ruleSafety['blocked'];
             } catch (\Throwable $error) {
                 $readyToApply = false;
                 $diagnostics[] = [
@@ -77,8 +90,12 @@ class BuilderAiService
                 : 'Ainda faltam alguns dados para concluir o rascunho.';
         }
 
-        return [
-            'sessionId' => trim((string) ($payload['sessionId'] ?? '')),
+        $responseDraft = $validatedDraft ? ($validatedDraft['normalizedDraft'] ?? null) : $draft;
+        $this->aiSessions->updateDraft($session, $responseDraft, $diagnostics);
+
+        $response = [
+            'sessionId' => $session->getSessionId(),
+            'session' => $this->aiSessions->sessionPayload($session),
             'messages' => [[
                 'id' => 'builder-ai-' . bin2hex(random_bytes(8)),
                 'text' => $assistantMessage,
@@ -86,12 +103,15 @@ class BuilderAiService
                 'authorName' => $settings['agentName'] ?: 'Assistente do construtor',
                 'timestamp' => (new \DateTimeImmutable())->format(DATE_ATOM),
             ]],
-            'draft' => $validatedDraft ? ($validatedDraft['normalizedDraft'] ?? null) : $draft,
+            'draft' => $responseDraft,
             'generatedDefinition' => $validatedDraft['generatedDefinition'] ?? null,
             'diagnostics' => $diagnostics,
             'readyToApply' => $readyToApply,
             'missingInputs' => $missingInputs,
         ];
+        $this->aiSessions->appendMessage($session, 'assistant', $assistantMessage, $response, $diagnostics);
+
+        return $response;
     }
 
     public function transcribe(array $payload): array
@@ -129,12 +149,105 @@ class BuilderAiService
 
     public function finalizeDraft(array $payload): array
     {
-        $draft = is_array($payload['payload'] ?? null) ? $payload['payload'] : (is_array($payload['draft'] ?? null) ? $payload['draft'] : []);
+        $session = $this->aiSessions->requireOwnedActive((string) ($payload['sessionId'] ?? ''));
+        $draft = $session->getCurrentDraft();
+        if (!$draft) {
+            $draft = is_array($payload['payload'] ?? null) ? $payload['payload'] : (is_array($payload['draft'] ?? null) ? $payload['draft'] : []);
+        }
         if (!$draft) {
             throw new RuntimeHttpException('BUILDER_AI_DRAFT_REQUIRED', 'Nao existe rascunho para validar.', 422);
         }
 
-        return $this->builder->validateExternalDraft(['payload' => $draft]);
+        $ruleSafety = $this->enforceAiDeclarativeRules($draft);
+        if ($ruleSafety['blocked']) {
+            $this->aiSessions->updateDraft($session, $ruleSafety['draft'], $ruleSafety['diagnostics']);
+            throw new RuntimeHttpException('BUILDER_AI_RULE_REQUIRES_TECHNICAL_IMPLEMENTATION', 'O rascunho contem regra fora do contrato declarativo permitido para IA.', 422, [
+                'diagnostics' => $ruleSafety['diagnostics'],
+            ]);
+        }
+
+        $validated = $this->builder->validateExternalDraft(['payload' => $ruleSafety['draft']]);
+        $diagnostics = array_merge($ruleSafety['diagnostics'], $validated['diagnostics'] ?? []);
+        $this->aiSessions->updateDraft($session, $validated['normalizedDraft'] ?? $ruleSafety['draft'], $diagnostics);
+
+        return array_replace($validated, [
+            'sessionId' => $session->getSessionId(),
+            'session' => $this->aiSessions->sessionPayload($session),
+            'diagnostics' => $diagnostics,
+        ]);
+    }
+
+    private function formatPersistedMessages(\App\Entity\RuntimeAiSession $session): array
+    {
+        $items = [];
+        foreach ($this->aiSessions->recentHistory($session, 20) as $index => $message) {
+            $role = (string) ($message['role'] ?? 'user');
+            $items[] = [
+                'id' => 'builder-ai-history-' . $index,
+                'text' => (string) ($message['text'] ?? ''),
+                'authorId' => $role === 'assistant' ? 'ia-builder' : 'usuario',
+                'authorName' => $role === 'assistant' ? 'Assistente do construtor' : 'Voce',
+                'timestamp' => (new \DateTimeImmutable())->format(DATE_ATOM),
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * @return array{draft: array|null, diagnostics: list<array<string, mixed>>, blocked: bool}
+     */
+    private function enforceAiDeclarativeRules(?array $draft): array
+    {
+        if (!$draft || !is_array($draft['entityDraft'] ?? null)) {
+            return ['draft' => $draft, 'diagnostics' => [], 'blocked' => false];
+        }
+
+        $entityDraft = $draft['entityDraft'];
+        if (!is_array($entityDraft['rules'] ?? null)) {
+            return ['draft' => $draft, 'diagnostics' => [], 'blocked' => false];
+        }
+
+        $blocked = false;
+        $safeRules = [];
+        $diagnostics = [];
+        foreach ($entityDraft['rules'] as $index => $rule) {
+            if (!is_array($rule)) {
+                continue;
+            }
+            $type = strtolower(trim((string) ($rule['ruleType'] ?? $rule['type'] ?? 'requiredWhen')));
+            $hasExecutableReference = trim(implode(' ', [
+                (string) ($rule['className'] ?? ''),
+                (string) ($rule['class'] ?? ''),
+                (string) ($rule['methodName'] ?? ''),
+                (string) ($rule['method'] ?? ''),
+            ])) !== '';
+            if ($type === 'class_method' || $type === 'class-method' || $hasExecutableReference) {
+                $blocked = true;
+                $diagnostics[] = [
+                    'level' => 'warn',
+                    'message' => 'A regra ' . (string) ($rule['label'] ?? $rule['id'] ?? ('#' . ($index + 1))) . ' exige implementacao tecnica e nao foi carregada automaticamente pela IA.',
+                    'source' => 'ai_rule_safety',
+                ];
+                continue;
+            }
+            if ($type !== 'requiredwhen' && $type !== 'requiredWhen') {
+                $blocked = true;
+                $diagnostics[] = [
+                    'level' => 'warn',
+                    'message' => 'A regra ' . (string) ($rule['label'] ?? $rule['id'] ?? ('#' . ($index + 1))) . ' usa tipo declarativo nao suportado pelo assistente.',
+                    'source' => 'ai_rule_safety',
+                ];
+                continue;
+            }
+            $rule['type'] = 'requiredWhen';
+            unset($rule['ruleType'], $rule['className'], $rule['class'], $rule['methodName'], $rule['method']);
+            $safeRules[] = $rule;
+        }
+
+        $draft['entityDraft']['rules'] = $safeRules;
+
+        return ['draft' => $draft, 'diagnostics' => $diagnostics, 'blocked' => $blocked];
     }
 
     private function sendMock(string $text, array $history, array $context, array $settings): array
@@ -355,7 +468,10 @@ Limitacoes:
 - pageType permitido: crud
 - sem publicacao automatica
 - sem regras PHP arbitrarias
+- regras de negocio permitidas para IA: apenas regras declarativas do catalogo builder.businessRule.declarative
+- se o usuario pedir uma regra que exija codigo, classe, metodo, SQL, JavaScript ou expressao livre, retorne diagnostico de pendencia tecnica e nao gere codigo
 - nomes tecnicos devem seguir o padrao informado no contexto
+- use apenas capacidades listadas em catalog.capabilities
 Formato de resposta:
 {
   "assistantMessage": "texto curto em pt-BR",

@@ -233,6 +233,11 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - `POST /api/admin/program-builder/ai/message`;
   - `POST /api/admin/program-builder/ai/transcribe`;
   - `POST /api/admin/program-builder/ai/finalize-draft`;
+  - a conversa agora fica persistida em `runtime_ai_session` e `runtime_ai_message`, com `sessionId`, tenant, usuario, assinante, validade, rascunho atual e diagnosticos;
+  - cada chamada continua exigindo token valido; `sessionId` apenas identifica a conversa e precisa pertencer ao mesmo usuario/tenant/assinante;
+  - a sessao grava `catalog_hash` e `catalog_version`, permitindo enviar o catalogo completo de capacidades apenas quando necessario;
+  - `finalize-draft` usa o rascunho persistido da sessao e nao depende so do payload enviado pelo navegador;
+  - regras sugeridas pela IA ficam restritas ao formato declarativo; classe/metodo, PHP, JavaScript ou SQL executavel viram diagnostico de pendencia tecnica;
   - provider `mock` validado ponta a ponta;
   - token e chave publica mascarados no CRUD administrativo de parametros;
   - screenshots atuais:
@@ -799,7 +804,7 @@ Implementado ate agora, em nivel demo/frontend:
 - Backend runtime Symfony/API Platform com auditoria, semaforo configuravel, heartbeat, mensagens runtime por SSE com polling fallback, derrubada de sessao e protecao contra perda de dados no frontend.
 - Construtor visual em `program-builder.html` e `production/program-builder.html`, agora cobrindo cadastro de modulo estrutural com abreviacao e faixa numerica inicial/final, modelagem de entidade, criacao de tabela fisica, preview backend, rascunho, publicacao, duplicacao, historico em `builder_program_version`, historico estrutural em `builder_entity_version`, campo `custom_code` com assistente declarativo e cadastro visual de regras de negocio por entidade.
 - O `program-builder` tambem foi reorganizado em layout de editor com `Splitter`, arvore lateral de navegacao, filtros rapidos por tipo/estado, badges por no, abas centrais e painel lateral de preview/historicos/diagnostico, ainda em Kendo/jQuery e sem mudar a stack web.
-- O `program-builder` agora tambem possui assistente interno de IA com `kendoChat`, configuracao segura por parametros administrativos, entrada por texto/audio e carga do rascunho apenas apos validacao backend.
+- O `program-builder` agora tambem possui assistente interno de IA com `kendoChat`, configuracao segura por parametros administrativos, sessao persistente no backend, entrada por texto/audio e carga do rascunho apenas apos validacao backend.
 - O editor web agora inclui painel contextual de propriedades, visao lateral de relacionamentos, comparativo entre revisoes/versoes, reordenacao visual de campos/regras/chaves por drag-and-drop, validacao incremental por item com destaque visual e lock de edicao persistente em `builder_editor_lock`.
 - A sincronizacao fisica do construtor agora cria tabela, adiciona coluna, renomeia tabela/coluna, ajusta tipo/default/null/precision-scale, pode excluir colunas removidas quando a opcao estiver marcada e suporta rollback por revisao salva da entidade.
 - O runtime generico agora suporta cadastro mestre versionado em `runtime_entity_record_version`, referencia automatica de versao atual em campos transacionais e leitura de snapshot historico por campo virtual.

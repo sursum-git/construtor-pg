@@ -1796,7 +1796,7 @@
           type: "Editor administrativo",
           route: "../../program-builder.html",
           screenId: "",
-          summary: "Editor visual de modulos, entidades, programas, APIs, Odoo, importacao de tabelas, importacao de SQL/DDL, importacao de JSON externo, IA assistida, import/export, governanca de padrao, integridade estrutural e publicacao no runtime.",
+          summary: "Editor visual de modulos, entidades, programas, APIs, Odoo, importacao de tabelas, importacao de SQL/DDL, importacao de JSON externo, IA assistida com sessao persistente, import/export, governanca de padrao, integridade estrutural e publicacao no runtime.",
           functional: {
             objective: "Permitir autoria de metadados do sistema sem editar JSON manualmente na maior parte dos casos.",
             scope: [
@@ -1805,7 +1805,7 @@
               "Geracao, preview, versao, comparativo e publicacao de programas.",
               "Integracoes com APIs genericas, Odoo RPC e importacao OpenAPI/Swagger.",
               "Importacao de `CREATE TABLE` PostgreSQL para gerar entidade e rascunho CRUD sem executar o SQL no schema real.",
-              "Importacao de JSON externo validado e assistente interno de IA.",
+              "Importacao de JSON externo validado e assistente interno de IA com `sessionId`, historico resumido, catalogo versionado, rascunho persistido e diagnosticos.",
               "Mapeamentos de importacao/exportacao entre entidades e arquivos CSV/TXT/XML.",
               "Assistente de integracao para gerar esqueleto de mapping a partir da entidade atual.",
               "Consumo do catalogo runtime de literais para a propria interface do construtor.",
@@ -1836,6 +1836,7 @@
               "Modelar a entidade e seus campos.",
               "Configurar integracoes, programa, preview e diagnostico.",
               "Usar `Importar SQL` quando houver apenas o script de definicao da tabela, revisar o rascunho gerado e salvar somente depois da validacao.",
+              "Usar `Assistente IA` para iniciar ou retomar uma conversa persistente; usar `Nova conversa` quando quiser descartar o contexto anterior.",
               "Definir ownership, politica de customizacao e ambientes permitidos para publicacao quando o programa exigir governanca.",
               "Usar o botao `Integracao` quando quiser abrir um esqueleto inicial de mapping vinculado a entidade atual.",
               "Usar o botao `Governanca` para solicitar alteracao, liberar/congelar/revogar grant, registrar bundle de testes, ajustar a retencao e aprovar a publicacao.",
@@ -1849,6 +1850,7 @@
             cautions: [
               "Publicacao afeta a camada runtime.",
               "A importacao SQL aceita apenas `CREATE TABLE` e comentarios; scripts livres, DML, triggers, funcoes e alteracoes destrutivas devem ser recusados.",
+              "A IA so deve gerar rascunho revisavel; `sessionId` nao substitui token, `Carregar na modelagem` revalida o rascunho persistido e qualquer codigo executavel vira diagnostico.",
               "Recursos como API, Odoo, IA e import/export exigem validacao estrutural antes da publicacao.",
               "Mensagens de regras por classe devem preferir `messageKey/messageParams` e o catalogo de literais.",
               "Assinante nao deve conseguir criar nem converter programa para `standard`.",
@@ -1895,7 +1897,7 @@
           "Fonte Odoo em `entityType=api` readonly por XML-RPC e JSON-RPC.",
           "Importacao de tabelas PostgreSQL para modelagem.",
           "Importacao de JSON externo validado no builder.",
-          "Assistente interno de IA com rascunho validado.",
+          "Assistente interno de IA com sessao persistente, catalogo versionado e rascunho validado.",
           "Catalogo inicial de importacao/exportacao com CSV, TXT plano/hierarquico, XML de exportacao e importacao XML declarativa.",
           "Tela administrativa `admin.integracoes` para cadastro, TreeView, preview estrutural, historico persistido, versoes e agendamentos.",
           "Catalogo administrativo de literais e traducoes por locale.",

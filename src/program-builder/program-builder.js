@@ -31,6 +31,7 @@
       externalImportInspection: null,
       aiSettings: null,
       aiSessionId: "",
+      aiSessionMeta: null,
       aiDraftInspection: null,
       aiHistory: [],
       navigatorSelection: null,
@@ -2563,6 +2564,12 @@
       icon: "gear",
       click: this.openAiSettingsDialog.bind(this)
     });
+    $("<button type=\"button\"></button>").text("Nova conversa").appendTo(actions).kendoButton({
+      icon: "plus",
+      click: function() {
+        this.startAiAssistantSession(true);
+      }.bind(this)
+    });
     this.aiAudioButton = $("<button type=\"button\"></button>").text("Gravar audio").appendTo(actions).kendoButton({
       icon: "microphone",
       click: this.toggleAiAudioCapture.bind(this)
@@ -2672,6 +2679,8 @@
       url: "/api/admin/program-builder/ai/session",
       method: "POST",
       data: {
+        sessionId: this.state.aiSessionId || "",
+        forceNew: force === true,
         context: {
           currentEntityCode: this.state.currentEntityCode || "",
           currentProgramCode: this.state.currentProgramCode || ""
@@ -2679,8 +2688,11 @@
       }
     }).then(function(response) {
       this.state.aiSessionId = String(response.sessionId || "");
+      this.state.aiSessionMeta = response.session || null;
+      this.state.aiDraftInspection = response && response.draft ? response : null;
       this.postAiAssistantMessages(response.messages || []);
       this.state.aiHistory = (response.messages || []).slice();
+      this.renderAiDraftSummary(response);
       return response;
     }.bind(this)).catch(function(error) {
       this.handleError(error, "Nao foi possivel iniciar a sessao do assistente de IA.");
@@ -2713,6 +2725,7 @@
       this.state.aiHistory = this.state.aiHistory.concat(messages);
       this.postAiAssistantMessages(messages);
       this.state.aiDraftInspection = response || null;
+      this.state.aiSessionMeta = response.session || this.state.aiSessionMeta || null;
       this.renderAiDraftSummary(response);
       return response;
     }.bind(this)).catch(function(error) {
@@ -2769,9 +2782,12 @@
     const entityDraft = draft.entityDraft || inspection.entityDraft || null;
     const programDraft = draft.programDraft || inspection.programDraft || null;
     const diagnostics = Array.isArray(inspection.diagnostics) ? inspection.diagnostics : [];
+    const session = inspection.session || this.state.aiSessionMeta || {};
 
     const summaryList = $("<div class=\"program-builder-ai-summary-grid\"></div>").appendTo(this.aiDraftSummary);
     this.renderAiSummaryItem(summaryList, "Pronto para aplicar", inspection.readyToApply ? "Sim" : "Nao");
+    this.renderAiSummaryItem(summaryList, "Sessao", session.status ? String(session.status) : "-");
+    this.renderAiSummaryItem(summaryList, "Validade", session.expiresAt ? new Date(session.expiresAt).toLocaleString("pt-BR") : "-");
     this.renderAiSummaryItem(summaryList, "Entidade", entityDraft ? String(entityDraft.code || "") : "-");
     this.renderAiSummaryItem(summaryList, "Tabela", entityDraft ? String(entityDraft.tableName || "") : "-");
     this.renderAiSummaryItem(summaryList, "Campos", entityDraft ? String((entityDraft.fields || []).length) : "0");
@@ -2807,10 +2823,12 @@
       url: "/api/admin/program-builder/ai/finalize-draft",
       method: "POST",
       data: {
+        sessionId: this.state.aiSessionId || "",
         draft: draft
       }
     }).then(function(response) {
       this.state.aiDraftInspection = response || null;
+      this.state.aiSessionMeta = response.session || this.state.aiSessionMeta || null;
       this.renderAiDraftSummary(response);
       global.CrudUtils.showMessage("Rascunho da IA validado.", "success");
       return response;

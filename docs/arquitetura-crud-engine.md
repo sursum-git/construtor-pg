@@ -566,13 +566,19 @@ Endpoints:
 2. `POST /api/admin/program-builder/ai/settings`
    - salva configuracao do assistente.
 3. `POST /api/admin/program-builder/ai/session`
-   - inicia sessao e devolve a mensagem inicial.
+   - cria ou retoma uma sessao persistente do assistente, vinculada ao usuario, tenant e assinante atual.
 4. `POST /api/admin/program-builder/ai/message`
-   - recebe a conversa e devolve mensagens + rascunho validado quando houver informacao suficiente.
+   - exige `sessionId`, carrega o historico resumido persistido e devolve mensagens + rascunho validado quando houver informacao suficiente.
 5. `POST /api/admin/program-builder/ai/transcribe`
    - processa `transcriptText` ou `audioBase64`.
 6. `POST /api/admin/program-builder/ai/finalize-draft`
-   - revalida o rascunho antes de carregar a modelagem.
+   - revalida o rascunho persistido na sessao antes de carregar a modelagem.
+
+Persistencia:
+
+- `runtime_ai_session` guarda `sessionId`, usuario, assinante, proposito, hash/versao do catalogo, rascunho atual, diagnosticos, status e validade.
+- `runtime_ai_message` guarda mensagens da conversa, payload normalizado, diagnosticos e horario.
+- o token autentica a chamada, mas o `sessionId` identifica a conversa; `sessionId` sozinho nunca autoriza acesso.
 
 Parametros administrativos usados:
 
@@ -590,6 +596,8 @@ Regras do fluxo:
 - provider suportado nesta etapa: `mock` e `openai_compatible`;
 - o chat nunca salva nem publica por conta propria;
 - o rascunho passa pela mesma validacao do fluxo externo (`entityDraft` + `programDraft`);
+- regras geradas pela IA ficam limitadas ao contrato declarativo `requiredWhen`; referencias a classe/metodo viram diagnostico de pendencia tecnica;
+- o contexto da IA inclui um catalogo versionado de capacidades com schemas para entidade, programa, campo e regra declarativa;
 - `ai.builder.api_token` e `ai.builder.public_context_key` sao tratados como segredos e nao retornam em claro nem no CRUD administrativo de parametros.
 
 No frontend:
@@ -597,6 +605,8 @@ No frontend:
 - o appbar do `program-builder` ganhou os botoes `Assistente IA` e `Configurar IA`;
 - a janela usa `kendoChat`;
 - o painel lateral mostra resumo do rascunho e diagnosticos;
+- o painel lateral tambem mostra estado e validade da sessao;
+- o botao `Nova conversa` inicia uma nova sessao persistente;
 - `Carregar na modelagem` so aplica o rascunho depois de nova validacao no backend;
 - o audio tenta `SpeechRecognition` primeiro e usa `MediaRecorder` como fallback.
 
