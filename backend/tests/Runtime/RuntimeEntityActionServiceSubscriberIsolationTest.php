@@ -3,6 +3,7 @@
 namespace App\Tests\Runtime;
 
 use App\Builder\BuilderAiSettingsService;
+use App\Privacy\PrivacySubjectRequestService;
 use App\Runtime\PermissionResolver;
 use App\Runtime\RuntimeBusinessRuleRegistry;
 use App\Runtime\RuntimeConcurrencyGuard;
@@ -257,6 +258,7 @@ class RuntimeEntityActionServiceSubscriberIsolationTest extends TestCase
 
         $builderAiSettings = $this->createStub(BuilderAiSettingsService::class);
         $notifications = $this->createStub(RuntimeNotificationService::class);
+        $privacyRequests = $this->createStub(PrivacySubjectRequestService::class);
         $integrity = $this->createStub(StructuralIntegrityService::class);
 
         $permissions = $this->createStub(PermissionResolver::class);
@@ -277,6 +279,7 @@ class RuntimeEntityActionServiceSubscriberIsolationTest extends TestCase
             $situations,
             $builderAiSettings,
             $notifications,
+            $privacyRequests,
             $integrity,
             $permissions,
             $events,

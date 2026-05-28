@@ -24,6 +24,7 @@
     "test:admin-system-update-subscriber-log": "node tests/frontend/admin-system-update-subscriber-log-smoke.mjs",
     "test:home-notifications": "node tests/frontend/home-notifications-smoke.mjs",
     "test:login-demo": "node tests/frontend/login-demo-smoke.mjs",
+    "test:privacy-request": "node tests/frontend/privacy-request-smoke.mjs",
     "test:context-resume-full": "node tests/frontend/context-resume-full-e2e.mjs"
   },
   "repository": {

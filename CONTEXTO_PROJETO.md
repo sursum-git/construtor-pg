@@ -102,6 +102,14 @@ Paginas principais:
   - a tela `admin.atualizacoes-assinantes` agora tambem exibe timeline resumida por assinante para checagem, download, anuencia, ativacao, apply, rollout, falha e rollback.
   - existe agora tambem o comando `app:update:saas-cycle`, pensado para o sistema central detectar releases sem depender da UI, criar o job administrativo e deixar o worker aplicar os steps em ordem.
   - quando a release nao declarar `steps`, o updater agora assume uma esteira padrao por categoria para garantir migrations, seed/publicacao default e verificacao de integridade.
+- existe agora uma primeira camada de atendimento LGPD:
+  - pagina publica `production/privacy-request.html`;
+  - validacao por codigo enviado ao e-mail informado;
+  - endpoints publicos `/api/public/privacy/requests/start`, `/confirm` e consulta por protocolo;
+  - telas administrativas `admin.lgpd-solicitacoes`, `admin.lgpd-evidencias` e `admin.lgpd-retencao`;
+  - entrada manual de pedidos recebidos por e-mail, telefone, WhatsApp, formulario externo ou atendimento presencial;
+  - alerta prioritario, evento `privacy.subject_request.created` e log operacional quando a solicitacao validada/manual entra para triagem;
+  - politica de retencao para bloquear anonimizacao de dados/documentos com obrigacao legal, fiscal ou contratual.
 - os registros estruturais principais do builder/runtime agora podem ser protegidos por assinatura de integridade em `system_record_integrity`, com checagem no backend para detectar alteracao fora do fluxo oficial. A cobertura inclui programa, versao, entidade, campos de entidade (`builder_field`), revisao da entidade, situacoes e transicoes da entidade, tela, endpoint, overlay, versao de overlay, `builder_api_source`, `builder_module`, `runtime_lock_policy`, `system_parameter`, `system_parameter_value`, `system_option_list`, `system_option`, `import_export_mapping`, `import_export_mapping_version`, `import_export_schedule`, `auth_provider_config`, `auth_subscriber`, `auth_user_subscriber` e `system_literal_translation`. A reassinatura controlada registra `auditTrail` com motivo, usuario, horario, hash anterior e status antes/depois.
 - o construtor agora tambem permite marcar entidades persistentes com `subscriberIsolation.mode=none|subscriber_column`, para suportar tabelas globais e tabelas filtradas por assinante no proprio runtime CRUD.
 - para `entityType=persistence`, `subscriberIsolation.mode=none` agora exige confirmacao explicita da tabela como global compartilhada; sem isso o builder bloqueia o salvamento.

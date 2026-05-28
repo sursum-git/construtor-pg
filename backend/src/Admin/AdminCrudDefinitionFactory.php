@@ -149,6 +149,61 @@ final class AdminCrudDefinitionFactory
                 defaultSort: [['field' => 'updated_at', 'dir' => 'desc']],
             ),
             self::screen(
+                'admin.lgpd-solicitacoes',
+                'admin-lgpd-solicitacoes',
+                'privacy_subject_request',
+                'Solicitacoes LGPD',
+                'Atendimento de pedidos do titular, incluindo portal publico e entrada manual por canal externo.',
+                self::privacySubjectRequestFields(),
+                ['protocol', 'requester_email', 'request_type', 'status', 'priority'],
+                ['id', 'protocol', 'source_channel', 'requester_email', 'request_type', 'status', 'priority', 'due_at', 'updated_at'],
+                [
+                    ['id' => 'identificacao', 'title' => 'Identificacao', 'fields' => ['id', 'tenant_id', 'protocol', 'source_channel', 'requester_name', 'requester_email', 'requester_document', 'subject_identifier']],
+                    ['id' => 'pedido', 'title' => 'Pedido', 'fields' => ['request_type', 'description', 'status', 'priority', 'due_at', 'assigned_to']],
+                    ['id' => 'analise', 'title' => 'Analise', 'fields' => ['analysis_result', 'retention_blocked', 'decision', 'decision_reason', 'response_message']],
+                    ['id' => 'evidencias', 'title' => 'Evidencias', 'fields' => ['evidence', 'metadata']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['validated_at', 'closed_at', 'created_at', 'updated_at']],
+                ],
+                editable: true,
+                defaultSort: [['field' => 'priority', 'dir' => 'desc'], ['field' => 'created_at', 'dir' => 'desc']],
+            ),
+            self::screen(
+                'admin.lgpd-evidencias',
+                'admin-lgpd-evidencias',
+                'privacy_subject_request_evidence',
+                'Evidencias LGPD',
+                'Evidencias, anexos textuais e referencias externas vinculadas a solicitacoes LGPD.',
+                self::privacySubjectRequestEvidenceFields(),
+                ['request_id', 'evidence_type', 'source_channel', 'created_by'],
+                ['id', 'request_id', 'evidence_type', 'title', 'source_channel', 'external_reference', 'created_by', 'created_at'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'tenant_id', 'request_id', 'evidence_type', 'title']],
+                    ['id' => 'origem', 'title' => 'Origem', 'fields' => ['source_channel', 'external_reference', 'description', 'content']],
+                    ['id' => 'metadata', 'title' => 'Metadata', 'fields' => ['metadata']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['created_by', 'created_at']],
+                ],
+                editable: true,
+                defaultSort: [['field' => 'created_at', 'dir' => 'desc']],
+            ),
+            self::screen(
+                'admin.lgpd-retencao',
+                'admin-lgpd-retencao',
+                'privacy_retention_policy',
+                'Politicas LGPD',
+                'Politicas de retencao, bloqueio de anonimizacao e descarte por tipo de dado ou documento.',
+                self::privacyRetentionPolicyFields(),
+                ['policy_code', 'target_type', 'target_code', 'retention_basis', 'enabled'],
+                ['id', 'policy_code', 'title', 'target_type', 'target_code', 'retention_basis', 'retention_days', 'blocks_anonymization', 'fiscal_required', 'enabled'],
+                [
+                    ['id' => 'geral', 'title' => 'Geral', 'fields' => ['id', 'tenant_id', 'policy_code', 'title', 'enabled']],
+                    ['id' => 'escopo', 'title' => 'Escopo', 'fields' => ['target_type', 'target_code', 'retention_basis', 'retention_days', 'action_after_retention']],
+                    ['id' => 'restricoes', 'title' => 'Restricoes', 'fields' => ['blocks_anonymization', 'fiscal_required', 'notes', 'metadata']],
+                    ['id' => 'auditoria', 'title' => 'Auditoria', 'fields' => ['created_at', 'updated_at']],
+                ],
+                editable: true,
+                defaultSort: [['field' => 'target_type', 'dir' => 'asc'], ['field' => 'target_code', 'dir' => 'asc']],
+            ),
+            self::screen(
                 'admin.instalacao-licencas',
                 'admin-instalacao-licencas',
                 'installer_activation_license',
@@ -1088,6 +1143,150 @@ final class AdminCrudDefinitionFactory
             'read_at' => self::field('datetime', 'Lida em', false, true),
             'created_at' => self::field('datetime', 'Criado em', false, false),
             'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+        ];
+    }
+
+    private static function privacySubjectRequestFields(): array
+    {
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'tenant_id' => self::field('string', 'Assinante', true, false),
+            'protocol' => self::field('string', 'Protocolo', true, false),
+            'source_channel' => self::field('enum', 'Canal', true, false, ['options' => self::privacySourceOptions()]),
+            'requester_name' => self::field('string', 'Nome do solicitante', true, true),
+            'requester_email' => self::field('string', 'E-mail', true, false),
+            'requester_document' => self::field('string', 'CPF/CNPJ', true, true),
+            'subject_identifier' => self::field('string', 'Identificador do titular', true, true),
+            'request_type' => self::field('enum', 'Tipo de pedido', true, false, ['options' => self::privacyRequestTypeOptions()]),
+            'description' => self::field('text', 'Descricao', true, true, ['editor' => 'textarea']),
+            'status' => self::field('enum', 'Status', true, false, ['options' => self::privacyStatusOptions()]),
+            'priority' => self::field('enum', 'Prioridade', true, false, ['options' => [
+                ['value' => 'normal', 'text' => 'Normal'],
+                ['value' => 'high', 'text' => 'Alta'],
+                ['value' => 'urgent', 'text' => 'Urgente'],
+            ]]),
+            'due_at' => self::field('datetime', 'Prazo', true, true),
+            'validated_at' => self::field('datetime', 'Validado em', false, true),
+            'assigned_to' => self::field('string', 'Responsavel', true, true),
+            'decision' => self::field('enum', 'Decisao', true, true, ['options' => [
+                ['value' => 'approved', 'text' => 'Aprovado'],
+                ['value' => 'partially_approved', 'text' => 'Aprovado parcialmente'],
+                ['value' => 'rejected', 'text' => 'Recusado'],
+            ]]),
+            'decision_reason' => self::field('text', 'Justificativa', true, true, ['editor' => 'textarea']),
+            'response_message' => self::field('text', 'Resposta ao titular', true, true, ['editor' => 'textarea']),
+            'retention_blocked' => self::field('boolean', 'Bloqueado por retencao legal/fiscal', true, false),
+            'analysis_result' => self::field('json', 'Resultado da analise', true, false, ['editor' => 'textarea']),
+            'evidence' => self::field('json', 'Evidencias resumidas', true, false, ['editor' => 'textarea']),
+            'metadata' => self::field('json', 'Metadata', true, false, ['editor' => 'textarea']),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+            'closed_at' => self::field('datetime', 'Fechado em', true, true),
+        ];
+    }
+
+    private static function privacySubjectRequestEvidenceFields(): array
+    {
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'request_id' => self::field('integer', 'Solicitacao', true, false),
+            'tenant_id' => self::field('string', 'Assinante', true, false),
+            'evidence_type' => self::field('enum', 'Tipo', true, false, ['options' => [
+                ['value' => 'message', 'text' => 'Mensagem recebida'],
+                ['value' => 'attachment_ref', 'text' => 'Referencia de anexo'],
+                ['value' => 'decision', 'text' => 'Decisao'],
+                ['value' => 'execution', 'text' => 'Execucao'],
+                ['value' => 'response', 'text' => 'Resposta enviada'],
+            ]]),
+            'title' => self::field('string', 'Titulo', true, false),
+            'description' => self::field('text', 'Descricao', true, true, ['editor' => 'textarea']),
+            'source_channel' => self::field('enum', 'Canal', true, true, ['options' => self::privacySourceOptions()]),
+            'external_reference' => self::field('string', 'Referencia externa', true, true),
+            'content' => self::field('text', 'Conteudo', true, true, ['editor' => 'textarea']),
+            'metadata' => self::field('json', 'Metadata', true, false, ['editor' => 'textarea']),
+            'created_by' => self::field('string', 'Criado por', false, true),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+        ];
+    }
+
+    private static function privacyRetentionPolicyFields(): array
+    {
+        return [
+            'id' => self::field('integer', 'ID', false, false, ['width' => 80]),
+            'tenant_id' => self::field('string', 'Assinante', true, true),
+            'policy_code' => self::field('string', 'Codigo', true, false),
+            'title' => self::field('string', 'Titulo', true, false),
+            'target_type' => self::field('enum', 'Tipo de alvo', true, false, ['options' => [
+                ['value' => 'entity', 'text' => 'Entidade'],
+                ['value' => 'field', 'text' => 'Campo'],
+                ['value' => 'document_type', 'text' => 'Tipo de documento'],
+                ['value' => 'integration', 'text' => 'Integracao'],
+            ]]),
+            'target_code' => self::field('string', 'Codigo do alvo', true, false),
+            'retention_basis' => self::field('enum', 'Base de retencao', true, false, ['options' => [
+                ['value' => 'legal_obligation', 'text' => 'Obrigacao legal'],
+                ['value' => 'fiscal', 'text' => 'Fiscal'],
+                ['value' => 'contract', 'text' => 'Contrato'],
+                ['value' => 'consent', 'text' => 'Consentimento'],
+                ['value' => 'business_policy', 'text' => 'Politica interna'],
+            ]]),
+            'retention_days' => self::field('integer', 'Dias de retencao', true, true),
+            'action_after_retention' => self::field('enum', 'Acao apos retencao', true, false, ['options' => [
+                ['value' => 'review', 'text' => 'Revisar'],
+                ['value' => 'anonymize', 'text' => 'Anonimizar'],
+                ['value' => 'soft_delete', 'text' => 'Excluir logicamente'],
+                ['value' => 'purge', 'text' => 'Expurgar'],
+                ['value' => 'archive', 'text' => 'Arquivar'],
+            ]]),
+            'blocks_anonymization' => self::field('boolean', 'Bloqueia anonimizacao', true, false),
+            'fiscal_required' => self::field('boolean', 'Obrigatorio fiscal', true, false),
+            'enabled' => self::field('boolean', 'Ativa', true, false),
+            'notes' => self::field('text', 'Observacoes', true, true, ['editor' => 'textarea']),
+            'metadata' => self::field('json', 'Metadata', true, false, ['editor' => 'textarea']),
+            'created_at' => self::field('datetime', 'Criado em', false, false),
+            'updated_at' => self::field('datetime', 'Atualizado em', false, false),
+        ];
+    }
+
+    private static function privacySourceOptions(): array
+    {
+        return [
+            ['value' => 'public_page', 'text' => 'Pagina publica'],
+            ['value' => 'email', 'text' => 'E-mail'],
+            ['value' => 'phone', 'text' => 'Telefone'],
+            ['value' => 'whatsapp', 'text' => 'WhatsApp'],
+            ['value' => 'external_form', 'text' => 'Formulario externo'],
+            ['value' => 'in_person', 'text' => 'Presencial'],
+            ['value' => 'logged_area', 'text' => 'Area logada'],
+            ['value' => 'manual', 'text' => 'Manual'],
+        ];
+    }
+
+    private static function privacyRequestTypeOptions(): array
+    {
+        return [
+            ['value' => 'access', 'text' => 'Acesso'],
+            ['value' => 'correction', 'text' => 'Correcao'],
+            ['value' => 'portability', 'text' => 'Portabilidade'],
+            ['value' => 'anonymization', 'text' => 'Anonimizacao'],
+            ['value' => 'erasure', 'text' => 'Eliminacao'],
+            ['value' => 'blocking', 'text' => 'Bloqueio'],
+            ['value' => 'opposition', 'text' => 'Oposicao'],
+            ['value' => 'consent_revocation', 'text' => 'Revogacao de consentimento'],
+        ];
+    }
+
+    private static function privacyStatusOptions(): array
+    {
+        return [
+            ['value' => 'awaiting_validation', 'text' => 'Aguardando validacao'],
+            ['value' => 'pending', 'text' => 'Pendente'],
+            ['value' => 'in_review', 'text' => 'Em analise'],
+            ['value' => 'approved', 'text' => 'Aprovada'],
+            ['value' => 'partially_approved', 'text' => 'Aprovada parcialmente'],
+            ['value' => 'rejected', 'text' => 'Recusada'],
+            ['value' => 'executed', 'text' => 'Executada'],
+            ['value' => 'closed', 'text' => 'Fechada'],
         ];
     }
 

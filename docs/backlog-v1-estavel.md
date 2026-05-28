@@ -82,6 +82,7 @@ Itens importantes para evolucao do construtor e do runtime, mas que nao bloqueia
 
 Recursos recomendados para evoluir a governanca de dados pessoais:
 
+- **Implementado parcialmente**: pagina publica de solicitacao LGPD com validacao por e-mail, entrada manual administrativa por canal externo, protocolo, alerta prioritario, evidencias, politicas de retencao e bloqueio de anonimizacao por obrigacao legal/fiscal.
 - **Catalogo de dados pessoais por campo**: marcar no construtor se um campo contem dado pessoal, dado sensivel, identificador, contato, documento, financeiro ou dado anonimizavel.
 - **Base legal e finalidade**: registrar por entidade/campo a finalidade de tratamento, base legal, origem do dado, compartilhamento e prazo de retencao.
 - **Retencao e descarte**: criar politicas por entidade para expurgo, anonimizacao ou soft delete apos prazo configurado, com simulacao antes de aplicar.

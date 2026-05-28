@@ -1462,7 +1462,7 @@ class ProgramBuilderService
             return true;
         }
 
-        if (preg_match('/^(builder_|runtime_|auth_|system_|user_|screen_definition$|runtime_endpoint$|program$|doctrine_migration_versions$|messenger_messages$)/', $tableName) === 1) {
+        if (preg_match('/^(builder_|runtime_|auth_|system_|privacy_|user_|screen_definition$|runtime_endpoint$|program$|doctrine_migration_versions$|messenger_messages$)/', $tableName) === 1) {
             return false;
         }
 

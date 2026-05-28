@@ -2,7 +2,7 @@
 
 **Documento detalhado para analista de sistemas**
 
-**Atualizado em 26/05/2026**
+**Atualizado em 28/05/2026**
 
 Este documento consolida os recursos existentes ate agora no sistema.
 
@@ -15,6 +15,7 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - **Construtor**: Program Builder para modelar entidades, campos, programas, APIs, regras, historico e publicacao. Valor: Analista consegue transformar requisitos em metadados revisaveis.
 - **Governanca**: Solicitacao, grant, bundle de testes, aprovacao, rebase de overlay, retencao e auditoria. Valor: Controla alteracoes em programas padrao e customizacoes por assinante.
 - **Operacao**: Provisionamento, instalador, licencas, atualizacoes, integridade, jobs, usuarios, permissoes e parametros. Valor: Cobre ciclo de vida de ambiente e sustentacao.
+- **LGPD**: Portal publico de solicitacoes, entrada manual por canal externo, validacao por e-mail, evidencias, politicas de retencao e bloqueio de anonimizacao fiscal/legal. Valor: Cria o primeiro fluxo operacional de atendimento ao titular com rastreabilidade.
 
 ## 2. Stack tecnica e decisoes fechadas
 - Frontend em HTML simples, sem build inicial, usando Kendo UI for jQuery local e jQuery local.
@@ -34,6 +35,7 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - **program-builder.html / production/program-builder.html**: Construtor visual de programas. Status: Interface administrativa principal para autoria.
 - **production/app.html?screenId=...**: Entrada generica de producao para CRUD, process e custom. Status: Carrega somente definicoes autorizadas pelo backend.
 - **production/install.html**: Instalacao inicial apos ativacao pelo executavel. Status: Recusa execucao sem sessao local valida.
+- **production/privacy-request.html**: Pagina publica para solicitacao LGPD com validacao por e-mail e consulta de protocolo. Status: Entrada publica sem login, sem exposicao de dados do titular.
 
 ## 4. Login, usuarios, assinantes e sessao
 - Autenticacao por `/api/auth/login` com token Bearer vinculado a `runtime_user_session`.
@@ -127,15 +129,27 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - **admin.evento-entregas**: Acompanhamento de execucoes, tentativas, erros e idempotencia das assinaturas.
 - **admin.transacoes / admin.logs-transacoes**: Auditoria de operacoes runtime.
 - **admin.jobs**: Consulta de jobs assincronos.
+- **admin.lgpd-solicitacoes**: Triagem e atendimento de pedidos LGPD publicos ou manuais.
+- **admin.lgpd-evidencias**: Evidencias e referencias externas vinculadas ao pedido.
+- **admin.lgpd-retencao**: Politicas de retencao e bloqueio de anonimizacao.
 
-## 13. Integridade, auditoria e rastreabilidade
+## 13. LGPD e privacidade
+- Portal publico `production/privacy-request.html` permite abrir pedido LGPD sem login.
+- O pedido publico exige codigo enviado ao e-mail informado antes de virar pendencia.
+- O protocolo pode ser acompanhado sem expor dados do titular.
+- Pedido recebido por e-mail, telefone, WhatsApp, formulario externo ou presencial pode ser cadastrado manualmente em `admin.lgpd-solicitacoes`.
+- Toda solicitacao validada/manual gera alerta prioritario, evento `privacy.subject_request.created` e log operacional.
+- Politicas de retencao indicam quando anonimizacao deve ser bloqueada por obrigacao legal, fiscal, contratual ou auditoria.
+- Notas fiscais e documentos fiscais devem ser tratados como retencao obrigatoria quando a politica assim definir.
+
+## 14. Integridade, auditoria e rastreabilidade
 - Transacoes registram `programVersion`, `builderProgramVersionId`, `builderEntityVersionId`, `screenDefinitionVersion` e `schemaFingerprint`.
 - Tambem registram ambiente, identidade do banco, tipo de customizacao, grant, request, approval e bundle de teste quando aplicavel.
 - Assinatura estrutural em `system_record_integrity` cobre programas, entidades, campos, endpoints, overlays, parametros, opcoes, integracoes e outros registros sensiveis.
 - Comandos: `app:integrity:check`, `app:integrity:monitor`, `app:integrity:resign`.
 - Reassinatura controlada registra motivo, usuario, horario, hash anterior e status antes/depois.
 
-## 14. Instalacao, licencas e provisionamento
+## 15. Instalacao, licencas e provisionamento
 - **Executaveis Go**: Quatro binarios: builder/subscriber para Linux e Windows; perfil compilado.
 - **Precheck**: Valida dependencias por modo; ERRO bloqueia e AVISO permite continuar registrado.
 - **Ativacao central**: Codigo do assinante, e-mail de confirmacao, sessao curta e manifesto autorizado.
@@ -148,7 +162,7 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - **Worker**: No Docker fica inativo por padrao; ativar com `APP_WORKER_ENABLED=1` apos instalacao.
 - **Reinstalacao**: Exige nova ativacao, senha do instalador e confirmacao explicita.
 
-## 15. Atualizacoes do sistema
+## 16. Atualizacoes do sistema
 - Tela `admin.atualizacoes` le manifesto, avalia dependencias e aplica releases por job.
 - Tela `admin.atualizacoes-assinantes` consulta historico por assinante.
 - Releases aceitam `requiresVersionMin`, `requiresAppliedUpdates`, `replaces`, `category`, `autoApply`, `breakingLevel` e `steps`.
@@ -158,7 +172,7 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - On-premise usa runner `update-onprem.sh|ps1` e politicas criticas de warn/block, auto/prompt/download_only.
 - Programas `standard`, `customer_overlay` e `customer_custom` respeitam regras diferentes de atualizacao.
 
-## 16. Seguranca funcional
+## 17. Seguranca funcional
 - **screenId em producao**: Frontend pede uma tela conhecida; backend devolve apenas definicao autorizada.
 - **endpointId/actionId**: Acoes passam por identificadores fechados, evitando URL livre no JSON.
 - **Sem JS livre**: JSON nao pode injetar `eval`, `Function`, template livre ou script.
@@ -167,7 +181,7 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - **Segredos**: Tokens e chaves devem ficar em parametros/variaveis mascaradas.
 - **Instalacao**: Executavel + central + sessao curta reduzem risco de liberacao manual indevida.
 
-## 17. Roteiro sugerido para analise funcional
+## 18. Roteiro sugerido para analise funcional
 1. **Instalacao/licenca**: Ambiente ativado, precheck ok, pagina install liberada e sistema instalado.
 2. **Login/sessao**: Usuario entra, seleciona assinante e area correta.
 3. **Home**: Menu, appbar, notificacoes, jobs e contexto funcionam.
@@ -176,10 +190,11 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 6. **Program Builder**: Modulo, entidade, programa, preview e publicacao funcionam.
 7. **Governanca**: Request, grant, teste, aprovacao, publish e rebase cobertos.
 8. **Integracoes**: Mapping, preview, execucao, historico e agendamento validados.
-9. **Integridade**: Monitor sem invalidez ou com fluxo de reassinatura controlado.
-10. **Atualizacoes**: Manifesto, precheck, simulacao, apply, rollback e historico por assinante.
+9. **LGPD**: Pedido publico validado por e-mail, pedido manual e bloqueio por retencao cobertos.
+10. **Integridade**: Monitor sem invalidez ou com fluxo de reassinatura controlado.
+11. **Atualizacoes**: Manifesto, precheck, simulacao, apply, rollback e historico por assinante.
 
-## 18. Evidencias que o analista deve coletar
+## 19. Evidencias que o analista deve coletar
 - Ambiente usado: demo local, producao local, backend real, on-premise ou SaaS.
 - Usuario, perfil, grupos e assinante usados em cada trilha.
 - `screenId` e programa aberto.
@@ -190,18 +205,19 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - Quando houver publicacao: versao, request, grant, bundle de teste e aprovacao.
 - Quando houver update: release, politica, simulacao, aplicacao, rollback e impacto em overlays.
 
-## 19. Mapa rapido de programas e telas
+## 20. Mapa rapido de programas e telas
 - **Acesso**: production/login.html, admin.usuarios, admin.usuario-assinantes, admin.permissoes, admin.sessoes
 - **Navegacao**: production/home.html, production/app.html?screenId=...
 - **Operacao diaria**: cadastros.clientes, admin.jobs, telas CRUD publicadas pelo builder
 - **Construcao**: production/program-builder.html
 - **Governanca**: admin.programa-governanca e entradas focadas de grants, aprovacoes, retencao, auditoria e overlays
 - **Administracao**: admin.parametros, admin.parametro-valores, admin.literais, admin.notificacoes, admin.integridade
+- **LGPD**: production/privacy-request.html, admin.lgpd-solicitacoes, admin.lgpd-evidencias, admin.lgpd-retencao
 - **Integracoes**: admin.integracoes
 - **Provisionamento**: admin.assinante-ambientes, admin.instalacao-licencas, admin.instalacao-tokens, admin.central-operacoes, production/install.html
 - **Atualizacoes**: admin.atualizacoes, admin.atualizacoes-assinantes
 
-## 20. Pontos de atencao para proximas homologacoes
+## 21. Pontos de atencao para proximas homologacoes
 - Confirmar se migrations e `app:seed-runtime-metadata` foram executados no ambiente alvo.
 - Confirmar SMTP real antes de validar ativacao por e-mail e recuperacao de senha.
 - Confirmar `AUTH_REQUIRED=1` quando validar producao real.
@@ -211,8 +227,10 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - Confirmar se licencas de instalacao usam limites coerentes para o contrato do assinante.
 - Confirmar se tabelas globais foram explicitamente justificadas no builder.
 - Confirmar se programa padrao nao foi alterado sem governanca quando a politica exigir gate.
+- Confirmar SMTP real antes de validar codigo publico LGPD por e-mail.
+- Confirmar politicas de retencao fiscal/legal antes de aprovar anonimizacao.
 
-## 21. Checklist detalhado de validacao por area
+## 22. Checklist detalhado de validacao por area
 - **Instalacao**: Licenca ativa, perfil correto, modo autorizado, e-mail recebido, precheck sem ERRO, sessao local gravada, install finalizado.
 - **Central operacional**: Painel sem alerta critico, chaves fortes, artefatos configurados, token SaaS valido, auditoria e saude dos assinantes revisadas.
 - **Login**: Senha valida, senha invalida, manter logado, recuperar senha, limpar sessao local, expiracao e logout.
@@ -224,10 +242,11 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - **Governanca**: Request, grant, lock, bundle de testes, aprovacao, publish, auditoria e retencao.
 - **Overlay**: Criacao por assinante, rebase, conflito leve, conflito bloqueante, congelamento e publish.
 - **Integracao**: Cadastro de mapping, preview, execucao, historico, versao, agenda e exportacao.
+- **LGPD**: Pedido publico, validacao por e-mail, entrada manual, evidencia, alerta prioritario, retencao e recusa parcial por obrigacao fiscal/legal.
 - **Integridade**: Monitor, item valido, item invalido, reassinatura, log e comando CLI.
 - **Atualizacao**: Check, simulacao, precheck, anuencia, aplicacao, rollback, impacto em programa e timeline.
 
-## 22. Matriz de recursos do Program Builder
+## 23. Matriz de recursos do Program Builder
 - **Modulo**: Abreviacao, faixa numerica, agrupamento estrutural. Observar: Codigo de programa precisa estar dentro da faixa e seguir padrao.
 - **Entidade persistence**: Tabela fisica, campos, PK, FKs, defaults, unique, readonly, situacao. Observar: Sem metadados completos o runtime nao deve inferir tela automaticamente.
 - **Entidade api**: API cadastrada, operacoes de lista/detalhe/escrita, jsonPath, Odoo readonly. Observar: Validar se contrato externo e previsivel e se nao ha transformacao livre.
@@ -240,7 +259,7 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - **IA do Builder**: sessionId, catalog_hash, catalog_version, rascunho persistido e diagnosticos. Observar: Token autentica cada chamada; sessionId sozinho nao autoriza e a IA nao pode publicar, executar SQL nem criar regra executavel.
 - **Publicacao**: Draft, published, archived, duplicacao, rollback e gate de ambiente. Observar: Publicar programa padrao pode exigir governanca.
 
-## 23. Matriz de instalacao e operacao
+## 24. Matriz de instalacao e operacao
 - **Linux Docker on-premise**: Executavel Linux, precheck Docker, ativacao, compose, pagina install. Ponto critico: Docker, Compose, portas, registry, disco, DNS e relogio.
 - **Linux nativo on-premise**: Executavel Linux, precheck PHP/Composer/PostgreSQL, pacote assinado, servico local. Ponto critico: PHP 8.4, extensoes, psql/pg_dump/pg_restore, systemd e permissoes.
 - **Windows teste**: Executavel Windows, native mode, servidor local simples. Ponto critico: Nao e producao; nao oferecer modo Docker.
@@ -249,7 +268,7 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - **Atualizacao on-premise**: Runner local consulta manifesto, baixa pacote, aplica steps e recria containers se preciso. Ponto critico: Politica critica warn/block e modo auto/prompt/download_only.
 - **Rollout SaaS**: Central despacha plano para orquestrador externo por HTTP assinado. Ponto critico: Batches, janela, canario, bloqueio temporario e auditoria.
 
-## 24. Matriz de seguranca e controles
+## 25. Matriz de seguranca e controles
 - **screenId**: Backend resolve tela conhecida e autorizada. Mitiga: Carga de JSON livre ou tela nao autorizada.
 - **endpointId**: Acoes passam por identificadores publicados. Mitiga: Chamada direta a URL livre pelo JSON.
 - **Auth Bearer**: Sessao runtime vinculada ao token. Mitiga: Uso anonimo indevido quando AUTH_REQUIRED=1.
@@ -259,8 +278,9 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - **Governanca**: Request, grant, teste e aprovacao para programa padrao. Mitiga: Alteracao padrao sem controle.
 - **Instalador**: Executavel, licenca, e-mail, sessao curta e prova assinada. Mitiga: Instalacao liberada por alteracao simples de env.
 - **Update**: Manifesto assinado, pacote assinado, politica e precheck. Mitiga: Aplicacao de release incoerente ou nao autorizada.
+- **LGPD**: Validacao por e-mail, protocolo, alerta prioritario, evidencia e retencao obrigatoria. Mitiga: Atendimento sem prova, consulta publica indevida e anonimizacao de documento que deve ser mantido.
 
-## 25. Perguntas que o analista deve responder
+## 26. Perguntas que o analista deve responder
 - O sistema esta sendo validado em demo, producao local, SaaS ou on-premise?
 - O login usado representa corretamente usuario comum, administrador e assinante?
 - A Home mostra os programas esperados para o perfil testado?
@@ -270,10 +290,11 @@ O Construtor PG e um motor de sistemas por metadados. O backend decide e o front
 - O fluxo de governanca impede alteracao indevida em programa padrao?
 - As integracoes usam contratos fechados e historico de execucao suficiente?
 - As atualizacoes respeitam cadeia, anuencia, backup, manutencao e impacto em customizacoes?
+- O fluxo LGPD diferencia dados anonimizaveis de documentos com retencao obrigatoria?
 - A instalacao exige licenca, ativacao, precheck e sessao local antes da tela web?
 - As evidencias coletadas permitem reproduzir cada erro encontrado?
 
-## 26. Apendice: comandos e arquivos de referencia
+## 27. Apendice: comandos e arquivos de referencia
 - **Bootstrap**: `php backend/bin/console app:install:bootstrap`
 - **Criar assinante**: `php backend/bin/console app:subscriber:create`
 - **Publicar defaults**: `php backend/bin/console app:runtime:publish-defaults`

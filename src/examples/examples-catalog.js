@@ -271,6 +271,14 @@
       page: pagePath + "admin-program-retention.html"
     },
     {
+      id: "privacy-request",
+      engine: "custom",
+      category: "Administracao",
+      title: "Solicitacao LGPD publica",
+      summary: "Pagina publica para abrir pedido LGPD, validar o e-mail por codigo e acompanhar o protocolo sem expor dados do titular.",
+      page: pagePath + "privacy-request.html"
+    },
+    {
       id: "admin-program-retention-history",
       engine: "program-builder",
       category: "Administracao",

@@ -3,6 +3,7 @@
 namespace App\Runtime;
 
 use App\Builder\BuilderAiSettingsService;
+use App\Privacy\PrivacySubjectRequestService;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Query\QueryBuilder;
 
@@ -21,6 +22,7 @@ class RuntimeEntityActionService
         private readonly RuntimeSituationService $situations,
         private readonly BuilderAiSettingsService $builderAiSettings,
         private readonly RuntimeNotificationService $notifications,
+        private readonly PrivacySubjectRequestService $privacyRequests,
         private readonly StructuralIntegrityService $integrity,
         private readonly PermissionResolver $permissions,
         private readonly RuntimeEventService $events,
@@ -97,6 +99,9 @@ class RuntimeEntityActionService
             $values = $this->notifications->prepareValues($values, true);
             $this->notifications->validateValues($values);
         }
+        if ($definition['entityCode'] === 'privacy_subject_request') {
+            $values = $this->privacyRequests->prepareSubjectRequestValues($values, true);
+        }
         $values = $this->situations->applyCreateDefaults($definition, $values);
         $context = $this->newRuleContext($definition, 'create', $actionId, $payload, $values);
         $this->rules->beforeValidate($context);
@@ -155,6 +160,9 @@ class RuntimeEntityActionService
         if ($definition['entityCode'] === 'runtime_notification') {
             $this->notifications->syncRecipients((int) $id);
         }
+        if ($definition['entityCode'] === 'privacy_subject_request') {
+            $this->privacyRequests->afterSubjectRequestCreated($after);
+        }
         $this->situations->logTransition($definition, $situationTransition, [], $after);
         $this->transactions->log($definition['entityCode'] . '.create', 'Registro incluido pelo runtime generico.', after: $after, metadata: [
             'entityCode' => $definition['entityCode'],
@@ -183,6 +191,9 @@ class RuntimeEntityActionService
         if ($definition['entityCode'] === 'runtime_notification') {
             $values = $this->notifications->prepareValues($values, false);
             $this->notifications->validateValues(array_replace($before, $values));
+        }
+        if ($definition['entityCode'] === 'privacy_subject_request') {
+            $values = $this->privacyRequests->prepareSubjectRequestValues($values, false);
         }
         $context = $this->newRuleContext($definition, 'update', $actionId, $payload, $values, $before);
         $this->rules->beforeValidate($context);

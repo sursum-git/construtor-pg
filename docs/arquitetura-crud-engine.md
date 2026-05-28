@@ -156,6 +156,31 @@ Regras:
 - Para consulta administrativa de registros excluidos, o payload pode enviar `includeDeleted=true` ou `_runtime.includeDeleted=true`.
 - O evento `runtime.entity.deleted` continua sendo publicado e o log em `runtime_transaction_log` registra `deleteMode=soft`.
 
+## Solicitacoes LGPD
+
+O backend possui uma primeira camada operacional para pedidos do titular:
+
+- pagina publica `production/privacy-request.html`;
+- endpoints publicos:
+  - `POST /api/public/privacy/requests/start`;
+  - `POST /api/public/privacy/requests/confirm`;
+  - `GET /api/public/privacy/requests/{protocol}?email=...`;
+- tabelas:
+  - `privacy_subject_request`;
+  - `privacy_subject_request_verification`;
+  - `privacy_subject_request_evidence`;
+  - `privacy_retention_policy`;
+- telas administrativas:
+  - `admin.lgpd-solicitacoes`;
+  - `admin.lgpd-evidencias`;
+  - `admin.lgpd-retencao`.
+
+O pedido publico nao expõe dados do titular. Ele cria um protocolo, envia codigo para o e-mail informado e so encaminha a solicitacao depois da validacao. A validacao confirmada gera alerta prioritario para grupos administrativos (`admin`, `privacy`, `dpo`), publica o evento `privacy.subject_request.created` e registra logs em `runtime_transaction_log`.
+
+Pedidos recebidos por e-mail, telefone, WhatsApp, formulario externo ou atendimento presencial entram pela tela `admin.lgpd-solicitacoes`, usando `source_channel` correspondente. Quando o pedido e criado manualmente, o runtime gera protocolo, prioridade alta por padrao e o mesmo alerta/evento operacional.
+
+Politicas em `privacy_retention_policy` indicam quando um dado/documento bloqueia anonimizacao, por exemplo notas fiscais ou registros fiscais com retencao obrigatoria. Nesse caso, a resposta ao titular deve ser parcial ou recusada com justificativa formal, sem anonimizar campos essenciais enquanto houver obrigacao de guarda.
+
 Na definicao gerada:
 
 - o `pageType` continua `crud`;
