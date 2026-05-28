@@ -134,6 +134,28 @@ Quando o modo for `none` em entidade `persistence`:
 - o builder bloqueia persistencia sem essa confirmacao;
 - o catalogo administrativo do provisionamento passa a listar a tabela como global, filtrada por assinante ou em risco de configuracao.
 
+## Soft delete
+
+O runtime generico suporta exclusao logica por entidade persistente. Por padrao, o comportamento continua sendo hard delete. Para habilitar soft delete, a entidade deve possuir `builder_entity.metadata.softDelete`:
+
+```json
+{
+  "enabled": true,
+  "deletedAtField": "deletedAt",
+  "deletedByField": "deletedBy",
+  "reasonField": "deleteReason"
+}
+```
+
+Regras:
+
+- `deletedAtField` e obrigatorio quando `enabled=true` e precisa apontar para uma coluna fisica da entidade.
+- `deletedByField` e `reasonField` sao opcionais.
+- `read` e `get` ocultam registros com `deletedAtField` preenchido.
+- `delete` deixa de remover a linha e passa a preencher data/hora da exclusao, usuario atual e motivo quando os campos existirem.
+- Para consulta administrativa de registros excluidos, o payload pode enviar `includeDeleted=true` ou `_runtime.includeDeleted=true`.
+- O evento `runtime.entity.deleted` continua sendo publicado e o log em `runtime_transaction_log` registra `deleteMode=soft`.
+
 Na definicao gerada:
 
 - o `pageType` continua `crud`;

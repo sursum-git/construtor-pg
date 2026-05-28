@@ -77,3 +77,20 @@ Itens importantes para evolucao do construtor e do runtime, mas que nao bloqueia
 - **Observabilidade operacional**: adicionar metricas, saude de filas, saude do EventBus, atrasos, falhas por handler, tentativas e alertas operacionais. Deve comecar simples, aproveitando `runtime_transaction`, `runtime_transaction_log`, `runtime_async_job`, `runtime_event` e `runtime_event_delivery`.
 - **Feature flags**: permitir liberar recursos por release, assinante, ambiente ou canal. E util para SaaS e on-premise, mas a base atual de parametros, canais e politicas de update ja cobre parte do controle inicial.
 - **Cache distribuido**: avaliar Redis ou equivalente quando houver volume real, concorrencia alta ou necessidade de cache compartilhado entre workers/containers. Nao deve ser prioridade antes de haver medicao de gargalo.
+
+## Roadmap: adequacao LGPD
+
+Recursos recomendados para evoluir a governanca de dados pessoais:
+
+- **Catalogo de dados pessoais por campo**: marcar no construtor se um campo contem dado pessoal, dado sensivel, identificador, contato, documento, financeiro ou dado anonimizavel.
+- **Base legal e finalidade**: registrar por entidade/campo a finalidade de tratamento, base legal, origem do dado, compartilhamento e prazo de retencao.
+- **Retencao e descarte**: criar politicas por entidade para expurgo, anonimizacao ou soft delete apos prazo configurado, com simulacao antes de aplicar.
+- **Anonimizacao/pseudonimizacao**: handlers fechados para mascarar CPF/CNPJ, e-mail, telefone, nome e campos livres, sem script arbitrario.
+- **Solicitacoes do titular**: tela e workflow para acesso, correcao, portabilidade, oposicao, bloqueio, anonimizacao e eliminacao, com evidencias.
+- **Auditoria LGPD**: registrar quem consultou/exportou/alterou dados pessoais, com filtro por titular e relatorio de atendimento.
+- **Exportacao do titular**: pacote JSON/CSV/PDF com os dados relacionados a um titular, respeitando permissoes e escopo do assinante.
+- **Consentimento**: cadastro de consentimentos por finalidade, versao do termo, aceite, revogacao e historico.
+- **Minimizacao de dados**: alertas no construtor quando campo pessoal nao tiver finalidade/base legal ou quando for exibido sem necessidade na grid.
+- **Mapa de integrações**: indicar em import/export e APIs externas quais dados pessoais saem ou entram, com contrato, operador e evidencia.
+- **Criptografia/segredo por campo**: avaliar criptografia em repouso para campos sensiveis e mascaramento por perfil no frontend/runtime.
+- **Relatorio de impacto**: gerar DPIA/RIPD inicial por entidade/programa, usando catalogo de campos, finalidade, retencao e integrações.

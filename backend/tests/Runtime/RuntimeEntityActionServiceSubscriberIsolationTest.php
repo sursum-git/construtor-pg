@@ -90,16 +90,55 @@ class RuntimeEntityActionServiceSubscriberIsolationTest extends TestCase
         ]);
     }
 
-    private function createService(string $tenantId): RuntimeEntityActionService
+    public function testSoftDeleteMarksRowAndReadHidesDeletedRecords(): void
+    {
+        $connection = null;
+        $service = $this->createService('tenant-a', true, $connection);
+
+        $initial = $service->handle('cadastros.pedidos', 'read', [
+            'entityCode' => 'pedido',
+            'operation' => 'read',
+        ], []);
+
+        self::assertSame(2, $initial['total']);
+
+        $service->handle('cadastros.pedidos', 'delete', [
+            'entityCode' => 'pedido',
+            'operation' => 'delete',
+            'actionId' => 'delete',
+        ], [
+            'id' => 1,
+            'deleteReason' => 'Solicitacao LGPD',
+        ]);
+
+        $row = $connection->fetchAssociative('SELECT deleted_at, deleted_by, delete_reason FROM pedido WHERE id = 1');
+        self::assertNotEmpty($row['deleted_at']);
+        self::assertSame('user-a', $row['deleted_by']);
+        self::assertSame('Solicitacao LGPD', $row['delete_reason']);
+
+        $after = $service->handle('cadastros.pedidos', 'read', [
+            'entityCode' => 'pedido',
+            'operation' => 'read',
+        ], []);
+
+        self::assertSame(1, $after['total']);
+        self::assertSame(['Pedido B'], array_column($after['data'], 'nome'));
+    }
+
+    private function createService(string $tenantId, bool $softDelete = false, mixed &$connectionOut = null): RuntimeEntityActionService
     {
         $connection = DriverManager::getConnection([
             'driver' => 'pdo_sqlite',
             'memory' => true,
         ]);
-        $connection->executeStatement('CREATE TABLE pedido (id INTEGER PRIMARY KEY AUTOINCREMENT, subscriber_id TEXT NOT NULL, nome TEXT NOT NULL)');
+        $connection->executeStatement('CREATE TABLE pedido (id INTEGER PRIMARY KEY AUTOINCREMENT, subscriber_id TEXT NOT NULL, nome TEXT NOT NULL, deleted_at TEXT DEFAULT NULL, deleted_by TEXT DEFAULT NULL, delete_reason TEXT DEFAULT NULL)');
         $connection->insert('pedido', ['subscriber_id' => 'tenant-a', 'nome' => 'Pedido A']);
         $connection->insert('pedido', ['subscriber_id' => 'tenant-a', 'nome' => 'Pedido B']);
         $connection->insert('pedido', ['subscriber_id' => 'tenant-b', 'nome' => 'Pedido C']);
+        if ($softDelete) {
+            $connection->insert('pedido', ['subscriber_id' => 'tenant-a', 'nome' => 'Pedido Excluido', 'deleted_at' => '2026-01-01 10:00:00']);
+        }
+        $connectionOut = $connection;
 
         $definitions = $this->createStub(RuntimeEntityDefinitionResolver::class);
         $definitions->method('resolve')->willReturn([
@@ -112,6 +151,9 @@ class RuntimeEntityActionServiceSubscriberIsolationTest extends TestCase
                 'id' => true,
                 'subscriber_id' => true,
                 'nome' => true,
+                'deleted_at' => true,
+                'deleted_by' => true,
+                'delete_reason' => true,
             ],
             'subscriberIsolation' => [
                 'enabled' => true,
@@ -150,7 +192,46 @@ class RuntimeEntityActionServiceSubscriberIsolationTest extends TestCase
                     'required' => true,
                     'virtual' => false,
                 ],
+                'deletedAt' => [
+                    'code' => 'deletedAt',
+                    'column' => 'deleted_at',
+                    'label' => 'Excluido em',
+                    'dataType' => 'datetime',
+                    'writable' => false,
+                    'readable' => true,
+                    'required' => false,
+                    'virtual' => false,
+                ],
+                'deletedBy' => [
+                    'code' => 'deletedBy',
+                    'column' => 'deleted_by',
+                    'label' => 'Excluido por',
+                    'dataType' => 'string',
+                    'writable' => false,
+                    'readable' => true,
+                    'required' => false,
+                    'virtual' => false,
+                ],
+                'deleteReason' => [
+                    'code' => 'deleteReason',
+                    'column' => 'delete_reason',
+                    'label' => 'Motivo da exclusao',
+                    'dataType' => 'string',
+                    'writable' => false,
+                    'readable' => true,
+                    'required' => false,
+                    'virtual' => false,
+                ],
             ],
+            'softDelete' => $softDelete ? [
+                'enabled' => true,
+                'deletedAtField' => 'deletedAt',
+                'deletedAtColumn' => 'deleted_at',
+                'deletedByField' => 'deletedBy',
+                'deletedByColumn' => 'deleted_by',
+                'reasonField' => 'deleteReason',
+                'reasonColumn' => 'delete_reason',
+            ] : ['enabled' => false],
         ]);
 
         $entityVersions = $this->createStub(RuntimeEntityVersionService::class);
@@ -180,6 +261,7 @@ class RuntimeEntityActionServiceSubscriberIsolationTest extends TestCase
 
         $permissions = $this->createStub(PermissionResolver::class);
         $permissions->method('getTenantId')->willReturn($tenantId);
+        $permissions->method('getUserId')->willReturn('user-a');
         $events = $this->createStub(RuntimeEventService::class);
 
         return new RuntimeEntityActionService(

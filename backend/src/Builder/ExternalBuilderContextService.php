@@ -179,6 +179,15 @@ class ExternalBuilderContextService
                     'fields' => ['type' => 'array', 'items' => ['$ref' => 'builder.field']],
                     'rules' => ['type' => 'array', 'items' => ['$ref' => 'builder.businessRule.declarative']],
                     'eventSubscriptions' => ['type' => 'array', 'items' => ['$ref' => 'builder.eventSubscription.declarative']],
+                    'softDelete' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'enabled' => ['type' => 'boolean'],
+                            'deletedAtField' => ['type' => 'string'],
+                            'deletedByField' => ['type' => 'string'],
+                            'reasonField' => ['type' => 'string'],
+                        ],
+                    ],
                 ],
             ],
             'example' => [

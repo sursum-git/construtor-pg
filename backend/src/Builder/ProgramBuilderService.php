@@ -1827,6 +1827,7 @@ class ProgramBuilderService
                 'subscriberIsolation' => $config['subscriberIsolation'],
                 'uniqueKeys' => $config['uniqueKeys'],
                 'rules' => $config['rules'],
+                'softDelete' => $config['softDelete'],
                 'apiSource' => $this->restoreMaskedApiSourceSecrets(
                     $config['apiSource'] ?? null,
                     is_array($existingMetadata['apiSource'] ?? null) ? $existingMetadata['apiSource'] : []
@@ -2727,6 +2728,10 @@ class ProgramBuilderService
             'subscriberIsolationMode' => (string) ($entity->getMetadata()['subscriberIsolation']['mode'] ?? 'none'),
             'subscriberColumnName' => (string) ($entity->getMetadata()['subscriberIsolation']['columnName'] ?? ''),
             'subscriberGlobalTable' => ($entity->getMetadata()['subscriberIsolation']['globalTable'] ?? false) === true,
+            'softDeleteEnabled' => ($entity->getMetadata()['softDelete']['enabled'] ?? false) === true,
+            'softDeleteDeletedAtField' => (string) ($entity->getMetadata()['softDelete']['deletedAtField'] ?? ''),
+            'softDeleteDeletedByField' => (string) ($entity->getMetadata()['softDelete']['deletedByField'] ?? ''),
+            'softDeleteReasonField' => (string) ($entity->getMetadata()['softDelete']['reasonField'] ?? ''),
             'uniqueKeys' => $this->entityUniqueKeysPayload($entity->getMetadata()['uniqueKeys'] ?? []),
             'rules' => $this->entityRulesPayload($entity->getMetadata()['rules'] ?? []),
             'versioningEnabled' => ($entity->getMetadata()['versioning']['enabled'] ?? false) === true,
@@ -2882,6 +2887,7 @@ class ProgramBuilderService
         $situationFieldCode = $situationEnabled ? $this->safeSqlIdentifier((string) ($payload['situationFieldCode'] ?? 'status')) : null;
         $versioningEnabled = $entityType === 'persistence' && ($payload['versioningEnabled'] ?? false) === true;
         $versioningDeduplicate = ($payload['versioningDeduplicate'] ?? true) !== false;
+        $softDelete = $this->normalizeSoftDeleteConfig($payload, $entityType, $rawFields);
         $subscriberIsolation = $this->normalizeSubscriberIsolationConfig($payload, $entityType, $rawFields);
         $apiSourceCode = $this->safeCode((string) ($payload['apiSourceCode'] ?? ''));
         $apiListOperationCode = $this->safeCode((string) ($payload['apiListOperationCode'] ?? ''));
@@ -3206,6 +3212,7 @@ class ProgramBuilderService
             'subscriberIsolation' => $subscriberIsolation,
             'uniqueKeys' => $uniqueKeys,
             'rules' => $rules,
+            'softDelete' => $softDelete,
             'versioningEnabled' => $versioningEnabled,
             'versioningDeduplicate' => $versioningDeduplicate,
             'createPhysicalTable' => $entityType === 'persistence' && ($payload['createPhysicalTable'] ?? true) !== false,
@@ -3254,6 +3261,60 @@ class ProgramBuilderService
             'mode' => 'subscriber_column',
             'columnName' => $columnName,
             'globalTable' => false,
+        ];
+    }
+
+    private function normalizeSoftDeleteConfig(array $payload, string $entityType, array $rawFields): array
+    {
+        if ($entityType !== 'persistence') {
+            return [
+                'enabled' => false,
+                'deletedAtField' => null,
+                'deletedByField' => null,
+                'reasonField' => null,
+            ];
+        }
+
+        $enabled = ($payload['softDeleteEnabled'] ?? false) === true
+            || (is_array($payload['softDelete'] ?? null) && (($payload['softDelete']['enabled'] ?? false) === true));
+        if (!$enabled) {
+            return [
+                'enabled' => false,
+                'deletedAtField' => null,
+                'deletedByField' => null,
+                'reasonField' => null,
+            ];
+        }
+
+        $softDelete = is_array($payload['softDelete'] ?? null) ? $payload['softDelete'] : [];
+        $deletedAtField = $this->safeSqlIdentifier((string) ($payload['softDeleteDeletedAtField'] ?? $softDelete['deletedAtField'] ?? 'deleted_at'));
+        $deletedByField = $this->safeSqlIdentifier((string) ($payload['softDeleteDeletedByField'] ?? $softDelete['deletedByField'] ?? ''));
+        $reasonField = $this->safeSqlIdentifier((string) ($payload['softDeleteReasonField'] ?? $softDelete['reasonField'] ?? ''));
+        if ($deletedAtField === '') {
+            throw new RuntimeHttpException('ENTITY_SOFT_DELETE_FIELD_REQUIRED', 'Informe o campo de data/hora da exclusao logica.', 422);
+        }
+        $fieldCodes = [];
+        foreach ($rawFields as $field) {
+            if (is_array($field)) {
+                $fieldCode = $this->safeSqlIdentifier((string) ($field['code'] ?? ''));
+                if ($fieldCode !== '') {
+                    $fieldCodes[$fieldCode] = true;
+                }
+            }
+        }
+        foreach ([$deletedAtField, $deletedByField, $reasonField] as $fieldCode) {
+            if ($fieldCode !== '' && !isset($fieldCodes[$fieldCode])) {
+                throw new RuntimeHttpException('ENTITY_SOFT_DELETE_FIELD_NOT_FOUND', 'Campo de soft delete nao encontrado na entidade.', 422, [
+                    'fieldCode' => $fieldCode,
+                ]);
+            }
+        }
+
+        return [
+            'enabled' => true,
+            'deletedAtField' => $deletedAtField,
+            'deletedByField' => $deletedByField !== '' ? $deletedByField : null,
+            'reasonField' => $reasonField !== '' ? $reasonField : null,
         ];
     }
 
@@ -4204,6 +4265,7 @@ class ProgramBuilderService
                 'subscriberIsolation' => $config['subscriberIsolation'],
                 'uniqueKeys' => $config['uniqueKeys'],
                 'rules' => $config['rules'],
+                'softDelete' => $config['softDelete'],
                 'apiSource' => $config['apiSource'] ?? null,
                 'apiBinding' => $config['apiBinding'] ?? null,
                 'versioning' => [
@@ -4297,6 +4359,7 @@ class ProgramBuilderService
                 'subscriberIsolation' => $config['subscriberIsolation'],
                 'uniqueKeys' => $config['uniqueKeys'],
                 'rules' => $config['rules'],
+                'softDelete' => $config['softDelete'],
                 'apiSource' => $this->maskApiSourceSecrets($config['apiSource'] ?? null),
                 'apiBinding' => $config['apiBinding'] ?? null,
                 'versioning' => [
@@ -4320,6 +4383,10 @@ class ProgramBuilderService
             'subscriberIsolationMode' => (string) ($config['subscriberIsolation']['mode'] ?? 'none'),
             'subscriberColumnName' => (string) ($config['subscriberIsolation']['columnName'] ?? ''),
             'subscriberGlobalTable' => ($config['subscriberIsolation']['globalTable'] ?? false) === true,
+            'softDeleteEnabled' => ($config['softDelete']['enabled'] ?? false) === true,
+            'softDeleteDeletedAtField' => (string) ($config['softDelete']['deletedAtField'] ?? ''),
+            'softDeleteDeletedByField' => (string) ($config['softDelete']['deletedByField'] ?? ''),
+            'softDeleteReasonField' => (string) ($config['softDelete']['reasonField'] ?? ''),
             'uniqueKeys' => $config['uniqueKeys'],
             'rules' => $config['rules'],
             'versioningEnabled' => $config['versioningEnabled'],

@@ -56,6 +56,7 @@ class RuntimeEntityActionService
         $qb->select(...$this->selectColumns($definition, 't'))
             ->from($definition['quotedTableName'], 't');
         $this->applySubscriberIsolation($qb, $definition, 't');
+        $this->applySoftDeleteFilter($qb, $definition, 't', $payload);
         $this->applyCustomFilters($qb, $definition, $payload['filters'] ?? []);
         $this->applyKendoFilter($qb, $definition, $payload['filter'] ?? null);
 
@@ -271,17 +272,26 @@ class RuntimeEntityActionService
         $this->configuredRules->runPhase('beforeValidate', $context);
         $this->rules->beforePersist($context);
         $this->configuredRules->runPhase('beforePersist', $context);
-        $this->connection->delete($definition['tableName'], [
-            $definition['primaryColumn'] => $id,
-        ]);
+        $softDeleted = $this->softDeleteRecord($definition, $id, $payload);
+        if (!$softDeleted) {
+            $this->connection->delete($definition['tableName'], [
+                $definition['primaryColumn'] => $id,
+            ]);
+        }
         if ($definition['entityCode'] === 'runtime_notification') {
             $this->notifications->deleteRecipients((int) $id);
         }
-        $this->transactions->log($definition['entityCode'] . '.delete', 'Registro excluido pelo runtime generico.', before: $before, metadata: [
+        $after = $softDeleted ? $this->formatRow($definition, $this->findRow($definition, $id, includeDeleted: true)) : null;
+        $this->transactions->log($definition['entityCode'] . '.delete', $softDeleted ? 'Registro excluido logicamente pelo runtime generico.' : 'Registro excluido pelo runtime generico.', before: $before, after: $after ?? [], metadata: [
             'entityCode' => $definition['entityCode'],
             'confirmationToken' => $payload['_runtime']['validationConfirmationToken'] ?? null,
+            'deleteMode' => $softDeleted ? 'soft' : 'hard',
         ]);
-        $this->deleteStructuralIntegrityAfterDelete($definition, (int) $id);
+        if ($softDeleted) {
+            $this->syncStructuralIntegrityAfterWrite($definition, (int) $id, 'runtimeEntitySoftDelete');
+        } else {
+            $this->deleteStructuralIntegrityAfterDelete($definition, (int) $id);
+        }
         if (!empty($payload['_runtime']['lockToken']) || !empty($payload['lockToken'])) {
             $this->locks->release($payload, 'released');
         }
@@ -289,9 +299,34 @@ class RuntimeEntityActionService
         $this->configuredRules->runPhase('afterPersist', $context);
         $this->rules->afterCommit($context);
         $this->configuredRules->runPhase('afterCommit', $context);
-        $this->publishEntityEvent('runtime.entity.deleted', $screenId, $definition, 'delete', $before, null);
+        $this->publishEntityEvent('runtime.entity.deleted', $screenId, $definition, 'delete', $before, $after);
 
         return ['ok' => true];
+    }
+
+    private function softDeleteRecord(array $definition, string|int $id, array $payload): bool
+    {
+        $config = is_array($definition['softDelete'] ?? null) ? $definition['softDelete'] : [];
+        if (($config['enabled'] ?? false) !== true || empty($config['deletedAtColumn'])) {
+            return false;
+        }
+
+        $values = [
+            (string) $config['deletedAtColumn'] => (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
+        ];
+        if (!empty($config['deletedByColumn'])) {
+            $values[(string) $config['deletedByColumn']] = $this->permissions->getUserId();
+        }
+        if (!empty($config['reasonColumn'])) {
+            $reason = trim((string) ($payload['_runtime']['deleteReason'] ?? $payload['deleteReason'] ?? ''));
+            $values[(string) $config['reasonColumn']] = $reason !== '' ? mb_substr($reason, 0, 500) : null;
+        }
+
+        $this->connection->update($definition['tableName'], $values, [
+            $definition['primaryColumn'] => $id,
+        ]);
+
+        return true;
     }
 
     private function publishEntityEvent(string $eventCode, string $screenId, array $definition, string $operation, ?array $before, ?array $after): void
@@ -576,7 +611,7 @@ class RuntimeEntityActionService
         $this->integrity->flushPendingChanges();
     }
 
-    private function findRow(array $definition, string|int $id): array
+    private function findRow(array $definition, string|int $id, bool $includeDeleted = false): array
     {
         if ($id === '' || $id === 0 || $id === '0') {
             throw new RuntimeHttpException('RECORD_ID_REQUIRED', 'Informe o registro.', 422);
@@ -588,6 +623,9 @@ class RuntimeEntityActionService
             ->where('t.' . $this->quote($definition['primaryColumn']) . ' = :id')
             ->setParameter('id', $id);
         $this->applySubscriberIsolation($qb, $definition, 't');
+        if (!$includeDeleted) {
+            $this->applySoftDeleteFilter($qb, $definition, 't');
+        }
         $row = $qb->executeQuery()->fetchAssociative();
         if (!$row) {
             throw new RuntimeHttpException('RECORD_NOT_FOUND', 'Registro nao encontrado.', 404, [
@@ -597,6 +635,21 @@ class RuntimeEntityActionService
         }
 
         return $row;
+    }
+
+    private function applySoftDeleteFilter(QueryBuilder $qb, array $definition, string $alias, array $payload = []): void
+    {
+        $config = is_array($definition['softDelete'] ?? null) ? $definition['softDelete'] : [];
+        if (($config['enabled'] ?? false) !== true || empty($config['deletedAtColumn'])) {
+            return;
+        }
+        $runtime = is_array($payload['_runtime'] ?? null) ? $payload['_runtime'] : [];
+        $includeDeleted = ($payload['includeDeleted'] ?? false) === true || ($runtime['includeDeleted'] ?? false) === true;
+        if ($includeDeleted) {
+            return;
+        }
+
+        $qb->andWhere($alias . '.' . $this->quote((string) $config['deletedAtColumn']) . ' IS NULL');
     }
 
     private function selectColumns(array $definition, string $alias): array

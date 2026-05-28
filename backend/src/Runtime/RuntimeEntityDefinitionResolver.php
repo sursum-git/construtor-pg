@@ -159,6 +159,7 @@ class RuntimeEntityDefinitionResolver
             ]);
         }
         $situation = $this->resolveSituationConfig($entity, $fields);
+        $softDelete = $this->resolveSoftDeleteConfig($entityMetadata, $fields, $entityCode);
 
         return $this->cache[$entityCode] = [
             'entityCode' => $entity->getCode(),
@@ -173,6 +174,7 @@ class RuntimeEntityDefinitionResolver
             'subscriberIsolation' => $subscriberIsolation,
             'versioning' => $versioning,
             'situation' => $situation,
+            'softDelete' => $softDelete,
         ];
     }
 
@@ -431,6 +433,58 @@ class RuntimeEntityDefinitionResolver
             'mode' => (string) ($config['mode'] ?? 'snapshot_on_change'),
             'deduplicate' => ($config['deduplicate'] ?? true) !== false,
         ];
+    }
+
+    private function resolveSoftDeleteConfig(array $metadata, array $fields, string $entityCode): array
+    {
+        $config = is_array($metadata['softDelete'] ?? null) ? $metadata['softDelete'] : [];
+        if (($config['enabled'] ?? false) !== true) {
+            return [
+                'enabled' => false,
+                'deletedAtField' => null,
+                'deletedAtColumn' => null,
+                'deletedByField' => null,
+                'deletedByColumn' => null,
+                'reasonField' => null,
+                'reasonColumn' => null,
+            ];
+        }
+
+        $deletedAtField = trim((string) ($config['deletedAtField'] ?? 'deleted_at'));
+        $deletedByField = trim((string) ($config['deletedByField'] ?? ''));
+        $reasonField = trim((string) ($config['reasonField'] ?? ''));
+        $deletedAtColumn = $this->resolveSoftDeleteColumn($fields, $deletedAtField, $entityCode, 'SOFT_DELETE_DELETED_AT_FIELD_INVALID');
+        $deletedByColumn = $deletedByField !== '' ? $this->resolveSoftDeleteColumn($fields, $deletedByField, $entityCode, 'SOFT_DELETE_DELETED_BY_FIELD_INVALID') : null;
+        $reasonColumn = $reasonField !== '' ? $this->resolveSoftDeleteColumn($fields, $reasonField, $entityCode, 'SOFT_DELETE_REASON_FIELD_INVALID') : null;
+
+        return [
+            'enabled' => true,
+            'deletedAtField' => $deletedAtField,
+            'deletedAtColumn' => $deletedAtColumn,
+            'deletedByField' => $deletedByField !== '' ? $deletedByField : null,
+            'deletedByColumn' => $deletedByColumn,
+            'reasonField' => $reasonField !== '' ? $reasonField : null,
+            'reasonColumn' => $reasonColumn,
+        ];
+    }
+
+    private function resolveSoftDeleteColumn(array $fields, string $fieldCode, string $entityCode, string $errorCode): string
+    {
+        if (!isset($fields[$fieldCode]) || ($fields[$fieldCode]['virtual'] ?? false) === true) {
+            throw new RuntimeHttpException($errorCode, 'Campo de soft delete nao encontrado na entidade.', 422, [
+                'entityCode' => $entityCode,
+                'fieldCode' => $fieldCode,
+            ]);
+        }
+        $column = (string) ($fields[$fieldCode]['column'] ?? '');
+        if ($column === '') {
+            throw new RuntimeHttpException($errorCode, 'Campo de soft delete precisa apontar para coluna fisica.', 422, [
+                'entityCode' => $entityCode,
+                'fieldCode' => $fieldCode,
+            ]);
+        }
+
+        return $column;
     }
 
     private function resolveSubscriberIsolationConfig(array $metadata, array $dbColumns, string $entityCode, string $tableName): array

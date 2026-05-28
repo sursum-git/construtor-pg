@@ -780,6 +780,7 @@ Implementado ate agora, em nivel demo/frontend:
 - Backend possui fila async inicial com Symfony Messenger/Doctrine em PostgreSQL, rastreamento em `runtime_async_job` e job fechado `cliente.email_confirmation`.
 - Backend possui EventBus runtime incremental com outbox/inbox minima: `runtime_event`, `runtime_event_subscription` e `runtime_event_delivery`. CRUD, Program Builder e jobs publicam eventos estaveis, assinaturas rodam handlers fechados e os logs continuam em `runtime_transaction`/`runtime_transaction_log`.
 - Telas administrativas do EventBus: `admin.eventos-runtime`, `admin.evento-assinaturas` e `admin.evento-entregas`.
+- O runtime generico possui soft delete por entidade persistente via `builder_entity.metadata.softDelete`. Quando habilitado, `delete` marca os campos configurados, `read/get` ocultam registros excluidos e o log registra `deleteMode=soft`.
 - A decisao de enfileirar fica no backend por `builder_entity.metadata.jobs` ou `runtime_endpoint.config.jobs`; `mode="async"` usa worker, sem job configurado a acao segue na chamada normal.
 - Acoes manuais podem usar `handler="runtime.job.enqueue"`; exemplo atual: `sendWhatsapp` agenda `cliente.whatsapp_welcome`.
 - Tela `admin.jobs` consulta os jobs assincronos pelo runtime generico.
