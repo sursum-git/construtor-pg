@@ -51,6 +51,31 @@ class AuthController extends AbstractController
         }
     }
 
+    #[Route('/api/auth/impersonate/start', name: 'auth_impersonate_start', methods: ['POST'])]
+    public function impersonateStart(Request $request): JsonResponse
+    {
+        try {
+            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            if (!is_array($payload)) {
+                $payload = [];
+            }
+
+            return $this->json($this->auth->startImpersonation($payload, $request));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/api/auth/impersonate/stop', name: 'auth_impersonate_stop', methods: ['POST'])]
+    public function impersonateStop(Request $request): JsonResponse
+    {
+        try {
+            return $this->json($this->auth->stopImpersonation($request));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
     #[Route('/api/auth/select-subscriber', name: 'auth_select_subscriber', methods: ['POST'])]
     public function selectSubscriber(Request $request): JsonResponse
     {

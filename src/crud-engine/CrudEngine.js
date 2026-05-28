@@ -1529,11 +1529,16 @@
         return Promise.resolve(true);
       }
 
+      let promptValues = {};
       const executeRequest = () => {
+        const data = this.buildFormActionPayload(action, record, context);
+        Object.keys(promptValues || {}).forEach(function(key) {
+          data[key] = promptValues[key];
+        });
         return this.httpClient.request({
           url,
           method: endpoint.method || action.method || "POST",
-          data: this.buildFormActionPayload(action, record, context)
+          data
         }).then((response) => {
           if (this.handleBackendValidation(response, (token) => {
             const retryAction = Object.assign({}, action, {
@@ -1575,17 +1580,93 @@
         });
       };
 
-      const message = action.confirm && action.confirm.message ? action.confirm.message : "";
-      if (!message) {
-        return executeRequest();
+      const executeWithConfirm = () => {
+        const message = action.confirm && action.confirm.message ? action.confirm.message : "";
+        if (!message) {
+          return executeRequest();
+        }
+
+        return global.CrudUtils.confirm(this.replaceActionTokens(message, record || {}), {
+          title: action.confirm.title || "Confirmar acao",
+          confirmText: action.confirm.confirmText || "Aplicar",
+          confirmIcon: action.confirm.confirmIcon || "check"
+        }).then((confirmed) => {
+          return confirmed ? executeRequest() : false;
+        });
+      };
+
+      return this.collectActionPromptData(action).then((values) => {
+        if (values === null) {
+          return false;
+        }
+        promptValues = values || {};
+        return executeWithConfirm();
+      });
+    }
+
+    collectActionPromptData(action) {
+      const prompt = action && action.prompt;
+      const fields = global.CrudUtils.ensureArray(prompt && prompt.fields);
+      if (!prompt || !fields.length) {
+        return Promise.resolve({});
       }
 
-      return global.CrudUtils.confirm(this.replaceActionTokens(message, record || {}), {
-        title: action.confirm.title || "Confirmar acao",
-        confirmText: action.confirm.confirmText || "Aplicar",
-        confirmIcon: action.confirm.confirmIcon || "check"
-      }).then((confirmed) => {
-        return confirmed ? executeRequest() : false;
+      return new Promise((resolve) => {
+        const wrapper = $("<div></div>").appendTo(document.body);
+        const body = $("<div class=\"crud-action-prompt\"></div>").appendTo(wrapper);
+        if (prompt.message) {
+          $("<p class=\"crud-action-prompt-message\"></p>").text(prompt.message).appendTo(body);
+        }
+        const inputs = {};
+        fields.forEach((field) => {
+          if (!field || !field.name) {
+            return;
+          }
+          const fieldWrap = $("<label class=\"crud-action-prompt-field\"></label>").appendTo(body);
+          $("<span></span>").text(field.label || field.name).appendTo(fieldWrap);
+          const input = String(field.type || "").toLowerCase() === "textarea"
+            ? $("<textarea rows=\"5\"></textarea>").appendTo(fieldWrap)
+            : $("<input type=\"text\">").appendTo(fieldWrap);
+          input.attr("maxlength", field.maxLength || null);
+          input.kendoTextBox({ value: field.defaultValue || "" });
+          inputs[field.name] = { field, input };
+        });
+        const actions = $("<div class=\"crud-action-prompt-actions\"></div>").appendTo(body);
+        const confirmButton = $("<button type=\"button\"></button>").text(prompt.confirmText || "Confirmar").appendTo(actions);
+        const cancelButton = $("<button type=\"button\"></button>").text(prompt.cancelText || "Cancelar").appendTo(actions);
+        confirmButton.kendoButton({ icon: prompt.confirmIcon || "check", themeColor: "primary" });
+        cancelButton.kendoButton({ icon: "cancel" });
+        wrapper.kendoWindow({
+          title: prompt.title || action.label || "Confirmar acao",
+          modal: true,
+          visible: false,
+          width: Math.min(560, Math.max(320, global.innerWidth - 24)),
+          resizable: false,
+          close: function() {
+            wrapper.data("kendoWindow").destroy();
+            wrapper.remove();
+          }
+        });
+        const windowWidget = wrapper.data("kendoWindow");
+        confirmButton.on("click", () => {
+          const values = {};
+          for (const name in inputs) {
+            const entry = inputs[name];
+            const value = entry.input.val();
+            if (entry.field.required && String(value || "").trim() === "") {
+              global.CrudUtils.showMessage((entry.field.label || name) + " e obrigatorio.", "warning");
+              return;
+            }
+            values[name] = value;
+          }
+          resolve(values);
+          windowWidget.close();
+        });
+        cancelButton.on("click", function() {
+          resolve(null);
+          windowWidget.close();
+        });
+        windowWidget.center().open();
       });
     }
 
@@ -1958,15 +2039,44 @@
     applyFormActionResponseEffects(response) {
       const effects = global.CrudUtils.ensureArray(response && response.effects);
       let showedMessage = false;
-      effects.forEach(function(effect) {
-        if (!effect || effect.action !== "showMessage") {
+      effects.forEach((effect) => {
+        if (!effect) {
           return;
         }
-        showedMessage = true;
-        global.CrudUtils.showMessage(effect.message || effect.title || "", effect.type || "info");
+        if (effect.action === "showMessage") {
+          showedMessage = true;
+          global.CrudUtils.showMessage(effect.message || effect.title || "", effect.type || "info");
+          return;
+        }
+        if (effect.action === "switchSession" && response && response.token && response.session) {
+          this.switchToImpersonatedSession(response);
+          showedMessage = true;
+          global.CrudUtils.showMessage(effect.message || "Simulacao iniciada.", "success");
+        }
       });
 
       return showedMessage;
+    }
+
+    switchToImpersonatedSession(response) {
+      if (!this.httpClient || !response || !response.session) {
+        return;
+      }
+      const original = {
+        authToken: this.httpClient.authToken || "",
+        tenantId: this.httpClient.tenantId || "",
+        userId: this.httpClient.userId || "",
+        sessionId: this.httpClient.sessionId || ""
+      };
+      global.CrudUtils.saveLocalJsonValue("crudEngine.impersonationOriginal", original);
+      global.CrudUtils.saveLocalValue("crudEngine.authToken", response.token || "");
+      global.CrudUtils.saveLocalValue("crudEngine.runtimeSessionId", response.session.sessionId || "");
+      global.CrudUtils.saveLocalValue("crudEngine.runtimeTenantId", response.tenantId || "");
+      global.CrudUtils.saveLocalValue("crudEngine.runtimeUserId", response.user && (response.user.id || response.user.username) || "");
+      global.CrudUtils.saveLocalJsonValue("crudEngine.impersonation", response.impersonation || {});
+      if (global.location) {
+        global.location.href = "home.html?screenId=home";
+      }
     }
 
     stopRuntimeMessageEvents() {

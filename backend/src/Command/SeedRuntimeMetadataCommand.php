@@ -125,6 +125,8 @@ class SeedRuntimeMetadataCommand extends Command
         'runtime.messages.poll' => 'runtime.messages.poll',
         'runtime.messages.ack' => 'runtime.messages.ack',
         'runtime.admin.forceLogout' => 'runtime.admin.forceLogout',
+        'runtime.admin.impersonateStart' => 'runtime.admin.impersonateStart',
+        'runtime.admin.impersonateStop' => 'runtime.admin.impersonateStop',
         'runtime.admin.integrity.resign' => 'runtime.admin.integrity.resign',
     ];
 
@@ -1064,6 +1066,12 @@ class SeedRuntimeMetadataCommand extends Command
         if ($endpointId === 'runtime.admin.forceLogout') {
             return 'admin.sessions.revoke';
         }
+        if ($endpointId === 'runtime.admin.impersonateStart') {
+            return 'admin.impersonate';
+        }
+        if ($endpointId === 'runtime.admin.impersonateStop') {
+            return null;
+        }
         if ($endpointId === 'runtime.admin.integrity.resign') {
             return 'admin.write';
         }
@@ -1202,6 +1210,8 @@ class SeedRuntimeMetadataCommand extends Command
                 'runtime.messages.poll' => 'runtime.messages.poll',
                 'runtime.messages.ack' => 'runtime.messages.ack',
                 'runtime.admin.forceLogout' => 'runtime.admin.forceLogout',
+                'runtime.admin.impersonateStart' => 'runtime.admin.impersonateStart',
+                'runtime.admin.impersonateStop' => 'runtime.admin.impersonateStop',
                 'runtime.admin.integrity.resign' => 'runtime.admin.integrity.resign',
                 default => 'entity.crud',
             };

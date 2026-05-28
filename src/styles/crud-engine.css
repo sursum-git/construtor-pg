@@ -420,6 +420,35 @@ body .k-notification:has(.crud-toast) .k-svg-icon {
   width: 100%;
 }
 
+.crud-action-prompt {
+  display: grid;
+  gap: 14px;
+  padding: 6px 2px;
+}
+
+.crud-action-prompt-message {
+  margin: 0;
+  color: var(--crud-muted-text, #475467);
+}
+
+.crud-action-prompt-field {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--crud-text, #101828);
+}
+
+.crud-action-prompt-field textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+.crud-action-prompt-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+}
+
 .crud-filter-title {
   margin: 0;
   font-size: 16px;

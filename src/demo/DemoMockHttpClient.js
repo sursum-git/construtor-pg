@@ -411,6 +411,32 @@
       if (runtimeMatch) {
         return this.routeRuntimeEndpoint(decodeURIComponent(runtimeMatch[1]), decodeURIComponent(runtimeMatch[2]), data);
       }
+      if (url === "/api/auth/session" && method === "GET") {
+        const impersonation = global.CrudUtils.readLocalJsonValue("crudEngine.impersonation", { enabled: false });
+        return {
+          authenticated: true,
+          tenantId: this.tenantId,
+          session: {
+            sessionId: this.sessionId,
+            status: "active",
+            impersonation: impersonation || { enabled: false }
+          },
+          user: {
+            id: impersonation && impersonation.targetUserId || this.userId,
+            username: impersonation && impersonation.targetUserId || this.userId,
+            name: impersonation && impersonation.targetUserName || "Usuario Demo",
+            groups: ["admin"],
+            permissions: ["*"]
+          }
+        };
+      }
+      if (url === "/api/auth/impersonate/stop" && method === "POST") {
+        return {
+          ok: true,
+          impersonationStopped: true,
+          effects: [{ action: "restoreOriginalSession", message: "Simulacao encerrada." }]
+        };
+      }
       if (url === "/api/cadastros/clientes" && method === "GET") {
         return this.list(data);
       }
@@ -1333,6 +1359,7 @@
             maximizeForm: true,
             title: { create: "Incluir " + config.title.toLowerCase(), view: "Detalhe de " + config.title.toLowerCase(), edit: "Alterar " + config.title.toLowerCase(), delete: "Excluir " + config.title.toLowerCase() },
             behavior: { closeOnSave: true, closeOnCancel: true },
+            mobile: { showHeaderActions: Boolean(config.otherActions && config.otherActions.enabled !== false) },
             tabs: config.tabs,
             fields: Object.keys(fields).map(function(field) {
               const result = { field };
@@ -1730,7 +1757,34 @@
             { id: "seguranca", title: "Seguranca", fields: ["last_login_at"] },
             { id: "auditoria", title: "Auditoria", fields: ["created_at", "updated_at"] }
           ],
-          defaultSort: [{ field: "tenant_id", dir: "asc" }, { field: "username", dir: "asc" }]
+          defaultSort: [{ field: "tenant_id", dir: "asc" }, { field: "username", dir: "asc" }],
+          extraApi: {
+            "runtime.admin.impersonateStart": { endpointId: "runtime.admin.impersonateStart", method: "POST" }
+          },
+          otherActions: {
+            enabled: true,
+            label: "Acoes",
+            icon: "more-vertical",
+            actions: [{
+              id: "impersonate",
+              label: "Entrar como usuario",
+              icon: "login",
+              endpointId: "runtime.admin.impersonateStart",
+              prompt: {
+                title: "Entrar como usuario",
+                message: "Informe a justificativa da simulacao. A acao sera auditada.",
+                confirmText: "Iniciar simulacao",
+                fields: [{
+                  name: "reason",
+                  label: "Justificativa",
+                  type: "textarea",
+                  required: true,
+                  maxLength: 1000
+                }]
+              },
+              successMessage: "Simulacao iniciada."
+            }]
+          }
         },
         "admin.permissoes": Object.assign({}, {}, {
           programId: "admin-permissoes",
@@ -2610,9 +2664,63 @@
           return this.ackRuntimeMessages(data || {});
         case "runtime.admin.forceLogout":
           return this.forceLogoutRuntimeUser(data || {});
+        case "runtime.admin.impersonateStart":
+          return this.startRuntimeImpersonation(data || {});
         default:
           return null;
       }
+    }
+
+    startRuntimeImpersonation(data) {
+      const record = data.record || {};
+      const reason = String(data.reason || "").trim();
+      if (!reason) {
+        throw global.CrudUtils.makeError("IMPERSONATION_REASON_REQUIRED", "Informe a justificativa da simulacao.");
+      }
+      const username = String(data.targetUsername || record.username || "usuario").trim();
+      const tenantId = String(data.targetTenantId || record.tenant_id || "default").trim();
+      const sessionId = "sess-impersonated-" + Date.now().toString(36);
+      return {
+        ok: true,
+        authenticated: true,
+        tokenType: "Bearer",
+        token: "mock-impersonation-token",
+        tenantId,
+        user: {
+          id: username,
+          username,
+          name: record.display_name || username,
+          groups: [],
+          permissions: ["home.read", "clientes.read"]
+        },
+        session: {
+          sessionId,
+          status: "active",
+          impersonation: {
+            enabled: true,
+            actorUserId: "admin",
+            actorUserName: "Administrador Demo",
+            actorSessionId: "sess-demo",
+            targetUserId: username,
+            targetUserName: record.display_name || username,
+            reason,
+            startedAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+          }
+        },
+        impersonation: {
+          enabled: true,
+          actorUserId: "admin",
+          actorUserName: "Administrador Demo",
+          actorSessionId: "sess-demo",
+          targetUserId: username,
+          targetUserName: record.display_name || username,
+          reason,
+          startedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString()
+        },
+        effects: [{ action: "switchSession", message: "Simulacao iniciada." }]
+      };
     }
 
     routeHomeRuntimeEndpoint(screenId, endpointId, data) {

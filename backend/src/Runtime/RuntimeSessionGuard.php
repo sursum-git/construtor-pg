@@ -50,6 +50,7 @@ class RuntimeSessionGuard
         if ($session->getStatus() === 'expired') {
             throw new RuntimeHttpException('SESSION_EXPIRED', 'Sua sessao expirou.', 401);
         }
+        $this->expireImpersonatedSessionIfNeeded($session);
 
         if ($touch) {
             $this->refreshSessionSnapshot($session);
@@ -252,5 +253,32 @@ class RuntimeSessionGuard
         $session->markPhpSessionInvalidated();
 
         return true;
+    }
+
+    private function expireImpersonatedSessionIfNeeded(RuntimeUserSession $session): void
+    {
+        $properties = $session->getSessionProperties();
+        $impersonation = is_array($properties['impersonation'] ?? null) ? $properties['impersonation'] : [];
+        if (($impersonation['enabled'] ?? false) !== true) {
+            return;
+        }
+        $expiresAt = trim((string) ($impersonation['expiresAt'] ?? ''));
+        if ($expiresAt === '') {
+            return;
+        }
+        try {
+            $expires = new \DateTimeImmutable($expiresAt);
+        } catch (\Throwable) {
+            return;
+        }
+        if ($expires >= new \DateTimeImmutable()) {
+            return;
+        }
+
+        $session->setStatus('expired');
+        $this->entityManager->flush();
+        throw new RuntimeHttpException('SESSION_EXPIRED', 'Sua sessao de simulacao expirou.', 401, [
+            'impersonation' => $impersonation,
+        ]);
     }
 }

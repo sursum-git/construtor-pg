@@ -25,6 +25,7 @@ class RuntimeTransactionService
         $runtime = is_array($payload['_runtime'] ?? null) ? $payload['_runtime'] : [];
         $entityCode = $this->inferEntityCode($handler, $payload);
         $traceability = $this->buildTraceability($screenId, $endpointId, $handler, $payload, $entityCode);
+        $impersonation = $this->currentImpersonation();
 
         $transaction = (new RuntimeTransaction())
             ->setTenantId($this->permissions->getTenantId())
@@ -37,7 +38,7 @@ class RuntimeTransactionService
             ->setActionId((string) ($payload['actionId'] ?? $payload['action'] ?? $endpointId))
             ->setOperation($handler)
             ->setLockToken((string) ($runtime['lockToken'] ?? $payload['lockToken'] ?? ''))
-            ->setRequestContext($this->compactPayload($payload, $entityCode, $traceability));
+            ->setRequestContext($this->compactPayload($payload, $entityCode, $traceability, $impersonation));
 
         $this->entityManager->persist($transaction);
         $this->current = $transaction;
@@ -53,6 +54,7 @@ class RuntimeTransactionService
             'operation' => $handler,
             'source' => 'runtime',
             'traceability' => $traceability,
+            'impersonation' => $impersonation,
         ], $transaction);
         $this->log('runtime.request', 'Chamada runtime recebida.', metadata: [
             'screenId' => $screenId,
@@ -81,6 +83,10 @@ class RuntimeTransactionService
         $endpointId = (string) ($context['endpointId'] ?? 'eventbus.worker');
         $operation = (string) ($context['operation'] ?? 'runtime.event.process');
         $entityCode = isset($context['entityCode']) && $context['entityCode'] !== '' ? (string) $context['entityCode'] : null;
+        $impersonation = is_array($context['impersonation'] ?? null) ? $context['impersonation'] : $this->currentImpersonation();
+        if ($impersonation !== []) {
+            $context['impersonation'] = $impersonation;
+        }
 
         $transaction = (new RuntimeTransaction())
             ->setTenantId($tenantId)
@@ -92,7 +98,7 @@ class RuntimeTransactionService
             ->setEndpointId($endpointId)
             ->setActionId(isset($context['actionId']) ? (string) $context['actionId'] : $endpointId)
             ->setOperation($operation)
-            ->setRequestContext($this->redactSensitiveValues($context));
+            ->setRequestContext($this->withImpersonation($this->redactSensitiveValues($context), $impersonation));
 
         $this->entityManager->persist($transaction);
         $this->current = $transaction;
@@ -184,7 +190,7 @@ class RuntimeTransactionService
         return null;
     }
 
-    private function compactPayload(array $payload, ?string $entityCode, array $traceability): array
+    private function compactPayload(array $payload, ?string $entityCode, array $traceability, array $impersonation): array
     {
         $payload = $this->redactSensitiveValues($payload);
 
@@ -200,6 +206,9 @@ class RuntimeTransactionService
         }
 
         $payload['traceability'] = $traceability;
+        if ($impersonation !== []) {
+            $payload['impersonation'] = $impersonation;
+        }
 
         return $payload;
     }
@@ -213,8 +222,36 @@ class RuntimeTransactionService
                 $metadata[$key] = $value;
             }
         }
+        $impersonation = is_array($requestContext['impersonation'] ?? null) ? $requestContext['impersonation'] : [];
+        if ($impersonation !== [] && !array_key_exists('impersonation', $metadata)) {
+            $metadata['impersonation'] = $impersonation;
+            $metadata['effectiveUserId'] = $impersonation['targetUserId'] ?? $this->permissions->getUserId();
+            $metadata['originalUserId'] = $impersonation['actorUserId'] ?? null;
+            $metadata['impersonationReason'] = $impersonation['reason'] ?? null;
+        }
 
         return $metadata;
+    }
+
+    private function currentImpersonation(): array
+    {
+        $user = $this->permissions->getCurrentUserPayload();
+        $impersonation = is_array($user['impersonation'] ?? null) ? $user['impersonation'] : [];
+        if (($impersonation['enabled'] ?? false) === true) {
+            return $impersonation;
+        }
+
+        return [];
+    }
+
+    private function withImpersonation(mixed $context, array $impersonation): array
+    {
+        $context = is_array($context) ? $context : [];
+        if ($impersonation !== []) {
+            $context['impersonation'] = $impersonation;
+        }
+
+        return $context;
     }
 
     private function buildTraceability(string $screenId, string $endpointId, string $handler, array $payload, ?string $entityCode): array

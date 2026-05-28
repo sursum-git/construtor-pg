@@ -2,6 +2,9 @@
 
 namespace App\Runtime;
 
+use App\Auth\AuthService;
+use Symfony\Component\HttpFoundation\RequestStack;
+
 class RuntimeSystemHandler
 {
     public function __construct(
@@ -13,6 +16,8 @@ class RuntimeSystemHandler
         private readonly RuntimeEnvironmentIdentityResolver $environmentIdentity,
         private readonly PermissionResolver $permissions,
         private readonly \Doctrine\ORM\EntityManagerInterface $entityManager,
+        private readonly ?AuthService $auth = null,
+        private readonly ?RequestStack $requestStack = null,
     ) {
     }
 
@@ -25,6 +30,8 @@ class RuntimeSystemHandler
             'messagesPoll' => $this->messages->poll(),
             'messagesAck' => $this->messages->acknowledge($payload),
             'adminForceLogout' => $this->forceLogout($payload),
+            'adminImpersonateStart' => $this->impersonateStart($payload),
+            'adminImpersonateStop' => $this->impersonateStop(),
             'adminIntegrityResign' => $this->resignIntegrity($payload),
             default => throw new RuntimeHttpException('RUNTIME_SYSTEM_OPERATION_NOT_FOUND', 'Operacao runtime nao encontrada.', 404, [
                 'operation' => $operation,
@@ -66,6 +73,35 @@ class RuntimeSystemHandler
             'releasedLocks' => $releasedLocks,
             'phpSessionKillRequested' => count($revokedSessions) > 0,
         ];
+    }
+
+    private function impersonateStart(array $payload): array
+    {
+        if (!$this->auth || !$this->requestStack?->getCurrentRequest()) {
+            throw new RuntimeHttpException('IMPERSONATION_UNAVAILABLE', 'Servico de simulacao indisponivel.', 500);
+        }
+
+        $response = $this->auth->startImpersonation($payload, $this->requestStack->getCurrentRequest(), false);
+        $this->transactions->log('auth.impersonation.started', 'Sessao impersonada iniciada.', metadata: [
+            'impersonation' => $response['impersonation'] ?? null,
+            'targetSessionId' => $response['session']['sessionId'] ?? null,
+        ]);
+
+        return $response;
+    }
+
+    private function impersonateStop(): array
+    {
+        if (!$this->auth || !$this->requestStack?->getCurrentRequest()) {
+            throw new RuntimeHttpException('IMPERSONATION_UNAVAILABLE', 'Servico de simulacao indisponivel.', 500);
+        }
+
+        $response = $this->auth->stopImpersonation($this->requestStack->getCurrentRequest(), false);
+        $this->transactions->log('auth.impersonation.stopped', 'Sessao impersonada encerrada.', metadata: [
+            'impersonation' => $response['impersonation'] ?? null,
+        ]);
+
+        return $response;
     }
 
     private function resignIntegrity(array $payload): array

@@ -1349,3 +1349,28 @@ Sempre que uma funcionalidade nova for implementada, atualizar:
 - O recurso "manter logado" usa `auth_remember_token` com hash do token, validade de 30 dias e restauracao por `/api/auth/remember`; logout e derrubada administrativa revogam o token.
 - `AUTH_REQUIRED=1` faz os endpoints runtime recusarem chamadas sem token valido; `AUTH_REQUIRED=0` mantem compatibilidade tecnica local.
 - O frontend continua validando o JSON, mas permissao real, tenant, dados e acoes precisam ser validados no backend.
+
+## Impersonacao administrativa
+
+O backend possui impersonacao administrativa auditavel para suporte e simulacao de problemas.
+
+Fluxo:
+
+- `POST /api/auth/impersonate/start` cria uma nova sessao `runtime_user_session` para o usuario alvo.
+- A acao tambem pode ser chamada pela tela `admin.usuarios` via endpoint runtime seguro `runtime.admin.impersonateStart`.
+- Exige usuario autenticado com `admin.impersonate`.
+- Exige `targetTenantId`, `targetUsername` e `reason`.
+- Usuario alvo inativo e bloqueado.
+- Entrar como outro administrador exige `admin.impersonate.admin`.
+- Sessao impersonada nao gera `rememberToken` e tem validade curta, padrao 60 minutos.
+- `POST /api/auth/impersonate/stop` revoga somente a sessao impersonada atual.
+
+A sessao impersonada guarda `sessionProperties.impersonation` e `permissionSnapshot.impersonation` com:
+
+- administrador original;
+- sessao original;
+- usuario alvo;
+- justificativa;
+- IP, user-agent, inicio e validade.
+
+Durante a simulacao, o usuario alvo e o usuario efetivo para permissoes e execucao. A auditoria preserva o administrador original: `runtime_transaction.requestContext` recebe o bloco `impersonation` e `runtime_transaction_log.metadata` recebe automaticamente `impersonation`, `effectiveUserId`, `originalUserId` e `impersonationReason`.

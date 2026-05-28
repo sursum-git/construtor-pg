@@ -64,6 +64,7 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - Quando `layout.appbar.requests.enabled=true`, a appbar global deve exibir botao compacto de solicitacoes e abrir solicitacoes em janela.
 - Quando `layout.appbar.jobs.enabled=true`, a appbar global deve exibir botao compacto de jobs concluidos, com badge de quantidade e janela/lista apontando para "Meus Jobs" quando houver `programId`.
 - Menu do usuario logado fica no canto direito da appbar global, com avatar/iniciais e opcoes vindas do JSON.
+- Quando a sessao estiver impersonada, a Home deve mostrar aviso fixo abaixo do appbar com usuario alvo, administrador original e botao Kendo para encerrar a simulacao.
 - Ao clicar em programa que abre na area central, recolher o menu lateral.
 - Em viewport mobile, iniciar o menu lateral recolhido.
 - Cada programa do TreeView deve ter botao compacto para abrir em nova aba.

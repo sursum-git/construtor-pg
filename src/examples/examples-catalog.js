@@ -1473,7 +1473,7 @@
       id: "admin-usuarios",
       category: "Backend",
       title: "Admin de usuarios",
-      summary: "Tela administrativa para incluir e editar usuarios do sistema, grupos e permissoes.",
+      summary: "Tela administrativa para incluir e editar usuarios, grupos, permissoes e iniciar simulacao auditavel de outro usuario.",
       page: pagePath + "admin-usuarios.html",
       loadByScreenId: true,
       screenId: "admin.usuarios",

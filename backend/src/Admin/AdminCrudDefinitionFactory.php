@@ -27,6 +27,35 @@ final class AdminCrudDefinitionFactory
                 ],
                 editable: true,
                 defaultSort: [['field' => 'tenant_id', 'dir' => 'asc'], ['field' => 'username', 'dir' => 'asc']],
+                extraApi: ['runtime.admin.impersonateStart' => ['endpointId' => 'runtime.admin.impersonateStart', 'method' => 'POST']],
+                otherActions: [
+                    'enabled' => true,
+                    'label' => 'Acoes',
+                    'icon' => 'more-vertical',
+                    'actions' => [
+                        [
+                            'id' => 'impersonate',
+                            'label' => 'Entrar como usuario',
+                            'icon' => 'login',
+                            'endpointId' => 'runtime.admin.impersonateStart',
+                            'prompt' => [
+                                'title' => 'Entrar como usuario',
+                                'message' => 'Informe a justificativa da simulacao. A acao sera auditada.',
+                                'confirmText' => 'Iniciar simulacao',
+                                'fields' => [
+                                    [
+                                        'name' => 'reason',
+                                        'label' => 'Justificativa',
+                                        'type' => 'textarea',
+                                        'required' => true,
+                                        'maxLength' => 1000,
+                                    ],
+                                ],
+                            ],
+                            'successMessage' => 'Simulacao iniciada.',
+                        ],
+                    ],
+                ],
             ),
             self::screen(
                 'admin.permissoes',
@@ -672,6 +701,9 @@ final class AdminCrudDefinitionFactory
                     'behavior' => [
                         'closeOnSave' => true,
                         'closeOnCancel' => true,
+                    ],
+                    'mobile' => [
+                        'showHeaderActions' => $otherActions !== null,
                     ],
                     'tabs' => $tabs,
                     'fields' => array_map(function (string $field) use ($readOnlyFields): array {

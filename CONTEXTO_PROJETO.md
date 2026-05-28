@@ -160,6 +160,7 @@ Paginas principais:
 - `production/app.html?screenId=admin.eventos-runtime`: tela administrativa para consultar a outbox de eventos runtime.
 - `production/app.html?screenId=admin.evento-assinaturas`: tela administrativa para configurar assinaturas declarativas do EventBus.
 - `production/app.html?screenId=admin.evento-entregas`: tela administrativa para acompanhar execucoes, tentativas, erros e idempotencia das assinaturas.
+- `production/app.html?screenId=admin.usuarios`: tela administrativa de usuarios. Agora possui acao auditavel "Entrar como usuario", que cria sessao impersonada curta para suporte/simulacao, exige justificativa, nao gera `rememberToken` e registra administrador original nos logs.
 
 Arquivos de configuracao e dados:
 

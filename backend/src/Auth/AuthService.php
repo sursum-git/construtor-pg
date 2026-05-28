@@ -16,6 +16,7 @@ use App\Repository\AuthUserRepository;
 use App\Repository\AuthProviderConfigRepository;
 use App\Repository\AuthRememberTokenRepository;
 use App\Repository\RuntimeUserSessionRepository;
+use App\Runtime\RuntimeTransactionService;
 use App\Runtime\RuntimeHttpException;
 use App\System\SystemParameterResolver;
 use Doctrine\ORM\EntityManagerInterface;
@@ -39,6 +40,7 @@ class AuthService
         private readonly AuthenticatedSessionResolver $authenticatedSessions,
         private readonly SystemParameterResolver $parameters,
         private readonly MailerInterface $mailer,
+        private readonly ?RuntimeTransactionService $transactions = null,
     ) {
     }
 
@@ -142,6 +144,158 @@ class AuthService
         return ['ok' => true, 'authenticated' => false];
     }
 
+    public function startImpersonation(array $payload, Request $request, bool $audit = true): array
+    {
+        $actorSession = $this->authenticatedSessions->resolve($request);
+        if (!$actorSession || $actorSession->getStatus() !== 'active') {
+            throw new RuntimeHttpException('AUTH_REQUIRED', 'Autenticacao obrigatoria.', 401);
+        }
+
+        $actorSnapshot = $actorSession->getPermissionSnapshot();
+        if (!$this->sessionHasPermission($actorSession, 'admin.impersonate')) {
+            throw new RuntimeHttpException('IMPERSONATION_FORBIDDEN', 'Voce nao possui permissao para entrar como outro usuario.', 403);
+        }
+
+        $targetTenantId = $this->clean((string) ($payload['targetTenantId'] ?? $payload['tenantId'] ?? $payload['record']['tenant_id'] ?? $payload['values']['tenant_id'] ?? ''), 80);
+        $targetUsername = $this->clean((string) ($payload['targetUsername'] ?? $payload['username'] ?? $payload['record']['username'] ?? $payload['values']['username'] ?? ''), 160);
+        $reason = mb_substr(trim((string) ($payload['reason'] ?? $payload['justification'] ?? '')), 0, 1000);
+        if ($targetTenantId === '' || $targetUsername === '') {
+            throw new RuntimeHttpException('IMPERSONATION_TARGET_REQUIRED', 'Informe o tenant e o usuario alvo.', 422);
+        }
+        if ($reason === '') {
+            throw new RuntimeHttpException('IMPERSONATION_REASON_REQUIRED', 'Informe a justificativa da simulacao.', 422);
+        }
+
+        $targetUser = $this->users->findOneByTenantAndUsername($targetTenantId, $targetUsername);
+        if (!$targetUser) {
+            throw new RuntimeHttpException('IMPERSONATION_TARGET_NOT_FOUND', 'Usuario alvo nao encontrado.', 404);
+        }
+        if ($targetUser->getStatus() !== 'active') {
+            throw new RuntimeHttpException('IMPERSONATION_TARGET_INACTIVE', 'Usuario alvo esta inativo e nao pode ser simulado.', 422);
+        }
+        if ($this->authUserIsAdmin($targetUser) && !$this->sessionHasPermission($actorSession, 'admin.impersonate.admin')) {
+            throw new RuntimeHttpException('IMPERSONATION_ADMIN_TARGET_FORBIDDEN', 'Entrar como administrador exige permissao adicional.', 403);
+        }
+
+        $now = new \DateTimeImmutable();
+        $expiresAt = $now->modify('+60 minutes');
+        $actorUser = is_array($actorSnapshot['user'] ?? null) ? $actorSnapshot['user'] : [];
+        $target = $this->authenticatedUserFromPayload([
+            'id' => $targetUser->getUsername(),
+            'userId' => $targetUser->getUsername(),
+            'username' => $targetUser->getUsername(),
+            'name' => $targetUser->getDisplayName(),
+            'email' => $targetUser->getEmail(),
+            'groups' => $targetUser->getGroups(),
+            'permissions' => $targetUser->getPermissions(),
+            'tenantId' => $targetTenantId,
+            'source' => 'impersonation',
+            'forcePasswordChange' => $targetUser->mustChangePassword(),
+        ], $targetTenantId);
+        if ($this->isSubscriberConceptEnabled()) {
+            $target = $this->resolveUserPermissionsForSubscriber($target, $targetTenantId);
+        }
+
+        $impersonation = [
+            'enabled' => true,
+            'actorUserId' => $actorSession->getUserId(),
+            'actorUserName' => $actorSession->getUserName() ?: ($actorUser['name'] ?? $actorSession->getUserId()),
+            'actorSessionId' => $actorSession->getSessionId(),
+            'targetUserId' => $targetUser->getUsername(),
+            'targetUserName' => $targetUser->getDisplayName() ?: $targetUser->getUsername(),
+            'reason' => $reason,
+            'startedAt' => $now->format(DATE_ATOM),
+            'expiresAt' => $expiresAt->format(DATE_ATOM),
+            'sourceIp' => $request->getClientIp(),
+            'userAgent' => mb_substr((string) $request->headers->get('User-Agent', ''), 0, 1000),
+        ];
+
+        if ($audit) {
+            $this->beginAuthAudit('auth.impersonation.start', $actorSession, $impersonation);
+        }
+        $response = $this->createRuntimeSession(
+            $target,
+            'impersonation',
+            'impersonation',
+            $request,
+            false,
+            false,
+            [
+                'enabled' => $this->isSubscriberConceptEnabled(),
+                'selected' => [
+                    'id' => $targetTenantId,
+                    'code' => $targetTenantId,
+                    'name' => $targetTenantId,
+                    'displayName' => $targetTenantId,
+                    'principal' => false,
+                    'default' => true,
+                    'label' => 'Assinante',
+                ],
+                'available' => [],
+            ],
+            [
+                'sessionProperties' => ['impersonation' => $impersonation],
+                'permissionSnapshot' => ['impersonation' => $impersonation],
+            ],
+        );
+        $response['impersonation'] = $impersonation;
+        $response['effects'] = [[
+            'action' => 'switchSession',
+            'message' => 'Simulacao iniciada.',
+        ]];
+
+        if ($audit) {
+            $this->transactions?->log('auth.impersonation.started', 'Sessao impersonada iniciada.', metadata: $impersonation + [
+                'sessionId' => $response['session']['sessionId'] ?? null,
+            ]);
+            $this->transactions?->success();
+            $this->transactions?->clear();
+        }
+
+        return $response;
+    }
+
+    public function stopImpersonation(Request $request, bool $audit = true): array
+    {
+        $session = $this->authenticatedSessions->resolve($request);
+        if (!$session || $session->getStatus() !== 'active') {
+            throw new RuntimeHttpException('AUTH_REQUIRED', 'Autenticacao obrigatoria.', 401);
+        }
+
+        $impersonation = $this->impersonationFromSession($session);
+        if (($impersonation['enabled'] ?? false) !== true) {
+            throw new RuntimeHttpException('IMPERSONATION_SESSION_REQUIRED', 'A sessao atual nao e uma simulacao.', 422);
+        }
+
+        if ($audit) {
+            $this->beginAuthAudit('auth.impersonation.stop', $session, $impersonation);
+        }
+        $session
+            ->revoke((string) ($impersonation['actorUserId'] ?? $session->getUserId()), 'Simulacao encerrada.')
+            ->setSessionProperties($this->withoutAuthToken($session->getSessionProperties()));
+
+        $this->entityManager->flush();
+
+        if ($audit) {
+            $this->transactions?->log('auth.impersonation.stopped', 'Sessao impersonada encerrada.', metadata: $impersonation + [
+                'sessionId' => $session->getSessionId(),
+            ]);
+            $this->transactions?->success();
+            $this->transactions?->clear();
+        }
+
+        return [
+            'ok' => true,
+            'authenticated' => false,
+            'impersonationStopped' => true,
+            'impersonation' => $impersonation,
+            'effects' => [[
+                'action' => 'restoreOriginalSession',
+                'message' => 'Simulacao encerrada.',
+            ]],
+        ];
+    }
+
     public function remember(array $payload, Request $request): array
     {
         $tokenValue = trim((string) ($payload['rememberToken'] ?? ''));
@@ -217,6 +371,7 @@ class AuthService
         if (!$session) {
             throw new RuntimeHttpException('AUTH_REQUIRED', 'Autenticacao obrigatoria.', 401);
         }
+        $this->ensureSessionNotExpired($session);
 
         return [
             'authenticated' => true,
@@ -419,6 +574,7 @@ class AuthService
         bool $remember,
         bool $issueRememberToken = true,
         array $subscriberContext = [],
+        array $sessionOptions = [],
     ): array
     {
         $token = bin2hex(random_bytes(32));
@@ -430,6 +586,43 @@ class AuthService
             $userPayload['currentSubscriber'] = $subscriberContext['selected'] ?? null;
             $userPayload['availableSubscribers'] = $subscriberContext['available'] ?? [];
         }
+
+        $sessionProperties = [
+            'ipAddress' => $request->getClientIp(),
+            'acceptLanguage' => $request->headers->get('Accept-Language'),
+            'runtimeSessionId' => $sessionId,
+            'authTokenHash' => hash('sha256', $token),
+            'authentication' => [
+                'provider' => $providerCode,
+                'type' => $providerType,
+                'issuedAt' => $now->format(DATE_ATOM),
+                'remember' => $remember,
+            ],
+            'subscriber' => [
+                'enabled' => (bool) ($subscriberContext['enabled'] ?? false),
+                'current' => $subscriberContext['selected'] ?? null,
+                'available' => $subscriberContext['available'] ?? [],
+            ],
+        ];
+        $permissionSnapshot = [
+            'capturedAt' => $now->format(DATE_ATOM),
+            'tenantId' => $user->getTenantId(),
+            'subscriber' => [
+                'enabled' => (bool) ($subscriberContext['enabled'] ?? false),
+                'current' => $subscriberContext['selected'] ?? null,
+                'available' => $subscriberContext['available'] ?? [],
+            ],
+            'user' => $userPayload,
+            'groups' => $user->getGroups(),
+            'permissions' => $user->getPermissions(),
+            'runtime' => [
+                'canReadScreens' => true,
+                'canExecuteEnabledEndpoints' => true,
+                'source' => $providerCode,
+            ],
+        ];
+        $sessionProperties = array_replace_recursive($sessionProperties, is_array($sessionOptions['sessionProperties'] ?? null) ? $sessionOptions['sessionProperties'] : []);
+        $permissionSnapshot = array_replace_recursive($permissionSnapshot, is_array($sessionOptions['permissionSnapshot'] ?? null) ? $sessionOptions['permissionSnapshot'] : []);
 
         $session = (new RuntimeUserSession())
             ->setTenantId($user->getTenantId())
@@ -443,40 +636,8 @@ class AuthService
             ->setOperatingSystem($device['operatingSystem'])
             ->setBrowser($device['browser'])
             ->setIsMobile($device['isMobile'])
-            ->setSessionProperties([
-                'ipAddress' => $request->getClientIp(),
-                'acceptLanguage' => $request->headers->get('Accept-Language'),
-                'runtimeSessionId' => $sessionId,
-                'authTokenHash' => hash('sha256', $token),
-                'authentication' => [
-                    'provider' => $providerCode,
-                    'type' => $providerType,
-                    'issuedAt' => $now->format(DATE_ATOM),
-                    'remember' => $remember,
-                ],
-                'subscriber' => [
-                    'enabled' => (bool) ($subscriberContext['enabled'] ?? false),
-                    'current' => $subscriberContext['selected'] ?? null,
-                    'available' => $subscriberContext['available'] ?? [],
-                ],
-            ])
-            ->setPermissionSnapshot([
-                'capturedAt' => $now->format(DATE_ATOM),
-                'tenantId' => $user->getTenantId(),
-                'subscriber' => [
-                    'enabled' => (bool) ($subscriberContext['enabled'] ?? false),
-                    'current' => $subscriberContext['selected'] ?? null,
-                    'available' => $subscriberContext['available'] ?? [],
-                ],
-                'user' => $userPayload,
-                'groups' => $user->getGroups(),
-                'permissions' => $user->getPermissions(),
-                'runtime' => [
-                    'canReadScreens' => true,
-                    'canExecuteEnabledEndpoints' => true,
-                    'source' => $providerCode,
-                ],
-            ]);
+            ->setSessionProperties($sessionProperties)
+            ->setPermissionSnapshot($permissionSnapshot);
 
         $this->entityManager->persist($session);
         $rememberToken = $remember && $issueRememberToken ? $this->createRememberToken($user, $request, $device, $providerCode) : null;
@@ -1000,7 +1161,7 @@ class AuthService
 
     private function formatSession(RuntimeUserSession $session): array
     {
-        return [
+        $payload = [
             'sessionId' => $session->getSessionId(),
             'status' => $session->getStatus(),
             'enteredAt' => $session->getEnteredAt()->format(DATE_ATOM),
@@ -1011,6 +1172,96 @@ class AuthService
             'browser' => $session->getBrowser(),
             'isMobile' => $session->isMobile(),
         ];
+        $impersonation = $this->impersonationFromSession($session);
+        if (($impersonation['enabled'] ?? false) === true) {
+            $payload['impersonation'] = $impersonation;
+        } else {
+            $payload['impersonation'] = ['enabled' => false];
+        }
+
+        return $payload;
+    }
+
+    private function beginAuthAudit(string $operation, RuntimeUserSession $session, array $impersonation): void
+    {
+        $this->transactions?->beginOperational([
+            'tenantId' => $session->getTenantId(),
+            'sessionId' => $session->getSessionId(),
+            'screenId' => 'auth.impersonation',
+            'endpointId' => $operation,
+            'operation' => $operation,
+            'source' => 'auth',
+            'impersonation' => $impersonation,
+        ]);
+    }
+
+    private function ensureSessionNotExpired(RuntimeUserSession $session): void
+    {
+        $impersonation = $this->impersonationFromSession($session);
+        $expiresAt = trim((string) ($impersonation['expiresAt'] ?? ''));
+        if (($impersonation['enabled'] ?? false) !== true || $expiresAt === '') {
+            return;
+        }
+        try {
+            $expires = new \DateTimeImmutable($expiresAt);
+        } catch (\Throwable) {
+            return;
+        }
+        if ($expires >= new \DateTimeImmutable()) {
+            return;
+        }
+        $session->setStatus('expired');
+        $this->entityManager->flush();
+        $this->transactions?->beginOperational([
+            'tenantId' => $session->getTenantId(),
+            'sessionId' => $session->getSessionId(),
+            'screenId' => 'auth.impersonation',
+            'endpointId' => 'auth.impersonation.expired',
+            'operation' => 'auth.impersonation.expired',
+            'source' => 'auth',
+            'impersonation' => $impersonation,
+        ]);
+        $this->transactions?->log('auth.impersonation.expired', 'Sessao impersonada expirada.', metadata: $impersonation + [
+            'sessionId' => $session->getSessionId(),
+        ]);
+        $this->transactions?->success();
+        $this->transactions?->clear();
+        throw new RuntimeHttpException('SESSION_EXPIRED', 'Sua sessao de simulacao expirou.', 401, [
+            'impersonation' => $impersonation,
+        ]);
+    }
+
+    private function impersonationFromSession(RuntimeUserSession $session): array
+    {
+        $properties = $session->getSessionProperties();
+        if (is_array($properties['impersonation'] ?? null)) {
+            return $properties['impersonation'];
+        }
+        $snapshot = $session->getPermissionSnapshot();
+        return is_array($snapshot['impersonation'] ?? null) ? $snapshot['impersonation'] : ['enabled' => false];
+    }
+
+    private function sessionHasPermission(RuntimeUserSession $session, string $permission): bool
+    {
+        $snapshot = $session->getPermissionSnapshot();
+        $groups = array_map('strval', is_array($snapshot['groups'] ?? null) ? $snapshot['groups'] : []);
+        $permissions = is_array($snapshot['permissions'] ?? null) ? $snapshot['permissions'] : [];
+        if (in_array('admin', $groups, true)) {
+            return true;
+        }
+        return $this->hasResolvedPermission($permissions, $permission)
+            || $this->hasResolvedPermission($permissions, 'admin.*')
+            || $this->hasResolvedPermission($permissions, '*');
+    }
+
+    private function authUserIsAdmin(AuthUser $user): bool
+    {
+        if (in_array('admin', array_map('strval', $user->getGroups()), true)) {
+            return true;
+        }
+        return $this->hasResolvedPermission($user->getPermissions(), 'admin')
+            || $this->hasResolvedPermission($user->getPermissions(), 'admin.*')
+            || $this->hasResolvedPermission($user->getPermissions(), '*');
     }
 
     private function withoutAuthToken(array $properties): array

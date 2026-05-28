@@ -2,6 +2,7 @@
 
 namespace App\Tests\Runtime;
 
+use App\Entity\RuntimeTransaction;
 use App\Runtime\PermissionResolver;
 use App\Runtime\RuntimeEntityDefinitionResolver;
 use App\Runtime\RuntimeEnvironmentIdentityResolver;
@@ -77,10 +78,44 @@ class RuntimeTransactionServiceTraceabilityTest extends TestCase
         self::assertSame('tenant-a', $traceability['subscriberId']);
     }
 
+    public function testLogMetadataReceivesImpersonationContext(): void
+    {
+        $service = new RuntimeTransactionService(
+            $this->createStub(EntityManagerInterface::class),
+            $this->permissionResolver(),
+            new RuntimeExecutionContext(),
+            $this->createStub(RuntimeEntityDefinitionResolver::class),
+            $this->createStub(RuntimeEnvironmentIdentityResolver::class),
+        );
+        $transaction = (new RuntimeTransaction())->setRequestContext([
+            'traceability' => ['screenId' => 'cadastros.clientes'],
+            'impersonation' => [
+                'enabled' => true,
+                'actorUserId' => 'admin',
+                'targetUserId' => 'joao',
+                'reason' => 'Suporte.',
+            ],
+        ]);
+
+        $property = new \ReflectionProperty($service, 'current');
+        $property->setAccessible(true);
+        $property->setValue($service, $transaction);
+
+        $method = new \ReflectionMethod($service, 'mergeTraceabilityMetadata');
+        $method->setAccessible(true);
+        $metadata = $method->invoke($service, []);
+
+        self::assertSame('cadastros.clientes', $metadata['screenId']);
+        self::assertSame('admin', $metadata['originalUserId']);
+        self::assertSame('joao', $metadata['effectiveUserId']);
+        self::assertSame('Suporte.', $metadata['impersonationReason']);
+    }
+
     private function permissionResolver(): PermissionResolver
     {
         $resolver = $this->createStub(PermissionResolver::class);
         $resolver->method('getTenantId')->willReturn('tenant-a');
+        $resolver->method('getUserId')->willReturn('joao');
         return $resolver;
     }
 }

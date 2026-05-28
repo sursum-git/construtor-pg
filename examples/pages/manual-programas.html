@@ -1567,12 +1567,13 @@
           type: "CRUD administrativo",
           route: "../../examples/pages/admin-usuarios.html",
           screenId: "admin.usuarios",
-          summary: "Mantem o cadastro de usuarios e seus dados principais de acesso, perfil e status.",
+          summary: "Mantem o cadastro de usuarios e permite iniciar simulacao auditavel para suporte.",
           functional: {
             objective: "Manter a base de usuarios do sistema e preparar o vinculo com assinantes e permissoes.",
             scope: [
               "Cadastro do usuario.",
               "Situacao e dados de acesso.",
+              "Entrada auditavel como usuario alvo para reproduzir problemas.",
               "Abertura para configuracoes relacionadas."
             ],
             outputs: [
@@ -1587,9 +1588,11 @@
             steps: [
               "Cadastrar ou localizar o usuario.",
               "Atualizar dados e status.",
+              "Quando necessario, usar 'Entrar como usuario', informar justificativa e encerrar a simulacao ao terminar.",
               "Seguir para programas relacionados quando precisar configurar acesso por assinante."
             ],
             cautions: [
+              "A simulacao exige permissao `admin.impersonate`, nao gera manter logado e registra o administrador original nos logs.",
               "Permissoes finas e vinculo por assinante ficam em telas relacionadas.",
               "Alteracoes de usuario impactam login e navegacao."
             ]

@@ -49,8 +49,9 @@ class PermissionResolver
             $snapshot = $session->getPermissionSnapshot();
             $groups = is_array($snapshot['groups'] ?? null) ? $snapshot['groups'] : [];
             $permissions = is_array($snapshot['permissions'] ?? null) ? $snapshot['permissions'] : [];
+            $impersonation = is_array($snapshot['impersonation'] ?? null) ? $snapshot['impersonation'] : null;
             if (is_array($snapshot['user'] ?? null)) {
-                return array_replace([
+                $payload = array_replace([
                     'id' => $session->getUserId(),
                     'name' => $session->getUserName() ?: $session->getUserId(),
                     'email' => null,
@@ -59,9 +60,13 @@ class PermissionResolver
                     'permissions' => $permissions,
                     'favoritePrograms' => [],
                 ], $snapshot['user']);
+                if (($impersonation['enabled'] ?? false) === true) {
+                    $payload['impersonation'] = $impersonation;
+                }
+                return $payload;
             }
 
-            return [
+            $payload = [
                 'id' => $session->getUserId(),
                 'name' => $session->getUserName() ?: $session->getUserId(),
                 'email' => null,
@@ -70,6 +75,10 @@ class PermissionResolver
                 'permissions' => $permissions,
                 'favoritePrograms' => [],
             ];
+            if (($impersonation['enabled'] ?? false) === true) {
+                $payload['impersonation'] = $impersonation;
+            }
+            return $payload;
         }
 
         $userId = $this->getUserId();
@@ -258,6 +267,12 @@ class PermissionResolver
         $handler = $endpoint->getHandler();
         if ($endpointId === 'runtime.admin.forceLogout') {
             return ['admin.sessions.revoke', 'admin.write'];
+        }
+        if ($endpointId === 'runtime.admin.impersonateStart') {
+            return ['admin.impersonate'];
+        }
+        if ($endpointId === 'runtime.admin.impersonateStop') {
+            return [];
         }
         if (str_starts_with($endpointId, 'runtime.messages.') || str_starts_with($endpointId, 'runtime.lock.')) {
             return [];

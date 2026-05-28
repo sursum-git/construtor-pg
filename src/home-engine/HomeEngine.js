@@ -118,6 +118,8 @@
           securityPolicy: this.securityPolicy
         });
       }).then((definition) => {
+        return this.loadCurrentAuthSession().then(() => definition);
+      }).then((definition) => {
         this.definition = this.normalizeDefinition(definition);
         this.validator.validate(this.definition, { securityPolicy: this.securityPolicy });
         this.applyDefinitionSecurity(this.definition);
@@ -244,6 +246,15 @@
         }
       }, source.layout.appbar || {});
       source.currentUser = source.currentUser || source.user || {};
+      if (this.authSessionInfo && this.authSessionInfo.user) {
+        source.currentUser = Object.assign({}, source.currentUser || {}, this.authSessionInfo.user);
+        source.user = source.currentUser;
+      }
+      if (this.authSessionInfo && this.authSessionInfo.session && this.authSessionInfo.session.impersonation) {
+        source.session = Object.assign({}, source.session || {}, {
+          impersonation: this.authSessionInfo.session.impersonation
+        });
+      }
       source.currentSubscriber = source.currentSubscriber || source.currentTenant || source.tenant || source.subscriber || {};
       const storedSubscriber = global.CrudUtils.readLocalJsonValue("crudEngine.currentSubscriber", null);
       if (storedSubscriber && typeof storedSubscriber === "object" && !Array.isArray(storedSubscriber)) {
@@ -254,6 +265,26 @@
       source.navigation = source.navigation || {};
       source.permissions = source.permissions || {};
       return source;
+    }
+
+    loadCurrentAuthSession() {
+      if (!this.httpClient || !this.httpClient.authToken) {
+        this.authSessionInfo = null;
+        return Promise.resolve(null);
+      }
+      return this.httpClient.request({
+        url: "/api/auth/session",
+        method: "GET"
+      }).then((response) => {
+        this.authSessionInfo = response || null;
+        if (response && response.session && response.session.impersonation) {
+          global.CrudUtils.saveLocalJsonValue("crudEngine.impersonation", response.session.impersonation);
+        }
+        return response;
+      }).catch(() => {
+        this.authSessionInfo = null;
+        return null;
+      });
     }
 
     applyDefinitionSecurity(definition) {
@@ -612,7 +643,66 @@
       }
       this.shell = shell;
       this.renderAppBar(shell);
+      this.renderImpersonationBanner(shell);
       this.renderMain(shell);
+    }
+
+    renderImpersonationBanner(shell) {
+      const impersonation = this.getCurrentImpersonation();
+      if (!impersonation || impersonation.enabled !== true) {
+        return;
+      }
+      const targetName = impersonation.targetUserName || impersonation.targetUserId || "usuario";
+      const actorName = impersonation.actorUserName || impersonation.actorUserId || "administrador";
+      const banner = $("<div class=\"home-impersonation-banner\"></div>").appendTo(shell);
+      $("<span></span>")
+        .text("Voce esta logado como " + targetName + ". Administrador original: " + actorName + ".")
+        .appendTo(banner);
+      const stopButton = $("<button type=\"button\"></button>").text("Encerrar simulacao").appendTo(banner);
+      stopButton.kendoButton({ icon: "logout" });
+      stopButton.on("click", () => this.stopImpersonation());
+    }
+
+    getCurrentImpersonation() {
+      const fromDefinition = this.definition && this.definition.session && this.definition.session.impersonation;
+      if (fromDefinition && fromDefinition.enabled === true) {
+        return fromDefinition;
+      }
+      const stored = global.CrudUtils.readLocalJsonValue("crudEngine.impersonation", null);
+      return stored && stored.enabled === true ? stored : null;
+    }
+
+    stopImpersonation() {
+      if (!this.httpClient || !this.httpClient.authToken) {
+        this.restoreOriginalSessionAfterImpersonation();
+        return;
+      }
+      this.httpClient.request({
+        url: "/api/auth/impersonate/stop",
+        method: "POST",
+        data: {}
+      }).catch(() => {
+        return {};
+      }).then(() => {
+        this.restoreOriginalSessionAfterImpersonation();
+      });
+    }
+
+    restoreOriginalSessionAfterImpersonation() {
+      const original = global.CrudUtils.readLocalJsonValue("crudEngine.impersonationOriginal", null);
+      global.CrudUtils.removeLocalValue("crudEngine.impersonation");
+      global.CrudUtils.removeLocalValue("crudEngine.impersonationOriginal");
+      if (original && original.authToken) {
+        global.CrudUtils.saveLocalValue("crudEngine.authToken", original.authToken);
+        global.CrudUtils.saveLocalValue("crudEngine.runtimeSessionId", original.sessionId || "");
+        global.CrudUtils.saveLocalValue("crudEngine.runtimeTenantId", original.tenantId || "default");
+        global.CrudUtils.saveLocalValue("crudEngine.runtimeUserId", original.userId || "demo");
+      } else {
+        this.clearLocalSessionContext(true);
+      }
+      if (global.location) {
+        global.location.href = "home.html?screenId=home";
+      }
     }
 
     renderAppBar(shell) {
