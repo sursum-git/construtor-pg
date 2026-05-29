@@ -8,6 +8,7 @@
     this.bootstrapData = {};
     this.entries = [];
     this.currentEntry = null;
+    this.currentEvents = [];
     this.filters = {
       tenantId: "",
       userId: "",
@@ -55,7 +56,9 @@
     this.createButton(toolbar, "Limpar filtros", "reset", this.handleResetFilters.bind(this));
     this.createButton(toolbar, "Exportar JSON", "download", this.handleExportJson.bind(this));
     this.createButton(toolbar, "Atualizar", "reload", this.loadEntries.bind(this));
+    this.createButton(toolbar, "Conferir issue", "search", this.handleVerifyIssue.bind(this));
     this.createButton(toolbar, "Baixar artefato", "download", this.handleDownloadArtifact.bind(this));
+    this.createButton(toolbar, "Abrir conferencia", "hyperlink-open", this.handleOpenVerificationPage.bind(this));
 
     const grid = global.jQuery("<div class=\"program-governance-admin-grid\"></div>").appendTo(shell);
     this.leftColumn = global.jQuery("<div class=\"program-builder-governance-stack\"></div>").appendTo(grid);
@@ -65,6 +68,9 @@
     this.detailCard = this.createCard(this.rightColumn, "Detalhe");
     this.detailElement = global.jQuery("<div class=\"program-builder-json-preview\"></div>").appendTo(this.detailCard.body);
     this.detailElement.text("Selecione uma emissao.");
+    this.timelineCard = this.createCard(this.rightColumn, "Timeline");
+    this.timelineElement = global.jQuery("<div class=\"program-builder-json-preview\"></div>").appendTo(this.timelineCard.body);
+    this.timelineElement.text("Selecione uma emissao.");
   };
 
   RegulatedDocumentAdmin.prototype.loadBootstrap = function() {
@@ -93,7 +99,15 @@
 
   RegulatedDocumentAdmin.prototype.loadEntries = function() {
     return this.request("GET", "/api/admin/regulated-document/entries", this.filters).then(function(payload) {
-      this.entries = global.CrudUtils.ensureArray(payload.items);
+      const previousIssueId = this.currentEntry && this.currentEntry.issueId ? String(this.currentEntry.issueId) : "";
+      this.entries = global.CrudUtils.ensureArray(payload.items).slice().sort(function(left, right) {
+        const leftTime = Date.parse(left && left.updatedAt || "") || 0;
+        const rightTime = Date.parse(right && right.updatedAt || "") || 0;
+        return rightTime - leftTime;
+      });
+      this.currentEntry = this.entries.find(function(item) {
+        return previousIssueId && String(item && item.issueId || "") === previousIssueId;
+      }) || this.entries[0] || null;
       this.summaryData = payload.summary || {};
       this.renderSummary();
       this.renderGrid();
@@ -117,8 +131,16 @@
     const badges = global.jQuery("<div class=\"manual-meta\"></div>").appendTo(this.summaryBody);
     this.appendBadge(badges, "Total: " + String(summary.total || 0));
     this.appendBadge(badges, "Carregado: " + String(summary.loaded || 0));
-    Object.keys(summary.byState || {}).slice(0, 4).forEach(function(key) {
-      this.appendBadge(badges, key + ": " + String(summary.byState[key]));
+    Object.keys(summary.byState || {}).slice(0, 6).forEach(function(key) {
+      const badge = this.appendBadge(badges, key + ": " + String(summary.byState[key]));
+      badge.css("cursor", "pointer").on("click", function() {
+        this.filters.state = key;
+        const widget = this.stateInput.data("kendoDropDownList");
+        if (widget) {
+          widget.value(key);
+        }
+        this.loadEntries();
+      }.bind(this));
     }, this);
     this.renderObservability();
   };
@@ -187,9 +209,20 @@
         const item = this.dataItem(this.select());
         this.currentEntry = item ? item.toJSON ? item.toJSON() : item : null;
         this.renderDetail();
+        this.loadEvents();
       }.bind(this)
     });
     this.gridWidget = this.gridElement.data("kendoGrid");
+    if (this.currentEntry && this.currentEntry.issueId) {
+      const dataItems = Array.prototype.slice.call(this.gridWidget.dataSource.view() || []);
+      const targetIndex = dataItems.findIndex(function(item) {
+        return String(item && item.issueId || "") === String(this.currentEntry.issueId || "");
+      }.bind(this));
+      if (targetIndex >= 0) {
+        const row = this.gridWidget.tbody.children().eq(targetIndex);
+        this.gridWidget.select(row);
+      }
+    }
   };
 
   RegulatedDocumentAdmin.prototype.renderDetail = function() {
@@ -200,6 +233,7 @@
       return;
     }
     this.currentEntry = entry;
+    this.loadEvents();
     const badges = global.jQuery("<div class=\"manual-meta\"></div>").appendTo(this.detailElement);
     this.appendBadge(badges, "Estado " + String(entry.state || "-"));
     this.appendBadge(badges, "Track " + String(entry.track || "-"));
@@ -224,6 +258,36 @@
         metadata: entry.metadata || null
       }, null, 2))
       .appendTo(this.detailElement);
+  };
+
+  RegulatedDocumentAdmin.prototype.loadEvents = function() {
+    const entry = this.currentEntry || this.entries[0] || null;
+    if (!entry || !entry.issueId) {
+      this.currentEvents = [];
+      this.timelineElement.text("Selecione uma emissao.");
+      return Promise.resolve([]);
+    }
+    return this.request("GET", "/api/admin/regulated-document/events", { issueId: entry.issueId }).then(function(payload) {
+      this.currentEvents = global.CrudUtils.ensureArray(payload.items);
+      this.renderTimeline();
+      return this.currentEvents;
+    }.bind(this)).catch(function(error) {
+      this.currentEvents = [];
+      this.timelineElement.text("Nao foi possivel carregar a timeline.");
+      this.showError(error, "Nao foi possivel carregar a timeline do documento regulado.");
+      return [];
+    }.bind(this));
+  };
+
+  RegulatedDocumentAdmin.prototype.renderTimeline = function() {
+    this.timelineElement.empty();
+    if (!this.currentEvents.length) {
+      this.timelineElement.text("Nenhum evento registrado para a emissao atual.");
+      return;
+    }
+    global.jQuery("<pre class=\"program-builder-json-preview\"></pre>")
+      .text(JSON.stringify(this.currentEvents, null, 2))
+      .appendTo(this.timelineElement);
   };
 
   RegulatedDocumentAdmin.prototype.handleApplyFilters = function() {
@@ -272,6 +336,38 @@
     }.bind(this)).catch(function(error) {
       this.showError(error, "Nao foi possivel baixar o artefato.");
     }.bind(this));
+  };
+
+  RegulatedDocumentAdmin.prototype.handleVerifyIssue = function() {
+    const entry = this.currentEntry || this.entries[0] || null;
+    if (!entry || !entry.issueId) {
+      global.CrudUtils.showMessage("Selecione uma emissao para conferir.", "warning");
+      return;
+    }
+    this.request("POST", "/api/admin/regulated-document/verify", { issueId: entry.issueId }).then(function(payload) {
+      global.CrudUtils.showMessage(payload && payload.ok ? "Conferencia concluida." : "Conferencia retornou pendencias.", payload && payload.ok ? "success" : "warning");
+      this.loadEntries().then(function() {
+        const updated = this.entries.find(function(item) { return item.issueId === entry.issueId; });
+        if (updated) {
+          this.currentEntry = updated;
+          this.renderDetail();
+        }
+        this.loadEvents();
+      }.bind(this));
+    }.bind(this)).catch(function(error) {
+      this.showError(error, "Nao foi possivel conferir a emissao.");
+    }.bind(this));
+  };
+
+  RegulatedDocumentAdmin.prototype.handleOpenVerificationPage = function() {
+    const entry = this.currentEntry || this.entries[0] || null;
+    if (!entry || !entry.hash) {
+      global.CrudUtils.showMessage("Selecione uma emissao com hash para abrir a conferencia.", "warning");
+      return;
+    }
+    const verification = entry.verification || {};
+    const path = String(verification.publicPath || "regulated-document-authenticity.html");
+    global.open(path + "?hash=" + encodeURIComponent(String(entry.hash || "")), "_blank", "noopener");
   };
 
   RegulatedDocumentAdmin.prototype.createCard = function(container, title) {

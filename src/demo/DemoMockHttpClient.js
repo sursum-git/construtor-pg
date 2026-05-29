@@ -427,6 +427,12 @@
       if (url === "/api/admin/regulated-document/artifact" && method === "GET") {
         return this.getRegulatedDocumentArtifact(String(data && data.issueId || ""));
       }
+      if (url === "/api/admin/regulated-document/events" && method === "GET") {
+        return { items: this.fetchRegulatedDocumentEvents(String(data && data.issueId || "")) };
+      }
+      if (url === "/api/admin/regulated-document/verify" && method === "POST") {
+        return this.verifyRegulatedDocument({ issueId: String(data && data.issueId || "") });
+      }
       const screenMatch = String(url || "").match(/^\/api\/runtime\/screens\/([^/?]+)$/);
       if (screenMatch && method === "GET") {
         return this.getRuntimeScreenDefinition(decodeURIComponent(screenMatch[1]));
@@ -2253,6 +2259,12 @@
         throw global.CrudUtils.makeError("REGULATED_DOCUMENT_ARTIFACT_NOT_AVAILABLE", "Artefato nao esta disponivel para este issueId.");
       }
       return global.CrudUtils.clone(record.artifact);
+    }
+
+    fetchRegulatedDocumentEvents(issueId) {
+      return global.CrudUtils.clone((this.regulatedDocumentEvents || []).filter(function(item) {
+        return String(item.issueId || "") === String(issueId || "");
+      }));
     }
 
     buildRegulatedDocumentResult(screenId, parameters) {

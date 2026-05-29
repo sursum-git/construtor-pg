@@ -25,13 +25,28 @@ const issueId = await page.evaluate(async () => {
     parameters: { status: "ATIVO" },
     format: "pdf"
   });
+  window.currentRegulatedDocumentAdmin.currentEntry = null;
   await window.currentRegulatedDocumentAdmin.loadEntries();
   return issued && issued.issueId || "";
 });
 await page.waitForFunction(() => window.currentRegulatedDocumentAdmin && Array.isArray(window.currentRegulatedDocumentAdmin.entries) && window.currentRegulatedDocumentAdmin.entries.length > 0, null, { timeout: 30000 });
+await page.evaluate(() => window.currentRegulatedDocumentAdmin.handleVerifyIssue());
+await page.waitForFunction(() => {
+  const admin = window.currentRegulatedDocumentAdmin;
+  if (!admin || !admin.currentEntry) {
+    return false;
+  }
+  const text = document.body.innerText || "";
+  const hasMessage = text.includes("Conferencia concluida.") || text.includes("Conferencia retornou pendencias.");
+  const verifiedState = String(admin.currentEntry.state || "") === "verified";
+  const hasVerifyEvent = Array.isArray(admin.currentEvents) && admin.currentEvents.some((item) => String(item && item.type || "") === "verify");
+  return hasMessage && (verifiedState || hasVerifyEvent);
+}, null, { timeout: 30000 });
 const result = await page.evaluate(() => ({
-  rows: document.querySelectorAll(".program-builder-governance-list .k-grid-content tbody tr").length,
-  detailText: document.querySelector(".program-builder-json-preview") && document.querySelector(".program-builder-json-preview").textContent || "",
+  entryCount: window.currentRegulatedDocumentAdmin && Array.isArray(window.currentRegulatedDocumentAdmin.entries) ? window.currentRegulatedDocumentAdmin.entries.length : 0,
+  currentIssueId: window.currentRegulatedDocumentAdmin && window.currentRegulatedDocumentAdmin.currentEntry ? window.currentRegulatedDocumentAdmin.currentEntry.issueId : "",
+  detailText: document.body.innerText || "",
+  timelineText: document.body.innerText || "",
   title: document.querySelector(".program-governance-admin-title h1") && document.querySelector(".program-governance-admin-title h1").textContent || ""
 }));
 
@@ -43,7 +58,7 @@ if (errors.length) {
 if (!result.title.includes("Documentos regulados")) {
   throw new Error("Tela administrativa do modulo regulado nao abriu corretamente.");
 }
-if (result.rows < 1 || !result.detailText.includes(issueId)) {
+if (result.entryCount < 1 || result.currentIssueId !== issueId || !result.detailText.includes(issueId) || !result.timelineText.includes("verify")) {
   throw new Error("Tela administrativa do modulo regulado nao exibiu a emissao realizada.");
 }
 

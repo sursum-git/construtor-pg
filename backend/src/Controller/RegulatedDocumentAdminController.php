@@ -70,6 +70,35 @@ class RegulatedDocumentAdminController extends AbstractController
         }
     }
 
+    #[Route('/events', methods: ['GET'])]
+    public function events(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $this->ensureReadPermission();
+
+            return $this->json([
+                'items' => $this->documents->events(trim((string) $request->query->get('issueId'))),
+            ]);
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
+    #[Route('/verify', methods: ['POST'])]
+    public function verify(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $this->ensureArtifactPermission();
+            $payload = json_decode($request->getContent(), true);
+
+            return $this->json($this->documents->verifyIssue(trim((string) ($payload['issueId'] ?? ''))));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
     private function ensureReadPermission(): void
     {
         if ($this->permissions->hasAnyPermission(['regulated_document.admin.read', 'admin.read'])) {

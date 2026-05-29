@@ -6,6 +6,7 @@ class RuntimeRegulatedDocumentAdminService
 {
     public function __construct(
         private readonly RuntimeRegulatedDocumentStore $store,
+        private readonly RuntimeRegulatedDocumentService $documents,
     ) {
     }
 
@@ -96,6 +97,42 @@ class RuntimeRegulatedDocumentAdminService
             'contentType' => (string) ($artifact['contentType'] ?? 'application/octet-stream'),
             'contentBase64' => (string) ($artifact['contentBase64'] ?? ''),
         ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function events(string $issueId): array
+    {
+        if (!$this->store->isEnabled()) {
+            throw new RuntimeHttpException('REGULATED_DOCUMENT_STORE_DISABLED', 'Storage do modulo regulado desabilitado.', 422);
+        }
+        if (trim($issueId) === '') {
+            throw new RuntimeHttpException('REGULATED_DOCUMENT_ISSUE_ID_REQUIRED', 'Informe o issueId do documento regulado.', 422);
+        }
+
+        return $this->store->fetchEvents($issueId);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function verifyIssue(string $issueId): array
+    {
+        if (!$this->store->isEnabled()) {
+            throw new RuntimeHttpException('REGULATED_DOCUMENT_STORE_DISABLED', 'Storage do modulo regulado desabilitado.', 422);
+        }
+        $record = $this->store->findByIssueId($issueId);
+        if (!$record) {
+            throw new RuntimeHttpException('REGULATED_DOCUMENT_NOT_FOUND', 'Documento regulado nao encontrado.', 404, [
+                'issueId' => $issueId,
+            ]);
+        }
+
+        return $this->documents->verify((string) ($record['screenId'] ?? ''), [
+            'issueId' => $issueId,
+            'hash' => (string) ($record['hash'] ?? ''),
+        ]);
     }
 
     /**
