@@ -403,6 +403,12 @@
         link.click();
         link.remove();
         global.URL.revokeObjectURL(href);
+        const authenticity = response && response.authenticity;
+        if (authenticity && authenticity.hash) {
+          global.CrudUtils.showMessage("Arquivo gerado. " + String(authenticity.footerLabel || "Codigo de autenticidade") + ": " + String(authenticity.hash), "success");
+        } else {
+          global.CrudUtils.showMessage("Arquivo gerado.", "success");
+        }
       }).catch((error) => {
         const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel exportar o relatorio.");
         global.CrudUtils.showMessage(normalized.message, "error");
@@ -533,6 +539,17 @@
       const footer = $("<section></section>").appendTo(this.outputHost);
       $("<h2></h2>").text("Rodape").appendTo(footer);
       $("<p class=\"report-footer-note\"></p>").text(layout.footerText || ("Emitido em " + this.formatDateTime(result.generatedAt || new Date().toISOString()))).appendTo(footer);
+      const authenticity = result && result.authenticity || null;
+      if (authenticity && authenticity.hash) {
+        const meta = $("<div class=\"manual-meta\"></div>").appendTo(footer);
+        $("<span class=\"manual-badge\"></span>").text(String(authenticity.footerLabel || "Codigo de autenticidade") + ": " + String(authenticity.hash)).appendTo(meta);
+        if (authenticity.verificationUrl) {
+          $("<a class=\"k-button k-button-solid-base\" target=\"_blank\" rel=\"noopener noreferrer\"></a>")
+            .attr("href", String(authenticity.verificationUrl))
+            .text("Conferir autenticidade")
+            .appendTo(footer);
+        }
+      }
     }
 
     formatDateTime(value) {

@@ -3421,8 +3421,12 @@
       $("<span></span>").text("Subtotal").appendTo(row.showSubtotalInput.parent());
       row.pageBreakBeforeInput = $("<input type=\"checkbox\">").appendTo($("<label></label>").appendTo(flags));
       $("<span></span>").text("Quebra antes").appendTo(row.pageBreakBeforeInput.parent());
+      row.moveUpButton = $("<button type=\"button\" class=\"program-builder-link-button\">Subir</button>").appendTo(flags);
+      row.moveDownButton = $("<button type=\"button\" class=\"program-builder-link-button\">Descer</button>").appendTo(flags);
       row.showSubtotalInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
       row.pageBreakBeforeInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+      row.moveUpButton.on("click", this.moveReportGroupRow.bind(this, reportGroupIndex - 1, -1));
+      row.moveDownButton.on("click", this.moveReportGroupRow.bind(this, reportGroupIndex - 1, 1));
       row.fieldSelect.on("change", this.schedulePreview.bind(this));
       row.labelInput.on("input change", this.schedulePreview.bind(this));
       this.reportGroupRows.push(row);
@@ -3460,11 +3464,27 @@
     this.reportOutputPdfInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
     this.reportOutputExcelInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
     this.reportOutputCsvInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    const reportAuthenticityField = this.appendField(reportForm, "Autenticidade");
+    const reportAuthenticityFlags = $("<div class=\"program-builder-flags\"></div>").appendTo(reportAuthenticityField);
+    this.reportAuthenticityEnabledInput = $("<input type=\"checkbox\">").appendTo($("<label></label>").appendTo(reportAuthenticityFlags));
+    $("<span></span>").text("Gravar hash para conferencia futura").appendTo(this.reportAuthenticityEnabledInput.parent());
+    this.reportAuthenticityEnabledInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    this.reportAuthenticityStoreCanonicalInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(reportAuthenticityFlags));
+    $("<span></span>").text("Guardar payload canonico").appendTo(this.reportAuthenticityStoreCanonicalInput.parent());
+    this.reportAuthenticityStoreCanonicalInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    this.reportAuthenticityStoreArtifactInput = $("<input type=\"checkbox\">").appendTo($("<label></label>").appendTo(reportAuthenticityFlags));
+    $("<span></span>").text("Guardar artefato exportado").appendTo(this.reportAuthenticityStoreArtifactInput.parent());
+    this.reportAuthenticityStoreArtifactInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    const reportSplitD = $("<div class=\"program-builder-split\"></div>").appendTo(reportForm);
+    this.reportAuthenticityFooterLabelInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(reportSplitD, "Rotulo do hash"));
+    this.reportAuthenticityVerificationPathInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(reportSplitD, "Pagina de conferencia"));
+    this.reportAuthenticityFooterLabelInput.on("input change", this.schedulePreview.bind(this));
+    this.reportAuthenticityVerificationPathInput.on("input change", this.schedulePreview.bind(this));
     this.reportProgramHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(reportForm);
     this.reportProgramHint.text("Documentos especiais continuam fora de `reports` e devem usar trilha separada.");
 
     this.specialDocumentProgramPanel = $("<section class=\"program-builder-subpanel\"></section>").appendTo(form);
-    $("<div class=\"program-builder-versions-header\"><h3>Configuracao do documento especial</h3><p>Trilha separada para layouts rigidos. Esta etapa usa renderer interno fechado `native_stub`.</p></div>").appendTo(this.specialDocumentProgramPanel);
+    $("<div class=\"program-builder-versions-header\"><h3>Configuracao do documento especial</h3><p>Trilha separada para layouts rigidos. Esta etapa usa renderer interno fechado `native`.</p></div>").appendTo(this.specialDocumentProgramPanel);
     const specialForm = $("<div class=\"program-builder-form\"></div>").appendTo(this.specialDocumentProgramPanel);
     const specialSplitA = $("<div class=\"program-builder-split\"></div>").appendTo(specialForm);
     this.specialDocumentSourceTypeSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(specialSplitA, "Fonte"));
@@ -3475,7 +3495,7 @@
     [{ value: "danfe", text: "DANFE" }, { value: "dacte", text: "DACTE" }, { value: "boleto", text: "Boleto" }, { value: "label", text: "Etiqueta" }, { value: "fiscal_document", text: "Documento fiscal" }].forEach(function(item) {
       $("<option></option>").attr("value", item.value).text(item.text).appendTo(this.specialDocumentKindSelect);
     }, this);
-    this.specialDocumentRenderEngineInput = $("<input type=\"text\" class=\"program-builder-mini-input\" readonly>").val("native_stub").appendTo(this.appendField(specialSplitA, "Render engine"));
+    this.specialDocumentRenderEngineInput = $("<input type=\"text\" class=\"program-builder-mini-input\" readonly>").val("native").appendTo(this.appendField(specialSplitA, "Render engine"));
     const specialSplitB = $("<div class=\"program-builder-split\"></div>").appendTo(specialForm);
     this.specialDocumentAnalyticsScreenIdInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(specialSplitB, "ScreenId analytics"));
     this.specialDocumentAnalyticsDatasetIdInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(specialSplitB, "Dataset analytics"));
@@ -3570,6 +3590,15 @@
       analyticsDatasetId: "",
       headerText: "",
       footerText: "",
+      authenticity: {
+        enabled: false,
+        verificationPath: "report-authenticity.html",
+        footerLabel: "Codigo de autenticidade",
+        storage: {
+          storeCanonicalPayload: true,
+          storeExportArtifact: false
+        }
+      },
       outputs: {
         html: true,
         print: true,
@@ -3585,7 +3614,7 @@
     return {
       sourceType: "operational",
       documentKind: "fiscal_document",
-      renderEngine: "native_stub",
+      renderEngine: "native",
       analyticsScreenId: "",
       analyticsDatasetId: "",
       title: "",
@@ -3824,6 +3853,19 @@
     if (this.reportAnalyticsDatasetIdInput) {
       this.reportAnalyticsDatasetIdInput.prop("disabled", !isAnalytic);
     }
+    const authenticityEnabled = !!(this.reportAuthenticityEnabledInput && this.reportAuthenticityEnabledInput.is(":checked"));
+    if (this.reportAuthenticityStoreCanonicalInput) {
+      this.reportAuthenticityStoreCanonicalInput.prop("disabled", !authenticityEnabled);
+    }
+    if (this.reportAuthenticityStoreArtifactInput) {
+      this.reportAuthenticityStoreArtifactInput.prop("disabled", !authenticityEnabled);
+    }
+    if (this.reportAuthenticityFooterLabelInput) {
+      this.reportAuthenticityFooterLabelInput.prop("disabled", !authenticityEnabled);
+    }
+    if (this.reportAuthenticityVerificationPathInput) {
+      this.reportAuthenticityVerificationPathInput.prop("disabled", !authenticityEnabled);
+    }
     if (this.reportProgramHint) {
       this.reportProgramHint.text(isAnalytic
         ? "Fonte analytics usa dataset interno ja publicado. Nesta opcao a entidade base nao e obrigatoria."
@@ -4001,6 +4043,15 @@
       limit: Number(this.reportLimitInput.val() || 200),
       analyticsScreenId: String(this.reportAnalyticsScreenIdInput.val() || ""),
       analyticsDatasetId: String(this.reportAnalyticsDatasetIdInput.val() || ""),
+      authenticity: {
+        enabled: this.reportAuthenticityEnabledInput.is(":checked"),
+        footerLabel: String(this.reportAuthenticityFooterLabelInput.val() || ""),
+        verificationPath: String(this.reportAuthenticityVerificationPathInput.val() || ""),
+        storage: {
+          storeCanonicalPayload: this.reportAuthenticityStoreCanonicalInput.is(":checked"),
+          storeExportArtifact: this.reportAuthenticityStoreArtifactInput.is(":checked")
+        }
+      },
       outputs: {
         html: this.reportOutputHtmlInput.is(":checked"),
         print: this.reportOutputPrintInput.is(":checked"),
@@ -4012,11 +4063,36 @@
     };
   };
 
+  ProgramBuilder.prototype.moveReportGroupRow = function(index, direction) {
+    const rows = this.reportGroupRows || [];
+    const target = index + direction;
+    if (index < 0 || target < 0 || index >= rows.length || target >= rows.length) {
+      return;
+    }
+    const current = rows[index];
+    const next = rows[target];
+    const snapshot = {
+      field: String(current.fieldSelect.val() || ""),
+      label: String(current.labelInput.val() || ""),
+      showSubtotal: current.showSubtotalInput.is(":checked"),
+      pageBreakBefore: current.pageBreakBeforeInput.is(":checked")
+    };
+    current.fieldSelect.val(String(next.fieldSelect.val() || ""));
+    current.labelInput.val(String(next.labelInput.val() || ""));
+    current.showSubtotalInput.prop("checked", next.showSubtotalInput.is(":checked"));
+    current.pageBreakBeforeInput.prop("checked", next.pageBreakBeforeInput.is(":checked"));
+    next.fieldSelect.val(snapshot.field);
+    next.labelInput.val(snapshot.label);
+    next.showSubtotalInput.prop("checked", snapshot.showSubtotal);
+    next.pageBreakBeforeInput.prop("checked", snapshot.pageBreakBefore);
+    this.schedulePreview();
+  };
+
   ProgramBuilder.prototype.collectSpecialDocumentConfig = function() {
     return {
       sourceType: String(this.specialDocumentSourceTypeSelect.val() || "operational"),
       documentKind: String(this.specialDocumentKindSelect.val() || "fiscal_document"),
-      renderEngine: "native_stub",
+      renderEngine: "native",
       analyticsScreenId: String(this.specialDocumentAnalyticsScreenIdInput.val() || ""),
       analyticsDatasetId: String(this.specialDocumentAnalyticsDatasetIdInput.val() || ""),
       title: String(this.specialDocumentTitleInput.val() || ""),
@@ -4079,6 +4155,11 @@
     this.reportSortDirSelect.val(value.sortDir || "asc");
     this.reportAnalyticsScreenIdInput.val(value.analyticsScreenId || "");
     this.reportAnalyticsDatasetIdInput.val(value.analyticsDatasetId || "");
+    this.reportAuthenticityEnabledInput.prop("checked", !!(value.authenticity && value.authenticity.enabled));
+    this.reportAuthenticityFooterLabelInput.val(value.authenticity && value.authenticity.footerLabel || "Codigo de autenticidade");
+    this.reportAuthenticityVerificationPathInput.val(value.authenticity && value.authenticity.verificationPath || "report-authenticity.html");
+    this.reportAuthenticityStoreCanonicalInput.prop("checked", !value.authenticity || !value.authenticity.storage || value.authenticity.storage.storeCanonicalPayload !== false);
+    this.reportAuthenticityStoreArtifactInput.prop("checked", !!(value.authenticity && value.authenticity.storage && value.authenticity.storage.storeExportArtifact));
     this.reportOutputHtmlInput.prop("checked", outputs.html !== false);
     this.reportOutputPrintInput.prop("checked", outputs.print !== false);
     this.reportOutputPdfInput.prop("checked", outputs.pdf !== false && outputs.pdfBrowser !== false);
@@ -6669,6 +6750,7 @@
     $("<p></p>").text("Parametros: " + parameters.length + " | ordenacao: " + (Array.isArray(query.sort) ? query.sort.length : 0)).appendTo(structureCard);
     $("<p></p>").text("Agrupamentos: " + (groups.length ? groups.map(function(item) { return item.field; }).join(", ") : String(report.layout && report.layout.groupField || "Nao usar"))).appendTo(structureCard);
     $("<p></p>").text("Saidas: " + this.reportEnabledOutputs(report.outputs || {}).join(", ")).appendTo(structureCard);
+    $("<p></p>").text("Autenticidade: " + (((report.authenticity || {}).enabled === true) ? "Hash gravado" : "Desligada")).appendTo(structureCard);
 
     const sourceCard = $("<article class=\"program-builder-analytics-dataset-card\"></article>").appendTo(summaryGrid);
     $("<h4></h4>").text("Fonte").appendTo(sourceCard);
@@ -8956,7 +9038,7 @@
           documentProfile: "special",
           documentKind: specialDocumentConfig.documentKind || "fiscal_document"
         },
-        renderEngine: "native_stub",
+        renderEngine: "native",
         source: specialDocumentConfig.sourceType === "analytic" ? {
           type: "analytic",
           analyticsScreenId: specialDocumentConfig.analyticsScreenId || "",

@@ -445,6 +445,33 @@ class RuntimeAnalyticsAuditStore
     }
 
     /**
+     * @return array<string, mixed>|null
+     */
+    public function findLatestByMetadataValue(string $auditContext, array $path, string $expected): ?array
+    {
+        if (!$this->isEnabled()) {
+            return null;
+        }
+
+        $expected = trim($expected);
+        if ($expected === '') {
+            return null;
+        }
+
+        $rows = $this->fetchRowsForContextFilters([], $auditContext);
+        foreach ($rows as $row) {
+            $normalized = $this->normalizeAuditRow($row);
+            $metadata = is_array($normalized['metadata'] ?? null) ? $normalized['metadata'] : [];
+            $value = $this->metadataPathValue($metadata, $path);
+            if (trim((string) $value) === $expected) {
+                return $normalized;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @param array<string, mixed> $filters
      * @return array<int, array<string, mixed>>
      */
@@ -528,5 +555,22 @@ class RuntimeAnalyticsAuditStore
 
         $boundary = $expected . ($isFrom ? 'T00:00:00' : 'T23:59:59');
         return $isFrom ? $consultedAt >= $boundary : $consultedAt <= $boundary;
+    }
+
+    /**
+     * @param array<string, mixed> $metadata
+     * @param array<int, string> $path
+     */
+    private function metadataPathValue(array $metadata, array $path): mixed
+    {
+        $current = $metadata;
+        foreach ($path as $segment) {
+            if (!is_array($current) || !array_key_exists($segment, $current)) {
+                return null;
+            }
+            $current = $current[$segment];
+        }
+
+        return $current;
     }
 }

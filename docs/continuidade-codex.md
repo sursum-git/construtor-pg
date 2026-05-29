@@ -224,17 +224,27 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - `reports.export` com `csv`, `excel` e `pdf`;
   - `report.outputs.pdf`, mantendo `pdfBrowser` como legado temporario;
   - `report.layout.groups[]` com ate 3 niveis;
-  - renderizacao recursiva de grupos no `ReportEngine`.
+  - `report.authenticity.enabled` para gravar hash opcional de autenticidade na emissao;
+  - `report.authenticity.storage.storeCanonicalPayload` e `storeExportArtifact` para guardar no banco separado, opcionalmente, o payload canonico e o artefato exportado;
+  - renderizacao recursiva de grupos no `ReportEngine`;
+  - XLSX com nome de aba derivado do titulo, `freeze pane`, `autoFilter` e largura de coluna calculada;
+  - PDF backend com cabecalho repetido por pagina no renderer textual fechado;
+  - quando o relatorio e tabular e curto, o PDF agora usa composicao visual com titulo, cards de resumo e grade de tabela;
+  - existe pagina publica de conferencia em `production/report-authenticity.html`, usando `GET /api/public/report-authenticity/verify?hash=...`.
 - a trilha separada de documentos especiais agora existe:
   - `pageType=special_document`;
   - schema `public/metadata/schemas/special-document-definition-v1.schema.json`;
   - runtime fechado `specialDocuments.schema|render|export`;
   - engine frontend `src/special-document-engine/SpecialDocumentEngine.js`;
-  - seed local do `screenId=documentos.especiais-base`.
+  - seed local do `screenId=documentos.especiais-base`;
+  - renderer controlado agora usa fonte real operacional/analytics e entrega cabecalho, parametros, tabela e totais, sem template livre;
+  - o frontend agora renderiza e envia parametros reais do documento especial antes de gerar/exportar;
+  - existem perfis visuais controlados para `danfe`, `boleto` e `label/etiqueta`, com exemplos locais separados em `examples/pages/special-document-*.html`.
 - o `Program Builder` agora expõe dois caminhos:
   - `Relatorios`;
   - `Documento especial`.
 - documentos especiais continuam fora de `reports`; o builder bloqueia `danfe`, `dacte`, `boleto`, `label/etiqueta` na trilha de relatorio.
+- a politica oficial para decidir entre `reports`, `special_document` e engine externa fica em `docs/politica-reports-documentos.md`.
   - programa manual sem entidade base;
   - `custom.mode = iframe | htmlUrl`;
   - `custom.entryUrl` relativo ao proprio sistema;

@@ -6,6 +6,7 @@ use App\Entity\ScreenDefinition;
 use App\Repository\ScreenDefinitionRepository;
 use App\Runtime\PermissionResolver;
 use App\Runtime\ProgramCustomizationResolver;
+use App\Runtime\RuntimeAnalyticsAuditStore;
 use App\Runtime\RuntimeAnalyticsService;
 use App\Runtime\RuntimeEntityDefinitionResolver;
 use App\Runtime\RuntimeHttpException;
@@ -82,6 +83,16 @@ class RuntimeReportServiceTest extends TestCase
         self::assertStringEndsWith('.xlsx', $result['fileName']);
         $binary = base64_decode((string) $result['contentBase64']);
         self::assertStringStartsWith('PK', $binary);
+        $tempFile = tempnam(sys_get_temp_dir(), 'report-test-xlsx-');
+        file_put_contents($tempFile, $binary);
+        $zip = new \ZipArchive();
+        $zip->open($tempFile);
+        $workbook = (string) $zip->getFromName('xl/workbook.xml');
+        $worksheet = (string) $zip->getFromName('xl/worksheets/sheet1.xml');
+        $zip->close();
+        @unlink($tempFile);
+        self::assertStringContainsString('Relatorio operacional de client', $workbook);
+        self::assertStringContainsString('autoFilter', $worksheet);
     }
 
     public function testExportReturnsPdfPayload(): void
@@ -96,7 +107,9 @@ class RuntimeReportServiceTest extends TestCase
         self::assertSame('pdf', $result['format']);
         self::assertSame('application/pdf', $result['contentType']);
         self::assertStringEndsWith('.pdf', $result['fileName']);
-        self::assertStringStartsWith('%PDF', (string) base64_decode((string) $result['contentBase64']));
+        $binary = (string) base64_decode((string) $result['contentBase64']);
+        self::assertStringStartsWith('%PDF', $binary);
+        self::assertStringContainsString('Pagina 1 de 1', $binary);
     }
 
     public function testOperationalRunSupportsNestedGroups(): void
@@ -107,6 +120,7 @@ class RuntimeReportServiceTest extends TestCase
                     'groups' => [
                         ['field' => 'uf', 'label' => 'UF', 'showSubtotal' => true],
                         ['field' => 'status', 'label' => 'Status', 'showSubtotal' => true],
+                        ['field' => 'nome', 'label' => 'Cliente', 'showSubtotal' => false],
                     ],
                 ],
             ],
@@ -117,13 +131,72 @@ class RuntimeReportServiceTest extends TestCase
         self::assertNotEmpty($result['groups']);
         self::assertSame('UF: CE', $result['groups'][0]['label']);
         self::assertArrayHasKey('children', $result['groups'][0]);
-        self::assertSame(2, $result['_runtime']['report']['groupCount']);
+        self::assertSame(3, $result['_runtime']['report']['groupCount']);
+        self::assertArrayHasKey('children', $result['groups'][0]['children'][0]);
+    }
+
+    public function testRunIncludesAuthenticityAndRecordsHash(): void
+    {
+        $auditStore = new RuntimeAnalyticsAuditStore('sqlite:///:memory:', true, 50, true);
+        $service = $this->createService('tenant-a', [
+            'report' => [
+                'authenticity' => [
+                    'enabled' => true,
+                    'algorithm' => 'sha256',
+                    'footerLabel' => 'Codigo de autenticidade',
+                    'verificationPath' => 'report-authenticity.html',
+                ],
+            ],
+        ], $auditStore);
+
+        $result = $service->run('relatorios.clientes-operacional', [
+            'parameters' => ['status' => 'ATIVO'],
+            'format' => 'pdf',
+        ]);
+
+        self::assertSame('sha256', $result['authenticity']['algorithm']);
+        self::assertMatchesRegularExpression('/^sha256:[a-f0-9]{64}$/', (string) $result['authenticity']['hash']);
+        self::assertStringContainsString('report-authenticity.html?hash=', (string) $result['authenticity']['verificationUrl']);
+
+        $audit = $auditStore->findLatestByMetadataValue('report', ['authenticity', 'hash'], (string) $result['authenticity']['hash']);
+        self::assertNotNull($audit);
+        self::assertSame('relatorios.clientes-operacional', $audit['screenId']);
+        self::assertArrayHasKey('canonicalPayload', $audit['metadata']);
+    }
+
+    public function testExportCanStoreArtifactInAudit(): void
+    {
+        $auditStore = new RuntimeAnalyticsAuditStore('sqlite:///:memory:', true, 50, true);
+        $service = $this->createService('tenant-a', [
+            'report' => [
+                'authenticity' => [
+                    'enabled' => true,
+                    'algorithm' => 'sha256',
+                    'footerLabel' => 'Codigo de autenticidade',
+                    'verificationPath' => 'report-authenticity.html',
+                    'storage' => [
+                        'storeCanonicalPayload' => true,
+                        'storeExportArtifact' => true,
+                    ],
+                ],
+            ],
+        ], $auditStore);
+
+        $service->export('relatorios.clientes-operacional', [
+            'parameters' => ['status' => 'ATIVO'],
+            'format' => 'pdf',
+        ]);
+
+        $rows = $auditStore->query(['resultSource' => 'report_export'], 'report');
+        self::assertSame(1, $rows['total']);
+        self::assertTrue(($rows['items'][0]['metadata']['artifact']['stored'] ?? false) === true);
+        self::assertSame('pdf', $rows['items'][0]['metadata']['artifact']['format'] ?? '');
     }
 
     /**
      * @param array<string, mixed> $definitionPatch
      */
-    private function createService(string $tenantId, array $definitionPatch = []): RuntimeReportService
+    private function createService(string $tenantId, array $definitionPatch = [], ?RuntimeAnalyticsAuditStore $auditStore = null): RuntimeReportService
     {
         $connection = DriverManager::getConnection([
             'driver' => 'pdo_sqlite',
@@ -169,7 +242,7 @@ class RuntimeReportServiceTest extends TestCase
             $integrity,
             $customizations,
             $analytics,
-            null,
+            $auditStore,
         );
     }
 

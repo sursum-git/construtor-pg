@@ -67,7 +67,7 @@
           },
           "additionalProperties": false
         },
-        "renderEngine": { "type": "string", "enum": ["native_stub"] },
+        "renderEngine": { "type": "string", "enum": ["native_stub", "native"] },
         "endpoints": {
           "type": "object",
           "properties": {
@@ -108,7 +108,13 @@
           "properties": {
             "title": { "type": "string" },
             "subtitle": { "type": "string" },
-            "notes": { "type": "string" }
+            "notes": { "type": "string" },
+            "issuerName": { "type": "string" },
+            "issuerDocument": { "type": "string" },
+            "beneficiaryName": { "type": "string" },
+            "beneficiaryDocument": { "type": "string" },
+            "dueDate": { "type": "string" },
+            "barcodeText": { "type": "string" }
           },
           "additionalProperties": false
         },

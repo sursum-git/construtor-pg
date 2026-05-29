@@ -1,0 +1,18 @@
+.report-authenticity-shell {
+  display: block;
+  padding: 18px;
+}
+
+.report-authenticity-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.report-authenticity-header,
+.report-authenticity-search {
+  background: var(--crud-surface, #fff);
+  border: 1px solid var(--crud-border, #d9dee7);
+  border-radius: 8px;
+  padding: 16px;
+}

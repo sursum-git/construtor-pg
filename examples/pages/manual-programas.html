@@ -1806,7 +1806,8 @@
               "Fonte operacional por entidade interna `persistence`.",
               "Filtros e parametros fechados.",
               "Layout em `header`, `summary`, `table`, `totals` e `footer`.",
-              "Saidas HTML, impressao, CSV e Excel tabular."
+              "Saidas HTML, impressao, CSV e Excel tabular.",
+              "Hash opcional de autenticidade com pagina publica de conferencia."
             ],
             outputs: [
               "Relatorio detalhado com totais e contexto de emissao."
@@ -1873,6 +1874,45 @@
             notes: ["Exemplo local: ../../examples/pages/report-analitico.html", "JSON exemplo: ../../examples/report-analitico.report.json", "ProduÃ§Ã£o: ../../production/app.html?screenId=relatorios.clientes-analitico"]
           }
         },
+        "report-authenticity": {
+          title: "Conferencia de autenticidade",
+          module: "Relatorios",
+          type: "Pagina publica",
+          route: "../../examples/pages/report-authenticity.html",
+          screenId: "",
+          summary: "Consulta publica do hash opcional gravado nas emissoes de relatorios autenticados.",
+          functional: {
+            objective: "Permitir conferencia futura da autenticidade do relatorio sem expor o dataset completo.",
+            scope: [
+              "Busca por hash `sha256` da emissao.",
+              "Retorno resumido com relatorio, fonte, formato e momento da emissao.",
+              "Sem abrir o payload completo do relatorio."
+            ],
+            outputs: [
+              "Status da conferencia e dados resumidos da emissao autenticada."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Relatorio emitido com autenticidade habilitada.",
+              "Banco separado de auditoria habilitado em producao."
+            ],
+            steps: [
+              "Abrir a pagina de conferencia.",
+              "Informar o hash exibido no relatorio.",
+              "Conferir o retorno publico resumido."
+            ],
+            cautions: [
+              "Sem banco separado de auditoria a conferencia publica fica indisponivel.",
+              "A pagina confirma a emissao registrada, nao substitui assinatura digital ICP."
+            ]
+          },
+          references: {
+            permissions: [],
+            relatedPrograms: ["Relatorio operacional", "Relatorio analitico", "Auditoria de relatorios"],
+            notes: ["Exemplo local: ../../examples/pages/report-authenticity.html", "ProduÃ§Ã£o: ../../production/report-authenticity.html"]
+          }
+        },
         "special-document-base": {
           title: "Documento especial base",
           module: "Documentos especiais",
@@ -1883,7 +1923,7 @@
           functional: {
             objective: "Preparar fonte, contrato e auditoria para documentos rigidos sem contaminar a camada de relatorios.",
             scope: [
-              "Renderer interno fechado `native_stub`.",
+              "Renderer interno fechado `native`.",
               "Fonte operacional ou analytics.",
               "Exportacao HTML/PDF controlada."
             ],

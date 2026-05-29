@@ -62,6 +62,7 @@ class RuntimeReportService
         $report = is_array($definition['report'] ?? null) ? $definition['report'] : [];
         $tenantId = $tenantId ?? $this->permissions->getTenantId();
         $parameters = is_array($payload['parameters'] ?? null) ? $payload['parameters'] : [];
+        $generatedAt = (new \DateTimeImmutable())->format(DATE_ATOM);
 
         $sourceType = strtolower(trim((string) ($report['source']['type'] ?? 'operational')));
         if ($sourceType === 'analytic') {
@@ -103,11 +104,11 @@ class RuntimeReportService
             'totals' => $totals,
             'summary' => $summary,
             'metadata' => [
-                ['label' => 'Gerado em', 'value' => (new \DateTimeImmutable())->format(DATE_ATOM)],
+                ['label' => 'Gerado em', 'value' => $generatedAt],
                 ['label' => 'Parametros', 'value' => $this->formatParametersLabel($parameters)],
             ],
             'total' => count($rows),
-            'generatedAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+            'generatedAt' => $generatedAt,
             'outputs' => $this->normalizeOutputs(is_array($report['outputs'] ?? null) ? $report['outputs'] : []),
             '_runtime' => [
                 'report' => [
@@ -116,6 +117,14 @@ class RuntimeReportService
                 ],
             ],
         ];
+        $authenticity = $this->buildAuthenticity($definition, $report, $result, $payload);
+        if ($authenticity !== null) {
+            $result['authenticity'] = $authenticity;
+            $result['metadata'][] = ['label' => (string) $authenticity['footerLabel'], 'value' => (string) $authenticity['hash']];
+            if (trim((string) ($authenticity['verificationUrl'] ?? '')) !== '') {
+                $result['metadata'][] = ['label' => 'Conferencia publica', 'value' => (string) $authenticity['verificationUrl']];
+            }
+        }
 
         $this->recordAudit($definition, $result, $payload, $sourceType, $tenantId);
 
@@ -136,42 +145,54 @@ class RuntimeReportService
         }
 
         $result = $this->run($screenId, $payload, $tenantId);
+        $definition = $this->loadDefinition($screenId);
+        $report = is_array($definition['report'] ?? null) ? $definition['report'] : [];
+        $tenantId = $tenantId ?? $this->permissions->getTenantId();
         $rows = is_array($result['rows'] ?? null) ? $result['rows'] : [];
         $columns = is_array($result['columns'] ?? null) ? $result['columns'] : [];
         $safeName = $this->safeFileName((string) ($result['reportId'] ?? 'relatorio'));
 
         if ($format === 'excel') {
-            $xlsx = $this->rowsToXlsx($columns, $rows);
-
-            return [
+            $xlsx = $this->rowsToXlsx($result);
+            $response = [
                 'ok' => true,
                 'format' => 'excel',
                 'fileName' => $safeName . '.xlsx',
                 'contentType' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 'contentBase64' => base64_encode($xlsx),
+                'authenticity' => $result['authenticity'] ?? null,
             ];
+            $this->recordExportArtifactAudit($definition, $report, $result, $payload, 'excel', $response, $tenantId);
+
+            return $response;
         }
         if ($format === 'pdf') {
             $pdf = $this->resultToPdf($result);
-
-            return [
+            $response = [
                 'ok' => true,
                 'format' => 'pdf',
                 'fileName' => $safeName . '.pdf',
                 'contentType' => 'application/pdf',
                 'contentBase64' => base64_encode($pdf),
+                'authenticity' => $result['authenticity'] ?? null,
             ];
+            $this->recordExportArtifactAudit($definition, $report, $result, $payload, 'pdf', $response, $tenantId);
+
+            return $response;
         }
 
         $csv = $this->rowsToCsv($columns, $rows);
-
-        return [
+        $response = [
             'ok' => true,
             'format' => 'csv',
             'fileName' => $safeName . '.csv',
             'contentType' => 'text/csv; charset=utf-8',
             'contentBase64' => base64_encode($csv),
+            'authenticity' => $result['authenticity'] ?? null,
         ];
+        $this->recordExportArtifactAudit($definition, $report, $result, $payload, 'csv', $response, $tenantId);
+
+        return $response;
     }
 
     /**
@@ -644,6 +665,91 @@ class RuntimeReportService
     }
 
     /**
+     * @param array<string, mixed> $definition
+     * @param array<string, mixed> $report
+     * @param array<string, mixed> $result
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>|null
+     */
+    private function buildAuthenticity(array $definition, array $report, array $result, array $payload): ?array
+    {
+        $config = is_array($report['authenticity'] ?? null) ? $report['authenticity'] : [];
+        if (($config['enabled'] ?? false) !== true) {
+            return null;
+        }
+
+        $algorithm = strtolower(trim((string) ($config['algorithm'] ?? 'sha256')));
+        if ($algorithm !== 'sha256') {
+            $algorithm = 'sha256';
+        }
+
+        $canonical = $this->buildAuthenticityCanonicalPayload($definition, $result, $payload);
+        $encoded = (string) json_encode($canonical, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $hash = $algorithm . ':' . hash($algorithm, $encoded);
+        $verificationPath = trim((string) ($config['verificationPath'] ?? 'report-authenticity.html'));
+        $verificationUrl = $verificationPath !== ''
+            ? $verificationPath . (str_contains($verificationPath, '?') ? '&' : '?') . 'hash=' . rawurlencode($hash)
+            : '';
+
+        return [
+            'enabled' => true,
+            'algorithm' => $algorithm,
+            'hash' => $hash,
+            'shortHash' => substr($hash, 0, 24),
+            'footerLabel' => trim((string) ($config['footerLabel'] ?? 'Codigo de autenticidade')) ?: 'Codigo de autenticidade',
+            'includeInFooter' => ($config['includeInFooter'] ?? true) !== false,
+            'verificationPath' => $verificationPath,
+            'verificationUrl' => $verificationUrl,
+            'recorded' => $this->auditStore instanceof RuntimeAnalyticsAuditStore && $this->auditStore->isEnabled(),
+            'storage' => [
+                'storeCanonicalPayload' => ($config['storage']['storeCanonicalPayload'] ?? true) !== false,
+                'storeExportArtifact' => ($config['storage']['storeExportArtifact'] ?? false) === true,
+            ],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $definition
+     * @param array<string, mixed> $result
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function buildAuthenticityCanonicalPayload(array $definition, array $result, array $payload): array
+    {
+        return $this->canonicalizeAuthenticityPayload([
+            'screenId' => (string) ($definition['screenId'] ?? ''),
+            'reportId' => (string) ($result['reportId'] ?? ''),
+            'title' => (string) ($result['title'] ?? ''),
+            'subtitle' => (string) ($result['subtitle'] ?? ''),
+            'sourceType' => (string) ($result['sourceType'] ?? ''),
+            'parameters' => $payload['parameters'] ?? [],
+            'sort' => $payload['sort'] ?? [],
+            'columns' => $result['columns'] ?? [],
+            'rows' => $result['rows'] ?? [],
+            'groups' => $result['groups'] ?? [],
+            'totals' => $result['totals'] ?? [],
+        ]);
+    }
+
+    private function canonicalizeAuthenticityPayload(mixed $value): mixed
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+
+        if (array_is_list($value)) {
+            return array_map(fn (mixed $item): mixed => $this->canonicalizeAuthenticityPayload($item), $value);
+        }
+
+        ksort($value);
+        foreach ($value as $key => $item) {
+            $value[$key] = $this->canonicalizeAuthenticityPayload($item);
+        }
+
+        return $value;
+    }
+
+    /**
      * @param array<int, array<string, mixed>> $columns
      * @param array<int, array<string, mixed>> $rows
      */
@@ -663,14 +769,16 @@ class RuntimeReportService
     }
 
     /**
-     * @param array<int, array<string, mixed>> $columns
-     * @param array<int, array<string, mixed>> $rows
+     * @param array<string, mixed> $result
      */
-    private function rowsToXlsx(array $columns, array $rows): string
+    private function rowsToXlsx(array $result): string
     {
         if (!class_exists(\ZipArchive::class)) {
             throw new RuntimeHttpException('REPORT_EXPORT_EXCEL_UNAVAILABLE', 'Exportacao Excel indisponivel neste ambiente.', 500);
         }
+        $columns = is_array($result['columns'] ?? null) ? $result['columns'] : [];
+        $rows = is_array($result['rows'] ?? null) ? $result['rows'] : [];
+        $sheetName = (string) ($result['title'] ?? $result['reportId'] ?? 'Relatorio');
 
         $tempFile = tempnam(sys_get_temp_dir(), 'report-xlsx-');
         if ($tempFile === false) {
@@ -686,7 +794,7 @@ class RuntimeReportService
 
         $zip->addFromString('[Content_Types].xml', $this->xlsxContentTypesXml());
         $zip->addFromString('_rels/.rels', $this->xlsxRootRelationshipsXml());
-        $zip->addFromString('xl/workbook.xml', $this->xlsxWorkbookXml('Relatorio'));
+        $zip->addFromString('xl/workbook.xml', $this->xlsxWorkbookXml($sheetName));
         $zip->addFromString('xl/_rels/workbook.xml.rels', $this->xlsxWorkbookRelationshipsXml());
         $zip->addFromString('xl/styles.xml', $this->xlsxStylesXml());
         $zip->addFromString('xl/worksheets/sheet1.xml', $this->xlsxWorksheetXml($columns, $rows));
@@ -803,17 +911,16 @@ XML;
     private function xlsxWorksheetXml(array $columns, array $rows): string
     {
         $totals = $this->summarizeRows($rows, $columns);
+        $headerRowIndex = 1;
+        $lastDataRowIndex = 1 + count($rows) + ($totals ? 1 : 0);
         $lines = [];
         $lines[] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
         $lines[] = '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+        $lines[] = '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>';
         if ($columns) {
             $lines[] = '<cols>';
             foreach ($columns as $columnIndex => $column) {
-                $width = (int) ($column['width'] ?? 0);
-                if ($width <= 0) {
-                    $width = $this->xlsxSuggestedWidth((string) ($column['title'] ?? $column['label'] ?? $column['field'] ?? ''));
-                }
-                $lines[] = '<col min="' . ($columnIndex + 1) . '" max="' . ($columnIndex + 1) . '" width="' . max(12, min(40, $width / 8)) . '" customWidth="1"/>';
+                $lines[] = '<col min="' . ($columnIndex + 1) . '" max="' . ($columnIndex + 1) . '" width="' . $this->xlsxColumnWidth($column, $rows) . '" customWidth="1"/>';
             }
             $lines[] = '</cols>';
         }
@@ -863,9 +970,32 @@ XML;
         }
 
         $lines[] = '</sheetData>';
+        if ($columns) {
+            $lastColumnReference = $this->xlsxCellReference(count($columns) - 1, 1);
+            $lines[] = '<autoFilter ref="A' . $headerRowIndex . ':' . $lastColumnReference . $lastDataRowIndex . '"/>';
+        }
         $lines[] = '</worksheet>';
 
         return implode('', $lines);
+    }
+
+    /**
+     * @param array<string, mixed> $column
+     * @param array<int, array<string, mixed>> $rows
+     */
+    private function xlsxColumnWidth(array $column, array $rows): float
+    {
+        $width = (int) ($column['width'] ?? 0);
+        if ($width > 0) {
+            return max(12, min(48, $width / 8));
+        }
+        $maxLength = strlen((string) ($column['title'] ?? $column['label'] ?? $column['field'] ?? ''));
+        $field = (string) ($column['field'] ?? '');
+        foreach (array_slice($rows, 0, 50) as $row) {
+            $maxLength = max($maxLength, strlen($this->stringifyValue($row[$field] ?? null)));
+        }
+
+        return max(12, min(48, $maxLength + 2));
     }
 
     private function xlsxCellReference(int $columnIndex, int $rowIndex): string
@@ -982,12 +1112,21 @@ XML;
      */
     private function resultToPdf(array $result): string
     {
-        $lines = [];
-        $lines[] = (string) ($result['title'] ?? 'Relatorio');
-        if (trim((string) ($result['subtitle'] ?? '')) !== '') {
-            $lines[] = (string) $result['subtitle'];
+        $columns = is_array($result['columns'] ?? null) ? $result['columns'] : [];
+        $rows = is_array($result['rows'] ?? null) ? $result['rows'] : [];
+        $groups = is_array($result['groups'] ?? null) ? $result['groups'] : [];
+        if (!$groups && $columns && count($rows) <= 18) {
+            return $this->buildVisualTablePdf($result);
         }
-        $lines[] = 'Gerado em: ' . $this->stringifyValue($result['generatedAt'] ?? '');
+
+        $headerLines = [];
+        $headerLines[] = (string) ($result['title'] ?? 'Relatorio');
+        if (trim((string) ($result['subtitle'] ?? '')) !== '') {
+            $headerLines[] = (string) $result['subtitle'];
+        }
+        $headerLines[] = 'Gerado em: ' . $this->stringifyValue($result['generatedAt'] ?? '');
+        $headerLines[] = ' ';
+        $lines = [];
         foreach ((array) ($result['metadata'] ?? []) as $item) {
             if (!is_array($item)) {
                 continue;
@@ -1003,8 +1142,6 @@ XML;
         }
         $lines[] = ' ';
 
-        $columns = is_array($result['columns'] ?? null) ? $result['columns'] : [];
-        $groups = is_array($result['groups'] ?? null) ? $result['groups'] : [];
         if ($groups) {
             $this->appendGroupPdfLines($lines, $groups, $columns, 0);
         } else {
@@ -1020,8 +1157,84 @@ XML;
                 $lines[] = '  ' . $label . ': ' . $this->formatValue($value, $column['format'] ?? null);
             }
         }
+        if (is_array($result['authenticity'] ?? null) && (($result['authenticity']['includeInFooter'] ?? true) !== false)) {
+            $lines[] = ' ';
+            $lines[] = (string) ($result['authenticity']['footerLabel'] ?? 'Codigo de autenticidade') . ': ' . (string) ($result['authenticity']['hash'] ?? '');
+        }
 
-        return $this->textLinesToPdf($lines);
+        return $this->textLinesToPdf($headerLines, $lines);
+    }
+
+    /**
+     * @param array<string, mixed> $result
+     */
+    private function buildVisualTablePdf(array $result): string
+    {
+        $columns = is_array($result['columns'] ?? null) ? $result['columns'] : [];
+        $rows = is_array($result['rows'] ?? null) ? $result['rows'] : [];
+        $summary = is_array($result['summary'] ?? null) ? $result['summary'] : [];
+        $totals = is_array($result['totals'] ?? null) ? $result['totals'] : [];
+        $content = [];
+
+        $content[] = '0.2 w';
+        $content[] = 'BT /F2 16 Tf 40 805 Td (' . $this->escapePdfText((string) ($result['title'] ?? 'Relatorio')) . ') Tj ET';
+        if (trim((string) ($result['subtitle'] ?? '')) !== '') {
+            $content[] = 'BT /F1 10 Tf 40 790 Td (' . $this->escapePdfText((string) $result['subtitle']) . ') Tj ET';
+        }
+        $content[] = '40 780 m 555 780 l S';
+
+        $summaryX = 40;
+        foreach (array_slice($summary, 0, 3) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $content[] = $summaryX . ' 735 150 34 re S';
+            $content[] = 'BT /F1 8 Tf ' . ($summaryX + 8) . ' 756 Td (' . $this->escapePdfText((string) ($item['label'] ?? 'Resumo')) . ') Tj ET';
+            $content[] = 'BT /F2 12 Tf ' . ($summaryX + 8) . ' 742 Td (' . $this->escapePdfText($this->stringifyValue($item['formattedValue'] ?? $item['value'] ?? '')) . ') Tj ET';
+            $summaryX += 165;
+        }
+
+        $tableTop = 700;
+        $tableLeft = 40;
+        $tableWidth = 515;
+        $rowHeight = 20;
+        $columnWidth = $columns ? $tableWidth / count($columns) : $tableWidth;
+        $content[] = $tableLeft . ' ' . ($tableTop - $rowHeight) . ' ' . $tableWidth . ' ' . $rowHeight . ' re S';
+        foreach ($columns as $index => $column) {
+            $x = $tableLeft + ($index * $columnWidth);
+            if ($index > 0) {
+                $content[] = $x . ' ' . ($tableTop - ($rowHeight * (count($rows) + 1 + ($totals ? 1 : 0)))) . ' m ' . $x . ' ' . $tableTop . ' l S';
+            }
+            $content[] = 'BT /F2 9 Tf ' . ($x + 4) . ' ' . ($tableTop - 13) . ' Td (' . $this->escapePdfText((string) ($column['title'] ?? $column['field'] ?? '')) . ') Tj ET';
+        }
+
+        $y = $tableTop - $rowHeight;
+        foreach ($rows as $row) {
+            $content[] = $tableLeft . ' ' . ($y - $rowHeight) . ' ' . $tableWidth . ' ' . $rowHeight . ' re S';
+            foreach ($columns as $index => $column) {
+                $x = $tableLeft + ($index * $columnWidth);
+                $value = $this->formatValue($row[$column['field']] ?? null, $column['format'] ?? null);
+                $content[] = 'BT /F1 8 Tf ' . ($x + 4) . ' ' . ($y - 13) . ' Td (' . $this->escapePdfText($value) . ') Tj ET';
+            }
+            $y -= $rowHeight;
+        }
+
+        if ($totals) {
+            $content[] = $tableLeft . ' ' . ($y - $rowHeight) . ' ' . $tableWidth . ' ' . $rowHeight . ' re S';
+            foreach ($columns as $index => $column) {
+                $x = $tableLeft + ($index * $columnWidth);
+                $field = (string) ($column['field'] ?? '');
+                $value = $index === 0 ? 'Total geral' : (array_key_exists($field, $totals) ? $this->formatValue($totals[$field], $column['format'] ?? null) : '');
+                $content[] = 'BT /F2 8 Tf ' . ($x + 4) . ' ' . ($y - 13) . ' Td (' . $this->escapePdfText($value) . ') Tj ET';
+            }
+        }
+
+        if (is_array($result['authenticity'] ?? null) && (($result['authenticity']['includeInFooter'] ?? true) !== false)) {
+            $content[] = 'BT /F1 6 Tf 40 25 Td (' . $this->escapePdfText((string) ($result['authenticity']['footerLabel'] ?? 'Codigo de autenticidade') . ': ' . (string) ($result['authenticity']['hash'] ?? '')) . ') Tj ET';
+        }
+        $content[] = 'BT /F1 8 Tf 500 25 Td (Pagina 1 de 1) Tj ET';
+
+        return $this->singlePagePdf(implode("\n", $content));
     }
 
     /**
@@ -1083,34 +1296,44 @@ XML;
     /**
      * @param list<string> $lines
      */
-    private function textLinesToPdf(array $lines): string
+    private function textLinesToPdf(array $headerLines, array $bodyLines): string
     {
         $pageContents = [];
         $currentPage = [];
-        $lineCount = 0;
-        foreach ($lines as $line) {
+        $lineCount = count($headerLines);
+        $limitPerPage = 42;
+        foreach ($bodyLines as $line) {
+            if (!$currentPage) {
+                foreach ($headerLines as $headerLine) {
+                    $currentPage[] = $headerLine;
+                }
+            }
             $currentPage[] = $line;
             ++$lineCount;
-            if ($lineCount >= 42) {
+            if ($lineCount >= $limitPerPage) {
                 $pageContents[] = $currentPage;
                 $currentPage = [];
-                $lineCount = 0;
+                $lineCount = count($headerLines);
             }
         }
         if ($currentPage) {
             $pageContents[] = $currentPage;
         }
         if (!$pageContents) {
-            $pageContents[] = ['Relatorio'];
+            $pageContents[] = array_merge($headerLines, ['Relatorio']);
         }
 
         $objects = [];
         $pageObjectIds = [];
         $nextObjectId = 3;
-        foreach ($pageContents as $linesPerPage) {
+        $totalPages = count($pageContents);
+        foreach ($pageContents as $pageIndex => $linesPerPage) {
+            $pageLines = $linesPerPage;
+            $pageLines[] = ' ';
+            $pageLines[] = 'Pagina ' . ($pageIndex + 1) . ' de ' . $totalPages;
             $content = "BT /F1 10 Tf 40 800 Td 14 TL ";
             $first = true;
-            foreach ($linesPerPage as $line) {
+            foreach ($pageLines as $line) {
                 if (!$first) {
                     $content .= "T* ";
                 }
@@ -1148,6 +1371,33 @@ XML;
         return $pdf;
     }
 
+    private function singlePagePdf(string $content): string
+    {
+        $objects = [
+            "1 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n",
+            "2 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj\n",
+            "3 0 obj << /Type /Pages /Kids [4 0 R] /Count 1 >> endobj\n",
+            "4 0 obj << /Type /Page /Parent 3 0 R /MediaBox [0 0 595 842] /Contents 5 0 R /Resources << /Font << /F1 1 0 R /F2 2 0 R >> >> >> endobj\n",
+            "5 0 obj << /Length " . strlen($content) . " >> stream\n" . $content . "\nendstream endobj\n",
+            "6 0 obj << /Type /Catalog /Pages 3 0 R >> endobj\n",
+        ];
+
+        $pdf = "%PDF-1.4\n";
+        $offsets = [0];
+        foreach ($objects as $index => $object) {
+            $offsets[$index + 1] = strlen($pdf);
+            $pdf .= $object;
+        }
+        $xrefOffset = strlen($pdf);
+        $pdf .= "xref\n0 7\n0000000000 65535 f \n";
+        for ($index = 1; $index <= 6; ++$index) {
+            $pdf .= sprintf("%010d 00000 n \n", $offsets[$index] ?? 0);
+        }
+        $pdf .= "trailer << /Size 7 /Root 6 0 R >>\nstartxref\n" . $xrefOffset . "\n%%EOF";
+
+        return $pdf;
+    }
+
     private function escapePdfText(string $value): string
     {
         $normalized = preg_replace('/[^\x20-\x7E]/', '?', $value) ?? '';
@@ -1163,6 +1413,18 @@ XML;
     {
         if (!$this->auditStore instanceof RuntimeAnalyticsAuditStore || !$this->auditStore->isEnabled()) {
             return;
+        }
+
+        $authenticity = is_array($result['authenticity'] ?? null) ? $result['authenticity'] : null;
+        $metadata = [
+            'auditContext' => 'report',
+            'reportId' => $definition['program']['id'] ?? null,
+            'reportTitle' => $definition['program']['title'] ?? null,
+            'sourceType' => $sourceType,
+            'authenticity' => $authenticity,
+        ];
+        if ($authenticity && (($authenticity['storage']['storeCanonicalPayload'] ?? true) !== false)) {
+            $metadata['canonicalPayload'] = $this->buildAuthenticityCanonicalPayload($definition, $result, $payload);
         }
 
         $this->auditStore->record([
@@ -1186,11 +1448,74 @@ XML;
             'requestPayload' => $payload,
             'resultColumns' => $result['columns'] ?? [],
             'resultRows' => $result['rows'] ?? [],
-            'metadata' => [
-                'auditContext' => 'report',
-                'reportId' => $definition['program']['id'] ?? null,
-                'sourceType' => $sourceType,
+            'metadata' => $metadata,
+            'consultedAt' => $result['generatedAt'] ?? (new \DateTimeImmutable())->format(DATE_ATOM),
+        ]);
+    }
+
+    /**
+     * @param array<string, mixed> $definition
+     * @param array<string, mixed> $report
+     * @param array<string, mixed> $result
+     * @param array<string, mixed> $payload
+     * @param array<string, mixed> $exportResponse
+     */
+    private function recordExportArtifactAudit(array $definition, array $report, array $result, array $payload, string $format, array $exportResponse, string $tenantId): void
+    {
+        if (!$this->auditStore instanceof RuntimeAnalyticsAuditStore || !$this->auditStore->isEnabled()) {
+            return;
+        }
+
+        $authenticityConfig = is_array($report['authenticity'] ?? null) ? $report['authenticity'] : [];
+        if (($authenticityConfig['enabled'] ?? false) !== true) {
+            return;
+        }
+        if (($authenticityConfig['storage']['storeExportArtifact'] ?? false) !== true) {
+            return;
+        }
+
+        $authenticity = is_array($result['authenticity'] ?? null) ? $result['authenticity'] : null;
+        $metadata = [
+            'auditContext' => 'report',
+            'reportId' => $definition['program']['id'] ?? null,
+            'reportTitle' => $definition['program']['title'] ?? null,
+            'sourceType' => (string) ($result['sourceType'] ?? ''),
+            'authenticity' => $authenticity,
+            'artifact' => [
+                'stored' => true,
+                'format' => $format,
+                'fileName' => (string) ($exportResponse['fileName'] ?? ''),
+                'contentType' => (string) ($exportResponse['contentType'] ?? ''),
+                'contentBase64' => (string) ($exportResponse['contentBase64'] ?? ''),
             ],
+        ];
+        if ($authenticity && (($authenticity['storage']['storeCanonicalPayload'] ?? true) !== false)) {
+            $metadata['canonicalPayload'] = $this->buildAuthenticityCanonicalPayload($definition, $result, $payload);
+        }
+
+        $this->auditStore->record([
+            'tenantId' => $tenantId,
+            'userId' => $this->permissions->getUserId(),
+            'sessionId' => $this->permissions->getSessionId(),
+            'screenId' => (string) ($definition['screenId'] ?? 'report'),
+            'datasetId' => (string) ($definition['program']['id'] ?? $definition['screenId'] ?? 'report'),
+            'viewId' => $format,
+            'executionMode' => (string) ($result['sourceType'] ?? 'operational'),
+            'resultSource' => 'report_export',
+            'filterFingerprint' => hash('sha256', (string) json_encode([
+                'parameters' => $payload['parameters'] ?? [],
+                'sort' => $payload['sort'] ?? [],
+                'format' => $format,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
+            'rowCount' => (int) ($result['total'] ?? count($result['rows'] ?? [])),
+            'totalCount' => (int) ($result['total'] ?? count($result['rows'] ?? [])),
+            'filters' => $payload['filters'] ?? [],
+            'parameters' => $payload['parameters'] ?? [],
+            'sort' => $payload['sort'] ?? [],
+            'requestPayload' => $payload,
+            'resultColumns' => $result['columns'] ?? [],
+            'resultRows' => $result['rows'] ?? [],
+            'metadata' => $metadata,
             'consultedAt' => $result['generatedAt'] ?? (new \DateTimeImmutable())->format(DATE_ATOM),
         ]);
     }

@@ -868,6 +868,18 @@ Niveis importantes:
 
 Em producao, endpoints de processamento devem usar `endpointId` ou `actionId`, resolvidos pelo gateway runtime.
 
+## Politica de relatorios e documentos
+
+O produto agora separa explicitamente tres trilhas:
+
+- `reports`: consultas formatadas, impressao e exportacao;
+- `special_document`: documentos internos com visual mais fechado;
+- engine externa ou modulo especializado: documentos oficiais, homologados ou de layout rigido.
+
+Na camada `reports`, tambem existe opcionalmente `report.authenticity.enabled`, que grava um hash `sha256` da emissao no banco separado de auditoria e permite conferencia publica posterior por `production/report-authenticity.html`. O contrato ainda aceita `report.authenticity.storage.storeCanonicalPayload` e `storeExportArtifact` para guardar, opcionalmente, o payload canonico da emissao e o artefato exportado no mesmo banco separado.
+
+Referencia funcional: `docs/politica-reports-documentos.md`.
+
 ## Runtime generico de entidade
 
 O backend pode executar CRUD generico com `handler="entity.crud"` em `runtime_endpoint`.

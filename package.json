@@ -30,6 +30,7 @@
     "test:login-demo": "node tests/frontend/login-demo-smoke.mjs",
     "test:analytics-demo": "node tests/frontend/analytics-demo-smoke.mjs",
     "test:reports-demo": "node tests/frontend/reports-demo-smoke.mjs",
+    "test:report-authenticity": "node tests/frontend/report-authenticity-smoke.mjs",
     "test:special-document-demo": "node tests/frontend/special-document-demo-smoke.mjs",
     "test:privacy-request": "node tests/frontend/privacy-request-smoke.mjs",
     "test:context-resume-full": "node tests/frontend/context-resume-full-e2e.mjs"

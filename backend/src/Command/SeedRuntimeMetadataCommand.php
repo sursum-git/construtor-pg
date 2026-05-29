@@ -223,7 +223,7 @@ class SeedRuntimeMetadataCommand extends Command
                     'documentProfile' => 'special',
                     'documentKind' => 'danfe',
                 ],
-                'renderEngine' => 'native_stub',
+                'renderEngine' => 'native',
                 'endpoints' => [
                     'schema' => ['endpointId' => 'specialDocuments.schema', 'method' => 'POST'],
                     'render' => ['endpointId' => 'specialDocuments.render', 'method' => 'POST'],

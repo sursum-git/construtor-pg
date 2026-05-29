@@ -3629,7 +3629,7 @@ class ProgramBuilderService
         return [
             'sourceType' => $sourceType,
             'documentKind' => strtolower(trim((string) ($config['documentKind'] ?? 'fiscal_document'))) ?: 'fiscal_document',
-            'renderEngine' => 'native_stub',
+            'renderEngine' => 'native',
             'analyticsScreenId' => trim((string) ($config['analyticsScreenId'] ?? '')),
             'analyticsDatasetId' => $this->safeCode((string) ($config['analyticsDatasetId'] ?? '')),
             'title' => trim((string) ($config['title'] ?? '')),
@@ -4434,6 +4434,17 @@ class ProgramBuilderService
                         ['id' => 'footer', 'type' => 'footer', 'title' => 'Rodape'],
                     ])),
                 ],
+                'authenticity' => [
+                    'enabled' => ($reportConfig['authenticity']['enabled'] ?? false) === true,
+                    'algorithm' => 'sha256',
+                    'footerLabel' => trim((string) ($reportConfig['authenticity']['footerLabel'] ?? '')) ?: 'Codigo de autenticidade',
+                    'includeInFooter' => true,
+                    'verificationPath' => trim((string) ($reportConfig['authenticity']['verificationPath'] ?? '')) ?: 'report-authenticity.html',
+                    'storage' => [
+                        'storeCanonicalPayload' => ($reportConfig['authenticity']['storage']['storeCanonicalPayload'] ?? true) !== false,
+                        'storeExportArtifact' => ($reportConfig['authenticity']['storage']['storeExportArtifact'] ?? false) === true,
+                    ],
+                ],
                 'outputs' => [
                     'html' => ($reportConfig['outputs']['html'] ?? true) !== false,
                     'print' => ($reportConfig['outputs']['print'] ?? true) !== false,
@@ -4488,7 +4499,7 @@ class ProgramBuilderService
                     'documentProfile' => 'special',
                     'documentKind' => (string) ($special['documentKind'] ?? 'fiscal_document'),
                 ],
-                'renderEngine' => 'native_stub',
+                'renderEngine' => 'native',
                 'endpoints' => $this->specialDocumentApiMap(),
                 'source' => $sourceType === 'analytic'
                     ? [

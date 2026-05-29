@@ -403,6 +403,9 @@
     }
 
     route(method, url, data) {
+      if (url === "/api/public/report-authenticity/verify" && method === "GET") {
+        return this.verifyReportAuthenticity(String(data && data.hash || ""));
+      }
       const screenMatch = String(url || "").match(/^\/api\/runtime\/screens\/([^/?]+)$/);
       if (screenMatch && method === "GET") {
         return this.getRuntimeScreenDefinition(decodeURIComponent(screenMatch[1]));
@@ -635,7 +638,7 @@
       if (normalized === "relatorios.clientes-analitico" || normalized === "relatorios.clientes-analitico.producao") {
         return this.buildReportClientesDefinition(normalized, "analytic");
       }
-      if (normalized === "documentos.especiais-base" || normalized === "documentos.especiais-base.producao") {
+      if (["documentos.especiais-base", "documentos.especiais-base.producao", "documentos.especiais-boleto", "documentos.especiais-etiqueta"].indexOf(normalized) >= 0) {
         return this.buildSpecialDocumentDefinition(normalized);
       }
       if (normalized === "assistente.codificacao.produto-pdm") {
@@ -939,7 +942,7 @@
             documentProfile: "special",
             documentKind: "danfe"
           },
-          renderEngine: "native_stub",
+          renderEngine: "native",
           endpoints: {
             schema: { endpointId: "specialDocuments.schema", method: "POST" },
             render: { endpointId: "specialDocuments.render", method: "POST" },
@@ -949,10 +952,16 @@
             type: "operational",
             entityCode: "cliente"
           },
+          parameters: [
+            { id: "status", field: "status", label: "Status", type: "enum", operator: "eq", options: [{ value: "ATIVO", text: "Ativo" }, { value: "INATIVO", text: "Inativo" }] },
+            { id: "uf", field: "uf", label: "UF", type: "text", operator: "eq" }
+          ],
           layout: {
             title: "Documento especial base",
             subtitle: "Renderer fechado",
-            notes: "Sem layout livre na v1."
+            notes: "Sem layout livre na v1.",
+            issuerName: "Emitente padrao LTDA",
+            issuerDocument: "12.345.678/0001-90"
           },
           outputs: {
             html: true,
@@ -1183,7 +1192,7 @@
       if (normalizedScreenId === "relatorios.clientes-operacional" || normalizedScreenId === "relatorios.clientes-operacional.producao" || normalizedScreenId === "relatorios.clientes-analitico" || normalizedScreenId === "relatorios.clientes-analitico.producao") {
         return this.routeReportClientesEndpoint(normalizedScreenId, endpointId, data || {});
       }
-      if (normalizedScreenId === "documentos.especiais-base" || normalizedScreenId === "documentos.especiais-base.producao") {
+      if (["documentos.especiais-base", "documentos.especiais-base.producao", "documentos.especiais-boleto", "documentos.especiais-etiqueta"].indexOf(normalizedScreenId) >= 0) {
         return this.routeSpecialDocumentEndpoint(normalizedScreenId, endpointId, data || {});
       }
       if (this.isSessionRevoked()) {
@@ -1315,23 +1324,213 @@
         return this.buildSpecialDocumentDefinition(screenId);
       }
       if (endpointId === "specialDocuments.render") {
+        const parameters = data && data.parameters || {};
+        const sourceType = String(data && data.sourceType || "operational").toLowerCase();
+        const documentKind = String(data && data.documentKind || "danfe").toLowerCase();
+        if (sourceType === "analytic") {
+          const analytics = this.runAnalyticsClientes({
+            datasetId: "clientes-uf-status",
+            parameters: parameters
+          });
+          const rows = global.CrudUtils.ensureArray(analytics.data || []);
+          return {
+            ok: true,
+            documentId: "documento-especial-base",
+            documentKind: "fiscal_document",
+            renderEngine: "native",
+            profileType: "danfe",
+            documentModel: {
+              profileType: "danfe",
+              issuer: { name: "Emitente analytics LTDA", document: "12.345.678/0001-90", city: "Fortaleza", state: "CE" },
+              recipient: { name: "Recorte analytics", document: "---", city: "Fortaleza", state: "CE" },
+              invoice: { number: "9001", series: "1", issueDate: new Date().toISOString().slice(0, 10), protocol: "135240000123456", accessKey: "3514 0530 2908 5600 0160 5500 1000 0001 2345 6789 0123" }
+            },
+            sourceType: "analytic",
+            summary: [
+              { label: "Tipo", value: "fiscal_document" },
+              { label: "Fonte", value: "Analytics" },
+              { label: "Linhas", value: rows.length }
+            ],
+            headerFields: [
+              { label: "Documento", value: "Documento especial base" },
+              { label: "Gerado em", value: new Date().toISOString() },
+              { label: "Engine", value: "native" }
+            ],
+            parameterFields: Object.keys(parameters).map(function(key) {
+              return { label: key, value: parameters[key] };
+            }),
+            table: {
+              columns: analytics.columns,
+              rows: rows,
+              rowCount: rows.length
+            },
+            totals: {
+              clientes: rows.reduce(function(sum, item) { return sum + Number(item.clientes || 0); }, 0),
+              valor_total_sum: rows.reduce(function(sum, item) { return sum + Number(item.valor_total_sum || 0); }, 0),
+              qtde_pedidos_sum: rows.reduce(function(sum, item) { return sum + Number(item.qtde_pedidos_sum || 0); }, 0)
+            },
+            message: rows.length
+              ? "Documento especial analitico renderizado com dataset interno do mock."
+              : "Documento especial analitico sem linhas para os parametros informados.",
+            sections: [
+              { title: "Escopo", lines: ["Documento especial separado de reports.", "Fonte interna analytics usada apenas por metadado fechado."] },
+              { title: "Saida", lines: ["HTML controlado com totais agregados.", "PDF controlado com o mesmo recorte."] }
+            ]
+          };
+        }
+        const statusFilter = String(parameters.status || "").trim().toUpperCase();
+        const ufFilter = String(parameters.uf || "").trim().toUpperCase();
+        const rows = global.CrudUtils.clone(this.records || []).filter(function(item) {
+          const matchStatus = !statusFilter || String(item.status || "").toUpperCase() === statusFilter;
+          const matchUf = !ufFilter || String(item.uf || "").toUpperCase() === ufFilter;
+          return matchStatus && matchUf;
+        }).slice(0, 8).map(function(item) {
+          return {
+            nome: item.nome,
+            uf: item.uf,
+            status: item.status,
+            valor_total: Number(item.valor_total || 0),
+            qtde_pedidos: Number(item.qtde_pedidos || 0)
+          };
+        });
+        const totalValor = rows.reduce(function(sum, item) {
+          return sum + Number(item.valor_total || 0);
+        }, 0);
+        const totalPedidos = rows.reduce(function(sum, item) {
+          return sum + Number(item.qtde_pedidos || 0);
+        }, 0);
+        if (documentKind === "boleto") {
+          return {
+            ok: true,
+            documentId: "documento-especial-base",
+            documentKind: "boleto",
+            renderEngine: "native",
+            profileType: "boleto",
+            documentModel: {
+              profileType: "boleto",
+              beneficiary: { name: "Beneficiario padrao LTDA", document: "12.345.678/0001-90" },
+              payer: { name: rows[0] && rows[0].nome || "Pagador", document: "---" },
+              payment: {
+                dueDate: "2026-06-30",
+                documentNumber: "DOC-0001",
+                nossoNumero: "10987654321",
+                amount: totalValor,
+                barcode: "3419 1790 0101 0435 1004 7910 2015 0008 2910 7002 6000"
+              }
+            },
+            sourceType: "operational",
+            summary: [
+              { label: "Tipo", value: "boleto" },
+              { label: "Fonte", value: "Operacional" },
+              { label: "Linhas", value: rows.length }
+            ],
+            headerFields: [
+              { label: "Documento", value: "Documento especial base" },
+              { label: "Gerado em", value: new Date().toISOString() },
+              { label: "Engine", value: "native" }
+            ],
+            parameterFields: Object.keys(parameters).map(function(key) { return { label: key, value: parameters[key] }; }),
+            table: { columns: [{ field: "nome", title: "Nome" }, { field: "valor_total", title: "Valor" }], rows: rows, rowCount: rows.length },
+            totals: { valor_total: totalValor },
+            message: "Boleto controlado renderizado pelo mock local.",
+            sections: [
+              { title: "Escopo", lines: ["Boleto visual fechado.", "Sem template livre."] }
+            ]
+          };
+        }
+        if (documentKind === "label" || documentKind === "etiqueta") {
+          return {
+            ok: true,
+            documentId: "documento-especial-base",
+            documentKind: "label",
+            renderEngine: "native",
+            profileType: "label",
+            documentModel: {
+              profileType: "label",
+              labels: rows.map(function(row, index) {
+                return {
+                  code: "ETQ-" + String(index + 1).padStart(4, "0"),
+                  recipient: row.nome,
+                  line1: row.status,
+                  line2: row.uf,
+                  printedAt: new Date().toISOString().slice(0, 16)
+                };
+              })
+            },
+            sourceType: "operational",
+            summary: [
+              { label: "Tipo", value: "label" },
+              { label: "Fonte", value: "Operacional" },
+              { label: "Linhas", value: rows.length }
+            ],
+            headerFields: [
+              { label: "Documento", value: "Documento especial base" },
+              { label: "Gerado em", value: new Date().toISOString() },
+              { label: "Engine", value: "native" }
+            ],
+            parameterFields: Object.keys(parameters).map(function(key) { return { label: key, value: parameters[key] }; }),
+            table: { columns: [{ field: "nome", title: "Nome" }, { field: "uf", title: "UF" }, { field: "status", title: "Status" }], rows: rows, rowCount: rows.length },
+            totals: {},
+            message: rows.length ? "Etiquetas renderizadas pelo mock local." : "Nenhuma etiqueta para o recorte informado.",
+            sections: [
+              { title: "Escopo", lines: ["Etiquetas em grade.", "Sem coordenadas livres na v1."] }
+            ]
+          };
+        }
         return {
           ok: true,
           documentId: "documento-especial-base",
           documentKind: "danfe",
-          renderEngine: "native_stub",
+          renderEngine: "native",
+          profileType: "danfe",
+          documentModel: {
+            profileType: "danfe",
+            issuer: { name: "Emitente padrao LTDA", document: "12.345.678/0001-90", city: "Fortaleza", state: "CE" },
+            recipient: { name: rows[0] && rows[0].nome || "Destinatario", document: "---", city: rows[0] && rows[0].uf || "CE", state: rows[0] && rows[0].uf || "CE" },
+            invoice: { number: "12345", series: "1", issueDate: new Date().toISOString().slice(0, 10), protocol: "135240000123456", accessKey: "3514 0530 2908 5600 0160 5500 1000 0001 2345 6789 0123" }
+          },
           sourceType: "operational",
-          message: "Contrato pronto para documentos especiais. O renderer final continua separado da camada reports.",
+          summary: [
+            { label: "Tipo", value: "danfe" },
+            { label: "Fonte", value: "Operacional" },
+            { label: "Linhas", value: rows.length }
+          ],
+          headerFields: [
+            { label: "Documento", value: "Documento especial base" },
+            { label: "Gerado em", value: new Date().toISOString() },
+            { label: "Engine", value: "native" }
+          ],
+          parameterFields: Object.keys(parameters).map(function(key) {
+            return { label: key, value: parameters[key] };
+          }),
+          table: {
+            columns: [
+              { field: "nome", title: "Nome" },
+              { field: "uf", title: "UF" },
+              { field: "status", title: "Status" },
+              { field: "valor_total", title: "Valor total", align: "right" },
+              { field: "qtde_pedidos", title: "Pedidos", align: "right" }
+            ],
+            rows: rows,
+            rowCount: rows.length
+          },
+          totals: {
+            valor_total: totalValor,
+            qtde_pedidos: totalPedidos
+          },
+          message: rows.length
+            ? "Documento especial renderizado com base real do mock local."
+            : "Documento especial sem linhas para os parametros informados.",
           sections: [
             { title: "Escopo", lines: ["Layout rigido separado de reports.", "Ponto de extensao futuro para engine dedicada."] },
-            { title: "Saida", lines: ["HTML placeholder controlado.", "PDF placeholder controlado."] }
+            { title: "Saida", lines: ["HTML controlado com dados tabulares.", "PDF controlado com a mesma fonte."] }
           ]
         };
       }
       if (endpointId === "specialDocuments.export") {
         const format = String(data && data.format || "pdf").toLowerCase();
         const content = format === "html"
-          ? "<html><body><h1>Documento especial base</h1><p>Placeholder controlado.</p></body></html>"
+          ? "<html><body><h1>Documento especial base</h1><p>Renderizacao controlada com dados locais.</p><table><tr><th>Nome</th><th>UF</th></tr><tr><td>Acme Comercio</td><td>CE</td></tr></table></body></html>"
           : "%PDF-1.4\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF";
         return {
           ok: true,
@@ -1431,7 +1630,8 @@
           qtde_pedidos: row.qtde_pedidos
         };
       });
-      return {
+      const generatedAt = new Date().toISOString();
+      const result = {
         screenId: "relatorios.clientes-operacional",
         reportId: "relatorio-clientes-operacional",
         title: "Relatorio operacional de clientes",
@@ -1453,12 +1653,13 @@
           { label: "Valor total", formattedValue: kendo.toString(rows.reduce(function(sum, row) { return sum + Number(row.valor_total || 0); }, 0), "c2") }
         ],
         metadata: [
-          { label: "Gerado em", value: new Date().toISOString() },
+          { label: "Gerado em", value: generatedAt },
           { label: "Parametros", value: status || uf ? ("status=" + (status || "todos") + " | uf=" + (uf || "todas")) : "Sem parametros" }
         ],
         total: rows.length,
-        generatedAt: new Date().toISOString()
+        generatedAt: generatedAt
       };
+      return this.decorateReportAuthenticity(result, data);
     }
 
     runAnalyticReport(data) {
@@ -1478,7 +1679,8 @@
         groups[key].totals.valor_total_sum += Number(row.valor_total_sum || 0);
         groups[key].totals.qtde_pedidos_sum += Number(row.qtde_pedidos_sum || 0);
       });
-      return {
+      const generatedAt = new Date().toISOString();
+      const result = {
         screenId: "relatorios.clientes-analitico",
         reportId: "relatorio-clientes-analitico",
         title: "Relatorio analitico por UF",
@@ -1504,12 +1706,13 @@
           { label: "Clientes", value: rows.reduce(function(sum, row) { return sum + Number(row.clientes || 0); }, 0) }
         ],
         metadata: [
-          { label: "Gerado em", value: new Date().toISOString() },
+          { label: "Gerado em", value: generatedAt },
           { label: "Fonte", value: "Analytics" }
         ],
         total: rows.length,
-        generatedAt: new Date().toISOString()
+        generatedAt: generatedAt
       };
+      return this.decorateReportAuthenticity(result, data);
     }
 
     exportReportResult(result, format) {
@@ -1521,7 +1724,8 @@
           format: "pdf",
           fileName: (result.reportId || "relatorio") + ".pdf",
           contentType: "application/pdf",
-          contentBase64: global.btoa("%PDF-1.4\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF")
+          contentBase64: global.btoa("%PDF-1.4\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF"),
+          authenticity: result.authenticity || null
         };
       }
       if (String(format || "").toLowerCase() === "excel") {
@@ -1534,7 +1738,8 @@
           format: "excel",
           fileName: (result.reportId || "relatorio") + ".xlsx",
           contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          contentBase64: global.btoa(unescape(encodeURIComponent(workbook)))
+          contentBase64: global.btoa(unescape(encodeURIComponent(workbook))),
+          authenticity: result.authenticity || null
         };
       }
       const lines = [];
@@ -1552,8 +1757,99 @@
         format: format,
         fileName: (result.reportId || "relatorio") + ".csv",
         contentType: "text/csv; charset=utf-8",
-        contentBase64: global.btoa(unescape(encodeURIComponent(content)))
+        contentBase64: global.btoa(unescape(encodeURIComponent(content))),
+        authenticity: result.authenticity || null
       };
+    }
+
+    decorateReportAuthenticity(result, data) {
+      const payload = global.CrudUtils.clone(result || {});
+      const hash = "sha256:" + this.hashString(JSON.stringify({
+        reportId: payload.reportId,
+        screenId: payload.screenId,
+        rows: payload.rows,
+        columns: payload.columns,
+        totals: payload.totals,
+        parameters: data && data.parameters || {}
+      }));
+      payload.authenticity = {
+        enabled: true,
+        algorithm: "sha256",
+        hash: hash,
+        footerLabel: "Codigo de autenticidade",
+        verificationPath: "report-authenticity.html",
+        verificationUrl: "report-authenticity.html?hash=" + encodeURIComponent(hash),
+        recorded: true,
+        storage: {
+          storeCanonicalPayload: true,
+          storeExportArtifact: String(payload.reportId || "").indexOf("operacional") >= 0
+        }
+      };
+      payload.metadata = global.CrudUtils.ensureArray(payload.metadata || []);
+      payload.metadata.push({ label: "Codigo de autenticidade", value: hash });
+      return payload;
+    }
+
+    verifyReportAuthenticity(hash) {
+      const normalized = String(hash || "").trim().toLowerCase();
+      if (!normalized) {
+        throw global.CrudUtils.makeError("REPORT_AUTHENTICITY_HASH_REQUIRED", "Informe o hash de autenticidade.");
+      }
+      const operational = this.runOperationalReport({ parameters: {} });
+      const analytic = this.runAnalyticReport({ parameters: {} });
+      const match = [operational, analytic].find(function(item) {
+        return item && item.authenticity && String(item.authenticity.hash || "").toLowerCase() === normalized;
+      });
+      if (!match) {
+        return {
+          enabled: true,
+          found: false,
+          hash: normalized,
+          message: "Nenhum relatorio autenticado foi encontrado para este hash."
+        };
+      }
+      return {
+        enabled: true,
+        found: true,
+        hash: normalized,
+        message: "Relatorio localizado na trilha demonstrativa.",
+        report: {
+          screenId: match.screenId,
+          reportId: match.reportId,
+          title: match.title,
+          sourceType: match.sourceType,
+          format: "html",
+          rowCount: Number(match.total || (match.rows || []).length || 0),
+          totalCount: Number(match.total || (match.rows || []).length || 0),
+          generatedAt: match.generatedAt,
+          tenantId: this.tenantId
+        },
+        authenticity: {
+          algorithm: "sha256",
+          hash: normalized,
+          recorded: true,
+          footerLabel: "Codigo de autenticidade",
+          verificationPath: "report-authenticity.html",
+          storage: match.authenticity && match.authenticity.storage || {}
+        },
+        artifact: {
+          stored: !!(match.authenticity && match.authenticity.storage && match.authenticity.storage.storeExportArtifact),
+          format: match && match.authenticity && match.authenticity.storage && match.authenticity.storage.storeExportArtifact ? "pdf" : "",
+          fileName: match && match.authenticity && match.authenticity.storage && match.authenticity.storage.storeExportArtifact ? (match.reportId + ".pdf") : "",
+          contentType: match && match.authenticity && match.authenticity.storage && match.authenticity.storage.storeExportArtifact ? "application/pdf" : ""
+        }
+      };
+    }
+
+    hashString(value) {
+      let hash = 0;
+      const text = String(value || "");
+      for (let index = 0; index < text.length; index += 1) {
+        hash = ((hash << 5) - hash) + text.charCodeAt(index);
+        hash |= 0;
+      }
+      const normalized = Math.abs(hash).toString(16).padStart(8, "0");
+      return (normalized + normalized + normalized + normalized + normalized + normalized + normalized + normalized).slice(0, 64);
     }
 
     routeRuntimeJobsEndpoint(screenId, endpointId, data) {

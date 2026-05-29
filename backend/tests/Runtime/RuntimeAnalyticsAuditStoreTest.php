@@ -74,5 +74,32 @@ class RuntimeAnalyticsAuditStoreTest extends TestCase
 
         $reportOptions = $store->collectFilterOptions(40, 'report');
         self::assertContains('relatorios.clientes-operacional', $reportOptions['screenIds']);
+
+        $byHash = $store->findLatestByMetadataValue('report', ['authenticity', 'hash'], 'sha256:demo-report-hash');
+        self::assertNull($byHash);
+
+        $store->record([
+            'tenantId' => 'tenant-a',
+            'userId' => 'admin',
+            'sessionId' => 'sess-4',
+            'screenId' => 'relatorios.clientes-operacional',
+            'datasetId' => 'relatorio-clientes-operacional',
+            'viewId' => 'pdf',
+            'executionMode' => 'operational',
+            'resultSource' => 'report_run',
+            'rowCount' => 2,
+            'totalCount' => 2,
+            'metadata' => [
+                'auditContext' => 'report',
+                'reportId' => 'relatorio-clientes-operacional',
+                'authenticity' => [
+                    'hash' => 'sha256:demo-report-hash',
+                ],
+            ],
+            'consultedAt' => '2026-05-29 06:00:00',
+        ]);
+        $byHash = $store->findLatestByMetadataValue('report', ['authenticity', 'hash'], 'sha256:demo-report-hash');
+        self::assertNotNull($byHash);
+        self::assertSame('pdf', $byHash['viewId']);
     }
 }

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Conferencia de autenticidade</title>
+  <link rel="stylesheet" href="../../kendo/styles/default-urban.css">
+  <link rel="stylesheet" href="../../src/styles/crud-engine.css">
+  <link rel="stylesheet" href="../../src/styles/report-engine.css">
+  <link rel="stylesheet" href="../../src/styles/report-authenticity.css">
+</head>
+<body>
+  <main id="report-authenticity-root"></main>
+
+  <script src="../../vendor/jquery/jquery-4.0.0.min.js"></script>
+  <script src="../../kendo/js/kendo.all.min.js"></script>
+  <script src="../../kendo/kendo-license.js"></script>
+  <script src="../../kendo/js/cultures/kendo.culture.pt-BR.min.js"></script>
+  <script src="../../kendo/js/messages/kendo.messages.pt-BR.min.js"></script>
+  <script src="../../src/bootstrap/kendo-ptbr.js"></script>
+  <script src="../../src/crud-engine/CrudUtils.js"></script>
+  <script src="../../src/demo/demo-embedded-data.js"></script>
+  <script src="../../src/demo/report-embedded-data.js"></script>
+  <script src="../../src/demo/DemoMockHttpClient.js"></script>
+  <script src="../../src/report-authenticity/report-authenticity-page.js"></script>
+  <script>
+    window.__REPORT_AUTHENTICITY_AUTO_INIT__ = false;
+    document.addEventListener("DOMContentLoaded", function() {
+      const app = new window.ReportAuthenticityPage({
+        root: "#report-authenticity-root",
+        httpClient: new window.DemoMockHttpClient()
+      });
+      app.init();
+      window.reportAuthenticityDemoApp = app;
+    });
+  </script>
+</body>
+</html>

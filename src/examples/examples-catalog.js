@@ -247,6 +247,13 @@
       }
     },
     {
+      id: "report-authenticity",
+      category: "Relatorios",
+      title: "Conferencia de autenticidade",
+      summary: "Pagina publica para conferir o hash gravado opcionalmente nas emissoes de relatorios.",
+      page: pagePath + "report-authenticity.html"
+    },
+    {
       id: "special-document-base",
       engine: "special-document",
       category: "Documentos especiais",
@@ -264,13 +271,139 @@
             documentProfile: "special",
             documentKind: "danfe"
           },
-          renderEngine: "native_stub",
+          renderEngine: "native",
+          source: {
+            type: "operational",
+            entityCode: "cliente"
+          },
+          parameters: [
+            {
+              id: "status",
+              field: "status",
+              label: "Status",
+              type: "enum",
+              operator: "eq",
+              options: [
+                { value: "ATIVO", text: "Ativo" },
+                { value: "INATIVO", text: "Inativo" }
+              ]
+            },
+            {
+              id: "uf",
+              field: "uf",
+              label: "UF",
+              type: "text",
+              operator: "eq"
+            }
+          ],
+          layout: {
+            title: "Documento especial base",
+            subtitle: "Trilha separada para documentos rigidos",
+            notes: "Use esta trilha para contratos fechados e fontes controladas. DANFE real continua fora desta etapa."
+          },
           outputs: {
             html: true,
             pdf: true
           }
         }
       }
+    },
+    {
+      id: "special-document-boleto",
+      engine: "special-document",
+      category: "Documentos especiais",
+      title: "Documento especial boleto",
+      summary: "Exemplo visual fechado de boleto na trilha special_document, sem template livre.",
+      code: {
+        pageType: "special_document",
+        screenId: "documentos.especiais-boleto",
+        program: {
+          title: "Documento especial boleto",
+          subtitle: "Renderer fechado para boleto"
+        },
+        specialDocument: {
+          classification: {
+            documentProfile: "special",
+            documentKind: "boleto"
+          },
+          renderEngine: "native",
+          source: {
+            type: "operational",
+            entityCode: "cliente"
+          },
+          parameters: [
+            {
+              id: "status",
+              field: "status",
+              label: "Status",
+              type: "enum",
+              operator: "eq",
+              options: [
+                { value: "ATIVO", text: "Ativo" },
+                { value: "INATIVO", text: "Inativo" }
+              ]
+            }
+          ],
+          layout: {
+            title: "Documento especial boleto",
+            subtitle: "Trilha separada para documento financeiro",
+            beneficiaryName: "Beneficiario padrao LTDA",
+            beneficiaryDocument: "12.345.678/0001-90",
+            dueDate: "2026-06-30",
+            barcodeText: "3419 1790 0101 0435 1004 7910 2015 0008 2910 7002 6000"
+          },
+          outputs: {
+            html: true,
+            pdf: true
+          }
+        }
+      },
+      page: pagePath + "special-document-boleto.html"
+    },
+    {
+      id: "special-document-label",
+      engine: "special-document",
+      category: "Documentos especiais",
+      title: "Documento especial etiqueta",
+      summary: "Exemplo visual fechado de etiquetas na trilha special_document.",
+      code: {
+        pageType: "special_document",
+        screenId: "documentos.especiais-etiqueta",
+        program: {
+          title: "Documento especial etiqueta",
+          subtitle: "Renderer fechado para etiquetas"
+        },
+        specialDocument: {
+          classification: {
+            documentProfile: "special",
+            documentKind: "label"
+          },
+          renderEngine: "native",
+          source: {
+            type: "operational",
+            entityCode: "cliente"
+          },
+          parameters: [
+            {
+              id: "uf",
+              field: "uf",
+              label: "UF",
+              type: "text",
+              operator: "eq"
+            }
+          ],
+          layout: {
+            title: "Documento especial etiqueta",
+            subtitle: "Trilha separada para etiquetas e formulários rígidos",
+            notes: "Exemplo de grade fechada para impressão."
+          },
+          outputs: {
+            html: true,
+            pdf: true
+          }
+        }
+      },
+      page: pagePath + "special-document-label.html"
     },
     {
       id: "processamento-parametros",
@@ -2124,7 +2257,7 @@
 
   function buildReportDefinition(id) {
     const example = get(id);
-    const source = id === "special-document-base"
+    const source = String(id || "").indexOf("special-document-") === 0
       ? {
         schemaVersion: "1.0",
         pageType: "special_document",
@@ -2149,7 +2282,7 @@
             documentProfile: "special",
             documentKind: "danfe"
           },
-          renderEngine: "native_stub",
+          renderEngine: "native",
           endpoints: {
             schema: { endpointId: "specialDocuments.schema", method: "POST" },
             render: { endpointId: "specialDocuments.render", method: "POST" },
@@ -2159,6 +2292,26 @@
             type: "operational",
             entityCode: "cliente"
           },
+          parameters: [
+            {
+              id: "status",
+              field: "status",
+              label: "Status",
+              type: "enum",
+              operator: "eq",
+              options: [
+                { value: "ATIVO", text: "Ativo" },
+                { value: "INATIVO", text: "Inativo" }
+              ]
+            },
+            {
+              id: "uf",
+              field: "uf",
+              label: "UF",
+              type: "text",
+              operator: "eq"
+            }
+          ],
           layout: {
             title: "Documento especial base",
             subtitle: "Trilha separada para layouts rigidos",

@@ -58,6 +58,16 @@
             { "id": "footer", "type": "footer" }
           ]
         },
+        "authenticity": {
+          "enabled": true,
+          "algorithm": "sha256",
+          "footerLabel": "Codigo de autenticidade",
+          "verificationPath": "report-authenticity.html",
+          "storage": {
+            "storeCanonicalPayload": true,
+            "storeExportArtifact": true
+          }
+        },
         "outputs": { "html": true, "print": true, "pdfBrowser": true, "excel": true, "csv": true }
       }
     },
@@ -110,6 +120,16 @@
             { "id": "totals", "type": "totals" },
             { "id": "footer", "type": "footer" }
           ]
+        },
+        "authenticity": {
+          "enabled": true,
+          "algorithm": "sha256",
+          "footerLabel": "Codigo de autenticidade",
+          "verificationPath": "report-authenticity.html",
+          "storage": {
+            "storeCanonicalPayload": true,
+            "storeExportArtifact": false
+          }
         },
         "outputs": { "html": true, "print": true, "pdfBrowser": true, "excel": true, "csv": true }
       }

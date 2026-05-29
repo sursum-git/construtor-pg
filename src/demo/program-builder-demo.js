@@ -353,6 +353,15 @@
       sortField: "",
       sortDir: "asc",
       limit: 200,
+      authenticity: {
+        enabled: false,
+        footerLabel: "Codigo de autenticidade",
+        verificationPath: "report-authenticity.html",
+        storage: {
+          storeCanonicalPayload: true,
+          storeExportArtifact: false
+        }
+      },
       outputs: {
         html: true,
         print: true,
@@ -447,6 +456,7 @@
             { id: "footer", type: "footer" }
           ].filter(Boolean)
         },
+        authenticity: reportConfig.authenticity || {},
         outputs: reportConfig.outputs || {}
       }
     };
@@ -491,7 +501,7 @@
           documentProfile: "special",
           documentKind: config.documentKind || "danfe"
         },
-        renderEngine: "native_stub",
+        renderEngine: "native",
         endpoints: {
           schema: { endpointId: "specialDocuments.schema" },
           render: { endpointId: "specialDocuments.render" },
@@ -505,6 +515,10 @@
           type: "operational",
           entityCode: String(data && data.builderEntityCode || "cliente")
         },
+        parameters: [
+          { id: "status", field: "status", label: "Status", type: "enum", operator: "eq", options: [{ value: "ATIVO", text: "Ativo" }, { value: "INATIVO", text: "Inativo" }] },
+          { id: "uf", field: "uf", label: "UF", type: "text", operator: "eq" }
+        ],
         layout: {
           title: config.title || String(data && data.programTitle || "Documento especial"),
           subtitle: config.subtitle || "Preview local de documento especial",

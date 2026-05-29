@@ -201,6 +201,25 @@
           },
           "additionalProperties": false
         },
+        "authenticity": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "algorithm": { "type": "string", "enum": ["sha256"] },
+            "footerLabel": { "type": "string" },
+            "includeInFooter": { "type": "boolean" },
+            "verificationPath": { "type": "string" },
+            "storage": {
+              "type": "object",
+              "properties": {
+                "storeCanonicalPayload": { "type": "boolean" },
+                "storeExportArtifact": { "type": "boolean" }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
         "outputs": {
           "type": "object",
           "properties": {
