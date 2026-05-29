@@ -38,11 +38,23 @@
       analyticsValidator: {
         signature: "",
         datasetId: "",
+        pipelineId: "",
+        rollbackVersionNo: "",
         parameterValues: {},
         sampleResult: null,
         sampleError: "",
         cacheStatus: null,
-        cacheError: ""
+        cacheError: "",
+        pipelinePreview: null,
+        pipelinePreviewError: "",
+        pipelineRun: null,
+        pipelineRunError: "",
+        pipelineStatus: null,
+        pipelineStatusError: "",
+        pipelineVersions: null,
+        pipelineVersionsError: "",
+        pipelineLogs: null,
+        pipelineLogsError: ""
       },
       navigatorSelection: null,
       propertySelection: null,
@@ -3379,6 +3391,18 @@
     this.analyticsProgramHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(analyticsForm);
     this.analyticsProgramHint.text("Os joins usam metadados fechados do builder. Prefira relacionamentos FK ja cadastrados na modelagem.");
 
+    const pipelinesHeader = $("<div class=\"program-builder-fields-header\"></div>").appendTo(analyticsForm);
+    $("<span></span>").text("Semantic pipelines").appendTo(pipelinesHeader);
+    $("<button type=\"button\"></button>").text("Adicionar pipeline").appendTo(pipelinesHeader).kendoButton({
+      icon: "plus",
+      click: this.handleAddAnalyticsPipelineRow.bind(this)
+    });
+    this.analyticsPipelineTable = $("<table class=\"program-builder-fields-table program-builder-analytics-pipelines-table\"></table>").appendTo(analyticsForm);
+    $("<thead><tr><th>ID</th><th>Titulo</th><th>Fonte</th><th>Referencia</th><th>Dataset publicado</th><th>Agenda</th><th>Retencao</th><th></th></tr></thead>").appendTo(this.analyticsPipelineTable);
+    this.analyticsPipelineTableBody = $("<tbody></tbody>").appendTo(this.analyticsPipelineTable);
+    this.analyticsPipelineHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(analyticsForm);
+    this.analyticsPipelineHint.text("Working dataset serve para preview. O runtime e reports consomem sempre a versao ativa do published dataset.");
+
     this.reportProgramPanel = $("<section class=\"program-builder-subpanel\"></section>").appendTo(form);
     $("<div class=\"program-builder-versions-header\"><h3>Configuracao do relatorio</h3><p>Relatorios v1 usam layout controlado. DANFE, boleto, etiquetas e formularios rigidos ficam fora desta camada.</p></div>").appendTo(this.reportProgramPanel);
     const reportForm = $("<div class=\"program-builder-form\"></div>").appendTo(this.reportProgramPanel);
@@ -3629,7 +3653,9 @@
         kpi: false,
         dashboard: true
       },
-      joins: []
+      joins: [],
+      semanticPipelines: [],
+      ingestionPipelines: []
     };
   };
 
@@ -4110,6 +4136,354 @@
     }).get().filter(Boolean);
   };
 
+  ProgramBuilder.prototype.analyticsPipelineStepDefaultId = function(pipelineRow) {
+    const rows = $(pipelineRow).data("stepRows") || [];
+    return "step" + (rows.length + 1);
+  };
+
+  ProgramBuilder.prototype.handleAddAnalyticsPipelineRow = function() {
+    this.addAnalyticsPipelineRow({
+      id: "pipeline" + ((this.analyticsPipelineTableBody && this.analyticsPipelineTableBody.children("tr").filter(function() { return !$(this).hasClass("program-builder-analytics-pipeline-steps-row"); }).length || 0) + 1),
+      title: "Pipeline " + ((this.analyticsPipelineTableBody && this.analyticsPipelineTableBody.children("tr").filter(function() { return !$(this).hasClass("program-builder-analytics-pipeline-steps-row"); }).length || 0) + 1),
+      sourceMode: "entity",
+      sourceRef: String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : ""),
+      publishedDatasetId: "principal_published",
+      schedule: "manual",
+      retentionDays: 30,
+      enabled: true
+    });
+  };
+
+  ProgramBuilder.prototype.addAnalyticsPipelineRow = function(config) {
+    if (!this.analyticsPipelineTableBody) {
+      return;
+    }
+    const item = config || {};
+    const row = $("<tr></tr>").appendTo(this.analyticsPipelineTableBody);
+    const sourceOptions = this.state.entities.filter(function(entity) {
+      return entity && entity.entityType === "persistence";
+    });
+    $("<td><input type=\"text\" class=\"program-builder-mini-input program-builder-analytics-pipeline-id\"></td>").appendTo(row).find("input").val(item.id || "");
+    $("<td><input type=\"text\" class=\"program-builder-mini-input program-builder-analytics-pipeline-title\"></td>").appendTo(row).find("input").val(item.title || "");
+    const sourceModeCell = $("<td></td>").appendTo(row);
+    const sourceModeSelect = $("<select class=\"program-builder-mini-select program-builder-analytics-pipeline-source-mode\"></select>").appendTo(sourceModeCell);
+    [{ value: "entity", text: "Entidade" }, { value: "dataset", text: "Dataset" }, { value: "pipeline", text: "Pipeline" }].forEach(function(option) {
+      $("<option></option>").attr("value", option.value).text(option.text).appendTo(sourceModeSelect);
+    });
+    const sourceRefCell = $("<td></td>").appendTo(row);
+    const sourceRefInput = $("<input type=\"text\" class=\"program-builder-mini-input program-builder-analytics-pipeline-source-ref\">").appendTo(sourceRefCell);
+    $("<td><input type=\"text\" class=\"program-builder-mini-input program-builder-analytics-pipeline-published-dataset\"></td>").appendTo(row).find("input").val(item.publishedDatasetId || "");
+    $("<td><input type=\"text\" class=\"program-builder-mini-input program-builder-analytics-pipeline-schedule\"></td>").appendTo(row).find("input").val(item.schedule || "manual");
+    $("<td><input type=\"number\" min=\"1\" class=\"program-builder-mini-input program-builder-analytics-pipeline-retention\"></td>").appendTo(row).find("input").val(item.retentionDays || 30);
+    const actionCell = $("<td class=\"program-builder-check-cell\"></td>").appendTo(row);
+    const enabledInput = $("<input type=\"checkbox\" class=\"program-builder-analytics-pipeline-enabled\">").appendTo($("<label></label>").appendTo(actionCell));
+    enabledInput.prop("checked", item.enabled !== false).kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    $("<span></span>").text("Ativo").appendTo(enabledInput.parent());
+    $("<button type=\"button\" class=\"program-builder-remove-row\">Remover</button>").appendTo(actionCell).kendoButton({
+      icon: "trash",
+      click: function() {
+        row.next(".program-builder-analytics-pipeline-steps-row").remove();
+        row.remove();
+        this.schedulePreview();
+      }.bind(this)
+    });
+
+    const detailsRow = $("<tr class=\"program-builder-analytics-pipeline-steps-row\"><td colspan=\"8\"></td></tr>").appendTo(this.analyticsPipelineTableBody);
+    const detailsCell = detailsRow.find("td");
+    const detailsHost = $("<div class=\"program-builder-analytics-pipeline-steps\"></div>").appendTo(detailsCell);
+    const detailsHeader = $("<div class=\"program-builder-fields-header\"></div>").appendTo(detailsHost);
+    $("<span></span>").text("Etapas").appendTo(detailsHeader);
+    $("<button type=\"button\"></button>").text("Adicionar etapa").appendTo(detailsHeader).kendoButton({
+      icon: "plus",
+      click: function() {
+        this.addAnalyticsPipelineStepRow(row, {
+          id: this.analyticsPipelineStepDefaultId(row),
+          type: "group"
+        });
+      }.bind(this)
+    });
+    const stepsTable = $("<table class=\"program-builder-fields-table program-builder-analytics-pipeline-steps-table\"></table>").appendTo(detailsHost);
+    $("<thead><tr><th>ID</th><th>Tipo</th><th>Campo A</th><th>Campo B</th><th>Campo C</th><th>Config</th><th></th></tr></thead>").appendTo(stepsTable);
+    const stepsBody = $("<tbody></tbody>").appendTo(stepsTable);
+    $(row).data("stepsBody", stepsBody);
+    $(row).data("stepRows", []);
+
+    sourceOptions.forEach(function(entity) {
+      if (entity && entity.code) {
+        $("<option></option>").attr("value", entity.code).text(entity.code + " - " + entity.name).appendTo($("<select></select>"));
+      }
+    });
+    sourceModeSelect.val(item.sourceMode || "entity");
+    sourceRefInput.val(item.sourceRef || "");
+    row.find("input, select").on("input change", this.schedulePreview.bind(this));
+    sourceModeSelect.on("change", this.schedulePreview.bind(this));
+
+    (Array.isArray(item.steps) ? item.steps : []).forEach(function(step) {
+      this.addAnalyticsPipelineStepRow(row, step);
+    }, this);
+    if (!Array.isArray(item.steps) || !item.steps.length) {
+      this.addAnalyticsPipelineStepRow(row, {
+        id: "group1",
+        type: "group",
+        fieldA: "uf,status",
+        configText: "id:count:clientes:Clientes;valor_total:sum:valor_total_sum:Valor total:c2;qtde_pedidos:sum:qtde_pedidos_sum:Pedidos:n0"
+      });
+      this.addAnalyticsPipelineStepRow(row, {
+        id: "publish1",
+        type: "publish",
+        fieldA: item.title || "Dataset publicado"
+      });
+    }
+  };
+
+  ProgramBuilder.prototype.moveAnalyticsPipelineStepRow = function(pipelineRow, index, direction) {
+    const rows = $(pipelineRow).data("stepRows") || [];
+    const target = index + direction;
+    if (index < 0 || target < 0 || index >= rows.length || target >= rows.length) {
+      return;
+    }
+    const current = rows[index];
+    const other = rows[target];
+    if (direction < 0) {
+      current.element.insertBefore(other.element);
+    } else {
+      current.element.insertAfter(other.element);
+    }
+    rows.splice(index, 1);
+    rows.splice(target, 0, current);
+    $(pipelineRow).data("stepRows", rows);
+    this.schedulePreview();
+  };
+
+  ProgramBuilder.prototype.addAnalyticsPipelineStepRow = function(pipelineRow, config) {
+    const stepsBody = $(pipelineRow).data("stepsBody");
+    if (!stepsBody || !stepsBody.length) {
+      return;
+    }
+    const item = config || {};
+    const row = $("<tr></tr>").appendTo(stepsBody);
+    const step = { element: row };
+    step.idInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").val(item.id || "").appendTo($("<td></td>").appendTo(row));
+    step.typeSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo($("<td></td>").appendTo(row));
+    ["source", "select", "filter", "join", "derive", "group", "sort", "limit", "publish"].forEach(function(type) {
+      $("<option></option>").attr("value", type).text(type).appendTo(step.typeSelect);
+    });
+    step.typeSelect.val(item.type || "group");
+    step.fieldAInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").val(item.fieldA || "").appendTo($("<td></td>").appendTo(row));
+    step.fieldBInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").val(item.fieldB || "").appendTo($("<td></td>").appendTo(row));
+    step.fieldCInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").val(item.fieldC || "").appendTo($("<td></td>").appendTo(row));
+    step.configInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").val(item.configText || "").appendTo($("<td></td>").appendTo(row));
+    const actionCell = $("<td class=\"program-builder-check-cell\"></td>").appendTo(row);
+    step.upButton = $("<button type=\"button\" class=\"program-builder-link-button\">Subir</button>").appendTo(actionCell);
+    step.downButton = $("<button type=\"button\" class=\"program-builder-link-button\">Descer</button>").appendTo(actionCell);
+    step.removeButton = $("<button type=\"button\" class=\"program-builder-link-button\">Remover</button>").appendTo(actionCell);
+    [step.idInput, step.typeSelect, step.fieldAInput, step.fieldBInput, step.fieldCInput, step.configInput].forEach(function(input) {
+      input.on("input change", this.schedulePreview.bind(this));
+    }, this);
+    step.upButton.on("click", function() {
+      const rows = $(pipelineRow).data("stepRows") || [];
+      this.moveAnalyticsPipelineStepRow(pipelineRow, rows.indexOf(step), -1);
+    }.bind(this));
+    step.downButton.on("click", function() {
+      const rows = $(pipelineRow).data("stepRows") || [];
+      this.moveAnalyticsPipelineStepRow(pipelineRow, rows.indexOf(step), 1);
+    }.bind(this));
+    step.removeButton.on("click", function() {
+      const rows = ($(pipelineRow).data("stepRows") || []).filter(function(current) {
+        return current !== step;
+      });
+      $(pipelineRow).data("stepRows", rows);
+      row.remove();
+      this.schedulePreview();
+    }.bind(this));
+    const rows = $(pipelineRow).data("stepRows") || [];
+    rows.push(step);
+    $(pipelineRow).data("stepRows", rows);
+  };
+
+  ProgramBuilder.prototype.analyticsParseStepPairs = function(value) {
+    return String(value || "").split(/[;,]/).map(function(item) {
+      return String(item || "").trim();
+    }).filter(Boolean);
+  };
+
+  ProgramBuilder.prototype.collectAnalyticsPipelineStepRows = function(pipelineRow) {
+    const rows = $(pipelineRow).data("stepRows") || [];
+    return rows.map(function(step) {
+      const id = String(step.idInput.val() || "").trim();
+      const type = String(step.typeSelect.val() || "").trim();
+      const fieldA = String(step.fieldAInput.val() || "").trim();
+      const fieldB = String(step.fieldBInput.val() || "").trim();
+      const fieldC = String(step.fieldCInput.val() || "").trim();
+      const configText = String(step.configInput.val() || "").trim();
+      if (!id || !type) {
+        return null;
+      }
+      if (type === "group") {
+        return {
+          id: id,
+          type: "group",
+          dimensions: this.analyticsParseStepPairs(fieldA),
+          measures: this.analyticsParseStepPairs(configText).map(function(item) {
+            const parts = item.split(":");
+            return {
+              field: String(parts[0] || "").trim(),
+              aggregate: String(parts[1] || "count").trim(),
+              id: String(parts[2] || parts[0] || "").trim(),
+              label: String(parts[3] || parts[2] || parts[0] || "").trim(),
+              format: String(parts[4] || "").trim() || null
+            };
+          }).filter(function(measure) { return !!measure.field; })
+        };
+      }
+      if (type === "sort") {
+        return {
+          id: id,
+          type: "sort",
+          sort: this.analyticsParseStepPairs(configText || (fieldA + ":" + (fieldB || "asc"))).map(function(item) {
+            const parts = item.split(":");
+            return {
+              field: String(parts[0] || "").trim(),
+              dir: String(parts[1] || "asc").trim() || "asc"
+            };
+          }).filter(function(sort) { return !!sort.field; })
+        };
+      }
+      if (type === "limit") {
+        return { id: id, type: "limit", take: Math.max(1, Number(fieldA || fieldB || 1000) || 1000) };
+      }
+      if (type === "publish") {
+        return { id: id, type: "publish", title: fieldA || null };
+      }
+      if (type === "filter") {
+        return {
+          id: id,
+          type: "filter",
+          filters: this.analyticsParseStepPairs(configText).map(function(item) {
+            const parts = item.split(":");
+            return { field: String(parts[0] || "").trim(), operator: String(parts[1] || "eq").trim(), value: String(parts.slice(2).join(":") || "").trim() };
+          }).filter(function(filter) { return !!filter.field; })
+        };
+      }
+      if (type === "select") {
+        return {
+          id: id,
+          type: "select",
+          fields: this.analyticsParseStepPairs(configText).map(function(item) {
+            const parts = item.split(":");
+            return {
+              from: String(parts[0] || "").trim(),
+              as: String(parts[1] || parts[0] || "").trim(),
+              label: String(parts[2] || parts[1] || parts[0] || "").trim(),
+              role: String(parts[3] || "field").trim(),
+              type: String(parts[4] || "").trim() || null,
+              format: String(parts[5] || "").trim() || null
+            };
+          }).filter(function(field) { return !!field.from; })
+        };
+      }
+      if (type === "join") {
+        const joinParts = configText.split("|");
+        const join = {
+          id: id,
+          type: "join",
+          localField: fieldA,
+          foreignField: String(joinParts[0] || fieldC || "").trim(),
+          fields: this.analyticsParseStepPairs(joinParts[1] || "").map(function(item) {
+            const parts = item.split(":");
+            return {
+              from: String(parts[0] || "").trim(),
+              as: String(parts[1] || parts[0] || "").trim(),
+              label: String(parts[2] || parts[1] || parts[0] || "").trim()
+            };
+          }).filter(function(field) { return !!field.from; })
+        };
+        if (fieldB === "dataset") {
+          join.datasetId = fieldC;
+        } else {
+          join.entityCode = fieldC;
+        }
+        return join;
+      }
+      if (type === "derive") {
+        const derive = {
+          id: id,
+          type: "derive",
+          operation: fieldA || "concat",
+          targetField: fieldB || "",
+          sourceField: fieldC || ""
+        };
+        if (derive.operation === "concat" || derive.operation === "coalesce") {
+          derive.fields = this.analyticsParseStepPairs(configText);
+        } else if (derive.operation === "bucket_number") {
+          derive.ranges = this.analyticsParseStepPairs(configText).map(function(item) {
+            const parts = item.split(":");
+            return { from: Number(parts[0] || 0), to: Number(parts[1] || 0), label: String(parts[2] || "").trim() };
+          }).filter(function(range) { return !!range.label; });
+        } else if (derive.operation === "map_value") {
+          derive.cases = this.analyticsParseStepPairs(configText).map(function(item) {
+            const parts = item.split(":");
+            return { value: String(parts[0] || "").trim(), label: String(parts[1] || "").trim() };
+          }).filter(function(item) { return !!item.value; });
+        }
+        return derive;
+      }
+      if (type === "source") {
+        const source = { id: id, type: "source" };
+        if (fieldA === "dataset") {
+          source.sourceDatasetId = fieldB;
+        } else if (fieldA === "pipeline") {
+          source.sourcePipelineId = fieldB;
+        } else {
+          source.sourceEntityCode = fieldB;
+        }
+        return source;
+      }
+      return { id: id, type: type };
+    }.bind(this)).filter(Boolean);
+  };
+
+  ProgramBuilder.prototype.collectAnalyticsPipelineRows = function() {
+    if (!this.analyticsPipelineTableBody) {
+      return [];
+    }
+    return this.analyticsPipelineTableBody.children("tr").filter(function() {
+      return !$(this).hasClass("program-builder-analytics-pipeline-steps-row");
+    }).map(function(_, row) {
+      const $row = $(row);
+      const id = String($row.find(".program-builder-analytics-pipeline-id").val() || "").trim();
+      const sourceMode = String($row.find(".program-builder-analytics-pipeline-source-mode").val() || "entity").trim();
+      const sourceRef = String($row.find(".program-builder-analytics-pipeline-source-ref").val() || "").trim();
+      if (!id || !sourceRef) {
+        return null;
+      }
+      const pipeline = {
+        id: id,
+        title: String($row.find(".program-builder-analytics-pipeline-title").val() || id).trim(),
+        enabled: $row.find(".program-builder-analytics-pipeline-enabled").is(":checked"),
+        steps: this.collectAnalyticsPipelineStepRows(row),
+        publishConfig: {
+          publishedDatasetId: String($row.find(".program-builder-analytics-pipeline-published-dataset").val() || (id + "_published")).trim(),
+          title: String($row.find(".program-builder-analytics-pipeline-title").val() || id).trim()
+        },
+        schedule: {
+          mode: String($row.find(".program-builder-analytics-pipeline-schedule").val() || "manual").trim() || "manual"
+        },
+        retention: {
+          keepDays: Math.max(1, Number($row.find(".program-builder-analytics-pipeline-retention").val() || 30) || 30)
+        }
+      };
+      if (sourceMode === "dataset") {
+        pipeline.sourceDatasetId = sourceRef;
+      } else if (sourceMode === "pipeline") {
+        pipeline.sourcePipelineId = sourceRef;
+      } else {
+        pipeline.sourceEntityCode = sourceRef;
+      }
+      return pipeline;
+    }.bind(this)).get().filter(Boolean);
+  };
+
   ProgramBuilder.prototype.collectAnalyticsConfig = function() {
     return {
       executionMode: String(this.analyticsExecutionModeSelect.val() || "live"),
@@ -4135,7 +4509,9 @@
         kpi: this.analyticsViewKpiInput.is(":checked"),
         dashboard: this.analyticsViewDashboardInput.is(":checked")
       },
-      joins: this.collectAnalyticsJoinRows()
+      joins: this.collectAnalyticsJoinRows(),
+      semanticPipelines: this.collectAnalyticsPipelineRows(),
+      ingestionPipelines: []
     };
   };
 
@@ -4280,6 +4656,69 @@
     (Array.isArray(value.joins) ? value.joins : []).forEach(function(join) {
       this.addAnalyticsJoinRow(join);
     }, this);
+    if (this.analyticsPipelineTableBody) {
+      this.analyticsPipelineTableBody.empty();
+      (Array.isArray(value.semanticPipelines) ? value.semanticPipelines : []).forEach(function(pipeline) {
+        this.addAnalyticsPipelineRow({
+          id: pipeline.id || "",
+          title: pipeline.title || "",
+          enabled: pipeline.enabled !== false,
+          sourceMode: pipeline.sourceDatasetId ? "dataset" : (pipeline.sourcePipelineId ? "pipeline" : "entity"),
+          sourceRef: pipeline.sourceDatasetId || pipeline.sourcePipelineId || pipeline.sourceEntityCode || "",
+          publishedDatasetId: pipeline.publishConfig && pipeline.publishConfig.publishedDatasetId || "",
+          schedule: pipeline.schedule && pipeline.schedule.mode || "manual",
+          retentionDays: pipeline.retention && pipeline.retention.keepDays || 30,
+          steps: (pipeline.steps || []).map(function(step) {
+            const row = {
+              id: step.id || "",
+              type: step.type || "group"
+            };
+            if (step.type === "group") {
+              row.fieldA = (step.dimensions || []).join(",");
+              row.configText = (step.measures || []).map(function(measure) {
+                return [measure.field, measure.aggregate, measure.id, measure.label, measure.format || ""].join(":");
+              }).join(";");
+            } else if (step.type === "sort") {
+              row.configText = (step.sort || []).map(function(sort) {
+                return [sort.field, sort.dir || "asc"].join(":");
+              }).join(";");
+            } else if (step.type === "limit") {
+              row.fieldA = String(step.take || "");
+            } else if (step.type === "publish") {
+              row.fieldA = step.title || "";
+            } else if (step.type === "filter") {
+              row.configText = (step.filters || []).map(function(filter) {
+                return [filter.field, filter.operator || "eq", filter.value].join(":");
+              }).join(";");
+            } else if (step.type === "select") {
+              row.configText = (step.fields || []).map(function(field) {
+                return [field.from, field.as, field.label, field.role || "", field.type || "", field.format || ""].join(":");
+              }).join(";");
+            } else if (step.type === "join") {
+              row.fieldA = step.localField || "";
+              row.fieldB = step.datasetId ? "dataset" : "entity";
+              row.fieldC = step.datasetId || step.entityCode || "";
+              row.configText = (step.foreignField || "") + "|" + (step.fields || []).map(function(field) {
+                return [field.from, field.as, field.label].join(":");
+              }).join(";");
+            } else if (step.type === "derive") {
+              row.fieldA = step.operation || "";
+              row.fieldB = step.targetField || "";
+              row.fieldC = step.sourceField || "";
+              row.configText = (step.fields || []).join(";") || (step.ranges || []).map(function(range) {
+                return [range.from, range.to, range.label].join(":");
+              }).join(";") || (step.cases || []).map(function(item) {
+                return [item.value, item.label].join(":");
+              }).join(";");
+            } else if (step.type === "source") {
+              row.fieldA = step.sourceDatasetId ? "dataset" : (step.sourcePipelineId ? "pipeline" : "entity");
+              row.fieldB = step.sourceDatasetId || step.sourcePipelineId || step.sourceEntityCode || "";
+            }
+            return row;
+          })
+        });
+      }, this);
+    }
     this.syncAnalyticsProgramPanelState();
   };
 
@@ -6389,9 +6828,11 @@
     const analytics = definition.analytics || {};
     const datasets = Array.isArray(analytics.datasets) ? analytics.datasets : [];
     const views = Array.isArray(analytics.views) ? analytics.views : [];
+    const pipelines = Array.isArray(analytics.semanticPipelines) ? analytics.semanticPipelines : [];
     const badges = $("<div class=\"program-builder-analytics-badges\"></div>").appendTo(host);
     [
       "Datasets: " + datasets.length,
+      "Pipelines: " + pipelines.length,
       "Views: " + views.length,
       "Tela: " + (definition.screenId || "")
     ].forEach(function(text) {
@@ -6423,11 +6864,23 @@
       const card = $("<article class=\"program-builder-analytics-dataset-card\"></article>").appendTo(datasetGrid);
       $("<h4></h4>").text(dataset.title || dataset.id || "Dataset").appendTo(card);
       $("<p></p>").text("ID: " + String(dataset.id || "")).appendTo(card);
-      $("<p></p>").text("Fonte: " + String(dataset.source && dataset.source.entityCode || "")).appendTo(card);
+      $("<p></p>").text("Fonte: " + String(dataset.source && (dataset.source.entityCode || dataset.source.publishedDatasetId || dataset.source.pipelineId) || "")).appendTo(card);
       $("<p></p>").text("Modo: " + String(dataset.executionMode || "live") + " | limite: " + String(dataset.limit || 0)).appendTo(card);
       $("<p></p>").text("Campos: " + this.analyticsSpecCount(dataset.fields) + " | dimensoes: " + this.analyticsSpecCount(dataset.dimensions) + " | medidas: " + this.analyticsSpecCount(dataset.measures)).appendTo(card);
       $("<p></p>").text("Parametros: " + this.analyticsSpecCount(dataset.parameters) + " | views: " + datasetViews.length).appendTo(card);
     }, this);
+
+    if (pipelines.length) {
+      const pipelineGrid = $("<div class=\"program-builder-analytics-dataset-grid\"></div>").appendTo(host);
+      pipelines.forEach(function(pipeline) {
+        const card = $("<article class=\"program-builder-analytics-dataset-card\"></article>").appendTo(pipelineGrid);
+        $("<h4></h4>").text(pipeline.title || pipeline.id || "Pipeline").appendTo(card);
+        $("<p></p>").text("ID: " + String(pipeline.id || "")).appendTo(card);
+        $("<p></p>").text("Fonte: " + String(pipeline.sourceEntityCode || pipeline.sourceDatasetId || pipeline.sourcePipelineId || "")).appendTo(card);
+        $("<p></p>").text("Etapas: " + this.analyticsSpecCount(pipeline.steps) + " | ativo: " + (pipeline.enabled !== false ? "sim" : "nao")).appendTo(card);
+        $("<p></p>").text("Dataset publicado: " + String(pipeline.publishConfig && pipeline.publishConfig.publishedDatasetId || "")).appendTo(card);
+      }, this);
+    }
 
     this.ensureAnalyticsValidatorState(definition);
     const state = this.state.analyticsValidator || {};
@@ -6483,6 +6936,44 @@
 
     const resultHost = $("<div class=\"program-builder-analytics-results\"></div>").appendTo(runner);
     this.renderAnalyticsRuntimeFeedback(resultHost, state, selectedDataset);
+
+    if (pipelines.length) {
+      const pipelineRunner = $("<section class=\"program-builder-analytics-runner\"></section>").appendTo(host);
+      $("<h4></h4>").text("Pipeline semantico").appendTo(pipelineRunner);
+      $("<p class=\"program-builder-diagnostics-intro\"></p>").text("Valida working dataset, execucao, publicacao versionada e rollback do dataset publicado.").appendTo(pipelineRunner);
+      const pipelineControls = $("<div class=\"program-builder-analytics-runner-controls\"></div>").appendTo(pipelineRunner);
+      const pipelineField = $("<label class=\"program-builder-field\"></label>").appendTo(pipelineControls);
+      $("<span></span>").text("Pipeline").appendTo(pipelineField);
+      const pipelineSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(pipelineField);
+      pipelines.forEach(function(pipeline) {
+        $("<option></option>").attr("value", pipeline.id || "").text(pipeline.title || pipeline.id || "Pipeline").appendTo(pipelineSelect);
+      });
+      pipelineSelect.val(String(state.pipelineId || pipelines[0].id || ""));
+      pipelineSelect.on("change", function() {
+        this.state.analyticsValidator.pipelineId = String($(this).val() || "");
+        this.state.analyticsValidator.pipelinePreview = null;
+        this.state.analyticsValidator.pipelineRun = null;
+        this.state.analyticsValidator.pipelineStatus = null;
+        this.state.analyticsValidator.pipelineVersions = null;
+        this.state.analyticsValidator.pipelineLogs = null;
+        this.renderDiagnostics();
+      }.bind(this));
+      const rollbackField = $("<label class=\"program-builder-field\"></label>").appendTo(pipelineControls);
+      $("<span></span>").text("Versao rollback").appendTo(rollbackField);
+      const rollbackInput = $("<input type=\"number\" min=\"1\" class=\"program-builder-mini-input\">").appendTo(rollbackField);
+      rollbackInput.val(String(state.rollbackVersionNo || ""));
+      rollbackInput.on("input change", function() {
+        this.state.analyticsValidator.rollbackVersionNo = String($(this).val() || "");
+      }.bind(this));
+      const pipelineActions = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(pipelineRunner);
+      $("<button type=\"button\"></button>").text("Preview pipeline").appendTo(pipelineActions).kendoButton({ icon: "eye", click: this.handlePreviewAnalyticsPipeline.bind(this) });
+      $("<button type=\"button\"></button>").text("Executar pipeline").appendTo(pipelineActions).kendoButton({ icon: "play", click: this.handleRunAnalyticsPipeline.bind(this) });
+      $("<button type=\"button\"></button>").text("Publicar versao").appendTo(pipelineActions).kendoButton({ icon: "upload", click: this.handlePublishAnalyticsPipeline.bind(this) });
+      $("<button type=\"button\"></button>").text("Versoes").appendTo(pipelineActions).kendoButton({ icon: "track-changes", click: this.handleLoadAnalyticsPipelineVersions.bind(this) });
+      $("<button type=\"button\"></button>").text("Rollback").appendTo(pipelineActions).kendoButton({ icon: "undo", click: this.handleRollbackAnalyticsPipeline.bind(this) });
+      const pipelineResultHost = $("<div class=\"program-builder-analytics-results\"></div>").appendTo(pipelineRunner);
+      this.renderAnalyticsPipelineFeedback(pipelineResultHost, state);
+    }
   };
 
   ProgramBuilder.prototype.countCurrentForeignKeys = function() {
@@ -6526,6 +7017,7 @@
     const analytics = definition && definition.analytics || {};
     const datasets = Array.isArray(analytics.datasets) ? analytics.datasets : [];
     const views = Array.isArray(analytics.views) ? analytics.views : [];
+    const pipelines = Array.isArray(analytics.semanticPipelines) ? analytics.semanticPipelines : [];
     const entity = this.findEntityByCode(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() : "");
 
     if (!entity) {
@@ -6540,7 +7032,8 @@
 
     datasets.forEach(function(dataset) {
       const datasetId = String(dataset.id || "");
-      const source = dataset.source && dataset.source.entityCode || "";
+      const sourceType = String(dataset.source && dataset.source.type || "entity");
+      const source = dataset.source && (dataset.source.entityCode || dataset.source.publishedDatasetId) || "";
       const measures = Array.isArray(dataset.measures) ? dataset.measures : [];
       const dimensions = Array.isArray(dataset.dimensions) ? dataset.dimensions : [];
       const fields = Array.isArray(dataset.fields) ? dataset.fields : [];
@@ -6549,7 +7042,10 @@
         diagnostics.push({ level: "error", title: "Dataset sem ID", message: "Todo dataset analytics precisa de `id` tecnico." });
       }
       if (!source) {
-        diagnostics.push({ level: "error", title: "Fonte ausente", message: "O dataset `" + (datasetId || "sem-id") + "` precisa informar `source.entityCode`." });
+        diagnostics.push({ level: "error", title: "Fonte ausente", message: "O dataset `" + (datasetId || "sem-id") + "` precisa informar fonte interna ou dataset publicado." });
+      }
+      if (sourceType === "pipeline_published" && !pipelines.some(function(pipeline) { return String(pipeline.id || "") === String(dataset.source && dataset.source.pipelineId || ""); })) {
+        diagnostics.push({ level: "error", title: "Pipeline publicado ausente", message: "O dataset `" + (datasetId || "sem-id") + "` aponta para pipeline inexistente." });
       }
       if (!fields.length && !measures.length && !dimensions.length) {
         diagnostics.push({ level: "error", title: "Dataset vazio", message: "O dataset `" + (datasetId || "sem-id") + "` nao possui campos, dimensoes ou medidas utilizaveis." });
@@ -6577,12 +7073,22 @@
       }
     });
 
+    pipelines.forEach(function(pipeline) {
+      if (!pipeline.publishConfig || !pipeline.publishConfig.publishedDatasetId) {
+        diagnostics.push({ level: "error", title: "Pipeline sem dataset publicado", message: "Todo pipeline semantico precisa de `publishConfig.publishedDatasetId`." });
+      }
+      if (!Array.isArray(pipeline.steps) || !pipeline.steps.length) {
+        diagnostics.push({ level: "warn", title: "Pipeline sem etapas", message: "O pipeline `" + String(pipeline.id || "sem-id") + "` ainda nao possui etapas declaradas." });
+      }
+    });
+
     return diagnostics;
   };
 
   ProgramBuilder.prototype.ensureAnalyticsValidatorState = function(definition) {
     const analytics = definition && definition.analytics || {};
     const datasets = Array.isArray(analytics.datasets) ? analytics.datasets : [];
+    const pipelines = Array.isArray(analytics.semanticPipelines) ? analytics.semanticPipelines : [];
     const signature = JSON.stringify({
       screenId: definition && definition.screenId || "",
       datasets: datasets.map(function(dataset) {
@@ -6590,7 +7096,8 @@
           id: dataset.id || "",
           parameters: Array.isArray(dataset.parameters) ? dataset.parameters.map(function(item) { return item.id || item.field || ""; }) : []
         };
-      })
+      }),
+      pipelines: pipelines.map(function(pipeline) { return pipeline.id || ""; })
     });
     if (this.state.analyticsValidator.signature === signature) {
       return;
@@ -6598,11 +7105,23 @@
     this.state.analyticsValidator = {
       signature: signature,
       datasetId: datasets[0] && String(datasets[0].id || "") || "",
+      pipelineId: pipelines[0] && String(pipelines[0].id || "") || "",
+      rollbackVersionNo: "",
       parameterValues: {},
       sampleResult: null,
       sampleError: "",
       cacheStatus: null,
-      cacheError: ""
+      cacheError: "",
+      pipelinePreview: null,
+      pipelinePreviewError: "",
+      pipelineRun: null,
+      pipelineRunError: "",
+      pipelineStatus: null,
+      pipelineStatusError: "",
+      pipelineVersions: null,
+      pipelineVersionsError: "",
+      pipelineLogs: null,
+      pipelineLogsError: ""
     };
   };
 
@@ -6663,7 +7182,15 @@
     const fallbackEndpointId = {
       run: "analytics.query.run",
       cacheStatus: "analytics.cache.status",
-      materialize: "analytics.materialize"
+      materialize: "analytics.materialize",
+      pipelineSchema: "analytics.pipeline.schema",
+      pipelinePreview: "analytics.pipeline.preview",
+      pipelineRun: "analytics.pipeline.run",
+      pipelinePublish: "analytics.pipeline.publish",
+      pipelineStatus: "analytics.pipeline.status",
+      pipelineLogs: "analytics.pipeline.logs",
+      pipelineVersions: "analytics.pipeline.versions",
+      pipelineRollback: "analytics.pipeline.rollback"
     }[endpointKey] || endpointKey;
     const policy = global.CrudUtils.normalizeSecurityPolicy({}, { securityMode: "production" });
     const resolved = global.CrudUtils.resolveEndpointForPolicy(endpoint, fallbackEndpointId, screenId, policy);
@@ -6764,6 +7291,205 @@
       global.CrudUtils.showMessage(this.state.analyticsValidator.cacheError, "error");
       return null;
     }.bind(this));
+  };
+
+  ProgramBuilder.prototype.analyticsValidatorPipeline = function() {
+    const definition = this.currentPreviewDefinition();
+    const pipelines = Array.isArray(definition && definition.analytics && definition.analytics.semanticPipelines) ? definition.analytics.semanticPipelines : [];
+    const pipelineId = String(this.state.analyticsValidator && this.state.analyticsValidator.pipelineId || "");
+    return pipelines.find(function(pipeline) {
+      return String(pipeline.id || "") === pipelineId;
+    }) || pipelines[0] || null;
+  };
+
+  ProgramBuilder.prototype.analyticsPipelineValidatorPayload = function() {
+    const pipeline = this.analyticsValidatorPipeline();
+    return {
+      pipelineId: pipeline && pipeline.id || "",
+      stepId: ""
+    };
+  };
+
+  ProgramBuilder.prototype.handlePreviewAnalyticsPipeline = function() {
+    const pipeline = this.analyticsValidatorPipeline();
+    if (!pipeline) {
+      global.CrudUtils.showMessage("Nenhum pipeline configurado para preview.", "warning");
+      return;
+    }
+    this.state.analyticsValidator.pipelinePreviewError = "";
+    return this.analyticsRuntimeRequest("pipelinePreview", this.analyticsPipelineValidatorPayload()).then(function(response) {
+      this.state.analyticsValidator.pipelinePreview = response || null;
+      this.renderDiagnostics();
+      return response;
+    }.bind(this)).catch(function(error) {
+      const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel gerar o preview do pipeline.");
+      this.state.analyticsValidator.pipelinePreview = null;
+      this.state.analyticsValidator.pipelinePreviewError = normalized.message || "Falha no preview do pipeline.";
+      this.renderDiagnostics();
+      global.CrudUtils.showMessage(this.state.analyticsValidator.pipelinePreviewError, "error");
+      return null;
+    }.bind(this));
+  };
+
+  ProgramBuilder.prototype.handleRunAnalyticsPipeline = function() {
+    const pipeline = this.analyticsValidatorPipeline();
+    if (!pipeline) {
+      global.CrudUtils.showMessage("Nenhum pipeline configurado para execucao.", "warning");
+      return;
+    }
+    this.state.analyticsValidator.pipelineRunError = "";
+    return this.analyticsRuntimeRequest("pipelineRun", this.analyticsPipelineValidatorPayload()).then(function(response) {
+      this.state.analyticsValidator.pipelineRun = response || null;
+      return this.handleLoadAnalyticsPipelineStatus().then(function() {
+        this.renderDiagnostics();
+        return response;
+      }.bind(this));
+    }.bind(this)).catch(function(error) {
+      const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel executar o pipeline.");
+      this.state.analyticsValidator.pipelineRun = null;
+      this.state.analyticsValidator.pipelineRunError = normalized.message || "Falha na execucao do pipeline.";
+      this.renderDiagnostics();
+      global.CrudUtils.showMessage(this.state.analyticsValidator.pipelineRunError, "error");
+      return null;
+    }.bind(this));
+  };
+
+  ProgramBuilder.prototype.handleLoadAnalyticsPipelineStatus = function() {
+    const pipeline = this.analyticsValidatorPipeline();
+    if (!pipeline) {
+      return Promise.resolve(null);
+    }
+    this.state.analyticsValidator.pipelineStatusError = "";
+    return this.analyticsRuntimeRequest("pipelineStatus", this.analyticsPipelineValidatorPayload()).then(function(response) {
+      this.state.analyticsValidator.pipelineStatus = response || null;
+      this.renderDiagnostics();
+      return response;
+    }.bind(this)).catch(function(error) {
+      const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel consultar o status do pipeline.");
+      this.state.analyticsValidator.pipelineStatus = null;
+      this.state.analyticsValidator.pipelineStatusError = normalized.message || "Falha no status do pipeline.";
+      this.renderDiagnostics();
+      return null;
+    }.bind(this));
+  };
+
+  ProgramBuilder.prototype.handlePublishAnalyticsPipeline = function() {
+    const pipeline = this.analyticsValidatorPipeline();
+    if (!pipeline) {
+      global.CrudUtils.showMessage("Nenhum pipeline configurado para publicar.", "warning");
+      return;
+    }
+    const latestExecution = this.state.analyticsValidator.pipelineRun && this.state.analyticsValidator.pipelineRun.executionId
+      ? this.state.analyticsValidator.pipelineRun
+      : this.state.analyticsValidator.pipelineStatus && this.state.analyticsValidator.pipelineStatus.latestExecution || null;
+    const executionId = latestExecution && latestExecution.executionId || "";
+    if (!executionId) {
+      global.CrudUtils.showMessage("Execute o pipeline antes de publicar uma versao.", "warning");
+      return Promise.resolve(null);
+    }
+    return this.analyticsRuntimeRequest("pipelinePublish", {
+      pipelineId: pipeline.id || "",
+      executionId: executionId
+    }).then(function(response) {
+      return this.handleLoadAnalyticsPipelineVersions().then(function() {
+        this.renderDiagnostics();
+        return response;
+      }.bind(this));
+    }.bind(this)).catch(function(error) {
+      const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel publicar a versao do pipeline.");
+      global.CrudUtils.showMessage(normalized.message || "Falha ao publicar pipeline.", "error");
+      return null;
+    });
+  };
+
+  ProgramBuilder.prototype.handleLoadAnalyticsPipelineVersions = function() {
+    const pipeline = this.analyticsValidatorPipeline();
+    if (!pipeline) {
+      return Promise.resolve(null);
+    }
+    this.state.analyticsValidator.pipelineVersionsError = "";
+    return this.analyticsRuntimeRequest("pipelineVersions", this.analyticsPipelineValidatorPayload()).then(function(response) {
+      this.state.analyticsValidator.pipelineVersions = response || null;
+      if (!this.state.analyticsValidator.rollbackVersionNo && response && response.activeVersion && response.activeVersion.versionNo) {
+        this.state.analyticsValidator.rollbackVersionNo = String(response.activeVersion.versionNo || "");
+      }
+      this.renderDiagnostics();
+      return response;
+    }.bind(this)).catch(function(error) {
+      const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel carregar as versoes do pipeline.");
+      this.state.analyticsValidator.pipelineVersions = null;
+      this.state.analyticsValidator.pipelineVersionsError = normalized.message || "Falha ao listar versoes.";
+      this.renderDiagnostics();
+      return null;
+    }.bind(this));
+  };
+
+  ProgramBuilder.prototype.handleRollbackAnalyticsPipeline = function() {
+    const pipeline = this.analyticsValidatorPipeline();
+    if (!pipeline) {
+      global.CrudUtils.showMessage("Nenhum pipeline configurado para rollback.", "warning");
+      return;
+    }
+    const versionNo = Math.max(1, Number(this.state.analyticsValidator.rollbackVersionNo || 0) || 0);
+    if (!versionNo) {
+      global.CrudUtils.showMessage("Informe a versao para rollback.", "warning");
+      return Promise.resolve(null);
+    }
+    return this.analyticsRuntimeRequest("pipelineRollback", {
+      pipelineId: pipeline.id || "",
+      versionNo: versionNo
+    }).then(function(response) {
+      return this.handleLoadAnalyticsPipelineVersions().then(function() {
+        this.renderDiagnostics();
+        return response;
+      }.bind(this));
+    }.bind(this)).catch(function(error) {
+      const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel executar o rollback do pipeline.");
+      global.CrudUtils.showMessage(normalized.message || "Falha no rollback do pipeline.", "error");
+      return null;
+    });
+  };
+
+  ProgramBuilder.prototype.renderAnalyticsPipelineFeedback = function(container, state) {
+    const previewHost = $("<div class=\"program-builder-analytics-runtime-block\"></div>").appendTo(container);
+    $("<h5></h5>").text("Working dataset").appendTo(previewHost);
+    if (state.pipelinePreviewError) {
+      $("<div class=\"program-builder-diagnostic-item is-error\"></div>")
+        .append($("<strong></strong>").text("Falha no preview"))
+        .append($("<span></span>").text(state.pipelinePreviewError))
+        .appendTo(previewHost);
+    } else if (state.pipelinePreview && state.pipelinePreview.workingDataset) {
+      const working = state.pipelinePreview.workingDataset;
+      $("<div class=\"program-builder-analytics-runtime-meta\"></div>").text("Linhas: " + String((working.rows || []).length) + " | colunas: " + String((working.columns || []).length)).appendTo(previewHost);
+      $("<pre class=\"program-builder-json-preview\"></pre>").text(JSON.stringify(working, null, 2)).appendTo(previewHost);
+    } else {
+      $("<p class=\"program-builder-empty\"></p>").text("Gere o preview do pipeline para inspecionar o working dataset.").appendTo(previewHost);
+    }
+
+    const statusHost = $("<div class=\"program-builder-analytics-runtime-block\"></div>").appendTo(container);
+    $("<h5></h5>").text("Execucao e publicacao").appendTo(statusHost);
+    if (state.pipelineStatusError) {
+      $("<div class=\"program-builder-diagnostic-item is-error\"></div>")
+        .append($("<strong></strong>").text("Falha no status"))
+        .append($("<span></span>").text(state.pipelineStatusError))
+        .appendTo(statusHost);
+    }
+    if (state.pipelineStatus && state.pipelineStatus.latestExecution) {
+      $("<div class=\"program-builder-analytics-runtime-meta\"></div>").text("Ultima execucao: " + String(state.pipelineStatus.latestExecution.status || "") + " | linhas: " + String(state.pipelineStatus.latestExecution.rowCount || 0)).appendTo(statusHost);
+    }
+    if (state.pipelineVersionsError) {
+      $("<div class=\"program-builder-diagnostic-item is-error\"></div>")
+        .append($("<strong></strong>").text("Falha nas versoes"))
+        .append($("<span></span>").text(state.pipelineVersionsError))
+        .appendTo(statusHost);
+    } else if (state.pipelineVersions) {
+      $("<pre class=\"program-builder-json-preview\"></pre>").text(JSON.stringify({
+        activeVersion: state.pipelineVersions.activeVersion || null,
+        versions: state.pipelineVersions.versions || []
+      }, null, 2)).appendTo(statusHost);
+    } else {
+      $("<p class=\"program-builder-empty\"></p>").text("Consulte as versoes publicadas para acompanhar publish e rollback.").appendTo(statusHost);
+    }
   };
 
   ProgramBuilder.prototype.renderAnalyticsRuntimeFeedback = function(container, state, dataset) {
@@ -8929,11 +9655,23 @@
     this.state.analyticsValidator = {
       signature: "",
       datasetId: "",
+      pipelineId: "",
+      rollbackVersionNo: "",
       parameterValues: {},
       sampleResult: null,
       sampleError: "",
       cacheStatus: null,
-      cacheError: ""
+      cacheError: "",
+      pipelinePreview: null,
+      pipelinePreviewError: "",
+      pipelineRun: null,
+      pipelineRunError: "",
+      pipelineStatus: null,
+      pipelineStatusError: "",
+      pipelineVersions: null,
+      pipelineVersionsError: "",
+      pipelineLogs: null,
+      pipelineLogsError: ""
     };
     this.syncProgramTypeState();
     this.state.preview = null;
@@ -9153,6 +9891,9 @@
       preview.runtime.entityCode = payload.builderEntityCode;
     } else if (payload.pageType === "analytics") {
       const analyticsConfig = Object.assign({}, this.defaultAnalyticsConfig(), payload.analyticsConfig || {});
+      const semanticPipelines = Array.isArray(analyticsConfig.semanticPipelines) ? analyticsConfig.semanticPipelines : [];
+      const firstPipeline = semanticPipelines[0] || null;
+      const publishedDatasetId = firstPipeline && firstPipeline.publishConfig && firstPipeline.publishConfig.publishedDatasetId || "principal_published";
       preview.runtime.entityCode = payload.builderEntityCode;
       preview.analytics = {
         audit: {
@@ -9163,11 +9904,35 @@
           {
             id: "principal",
             title: payload.programTitle,
-            source: { type: "entity", entityCode: payload.builderEntityCode },
+            source: firstPipeline ? {
+              type: "pipeline_published",
+              pipelineId: firstPipeline.id || "pipeline1",
+              publishedDatasetId: publishedDatasetId
+            } : { type: "entity", entityCode: payload.builderEntityCode },
             executionMode: analyticsConfig.executionMode || "live",
             limit: analyticsConfig.limit || 1000,
             joins: analyticsConfig.joins || [],
             defaultSort: analyticsConfig.defaultSortField ? [{ field: analyticsConfig.defaultSortField, dir: analyticsConfig.defaultSortDir || "asc" }] : [],
+            fields: [
+              { id: "uf", field: "uf", label: "UF", type: "string" },
+              { id: "status", field: "status", label: "Status", type: "string" },
+              { id: "clientes", field: "clientes", label: "Clientes", type: "integer", format: "n0" },
+              { id: "valor_total_sum", field: "valor_total_sum", label: "Valor total", type: "decimal", format: "c2" },
+              { id: "qtde_pedidos_sum", field: "qtde_pedidos_sum", label: "Pedidos", type: "integer", format: "n0" }
+            ],
+            dimensions: [
+              { id: "uf", field: "uf", label: "UF", type: "string" },
+              { id: "status", field: "status", label: "Status", type: "string" }
+            ],
+            measures: [
+              { id: "clientes", field: "clientes", label: "Clientes", aggregate: "count", format: "n0" },
+              { id: "valor_total_sum", field: "valor_total_sum", label: "Valor total", aggregate: "sum", format: "c2" },
+              { id: "qtde_pedidos_sum", field: "qtde_pedidos_sum", label: "Pedidos", aggregate: "sum", format: "n0" }
+            ],
+            parameters: [
+              { id: "status", field: "status", label: "Status", type: "text" },
+              { id: "uf", field: "uf", label: "UF", type: "text" }
+            ],
             audit: {
               enabled: !analyticsConfig.datasetAudit || analyticsConfig.datasetAudit.enabled !== false,
               includeCacheHits: !analyticsConfig.datasetAudit || analyticsConfig.datasetAudit.includeCacheHits !== false
@@ -9175,6 +9940,8 @@
             cache: { ttlSeconds: analyticsConfig.cacheTtlSeconds || 900 }
           }
         ],
+        semanticPipelines: semanticPipelines,
+        ingestionPipelines: [],
         views: [
           analyticsConfig.views && analyticsConfig.views.grid !== false ? { id: "grid", type: "grid", datasetId: "principal" } : null,
           analyticsConfig.views && analyticsConfig.views.chart !== false ? { id: "chart", type: "chart", datasetId: "principal", categoryField: analyticsConfig.chartCategoryField || null, valueField: analyticsConfig.chartValueField || null, seriesType: analyticsConfig.chartSeriesType || "column" } : null,

@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin pipelines analytics</title>
+  <link rel="stylesheet" href="../../kendo/styles/default-urban.css">
+  <link rel="stylesheet" href="../../src/styles/crud-engine.css">
+  <link rel="stylesheet" href="../../src/styles/program-builder.css">
+</head>
+<body>
+  <main id="analytics-pipelines-admin-root" class="program-builder-root"></main>
+  <script src="../../vendor/jquery/jquery-4.0.0.min.js"></script>
+  <script src="../../kendo/js/kendo.all.min.js"></script>
+  <script src="../../kendo/kendo-license.js"></script>
+  <script src="../../kendo/js/cultures/kendo.culture.pt-BR.min.js"></script>
+  <script src="../../kendo/js/messages/kendo.messages.pt-BR.min.js"></script>
+  <script src="../../src/bootstrap/kendo-ptbr.js"></script>
+  <script src="../../src/crud-engine/CrudUtils.js"></script>
+  <script src="../../src/crud-engine/CrudHttpClient.js"></script>
+  <script src="../../src/demo/DemoMockHttpClient.js"></script>
+  <script src="../../src/demo/analytics-embedded-data.js"></script>
+  <script src="../../src/analytics-pipelines/analytics-pipelines-admin.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const admin = new window.AnalyticsPipelinesAdmin({
+        root: "#analytics-pipelines-admin-root",
+        httpClient: {
+          request: function(config) {
+            const client = window.__analyticsPipelineDemoClient || (window.__analyticsPipelineDemoClient = new window.DemoMockHttpClient());
+            const url = String(config && config.url || "");
+            const method = String(config && config.method || "GET").toUpperCase();
+            const data = config && config.data || {};
+            if (url === "/api/admin/analytics-pipelines/bootstrap" && method === "GET") {
+              const rows = client.routeAnalyticsClientesEndpoint("analytics.clientes", "analytics.pipeline.versions", { pipelineId: "clientes_uf_status" });
+              return Promise.resolve({
+                enabled: true,
+                pipelines: [
+                  {
+                    screenId: "analytics.clientes",
+                    pipelineId: "clientes_uf_status",
+                    title: "Clientes por UF e status",
+                    enabled: true,
+                    publishedDatasetId: "clientes_uf_status_published",
+                    activeVersion: rows.activeVersion || null
+                  }
+                ]
+              });
+            }
+            if (url === "/api/admin/analytics-pipelines/rows" && method === "GET") {
+              const status = client.routeAnalyticsClientesEndpoint("analytics.clientes", "analytics.pipeline.status", { pipelineId: "clientes_uf_status" });
+              const versions = client.routeAnalyticsClientesEndpoint("analytics.clientes", "analytics.pipeline.versions", { pipelineId: "clientes_uf_status" });
+              return Promise.resolve({
+                items: [
+                  {
+                    screenId: "analytics.clientes",
+                    pipelineId: "clientes_uf_status",
+                    title: "Clientes por UF e status",
+                    enabled: true,
+                    publishedDatasetId: "clientes_uf_status_published",
+                    latestExecution: status.latestExecution || null,
+                    activeVersion: versions.activeVersion || null
+                  }
+                ]
+              });
+            }
+            if (url === "/api/admin/analytics-pipelines/status" && method === "GET") {
+              return Promise.resolve(client.routeAnalyticsClientesEndpoint("analytics.clientes", "analytics.pipeline.status", data));
+            }
+            if (url === "/api/admin/analytics-pipelines/logs" && method === "GET") {
+              return Promise.resolve(client.routeAnalyticsClientesEndpoint("analytics.clientes", "analytics.pipeline.logs", data));
+            }
+            if (url === "/api/admin/analytics-pipelines/versions" && method === "GET") {
+              return Promise.resolve(client.routeAnalyticsClientesEndpoint("analytics.clientes", "analytics.pipeline.versions", data));
+            }
+            if (url === "/api/admin/analytics-pipelines/run" && method === "POST") {
+              return Promise.resolve(client.routeAnalyticsClientesEndpoint("analytics.clientes", "analytics.pipeline.run", data));
+            }
+            if (url === "/api/admin/analytics-pipelines/publish" && method === "POST") {
+              return Promise.resolve(client.routeAnalyticsClientesEndpoint("analytics.clientes", "analytics.pipeline.publish", data));
+            }
+            if (url === "/api/admin/analytics-pipelines/rollback" && method === "POST") {
+              return Promise.resolve(client.routeAnalyticsClientesEndpoint("analytics.clientes", "analytics.pipeline.rollback", data));
+            }
+            return Promise.resolve({});
+          }
+        }
+      });
+      admin.init();
+      window.currentAnalyticsPipelinesAdmin = admin;
+    });
+  </script>
+</body>
+</html>

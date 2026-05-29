@@ -7,6 +7,7 @@ use App\Repository\ScreenDefinitionRepository;
 use App\Runtime\PermissionResolver;
 use App\Runtime\ProgramCustomizationResolver;
 use App\Runtime\RuntimeAnalyticsAuditStore;
+use App\Runtime\RuntimeAnalyticsPipelineService;
 use App\Runtime\RuntimeAnalyticsService;
 use App\Runtime\RuntimeEntityDefinitionResolver;
 use App\Runtime\RuntimeHttpException;
@@ -168,6 +169,7 @@ class RuntimeAnalyticsServiceTest extends TestCase
             $permissions,
             $integrity,
             $customizations,
+            null,
             $auditStore,
         );
     }

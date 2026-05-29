@@ -11,6 +11,7 @@
       this.runtimeStorageKey = "crud-demo-runtime-v1" + storageSuffix;
       this.adminStorageKey = "crud-demo-admin-runtime-v1" + storageSuffix;
       this.processJobsStorageKey = "crud-demo-process-jobs-v1" + storageSuffix;
+      this.analyticsPipelineStorageKey = "crud-demo-analytics-pipelines-v1" + storageSuffix;
       this.externalApiCrudProductsStorageKey = "crud-demo-external-api-crud-products-v1" + storageSuffix;
       this.records = this.loadInitialRecords();
       this.nextId = this.records.reduce(function(max, record) {
@@ -44,6 +45,11 @@
         revokedSessions: []
       };
       this.processJobs = this.loadJson(this.processJobsStorageKey) || [];
+      this.analyticsPipelineState = this.loadJson(this.analyticsPipelineStorageKey) || {
+        executions: [],
+        versions: [],
+        activeVersionNo: 0
+      };
       this.regulatedDocumentsStorageKey = "crud-demo-regulated-documents-v1" + storageSuffix;
       this.regulatedDocumentEventsStorageKey = "crud-demo-regulated-document-events-v1" + storageSuffix;
       this.regulatedDocuments = this.loadJson(this.regulatedDocumentsStorageKey) || [];
@@ -51,6 +57,7 @@
       this.userId = settings.userId || this.resolveRuntimeUserId();
       this.sessionId = settings.sessionId || this.resolveRuntimeSessionId();
       this.tenantId = settings.tenantId || this.resolveRuntimeTenantId();
+      this.ensureAnalyticsPipelineSeed();
     }
 
     loadInitialRecords() {
@@ -138,6 +145,85 @@
 
     persistExternalApiCrudProducts() {
       this.saveJson(this.externalApiCrudProductsStorageKey, this.externalApiCrudProducts);
+    }
+
+    persistAnalyticsPipelineState() {
+      this.saveJson(this.analyticsPipelineStorageKey, this.analyticsPipelineState);
+    }
+
+    analyticsPipelineColumns() {
+      return [
+        { field: "uf", id: "uf", title: "UF", label: "UF", type: "string", role: "dimension" },
+        { field: "status", id: "status", title: "Status", label: "Status", type: "string", role: "dimension" },
+        { field: "clientes", id: "clientes", title: "Clientes", label: "Clientes", type: "integer", role: "measure", aggregate: "count", format: "n0" },
+        { field: "valor_total_sum", id: "valor_total_sum", title: "Valor total", label: "Valor total", type: "currency", role: "measure", aggregate: "sum", format: "c2" },
+        { field: "qtde_pedidos_sum", id: "qtde_pedidos_sum", title: "Pedidos", label: "Pedidos", type: "integer", role: "measure", aggregate: "sum", format: "n0" }
+      ];
+    }
+
+    buildAnalyticsPipelineWorkingDataset(data) {
+      const parameters = data && data.parameters || {};
+      let rows = global.CrudUtils.clone(this.records || []);
+      const status = String(parameters.status || "").trim();
+      const uf = String(parameters.uf || "").trim().toUpperCase();
+      if (status) {
+        rows = rows.filter(function(row) {
+          return String(row.status || "") === status;
+        });
+      }
+      if (uf) {
+        rows = rows.filter(function(row) {
+          return String(row.uf || "").toUpperCase() === uf;
+        });
+      }
+      const grouped = {};
+      rows.forEach(function(row) {
+        const key = String(row.uf || "") + "|" + String(row.status || "");
+        if (!grouped[key]) {
+          grouped[key] = {
+            uf: row.uf || "",
+            status: row.status || "",
+            clientes: 0,
+            valor_total_sum: 0,
+            qtde_pedidos_sum: 0
+          };
+        }
+        grouped[key].clientes += 1;
+        grouped[key].valor_total_sum += Number(row.valor_total || 0);
+        grouped[key].qtde_pedidos_sum += Number(row.qtde_pedidos || 0);
+      });
+      return {
+        columns: this.analyticsPipelineColumns(),
+        rows: Object.keys(grouped).map(function(key) {
+          return grouped[key];
+        }).sort(function(left, right) {
+          return String(left.uf || "").localeCompare(String(right.uf || "")) || String(left.status || "").localeCompare(String(right.status || ""));
+        })
+      };
+    }
+
+    ensureAnalyticsPipelineSeed() {
+      if (Array.isArray(this.analyticsPipelineState.versions) && this.analyticsPipelineState.versions.length) {
+        return;
+      }
+      const working = this.buildAnalyticsPipelineWorkingDataset({});
+      this.analyticsPipelineState.executions = [{
+        executionId: "exec-seed-1",
+        pipelineId: "clientes_uf_status",
+        status: "succeeded",
+        rowCount: working.rows.length,
+        workingDataset: working,
+        finishedAt: new Date().toISOString()
+      }];
+      this.analyticsPipelineState.versions = [{
+        versionNo: 1,
+        status: "published",
+        executionId: "exec-seed-1",
+        publishedAt: new Date().toISOString(),
+        data: working
+      }];
+      this.analyticsPipelineState.activeVersionNo = 1;
+      this.persistAnalyticsPipelineState();
     }
 
     listExternalApiProducts(data) {
@@ -916,13 +1002,83 @@
         schema: { endpointId: "analytics.schema", method: "POST" },
         run: { endpointId: "analytics.query.run", method: "POST" },
         materialize: { endpointId: "analytics.materialize", method: "POST" },
-        cacheStatus: { endpointId: "analytics.cache.status", method: "POST" }
+        cacheStatus: { endpointId: "analytics.cache.status", method: "POST" },
+        pipelineSchema: { endpointId: "analytics.pipeline.schema", method: "POST" },
+        pipelinePreview: { endpointId: "analytics.pipeline.preview", method: "POST" },
+        pipelineRun: { endpointId: "analytics.pipeline.run", method: "POST" },
+        pipelinePublish: { endpointId: "analytics.pipeline.publish", method: "POST" },
+        pipelineStatus: { endpointId: "analytics.pipeline.status", method: "POST" },
+        pipelineLogs: { endpointId: "analytics.pipeline.logs", method: "POST" },
+        pipelineVersions: { endpointId: "analytics.pipeline.versions", method: "POST" },
+        pipelineRollback: { endpointId: "analytics.pipeline.rollback", method: "POST" }
       };
       definition.dataSource = definition.dataSource || {};
       definition.dataSource.api = api;
       definition.api = api;
       definition.analytics = definition.analytics || {};
       definition.analytics.endpoints = api;
+      definition.analytics.semanticPipelines = definition.analytics.semanticPipelines || [
+        {
+          id: "clientes_base",
+          title: "Base operacional",
+          enabled: true,
+          sourceEntityCode: "cliente",
+          steps: [
+            {
+              id: "select_base",
+              type: "select",
+              fields: [
+                { from: "uf", as: "uf", label: "UF", role: "dimension", type: "string" },
+                { from: "status", as: "status", label: "Status", role: "dimension", type: "string" },
+                { from: "valor_total", as: "valor_total", label: "Valor total", role: "measure", type: "currency", format: "c2" },
+                { from: "qtde_pedidos", as: "qtde_pedidos", label: "Pedidos", role: "measure", type: "integer", format: "n0" },
+                { from: "id", as: "id", label: "ID", role: "field", type: "integer" }
+              ]
+            },
+            { id: "publish_base", type: "publish", title: "Base clientes" }
+          ],
+          publishConfig: {
+            publishedDatasetId: "clientes_base_published",
+            title: "Base clientes"
+          },
+          schedule: { mode: "manual" },
+          retention: { keepDays: 30 }
+        },
+        {
+          id: "clientes_uf_status",
+          title: "Clientes por UF e status",
+          enabled: true,
+          sourcePipelineId: "clientes_base",
+          steps: [
+            {
+              id: "group_uf_status",
+              type: "group",
+              dimensions: ["uf", "status"],
+              measures: [
+                { field: "id", aggregate: "count", id: "clientes", label: "Clientes" },
+                { field: "valor_total", aggregate: "sum", id: "valor_total_sum", label: "Valor total", format: "c2" },
+                { field: "qtde_pedidos", aggregate: "sum", id: "qtde_pedidos_sum", label: "Pedidos", format: "n0" }
+              ]
+            },
+            { id: "sort_uf_status", type: "sort", sort: [{ field: "uf", dir: "asc" }, { field: "status", dir: "asc" }] },
+            { id: "publish_final", type: "publish", title: "Clientes por UF e status" }
+          ],
+          publishConfig: {
+            publishedDatasetId: "clientes_uf_status_published",
+            title: "Clientes por UF e status"
+          },
+          schedule: { mode: "manual" },
+          retention: { keepDays: 30 }
+        }
+      ];
+      definition.analytics.ingestionPipelines = definition.analytics.ingestionPipelines || [];
+      if (Array.isArray(definition.analytics.datasets) && definition.analytics.datasets[0]) {
+        definition.analytics.datasets[0].source = {
+          type: "pipeline_published",
+          pipelineId: "clientes_uf_status",
+          publishedDatasetId: "clientes_uf_status_published"
+        };
+      }
       return definition;
     }
 
@@ -1417,6 +1573,34 @@
       if (endpointId === "analytics.query.run") {
         return this.runAnalyticsClientes(data || {});
       }
+      if (endpointId === "analytics.pipeline.schema") {
+        return {
+          screenId: screenId,
+          pipelines: global.CrudUtils.clone(this.buildAnalyticsClientesDefinition(screenId).analytics.semanticPipelines || []),
+          ingestionPipelines: []
+        };
+      }
+      if (endpointId === "analytics.pipeline.preview") {
+        return this.previewAnalyticsPipeline(data || {});
+      }
+      if (endpointId === "analytics.pipeline.run") {
+        return this.runAnalyticsPipelineExecution(data || {});
+      }
+      if (endpointId === "analytics.pipeline.publish") {
+        return this.publishAnalyticsPipeline(data || {});
+      }
+      if (endpointId === "analytics.pipeline.status") {
+        return this.statusAnalyticsPipeline(data || {});
+      }
+      if (endpointId === "analytics.pipeline.logs") {
+        return this.logsAnalyticsPipeline(data || {});
+      }
+      if (endpointId === "analytics.pipeline.versions") {
+        return this.versionsAnalyticsPipeline(data || {});
+      }
+      if (endpointId === "analytics.pipeline.rollback") {
+        return this.rollbackAnalyticsPipeline(data || {});
+      }
       if (endpointId === "analytics.materialize") {
         return {
           ok: true,
@@ -1427,9 +1611,12 @@
       }
       if (endpointId === "analytics.cache.status") {
         return {
-          status: "miss",
+          status: this.analyticsPipelineState.activeVersionNo ? "ready" : "miss",
           datasetId: data && data.datasetId || "clientes-uf-status",
-          fingerprint: "demo"
+          fingerprint: "demo",
+          rowCount: this.analyticsPipelineState.versions[0] && this.analyticsPipelineState.versions[0].data && this.analyticsPipelineState.versions[0].data.rows && this.analyticsPipelineState.versions[0].data.rows.length || 0,
+          refreshedAt: this.analyticsPipelineState.versions[0] && this.analyticsPipelineState.versions[0].publishedAt || new Date().toISOString(),
+          expired: false
         };
       }
       throw global.CrudUtils.makeError("RUNTIME_ENDPOINT_NOT_FOUND", "Endpoint analytics mock nao encontrado.", { screenId, endpointId });
@@ -1675,65 +1862,141 @@
     }
 
     runAnalyticsClientes(data) {
+      this.ensureAnalyticsPipelineSeed();
       const parameters = data && data.parameters || {};
-      let rows = global.CrudUtils.clone(this.records || []);
+      const activeVersion = this.analyticsPipelineState.versions.find(function(item) {
+        return Number(item.versionNo || 0) === Number(this.analyticsPipelineState.activeVersionNo || 0);
+      }.bind(this)) || this.analyticsPipelineState.versions[0];
+      const working = activeVersion && activeVersion.data || this.buildAnalyticsPipelineWorkingDataset({});
       const status = String(parameters.status || "").trim();
       const uf = String(parameters.uf || "").trim().toUpperCase();
-      if (status) {
-        rows = rows.filter(function(row) {
-          return String(row.status || "") === status;
-        });
-      }
-      if (uf) {
-        rows = rows.filter(function(row) {
-          return String(row.uf || "").toUpperCase() === uf;
-        });
-      }
-
-      const grouped = {};
-      rows.forEach(function(row) {
-        const key = String(row.uf || "") + "|" + String(row.status || "");
-        if (!grouped[key]) {
-          grouped[key] = {
-            uf: row.uf || "",
-            status: row.status || "",
-            clientes: 0,
-            valor_total_sum: 0,
-            qtde_pedidos_sum: 0
-          };
-        }
-        grouped[key].clientes += 1;
-        grouped[key].valor_total_sum += Number(row.valor_total || 0);
-        grouped[key].qtde_pedidos_sum += Number(row.qtde_pedidos || 0);
+      const dataRows = global.CrudUtils.ensureArray(working.rows).filter(function(row) {
+        const matchStatus = !status || String(row.status || "") === status;
+        const matchUf = !uf || String(row.uf || "").toUpperCase() === uf;
+        return matchStatus && matchUf;
       });
-
-      const dataRows = Object.keys(grouped).map(function(key) {
-        return grouped[key];
-      }).sort(function(left, right) {
-        return String(left.uf || "").localeCompare(String(right.uf || "")) || String(left.status || "").localeCompare(String(right.status || ""));
-      });
-
       return {
         data: dataRows,
         total: dataRows.length,
         datasetId: data && data.datasetId || "clientes-uf-status",
         generatedAt: new Date().toISOString(),
-        columns: [
-          { field: "uf", id: "uf", title: "UF", label: "UF", type: "string", role: "dimension" },
-          { field: "status", id: "status", title: "Status", label: "Status", type: "string", role: "dimension" },
-          { field: "clientes", id: "clientes", title: "Clientes", label: "Clientes", type: "integer", role: "measure", aggregate: "count" },
-          { field: "valor_total_sum", id: "valor_total_sum", title: "Valor total", label: "Valor total", type: "currency", role: "measure", aggregate: "sum" },
-          { field: "qtde_pedidos_sum", id: "qtde_pedidos_sum", title: "Pedidos", label: "Pedidos", type: "integer", role: "measure", aggregate: "sum" }
-        ],
+        columns: global.CrudUtils.clone(working.columns || this.analyticsPipelineColumns()),
         _runtime: {
           analytics: {
-            executionMode: "auto",
-            aggregated: true
+            executionMode: "published",
+            aggregated: true,
+            pipelineId: "clientes_uf_status",
+            publishedDatasetVersionId: activeVersion && activeVersion.versionNo || 1
           },
           analyticsCache: {
-            status: "miss_live"
+            status: "ready"
           }
         }
+      };
+    }
+
+    previewAnalyticsPipeline(data) {
+      const working = this.buildAnalyticsPipelineWorkingDataset(data || {});
+      return {
+        ok: true,
+        pipelineId: String(data && data.pipelineId || "clientes_uf_status"),
+        executionId: "preview-" + Date.now(),
+        workingDataset: working
+      };
+    }
+
+    runAnalyticsPipelineExecution(data) {
+      const working = this.buildAnalyticsPipelineWorkingDataset(data || {});
+      const execution = {
+        executionId: "exec-" + Date.now(),
+        pipelineId: String(data && data.pipelineId || "clientes_uf_status"),
+        status: "succeeded",
+        rowCount: working.rows.length,
+        workingDataset: working,
+        finishedAt: new Date().toISOString()
+      };
+      this.analyticsPipelineState.executions.unshift(execution);
+      this.persistAnalyticsPipelineState();
+      return {
+        ok: true,
+        pipelineId: execution.pipelineId,
+        executionId: execution.executionId,
+        workingDataset: global.CrudUtils.clone(working)
+      };
+    }
+
+    publishAnalyticsPipeline(data) {
+      const executionId = String(data && data.executionId || "");
+      const execution = this.analyticsPipelineState.executions.find(function(item) {
+        return String(item.executionId || "") === executionId;
+      }) || this.analyticsPipelineState.executions[0];
+      const versionNo = (this.analyticsPipelineState.versions[0] && Number(this.analyticsPipelineState.versions[0].versionNo || 0) || 0) + 1;
+      const version = {
+        versionNo: versionNo,
+        status: "published",
+        executionId: execution && execution.executionId || "",
+        publishedAt: new Date().toISOString(),
+        data: global.CrudUtils.clone(execution && execution.workingDataset || this.buildAnalyticsPipelineWorkingDataset({}))
+      };
+      this.analyticsPipelineState.versions.unshift(version);
+      this.analyticsPipelineState.activeVersionNo = versionNo;
+      this.persistAnalyticsPipelineState();
+      return {
+        ok: true,
+        pipelineId: String(data && data.pipelineId || "clientes_uf_status"),
+        executionId: version.executionId,
+        publishedDatasetId: "clientes_uf_status_published",
+        publishedVersion: global.CrudUtils.clone(version)
+      };
+    }
+
+    statusAnalyticsPipeline(data) {
+      return {
+        pipelineId: String(data && data.pipelineId || "clientes_uf_status"),
+        latestExecution: global.CrudUtils.clone(this.analyticsPipelineState.executions[0] || null),
+        executions: global.CrudUtils.clone(this.analyticsPipelineState.executions.slice(0, 10))
+      };
+    }
+
+    logsAnalyticsPipeline(data) {
+      return {
+        pipelineId: String(data && data.pipelineId || "clientes_uf_status"),
+        logs: this.analyticsPipelineState.executions.slice(0, 10).map(function(execution) {
+          return {
+            execution: global.CrudUtils.clone(execution),
+            steps: [
+              { stepId: "group_uf_status", stepType: "group", status: "succeeded", rowCount: execution.rowCount },
+              { stepId: "publish_final", stepType: "publish", status: "succeeded", rowCount: execution.rowCount }
+            ]
+          };
+        })
+      };
+    }
+
+    versionsAnalyticsPipeline(data) {
+      const activeVersion = this.analyticsPipelineState.versions.find(function(item) {
+        return Number(item.versionNo || 0) === Number(this.analyticsPipelineState.activeVersionNo || 0);
+      }.bind(this)) || null;
+      return {
+        pipelineId: String(data && data.pipelineId || "clientes_uf_status"),
+        publishedDatasetId: "clientes_uf_status_published",
+        activeVersion: global.CrudUtils.clone(activeVersion),
+        versions: global.CrudUtils.clone(this.analyticsPipelineState.versions)
+      };
+    }
+
+    rollbackAnalyticsPipeline(data) {
+      const versionNo = Math.max(1, Number(data && data.versionNo || 0) || 1);
+      const activeVersion = this.analyticsPipelineState.versions.find(function(item) {
+        return Number(item.versionNo || 0) === versionNo;
+      }) || this.analyticsPipelineState.versions[0] || null;
+      this.analyticsPipelineState.activeVersionNo = activeVersion && Number(activeVersion.versionNo || 0) || 1;
+      this.persistAnalyticsPipelineState();
+      return {
+        ok: true,
+        pipelineId: String(data && data.pipelineId || "clientes_uf_status"),
+        publishedDatasetId: "clientes_uf_status_published",
+        activeVersion: global.CrudUtils.clone(activeVersion)
       };
     }
 

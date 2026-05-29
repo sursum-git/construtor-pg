@@ -140,6 +140,14 @@ class SeedRuntimeMetadataCommand extends Command
         'analytics.query.run' => 'analytics.query.run',
         'analytics.materialize' => 'analytics.materialize',
         'analytics.cache.status' => 'analytics.cache.status',
+        'analytics.pipeline.schema' => 'analytics.pipeline.schema',
+        'analytics.pipeline.preview' => 'analytics.pipeline.preview',
+        'analytics.pipeline.run' => 'analytics.pipeline.run',
+        'analytics.pipeline.publish' => 'analytics.pipeline.publish',
+        'analytics.pipeline.status' => 'analytics.pipeline.status',
+        'analytics.pipeline.logs' => 'analytics.pipeline.logs',
+        'analytics.pipeline.versions' => 'analytics.pipeline.versions',
+        'analytics.pipeline.rollback' => 'analytics.pipeline.rollback',
     ];
 
     private const REPORT_ENDPOINTS = [
@@ -590,6 +598,22 @@ class SeedRuntimeMetadataCommand extends Command
                 'frameTitle' => 'Auditoria analytics',
             ],
         ];
+        $analyticsPipelinesAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.analytics-pipelines',
+            'program' => [
+                'id' => 'admin-analytics-pipelines',
+                'title' => 'Pipelines analytics',
+                'subtitle' => 'Operacao dos pipelines semanticos versionados da camada BI',
+                'version' => '1.0.0',
+                'screenId' => 'admin.analytics-pipelines',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/analytics-pipelines.html',
+                'frameTitle' => 'Pipelines analytics',
+            ],
+        ];
         $reportAuditAdminDefinition = [
             'pageType' => 'custom',
             'screenId' => 'admin.relatorios-auditoria',
@@ -664,6 +688,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-overlays-operacao', 'Overlays de programas', 'Operacao focada em overlays e rebase', 'admin.programa-overlays-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-overlay-versoes-operacao', 'Versoes de overlay', 'Operacao focada em versoes de overlay', 'admin.programa-overlay-versoes-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-analytics-auditoria', 'Auditoria analytics', 'Consulta das trilhas da camada BI em banco separado', 'admin.analytics-auditoria');
+        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-analytics-pipelines', 'Pipelines analytics', 'Operacao dos pipelines semanticos versionados da camada BI', 'admin.analytics-pipelines');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-relatorios-auditoria', 'Auditoria de relatorios', 'Consulta das emissoes de relatorios gravadas no banco separado', 'admin.relatorios-auditoria');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-documentos-regulados', 'Documentos regulados', 'Consulta do modulo regulado em banco separado', 'admin.documentos-regulados');
         foreach (($homeDefinition['programs'] ?? []) as $index => $program) {
@@ -698,6 +723,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertProgram('admin-programa-overlays-operacao', 'Overlays de programas', 'administracao', 'custom', 'admin.programa-overlays-operacao');
         $this->upsertProgram('admin-programa-overlay-versoes-operacao', 'Versoes de overlay', 'administracao', 'custom', 'admin.programa-overlay-versoes-operacao');
         $this->upsertProgram('admin-analytics-auditoria', 'Auditoria analytics', 'administracao', 'custom', 'admin.analytics-auditoria');
+        $this->upsertProgram('admin-analytics-pipelines', 'Pipelines analytics', 'administracao', 'custom', 'admin.analytics-pipelines');
         $this->upsertProgram('admin-relatorios-auditoria', 'Auditoria de relatorios', 'administracao', 'custom', 'admin.relatorios-auditoria');
         $this->upsertProgram('admin-assinante-ambientes', 'Provisionamento de assinantes', 'administracao', 'custom', 'admin.assinante-ambientes');
         $this->upsertProgram('admin-atualizacoes', 'Atualizacoes do sistema', 'administracao', 'custom', 'admin.atualizacoes');
@@ -734,6 +760,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertScreen('admin.programa-overlays-operacao', 'custom', $programOverlaysAdminDefinition);
         $this->upsertScreen('admin.programa-overlay-versoes-operacao', 'custom', $programOverlayVersionsAdminDefinition);
         $this->upsertScreen('admin.analytics-auditoria', 'custom', $analyticsAuditAdminDefinition);
+        $this->upsertScreen('admin.analytics-pipelines', 'custom', $analyticsPipelinesAdminDefinition);
         $this->upsertScreen('admin.relatorios-auditoria', 'custom', $reportAuditAdminDefinition);
         $this->upsertScreen('admin.documentos-regulados', 'custom', $regulatedDocumentAdminDefinition);
         $this->upsertScreen('admin.assinante-ambientes', 'custom', $subscriberProvisioningAdminDefinition);

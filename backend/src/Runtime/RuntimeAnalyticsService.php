@@ -20,6 +20,7 @@ class RuntimeAnalyticsService
         private readonly PermissionResolver $permissions,
         private readonly StructuralIntegrityService $integrity,
         private readonly ProgramCustomizationResolver $customizations,
+        private readonly ?RuntimeAnalyticsPipelineService $pipelines = null,
         private readonly ?RuntimeAnalyticsAuditStore $auditStore = null,
     ) {
     }
@@ -293,6 +294,16 @@ class RuntimeAnalyticsService
      */
     private function executeDataset(array $definition, array $dataset, array $payload, ?string $tenantId): array
     {
+        $source = is_array($dataset['source'] ?? null) ? $dataset['source'] : [];
+        $sourceType = strtolower((string) ($source['type'] ?? 'entity'));
+        if ($sourceType === 'pipeline_published') {
+            if (!$this->pipelines instanceof RuntimeAnalyticsPipelineService) {
+                throw new RuntimeHttpException('ANALYTICS_PIPELINE_SERVICE_MISSING', 'Servico de pipeline analytics nao configurado.', 500);
+            }
+
+            return $this->pipelines->consumePublishedDataset((string) ($definition['screenId'] ?? ''), $dataset, $payload, $tenantId);
+        }
+
         [$qb, $contexts] = $this->createBaseQuery($dataset, $payload, $tenantId);
         $columns = [];
         $dimensions = $this->normalizeFieldSpecs($dataset['dimensions'] ?? []);

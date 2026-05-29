@@ -29,6 +29,7 @@ async function main() {
       app.screenIdInput.value("analytics.clientes");
       app.versionInput.value("1.0.0");
       app.moduleInput.value("cadastros");
+      app.handleAddAnalyticsPipelineRow();
       await app.requestPreview(true);
       app.activateSideTab(6);
     });
@@ -38,6 +39,19 @@ async function main() {
 
     await page.getByRole("button", { name: "Executar amostra" }).click();
     await page.waitForSelector(".program-builder-analytics-sample-table", { timeout: 10000 });
+
+    await page.getByRole("button", { name: "Preview pipeline" }).click();
+    await page.waitForFunction(() => {
+      const blocks = Array.from(document.querySelectorAll(".program-builder-json-preview"));
+      return blocks.some((item) => item.textContent.includes("\"workingDataset\"") || item.textContent.includes("\"rows\""));
+    }, null, { timeout: 10000 });
+
+    await page.getByRole("button", { name: "Executar pipeline" }).click();
+    await page.getByRole("button", { name: "Versoes" }).click();
+    await page.waitForFunction(() => {
+      const blocks = Array.from(document.querySelectorAll(".program-builder-json-preview"));
+      return blocks.some((item) => item.textContent.includes("\"activeVersion\""));
+    }, null, { timeout: 10000 });
 
     await page.getByRole("button", { name: "Status do cache" }).click();
     await page.waitForFunction(() => {

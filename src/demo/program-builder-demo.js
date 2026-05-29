@@ -4,6 +4,12 @@
   function ProgramBuilderDemoHttpClient() {
   }
 
+  const analyticsPipelineState = {
+    executions: [],
+    versions: [],
+    activeVersionNo: 0
+  };
+
   ProgramBuilderDemoHttpClient.prototype.request = function(config) {
     const url = String(config && config.url || "");
     const method = String(config && config.method || "GET").toUpperCase();
@@ -163,6 +169,27 @@
     if (/^\/api\/runtime\/screens\/[^/]+\/endpoints\/analytics\.query\.run$/.test(url) && method === "POST") {
       return Promise.resolve(runAnalyticsDataset(data));
     }
+    if (/^\/api\/runtime\/screens\/[^/]+\/endpoints\/analytics\.pipeline\.preview$/.test(url) && method === "POST") {
+      return Promise.resolve(previewAnalyticsPipeline(data));
+    }
+    if (/^\/api\/runtime\/screens\/[^/]+\/endpoints\/analytics\.pipeline\.run$/.test(url) && method === "POST") {
+      return Promise.resolve(runAnalyticsPipeline(data));
+    }
+    if (/^\/api\/runtime\/screens\/[^/]+\/endpoints\/analytics\.pipeline\.publish$/.test(url) && method === "POST") {
+      return Promise.resolve(publishAnalyticsPipeline(data));
+    }
+    if (/^\/api\/runtime\/screens\/[^/]+\/endpoints\/analytics\.pipeline\.status$/.test(url) && method === "POST") {
+      return Promise.resolve(statusAnalyticsPipeline(data));
+    }
+    if (/^\/api\/runtime\/screens\/[^/]+\/endpoints\/analytics\.pipeline\.logs$/.test(url) && method === "POST") {
+      return Promise.resolve(logsAnalyticsPipeline(data));
+    }
+    if (/^\/api\/runtime\/screens\/[^/]+\/endpoints\/analytics\.pipeline\.versions$/.test(url) && method === "POST") {
+      return Promise.resolve(versionsAnalyticsPipeline(data));
+    }
+    if (/^\/api\/runtime\/screens\/[^/]+\/endpoints\/analytics\.pipeline\.rollback$/.test(url) && method === "POST") {
+      return Promise.resolve(rollbackAnalyticsPipeline(data));
+    }
     if (/^\/api\/runtime\/screens\/[^/]+\/endpoints\/analytics\.cache\.status$/.test(url) && method === "POST") {
       return Promise.resolve({
         status: "ready",
@@ -276,13 +303,25 @@
           schema: { endpointId: "analytics.schema" },
           run: { endpointId: "analytics.query.run" },
           materialize: { endpointId: "analytics.materialize" },
-          cacheStatus: { endpointId: "analytics.cache.status" }
+          cacheStatus: { endpointId: "analytics.cache.status" },
+          pipelineSchema: { endpointId: "analytics.pipeline.schema" },
+          pipelinePreview: { endpointId: "analytics.pipeline.preview" },
+          pipelineRun: { endpointId: "analytics.pipeline.run" },
+          pipelinePublish: { endpointId: "analytics.pipeline.publish" },
+          pipelineStatus: { endpointId: "analytics.pipeline.status" },
+          pipelineLogs: { endpointId: "analytics.pipeline.logs" },
+          pipelineVersions: { endpointId: "analytics.pipeline.versions" },
+          pipelineRollback: { endpointId: "analytics.pipeline.rollback" }
         },
         datasets: [
           {
             id: "principal",
             title: title,
-            source: { type: "entity", entityCode: entityCode },
+            source: {
+              type: "pipeline_published",
+              pipelineId: analyticsConfig.semanticPipelines && analyticsConfig.semanticPipelines[0] && analyticsConfig.semanticPipelines[0].id || "pipeline_principal",
+              publishedDatasetId: analyticsConfig.semanticPipelines && analyticsConfig.semanticPipelines[0] && analyticsConfig.semanticPipelines[0].publishConfig && analyticsConfig.semanticPipelines[0].publishConfig.publishedDatasetId || "principal_published"
+            },
             joins: Array.isArray(analyticsConfig.joins) ? analyticsConfig.joins : [],
             fields: [
               { id: "uf", field: "uf", label: "UF", type: "string" },
@@ -311,20 +350,48 @@
             cache: { ttlSeconds: analyticsConfig.cacheTtlSeconds || 900 }
           }
         ],
+        semanticPipelines: Array.isArray(analyticsConfig.semanticPipelines) && analyticsConfig.semanticPipelines.length ? analyticsConfig.semanticPipelines : [
+          {
+            id: "pipeline_principal",
+            title: "Pipeline principal",
+            enabled: true,
+            sourceEntityCode: entityCode,
+            steps: [
+              {
+                id: "group1",
+                type: "group",
+                dimensions: ["uf", "status"],
+                measures: [
+                  { field: "id", aggregate: "count", id: "clientes", label: "Clientes" },
+                  { field: "limite_credito", aggregate: "sum", id: "limite_credito_sum", label: "Limite de credito", format: "c2" }
+                ]
+              },
+              { id: "publish1", type: "publish", title: title }
+            ],
+            publishConfig: {
+              publishedDatasetId: "principal_published",
+              title: title
+            },
+            schedule: { mode: "manual" },
+            retention: { keepDays: 30 }
+          }
+        ],
+        ingestionPipelines: [],
         views: views
       }
     };
   }
 
   function runAnalyticsDataset(data) {
+    ensureAnalyticsPipelineSeed();
     const parameters = data && data.parameters || {};
     const statusFilter = String(parameters.status || "").trim().toLowerCase();
     const ufFilter = String(parameters.uf || "").trim().toLowerCase();
-    const rows = [
-      { uf: "CE", status: "Ativo", limite_credito_sum: 7000, total_clientes: 1 },
-      { uf: "RJ", status: "Inativo", limite_credito_sum: 4200, total_clientes: 1 },
-      { uf: "SP", status: "Ativo", limite_credito_sum: 12000, total_clientes: 2 }
-    ].filter(function(item) {
+    const active = analyticsPipelineState.versions.find(function(item) {
+      return Number(item.versionNo || 0) === Number(analyticsPipelineState.activeVersionNo || 0);
+    });
+    const working = active && active.data || buildWorkingDataset({});
+    const rows = (working.rows || []).filter(function(item) {
       const matchesStatus = !statusFilter || String(item.status || "").toLowerCase().indexOf(statusFilter) >= 0;
       const matchesUf = !ufFilter || String(item.uf || "").toLowerCase().indexOf(ufFilter) >= 0;
       return matchesStatus && matchesUf;
@@ -335,17 +402,176 @@
       total: rows.length,
       datasetId: String(data && data.datasetId || "principal"),
       generatedAt: new Date().toISOString(),
-      columns: [
-        { field: "uf", id: "uf", title: "UF", label: "UF", type: "string", role: "dimension" },
-        { field: "status", id: "status", title: "Status", label: "Status", type: "string", role: "dimension" },
-        { field: "limite_credito_sum", id: "limite_credito_sum", title: "Limite de credito", label: "Limite de credito", type: "decimal", role: "measure", aggregate: "sum", format: "c2" },
-        { field: "total_clientes", id: "total_clientes", title: "Clientes", label: "Clientes", type: "integer", role: "measure", aggregate: "count", format: "n0" }
-      ],
+      columns: working.columns || [],
       _runtime: {
+        analytics: {
+          executionMode: "published",
+          pipelineId: "pipeline_principal",
+          publishedDatasetVersionId: analyticsPipelineState.activeVersionNo || 1
+        },
         analyticsCache: {
           status: "ready"
         }
       }
+    };
+  }
+
+  function analyticsColumns() {
+    return [
+      { field: "uf", id: "uf", title: "UF", label: "UF", type: "string", role: "dimension" },
+      { field: "status", id: "status", title: "Status", label: "Status", type: "string", role: "dimension" },
+      { field: "limite_credito_sum", id: "limite_credito_sum", title: "Limite de credito", label: "Limite de credito", type: "decimal", role: "measure", aggregate: "sum", format: "c2" },
+      { field: "total_clientes", id: "total_clientes", title: "Clientes", label: "Clientes", type: "integer", role: "measure", aggregate: "count", format: "n0" }
+    ];
+  }
+
+  function buildWorkingDataset(data) {
+    const parameters = data && data.parameters || {};
+    const statusFilter = String(parameters.status || "").trim().toLowerCase();
+    const ufFilter = String(parameters.uf || "").trim().toLowerCase();
+    const rows = [
+      { uf: "CE", status: "ATIVO", limite_credito_sum: 7000, total_clientes: 1 },
+      { uf: "RJ", status: "INATIVO", limite_credito_sum: 4200, total_clientes: 1 },
+      { uf: "SP", status: "ATIVO", limite_credito_sum: 12000, total_clientes: 2 }
+    ].filter(function(item) {
+      const matchesStatus = !statusFilter || String(item.status || "").toLowerCase().indexOf(statusFilter) >= 0;
+      const matchesUf = !ufFilter || String(item.uf || "").toLowerCase().indexOf(ufFilter) >= 0;
+      return matchesStatus && matchesUf;
+    });
+    return {
+      columns: analyticsColumns(),
+      rows: rows
+    };
+  }
+
+  function ensureAnalyticsPipelineSeed() {
+    if (analyticsPipelineState.versions.length) {
+      return;
+    }
+    const working = buildWorkingDataset({});
+    analyticsPipelineState.executions.push({
+      executionId: "exec-seed-1",
+      pipelineId: "pipeline_principal",
+      status: "succeeded",
+      rowCount: working.rows.length,
+      workingDataset: working,
+      finishedAt: new Date().toISOString()
+    });
+    analyticsPipelineState.versions.push({
+      versionNo: 1,
+      status: "published",
+      executionId: "exec-seed-1",
+      publishedAt: new Date().toISOString(),
+      data: working
+    });
+    analyticsPipelineState.activeVersionNo = 1;
+  }
+
+  function previewAnalyticsPipeline(data) {
+    ensureAnalyticsPipelineSeed();
+    const working = buildWorkingDataset(data);
+    return {
+      ok: true,
+      pipelineId: String(data && data.pipelineId || "pipeline_principal"),
+      executionId: "preview-" + Date.now(),
+      workingDataset: working
+    };
+  }
+
+  function runAnalyticsPipeline(data) {
+    ensureAnalyticsPipelineSeed();
+    const working = buildWorkingDataset(data);
+    const execution = {
+      executionId: "exec-" + Date.now(),
+      pipelineId: String(data && data.pipelineId || "pipeline_principal"),
+      status: "succeeded",
+      rowCount: working.rows.length,
+      workingDataset: working,
+      finishedAt: new Date().toISOString()
+    };
+    analyticsPipelineState.executions.unshift(execution);
+    return {
+      ok: true,
+      pipelineId: execution.pipelineId,
+      executionId: execution.executionId,
+      workingDataset: working
+    };
+  }
+
+  function publishAnalyticsPipeline(data) {
+    ensureAnalyticsPipelineSeed();
+    const executionId = String(data && data.executionId || "");
+    const execution = analyticsPipelineState.executions.find(function(item) {
+      return String(item.executionId || "") === executionId;
+    }) || analyticsPipelineState.executions[0];
+    const versionNo = (analyticsPipelineState.versions[0] && Number(analyticsPipelineState.versions[0].versionNo || 0) || 0) + 1;
+    analyticsPipelineState.versions.unshift({
+      versionNo: versionNo,
+      status: "published",
+      executionId: execution.executionId,
+      publishedAt: new Date().toISOString(),
+      data: execution.workingDataset
+    });
+    analyticsPipelineState.activeVersionNo = versionNo;
+    return {
+      ok: true,
+      pipelineId: String(data && data.pipelineId || "pipeline_principal"),
+      executionId: execution.executionId,
+      publishedDatasetId: "principal_published",
+      publishedVersion: analyticsPipelineState.versions[0]
+    };
+  }
+
+  function statusAnalyticsPipeline(data) {
+    ensureAnalyticsPipelineSeed();
+    return {
+      pipelineId: String(data && data.pipelineId || "pipeline_principal"),
+      latestExecution: analyticsPipelineState.executions[0] || null,
+      executions: analyticsPipelineState.executions.slice(0, 10)
+    };
+  }
+
+  function logsAnalyticsPipeline(data) {
+    ensureAnalyticsPipelineSeed();
+    return {
+      pipelineId: String(data && data.pipelineId || "pipeline_principal"),
+      logs: analyticsPipelineState.executions.slice(0, 10).map(function(item) {
+        return {
+          execution: item,
+          steps: [
+            { stepId: "group1", stepType: "group", status: "succeeded", rowCount: item.rowCount },
+            { stepId: "publish1", stepType: "publish", status: "succeeded", rowCount: item.rowCount }
+          ]
+        };
+      })
+    };
+  }
+
+  function versionsAnalyticsPipeline(data) {
+    ensureAnalyticsPipelineSeed();
+    const active = analyticsPipelineState.versions.find(function(item) {
+      return Number(item.versionNo || 0) === Number(analyticsPipelineState.activeVersionNo || 0);
+    }) || null;
+    return {
+      pipelineId: String(data && data.pipelineId || "pipeline_principal"),
+      publishedDatasetId: "principal_published",
+      activeVersion: active,
+      versions: analyticsPipelineState.versions.slice()
+    };
+  }
+
+  function rollbackAnalyticsPipeline(data) {
+    ensureAnalyticsPipelineSeed();
+    const versionNo = Math.max(1, Number(data && data.versionNo || 0) || 1);
+    analyticsPipelineState.activeVersionNo = versionNo;
+    const active = analyticsPipelineState.versions.find(function(item) {
+      return Number(item.versionNo || 0) === versionNo;
+    }) || analyticsPipelineState.versions[0];
+    return {
+      ok: true,
+      pipelineId: String(data && data.pipelineId || "pipeline_principal"),
+      publishedDatasetId: "principal_published",
+      activeVersion: active
     };
   }
 

@@ -38,6 +38,14 @@
         "version": { "type": "string" },
         "endpoints": { "$ref": "#/$defs/endpointMap" },
         "audit": { "$ref": "#/$defs/auditPolicy" },
+        "semanticPipelines": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/semanticPipeline" }
+        },
+        "ingestionPipelines": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ingestionPipelineStub" }
+        },
         "datasets": {
           "type": "array",
           "minItems": 1,
@@ -77,13 +85,27 @@
         "id": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
         "title": { "type": "string" },
         "source": {
-          "type": "object",
-          "required": ["type", "entityCode"],
-          "properties": {
-            "type": { "enum": ["entity", "persistence"] },
-            "entityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }
-          },
-          "additionalProperties": false
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["type", "entityCode"],
+              "properties": {
+                "type": { "enum": ["entity", "persistence"] },
+                "entityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": ["type", "pipelineId", "publishedDatasetId"],
+              "properties": {
+                "type": { "const": "pipeline_published" },
+                "pipelineId": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+                "publishedDatasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" }
+              },
+              "additionalProperties": false
+            }
+          ]
         },
         "joins": {
           "type": "array",
@@ -229,6 +251,131 @@
         "tiles": { "type": "array" }
       },
       "additionalProperties": true
+    },
+    "semanticPipeline": {
+      "type": "object",
+      "required": ["id", "title", "steps", "publishConfig"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "title": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "sourceEntityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "sourceDatasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+        "steps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pipelineStep" }
+        },
+        "publishConfig": {
+          "type": "object",
+          "required": ["publishedDatasetId"],
+          "properties": {
+            "publishedDatasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+            "title": { "type": "string" },
+            "visibility": { "enum": ["internal", "shared"] }
+          },
+          "additionalProperties": false
+        },
+        "schedule": { "type": "object", "additionalProperties": true },
+        "retention": { "type": "object", "additionalProperties": true }
+      },
+      "additionalProperties": false
+    },
+    "pipelineStep": {
+      "type": "object",
+      "required": ["id", "type"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "type": { "enum": ["source", "select", "filter", "join", "derive", "group", "sort", "limit", "publish"] },
+        "sourceEntityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "sourceDatasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+        "sourcePipelineId": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "publishedDatasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+        "title": { "type": "string" },
+        "field": { "type": "string" },
+        "dir": { "enum": ["asc", "desc"] },
+        "take": { "type": "integer", "minimum": 0, "maximum": 5000 },
+        "skip": { "type": "integer", "minimum": 0, "maximum": 5000 },
+        "limit": { "type": "integer", "minimum": 0, "maximum": 5000 },
+        "fields": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "$ref": "#/$defs/fieldRef" },
+              {
+                "type": "object",
+                "required": ["sourceField", "targetField"],
+                "properties": {
+                  "sourceField": { "type": "string" },
+                  "targetField": { "type": "string" },
+                  "label": { "type": "string" },
+                  "type": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "filters": { "$ref": "#/$defs/filterGroup" },
+        "join": {
+          "type": "object",
+          "properties": {
+            "entityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+            "localField": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+            "foreignField": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+            "type": { "enum": ["left", "inner"] }
+          },
+          "additionalProperties": false
+        },
+        "joins": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "entityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+              "localField": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+              "foreignField": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+              "type": { "enum": ["left", "inner"] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "derive": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "function"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+              "label": { "type": "string" },
+              "function": { "enum": ["concat", "date_part", "coalesce", "bucket_number", "map_value"] },
+              "type": { "type": "string" },
+              "args": { "type": "array" },
+              "options": { "type": "object", "additionalProperties": true }
+            },
+            "additionalProperties": false
+          }
+        },
+        "group": {
+          "type": "object",
+          "properties": {
+            "dimensions": { "type": "array", "items": { "$ref": "#/$defs/fieldRef" } },
+            "measures": { "type": "array", "items": { "$ref": "#/$defs/measure" } }
+          },
+          "additionalProperties": false
+        },
+        "sort": { "type": "array", "items": { "$ref": "#/$defs/sort" } }
+      },
+      "additionalProperties": false
+    },
+    "ingestionPipelineStub": {
+      "type": "object",
+      "required": ["id", "title", "reserved"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "reserved": { "const": true }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": true

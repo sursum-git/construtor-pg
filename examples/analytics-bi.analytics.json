@@ -19,7 +19,15 @@
       "schema": { "endpointId": "analytics.schema", "method": "POST" },
       "run": { "endpointId": "analytics.query.run", "method": "POST" },
       "materialize": { "endpointId": "analytics.materialize", "method": "POST" },
-      "cacheStatus": { "endpointId": "analytics.cache.status", "method": "POST" }
+      "cacheStatus": { "endpointId": "analytics.cache.status", "method": "POST" },
+      "pipelineSchema": { "endpointId": "analytics.pipeline.schema", "method": "POST" },
+      "pipelinePreview": { "endpointId": "analytics.pipeline.preview", "method": "POST" },
+      "pipelineRun": { "endpointId": "analytics.pipeline.run", "method": "POST" },
+      "pipelinePublish": { "endpointId": "analytics.pipeline.publish", "method": "POST" },
+      "pipelineStatus": { "endpointId": "analytics.pipeline.status", "method": "POST" },
+      "pipelineLogs": { "endpointId": "analytics.pipeline.logs", "method": "POST" },
+      "pipelineVersions": { "endpointId": "analytics.pipeline.versions", "method": "POST" },
+      "pipelineRollback": { "endpointId": "analytics.pipeline.rollback", "method": "POST" }
     }
   },
   "analytics": {
@@ -32,15 +40,24 @@
       "schema": { "endpointId": "analytics.schema", "method": "POST" },
       "run": { "endpointId": "analytics.query.run", "method": "POST" },
       "materialize": { "endpointId": "analytics.materialize", "method": "POST" },
-      "cacheStatus": { "endpointId": "analytics.cache.status", "method": "POST" }
+      "cacheStatus": { "endpointId": "analytics.cache.status", "method": "POST" },
+      "pipelineSchema": { "endpointId": "analytics.pipeline.schema", "method": "POST" },
+      "pipelinePreview": { "endpointId": "analytics.pipeline.preview", "method": "POST" },
+      "pipelineRun": { "endpointId": "analytics.pipeline.run", "method": "POST" },
+      "pipelinePublish": { "endpointId": "analytics.pipeline.publish", "method": "POST" },
+      "pipelineStatus": { "endpointId": "analytics.pipeline.status", "method": "POST" },
+      "pipelineLogs": { "endpointId": "analytics.pipeline.logs", "method": "POST" },
+      "pipelineVersions": { "endpointId": "analytics.pipeline.versions", "method": "POST" },
+      "pipelineRollback": { "endpointId": "analytics.pipeline.rollback", "method": "POST" }
     },
     "datasets": [
       {
         "id": "clientes-uf-status",
         "title": "Clientes por UF e status",
         "source": {
-          "type": "entity",
-          "entityCode": "cliente"
+          "type": "pipeline_published",
+          "pipelineId": "clientes_uf_status",
+          "publishedDatasetId": "clientes_uf_status_published"
         },
         "fields": [
           { "id": "uf", "field": "uf", "label": "UF", "type": "string" },
@@ -81,6 +98,61 @@
         "cache": { "ttlSeconds": 900 }
       }
     ],
+    "semanticPipelines": [
+      {
+        "id": "clientes_base",
+        "title": "Base operacional",
+        "enabled": true,
+        "sourceEntityCode": "cliente",
+        "steps": [
+          {
+            "id": "select_base",
+            "type": "select",
+            "fields": [
+              { "from": "uf", "as": "uf", "label": "UF", "role": "dimension", "type": "string" },
+              { "from": "status", "as": "status", "label": "Status", "role": "dimension", "type": "enum" },
+              { "from": "valor_total", "as": "valor_total", "label": "Valor total", "role": "measure", "type": "currency", "format": "c2" },
+              { "from": "qtde_pedidos", "as": "qtde_pedidos", "label": "Pedidos", "role": "measure", "type": "integer", "format": "n0" },
+              { "from": "id", "as": "id", "label": "ID", "role": "field", "type": "integer" }
+            ]
+          },
+          { "id": "publish_base", "type": "publish", "title": "Base clientes" }
+        ],
+        "publishConfig": {
+          "publishedDatasetId": "clientes_base_published",
+          "title": "Base clientes"
+        },
+        "schedule": { "mode": "manual" },
+        "retention": { "keepDays": 30 }
+      },
+      {
+        "id": "clientes_uf_status",
+        "title": "Clientes por UF e status",
+        "enabled": true,
+        "sourcePipelineId": "clientes_base",
+        "steps": [
+          {
+            "id": "group_uf_status",
+            "type": "group",
+            "dimensions": ["uf", "status"],
+            "measures": [
+              { "field": "id", "aggregate": "count", "id": "clientes", "label": "Clientes" },
+              { "field": "valor_total", "aggregate": "sum", "id": "valor_total_sum", "label": "Valor total", "format": "c2" },
+              { "field": "qtde_pedidos", "aggregate": "sum", "id": "qtde_pedidos_sum", "label": "Pedidos", "format": "n0" }
+            ]
+          },
+          { "id": "sort_uf_status", "type": "sort", "sort": [{ "field": "uf", "dir": "asc" }, { "field": "status", "dir": "asc" }] },
+          { "id": "publish_final", "type": "publish", "title": "Clientes por UF e status" }
+        ],
+        "publishConfig": {
+          "publishedDatasetId": "clientes_uf_status_published",
+          "title": "Clientes por UF e status"
+        },
+        "schedule": { "mode": "manual" },
+        "retention": { "keepDays": 30 }
+      }
+    ],
+    "ingestionPipelines": [],
     "views": [
       { "id": "grid", "type": "grid", "title": "Grid", "datasetId": "clientes-uf-status" },
       {

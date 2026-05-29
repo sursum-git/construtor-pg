@@ -23,6 +23,7 @@
     "test:admin-subscriber-provisioning": "node tests/frontend/admin-subscriber-provisioning-smoke.mjs",
     "test:admin-system-updates": "node tests/frontend/admin-system-updates-smoke.mjs",
     "test:admin-analytics-audit": "node tests/frontend/admin-analytics-audit-smoke.mjs",
+    "test:admin-analytics-pipelines": "node tests/frontend/admin-analytics-pipelines-smoke.mjs",
     "test:admin-report-audit": "node tests/frontend/admin-report-audit-smoke.mjs",
     "test:system-install": "node tests/frontend/system-install-e2e.mjs",
     "test:admin-system-update-subscriber-log": "node tests/frontend/admin-system-update-subscriber-log-smoke.mjs",

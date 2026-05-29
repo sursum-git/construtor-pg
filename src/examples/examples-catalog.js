@@ -190,7 +190,7 @@
       engine: "analytics",
       category: "Analytics",
       title: "Consultas avancadas e BI",
-      summary: "Renderiza dataset interno por metadados fechados com filtros, Kendo Grid, Chart, Pivot e Dashboard.",
+      summary: "Renderiza dataset publicado por pipeline semantico versionado, com working dataset para preview e consumo real por Grid, Chart, Pivot e Dashboard.",
       code: {
         pageType: "analytics",
         screenId: "analytics.clientes",
@@ -814,6 +814,14 @@
       title: "Auditoria analytics",
       summary: "Tela administrativa para consultar a trilha de consultas BI gravada no banco separado de auditoria.",
       page: pagePath + "admin-analytics-audit.html"
+    },
+    {
+      id: "admin-analytics-pipelines",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Pipelines analytics",
+      summary: "Tela administrativa para executar, publicar, listar versoes e fazer rollback dos pipelines semanticos da camada BI.",
+      page: pagePath + "admin-analytics-pipelines.html"
     },
     {
       id: "admin-report-audit",

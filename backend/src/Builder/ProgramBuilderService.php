@@ -3800,6 +3800,69 @@ class ProgramBuilderService
             ];
         }
 
+        $pipelines = [];
+        foreach ((array) ($config['semanticPipelines'] ?? []) as $index => $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $id = $this->safeCode((string) ($item['id'] ?? ('pipeline' . ($index + 1))));
+            if ($id === '') {
+                continue;
+            }
+            $title = trim((string) ($item['title'] ?? $id)) ?: $id;
+            $steps = [];
+            foreach ((array) ($item['steps'] ?? []) as $stepIndex => $step) {
+                if (!is_array($step)) {
+                    continue;
+                }
+                $stepId = $this->safeCode((string) ($step['id'] ?? ('step' . ($stepIndex + 1))));
+                $stepType = strtolower(trim((string) ($step['type'] ?? '')));
+                if ($stepId === '' || !in_array($stepType, ['source', 'select', 'filter', 'join', 'derive', 'group', 'sort', 'limit', 'publish'], true)) {
+                    continue;
+                }
+                $normalizedStep = [
+                    'id' => $stepId,
+                    'type' => $stepType,
+                ];
+                foreach (['sourceEntityCode', 'sourceDatasetId', 'sourcePipelineId', 'publishedDatasetId', 'title', 'field', 'dir'] as $key) {
+                    if (array_key_exists($key, $step) && $step[$key] !== null && $step[$key] !== '') {
+                        $normalizedStep[$key] = is_string($step[$key]) ? trim((string) $step[$key]) : $step[$key];
+                    }
+                }
+                foreach (['fields', 'filters', 'join', 'joins', 'derive', 'group', 'sort'] as $key) {
+                    if (array_key_exists($key, $step) && is_array($step[$key])) {
+                        $normalizedStep[$key] = $step[$key];
+                    }
+                }
+                foreach (['take', 'skip', 'limit'] as $key) {
+                    if (array_key_exists($key, $step) && $step[$key] !== null && $step[$key] !== '') {
+                        $normalizedStep[$key] = max(0, (int) $step[$key]);
+                    }
+                }
+                $steps[] = $normalizedStep;
+            }
+            $publishConfig = is_array($item['publishConfig'] ?? null) ? $item['publishConfig'] : [];
+            $publishedDatasetId = trim((string) ($publishConfig['publishedDatasetId'] ?? ($item['publishedDatasetId'] ?? ($id . '_published'))));
+            if ($publishedDatasetId === '') {
+                $publishedDatasetId = $id . '_published';
+            }
+            $pipelines[] = [
+                'id' => $id,
+                'title' => $title,
+                'enabled' => ($item['enabled'] ?? true) !== false,
+                'sourceEntityCode' => trim((string) ($item['sourceEntityCode'] ?? $entity->getCode())),
+                'sourceDatasetId' => trim((string) ($item['sourceDatasetId'] ?? '')),
+                'steps' => $steps,
+                'publishConfig' => [
+                    'publishedDatasetId' => $publishedDatasetId,
+                    'title' => trim((string) ($publishConfig['title'] ?? $title)) ?: $title,
+                    'visibility' => strtolower(trim((string) ($publishConfig['visibility'] ?? 'internal'))) === 'shared' ? 'shared' : 'internal',
+                ],
+                'schedule' => is_array($item['schedule'] ?? null) ? $item['schedule'] : [],
+                'retention' => is_array($item['retention'] ?? null) ? $item['retention'] : [],
+            ];
+        }
+
         return [
             'executionMode' => $executionMode,
             'limit' => $limit,
@@ -3813,6 +3876,8 @@ class ProgramBuilderService
             'datasetAudit' => $normalizedDatasetAudit,
             'views' => $normalizedViews,
             'joins' => $joins,
+            'semanticPipelines' => $pipelines,
+            'ingestionPipelines' => [],
         ];
     }
 
@@ -4292,6 +4357,22 @@ class ProgramBuilderService
             ];
         }
 
+        $semanticPipelines = array_values(array_filter((array) ($analyticsConfig['semanticPipelines'] ?? []), 'is_array'));
+        $hasPipelines = $semanticPipelines !== [];
+        $publishedDatasetId = $hasPipelines
+            ? trim((string) (($semanticPipelines[0]['publishConfig']['publishedDatasetId'] ?? null) ?: (($semanticPipelines[0]['id'] ?? 'principal') . '_published')))
+            : '';
+        $datasetSource = $hasPipelines
+            ? [
+                'type' => 'pipeline_published',
+                'pipelineId' => (string) ($semanticPipelines[0]['id'] ?? 'pipeline1'),
+                'publishedDatasetId' => $publishedDatasetId,
+            ]
+            : [
+                'type' => 'entity',
+                'entityCode' => $config['builderEntityCode'],
+            ];
+
         return [
             'schemaVersion' => '1.0',
             'pageType' => 'analytics',
@@ -4328,14 +4409,13 @@ class ProgramBuilderService
                     'enabled' => ($analyticsConfig['audit']['enabled'] ?? true) !== false,
                     'includeCacheHits' => ($analyticsConfig['audit']['includeCacheHits'] ?? true) !== false,
                 ],
+                'semanticPipelines' => $semanticPipelines,
+                'ingestionPipelines' => [],
                 'datasets' => [
                     [
                         'id' => $datasetId,
                         'title' => $config['programTitle'],
-                        'source' => [
-                            'type' => 'entity',
-                            'entityCode' => $config['builderEntityCode'],
-                        ],
+                        'source' => $datasetSource,
                         'joins' => array_values(array_filter((array) ($analyticsConfig['joins'] ?? []), 'is_array')),
                         'fields' => $fields,
                         'dimensions' => $dimensions,
@@ -4877,6 +4957,14 @@ class ProgramBuilderService
             'analytics.query.run' => 'analytics.query.run',
             'analytics.materialize' => 'analytics.materialize',
             'analytics.cache.status' => 'analytics.cache.status',
+            'analytics.pipeline.schema' => 'analytics.pipeline.schema',
+            'analytics.pipeline.preview' => 'analytics.pipeline.preview',
+            'analytics.pipeline.run' => 'analytics.pipeline.run',
+            'analytics.pipeline.publish' => 'analytics.pipeline.publish',
+            'analytics.pipeline.status' => 'analytics.pipeline.status',
+            'analytics.pipeline.logs' => 'analytics.pipeline.logs',
+            'analytics.pipeline.versions' => 'analytics.pipeline.versions',
+            'analytics.pipeline.rollback' => 'analytics.pipeline.rollback',
         ];
 
         $activeEndpointIds = [];
@@ -5044,6 +5132,14 @@ class ProgramBuilderService
             'analytics.query.run',
             'analytics.materialize',
             'analytics.cache.status',
+            'analytics.pipeline.schema',
+            'analytics.pipeline.preview',
+            'analytics.pipeline.run',
+            'analytics.pipeline.publish',
+            'analytics.pipeline.status',
+            'analytics.pipeline.logs',
+            'analytics.pipeline.versions',
+            'analytics.pipeline.rollback',
             'reports.schema',
             'reports.run',
             'reports.export',
@@ -5090,7 +5186,7 @@ class ProgramBuilderService
             'create' => $prefix . '.create',
             'update' => $prefix . '.edit',
             'delete' => $prefix . '.delete',
-            'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status', 'reports.schema', 'reports.run', 'reports.export', 'specialDocuments.schema', 'specialDocuments.render', 'specialDocuments.export', 'regulatedDocuments.schema', 'regulatedDocuments.prepare', 'regulatedDocuments.render', 'regulatedDocuments.issue', 'regulatedDocuments.verify', 'regulatedDocuments.artifact' => $prefix . '.read',
+            'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status', 'analytics.pipeline.schema', 'analytics.pipeline.preview', 'analytics.pipeline.run', 'analytics.pipeline.publish', 'analytics.pipeline.status', 'analytics.pipeline.logs', 'analytics.pipeline.versions', 'analytics.pipeline.rollback', 'reports.schema', 'reports.run', 'reports.export', 'specialDocuments.schema', 'specialDocuments.render', 'specialDocuments.export', 'regulatedDocuments.schema', 'regulatedDocuments.prepare', 'regulatedDocuments.render', 'regulatedDocuments.issue', 'regulatedDocuments.verify', 'regulatedDocuments.artifact' => $prefix . '.read',
             default => null,
         };
     }
@@ -5250,6 +5346,14 @@ class ProgramBuilderService
             'run' => ['endpointId' => 'analytics.query.run', 'method' => 'POST'],
             'materialize' => ['endpointId' => 'analytics.materialize', 'method' => 'POST'],
             'cacheStatus' => ['endpointId' => 'analytics.cache.status', 'method' => 'POST'],
+            'pipelineSchema' => ['endpointId' => 'analytics.pipeline.schema', 'method' => 'POST'],
+            'pipelinePreview' => ['endpointId' => 'analytics.pipeline.preview', 'method' => 'POST'],
+            'pipelineRun' => ['endpointId' => 'analytics.pipeline.run', 'method' => 'POST'],
+            'pipelinePublish' => ['endpointId' => 'analytics.pipeline.publish', 'method' => 'POST'],
+            'pipelineStatus' => ['endpointId' => 'analytics.pipeline.status', 'method' => 'POST'],
+            'pipelineLogs' => ['endpointId' => 'analytics.pipeline.logs', 'method' => 'POST'],
+            'pipelineVersions' => ['endpointId' => 'analytics.pipeline.versions', 'method' => 'POST'],
+            'pipelineRollback' => ['endpointId' => 'analytics.pipeline.rollback', 'method' => 'POST'],
         ];
     }
 

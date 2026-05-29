@@ -883,6 +883,26 @@ Implementado ate agora, em nivel demo/frontend:
   - tabela alvo `runtime_analytics_audit_entry` no banco configurado em `ANALYTICS_AUDIT_DATABASE_URL`;
   - grava filtros, parametros, ordenacao, colunas e recorte das linhas consultadas no runtime analytics.
   - existe agora a tela administrativa `admin.analytics-auditoria`, com entrada custom `production/admin/analytics-audit.html` e endpoints `/api/admin/analytics-audit/bootstrap|entries`.
+- BI v2 com pipeline semantico versionado:
+  - schema analytics agora aceita `semanticPipelines[]` e reserva `ingestionPipelines[]`;
+  - datasets podem usar `source.type=pipeline_published`;
+  - working dataset serve para preview e validacao; published dataset versionado serve para consumo real;
+  - endpoints runtime novos:
+    - `analytics.pipeline.schema`
+    - `analytics.pipeline.preview`
+    - `analytics.pipeline.run`
+    - `analytics.pipeline.publish`
+    - `analytics.pipeline.status`
+    - `analytics.pipeline.logs`
+    - `analytics.pipeline.versions`
+    - `analytics.pipeline.rollback`
+  - persistencia nova em `backend/migrations/Version20260529130000.php`;
+  - backend principal em:
+    - `backend/src/Runtime/RuntimeAnalyticsPipelineService.php`
+    - `backend/src/Runtime/RuntimeAnalyticsPipelineStore.php`
+    - `backend/src/Runtime/RuntimeAnalyticsPipelineJobHandler.php`
+  - existe agora a tela administrativa `admin.analytics-pipelines`, com entrada custom `production/admin/analytics-pipelines.html` e endpoints `/api/admin/analytics-pipelines/*`;
+  - o Program Builder agora expõe configuracao simples de semantic pipelines, preview de working dataset, execucao, publicacao versionada e rollback.
 - Camada `reports` v1 nativa:
   - `pageType=report` com `ReportEngine` em `src/report-engine/ReportEngine.js`;
   - schema em `public/metadata/schemas/report-definition-v1.schema.json`;

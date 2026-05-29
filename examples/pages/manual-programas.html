@@ -2038,6 +2038,49 @@
             notes: ["Exemplo local: ../../examples/pages/admin-analytics-audit.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.analytics-auditoria", "Entrada custom local/producao: ../../production/admin/analytics-audit.html", "Comando operacional: `php backend/bin/console app:analytics:audit:init`"]
           }
         },
+        "admin-analytics-pipelines": {
+          title: "Pipelines analytics",
+          module: "Administracao",
+          type: "Tela custom de operacao",
+          route: "../../examples/pages/admin-analytics-pipelines.html",
+          screenId: "admin.analytics-pipelines",
+          summary: "Operacao basica dos pipelines semanticos versionados da camada BI, com execucao, publicacao e rollback.",
+          functional: {
+            objective: "Acompanhar working dataset, execucoes e versoes publicadas dos pipelines semanticos sem abrir SQL ou script livre.",
+            scope: [
+              "Consulta do status de execucao do pipeline.",
+              "Publicacao de versao ativa do dataset publicado.",
+              "Rollback para versao anterior.",
+              "Leitura do historico resumido de execucoes."
+            ],
+            outputs: [
+              "Visao operacional da camada BI semantica versionada."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa de leitura.",
+              "Tela analytics publicada com `semanticPipelines` configurados.",
+              "Banco runtime com tabelas da migration de pipeline analytics."
+            ],
+            steps: [
+              "Abrir a tela administrativa de pipelines analytics.",
+              "Selecionar o pipeline desejado na grade.",
+              "Executar o pipeline para gerar working dataset candidato.",
+              "Publicar a versao gerada e, quando necessario, acionar rollback."
+            ],
+            cautions: [
+              "Somente a versao publicada ativa e consumida por dashboards e relatorios.",
+              "Working dataset serve para preview e validacao; nao deve ser usado como fonte final.",
+              "A trilha `ingestionPipeline` continua reservada e nao entra nesta etapa."
+            ]
+          },
+          references: {
+            permissions: ["admin.read"],
+            relatedPrograms: ["Consultas avancadas e BI", "Auditoria analytics", "Relatorio analitico"],
+            notes: ["Exemplo local: ../../examples/pages/admin-analytics-pipelines.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.analytics-pipelines", "Entrada custom local/producao: ../../production/admin/analytics-pipelines.html", "Migration: backend/migrations/Version20260529130000.php"]
+          }
+        },
         "admin-report-audit": {
           title: "Auditoria de relatorios",
           module: "Administracao",
@@ -2332,6 +2375,7 @@
           { id: "admin-sessoes", text: "Sessoes" },
           { id: "admin-transacoes", text: "Transacoes" },
           { id: "admin-analytics-audit", text: "Auditoria analytics" },
+          { id: "admin-analytics-pipelines", text: "Pipelines analytics" },
           { id: "admin-report-audit", text: "Auditoria de relatorios" },
           { id: "admin-regulated-document", text: "Auditoria de documentos regulados" },
           { id: "admin-document-operations", text: "Operacao documental" },
