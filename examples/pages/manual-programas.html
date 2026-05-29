@@ -1952,6 +1952,50 @@
             notes: ["Exemplo local: ../../examples/pages/special-document-base.html", "Produção: ../../production/app.html?screenId=documentos.especiais-base"]
           }
         },
+        "regulated-document-base": {
+          title: "Documento regulado base",
+          module: "Documentos regulados",
+          type: "Trilha regulada",
+          route: "../../examples/pages/regulated-document-fiscal-base.html",
+          screenId: "documentos.regulados-fiscal-base",
+          summary: "Camada separada para documentos de alto rigor, com pipeline de preparo, emissao, hash, artefato e conferencia posterior.",
+          functional: {
+            objective: "Tratar documentos quase homologados como artefatos regulados, sem misturar isso com reports ou special_document.",
+            scope: [
+              "Fonte operacional ou analytics.",
+              "Pipeline `prepare`, `render`, `issue`, `verify` e `artifact`.",
+              "Hash de autenticidade, payload canonico, artefato salvo e conferencia publica.",
+              "Prioridade atual da trilha concreta: fiscal."
+            ],
+            outputs: [
+              "Emissao regulada com hash, estado do ciclo, artefato e trilha de verificacao."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "ScreenId publicado no runtime.",
+              "Modulo regulado habilitado no ambiente quando houver storage separado real.",
+              "Permissao de leitura/emissao/exportacao da tela regulada."
+            ],
+            steps: [
+              "Abrir o documento regulado base pela tela publicada.",
+              "Preencher os parametros da emissao.",
+              "Gerar preview controlado pelo pipeline fechado.",
+              "Emitir o documento em HTML ou PDF.",
+              "Conferir o hash e, quando necessario, validar a emissao pela pagina publica de conferencia."
+            ],
+            cautions: [
+              "Nao substitui engine fiscal ou bancaria homologada nesta fase.",
+              "Nao aceita template livre, HTML livre ou JavaScript vindo do metadado.",
+              "Para persistencia separada real, habilitar `REGULATED_DOCUMENT_ENABLED` e `REGULATED_DOCUMENT_DATABASE_URL`."
+            ]
+          },
+          references: {
+            permissions: ["read", "issue", "export"],
+            relatedPrograms: ["Documento especial base", "Auditoria de documentos regulados"],
+            notes: ["Exemplo local fiscal: ../../examples/pages/regulated-document-fiscal-base.html", "Exemplo local bancario: ../../examples/pages/regulated-document-banking-base.html", "Exemplo local logistico: ../../examples/pages/regulated-document-logistics-base.html", "Conferencia publica: ../../examples/pages/regulated-document-authenticity.html", "Produção: ../../production/app.html?screenId=documentos.regulados-fiscal-base"]
+          }
+        },
         "admin-analytics-audit": {
           title: "Auditoria analytics",
           module: "Administracao",
@@ -2034,6 +2078,50 @@
             permissions: ["admin.read"],
             relatedPrograms: ["Relatorio operacional", "Relatorio analitico", "Auditoria analytics"],
             notes: ["Exemplo local: ../../examples/pages/admin-report-audit.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.relatorios-auditoria", "Entrada custom local/producao: ../../production/admin/report-audit.html", "Comando operacional: `php backend/bin/console app:analytics:audit:init`"]
+          }
+        },
+        "admin-regulated-document": {
+          title: "Auditoria de documentos regulados",
+          module: "Administracao",
+          type: "Tela custom operacional",
+          route: "../../examples/pages/admin-regulated-document.html",
+          screenId: "admin.documentos-regulados",
+          summary: "Tela administrativa do modulo regulado para listar emissoes, verificar o estado do ciclo, consultar timeline, baixar artefatos e abrir a conferencia.",
+          functional: {
+            objective: "Dar operacao e rastreabilidade forte para a trilha de documentos regulados.",
+            scope: [
+              "Consulta por tenant, usuario, tela, track, tipo e estado.",
+              "Observabilidade do storage regulado.",
+              "Timeline de eventos por issue.",
+              "Conferencia administrativa e download de artefato."
+            ],
+            outputs: [
+              "Visao administrativa do ciclo `prepared|rendered|issued|verified|failed` por emissao regulada."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Storage regulado habilitado no ambiente.",
+              "Permissao `regulated_document.admin.read` para consulta.",
+              "Permissao `regulated_document.admin.artifact` para baixar artefatos."
+            ],
+            steps: [
+              "Executar `php backend/bin/console app:regulated-document:setup` no ambiente que vai operar o modulo.",
+              "Abrir a tela administrativa dos documentos regulados.",
+              "Aplicar filtros por estado, track ou tipo documental.",
+              "Selecionar a emissao para ver detalhe tecnico e timeline.",
+              "Usar `Conferir issue` para validar o hash registrado e `Baixar artefato` quando necessario."
+            ],
+            cautions: [
+              "Sem `REGULATED_DOCUMENT_ENABLED=1` a tela fica em modo desabilitado.",
+              "A limpeza operacional do storage deve rodar por `php backend/bin/console app:regulated-document:cleanup --apply`.",
+              "A primeira trilha concreta priorizada e fiscal; banking e logistics seguem apoiados pela base geral."
+            ]
+          },
+          references: {
+            permissions: ["regulated_document.admin.read", "regulated_document.admin.artifact"],
+            relatedPrograms: ["Documento regulado base", "Auditoria de relatorios", "Auditoria analytics"],
+            notes: ["Exemplo local: ../../examples/pages/admin-regulated-document.html", "Produção: ../../production/app.html?screenId=admin.documentos-regulados", "Entrada custom local/producao: ../../production/admin/regulated-document-admin.html", "Comandos operacionais: `php backend/bin/console app:regulated-document:setup`, `php backend/bin/console app:regulated-document:seed-samples`, `php backend/bin/console app:regulated-document:cleanup --apply`"]
           }
         },
         "program-builder": {
@@ -2172,7 +2260,7 @@
       const treeData = [
         { text: "Roteiro inicial", expanded: true, items: [{ id: "roteiro-analista-funcional", text: "Roteiro do analista funcional" }, { id: "manual-instalacao", text: "Manual de instalacao" }] },
         { text: "Acesso e navegacao", expanded: true, items: [{ id: "login", text: "Login" }, { id: "home", text: "Home" }] },
-        { text: "Operacional", expanded: true, items: [{ id: "clientes", text: "Cadastro de clientes" }, { id: "processamento-clientes", text: "Processamento de clientes" }, { id: "report-operacional", text: "Relatorio operacional" }, { id: "report-analitico", text: "Relatorio analitico" }, { id: "special-document-base", text: "Documento especial base" }, { id: "jobs", text: "Meus Jobs / Jobs" }] },
+        { text: "Operacional", expanded: true, items: [{ id: "clientes", text: "Cadastro de clientes" }, { id: "processamento-clientes", text: "Processamento de clientes" }, { id: "report-operacional", text: "Relatorio operacional" }, { id: "report-analitico", text: "Relatorio analitico" }, { id: "special-document-base", text: "Documento especial base" }, { id: "regulated-document-base", text: "Documento regulado base" }, { id: "jobs", text: "Meus Jobs / Jobs" }] },
         { text: "Administracao", expanded: true, items: [
           { id: "admin-parametros", text: "Parametros" },
           { id: "admin-parametro-valores", text: "Valores de parametros" },
@@ -2204,6 +2292,7 @@
           { id: "admin-transacoes", text: "Transacoes" },
           { id: "admin-analytics-audit", text: "Auditoria analytics" },
           { id: "admin-report-audit", text: "Auditoria de relatorios" },
+          { id: "admin-regulated-document", text: "Auditoria de documentos regulados" },
           { id: "admin-logs-transacoes", text: "Logs de transacoes" }
         ]},
         { text: "Construcao", expanded: true, items: [{ id: "program-builder", text: "Program Builder" }] }
