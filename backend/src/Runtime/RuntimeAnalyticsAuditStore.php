@@ -155,16 +155,20 @@ class RuntimeAnalyticsAuditStore
      * @param array<string, mixed> $filters
      * @return array{items: array<int, array<string, mixed>>, total: int}
      */
-    public function query(array $filters = []): array
+    public function query(array $filters = [], ?string $auditContext = null): array
     {
         if (!$this->isEnabled()) {
             return ['items' => [], 'total' => 0];
         }
 
         $this->initializeSchema();
-        $connection = $this->connection();
         $limit = max(1, min(300, (int) ($filters['limit'] ?? 120)));
 
+        if ($auditContext !== null && $auditContext !== '') {
+            return $this->queryByAuditContext($filters, $auditContext, $limit);
+        }
+
+        $connection = $this->connection();
         $qb = $connection->createQueryBuilder()
             ->select('*')
             ->from(self::TABLE)
@@ -190,7 +194,7 @@ class RuntimeAnalyticsAuditStore
     /**
      * @return array<string, array<int, string>>
      */
-    public function collectFilterOptions(int $limit = 40): array
+    public function collectFilterOptions(int $limit = 40, ?string $auditContext = null): array
     {
         if (!$this->isEnabled()) {
             return [
@@ -200,6 +204,10 @@ class RuntimeAnalyticsAuditStore
                 'datasetIds' => [],
                 'resultSources' => [],
             ];
+        }
+
+        if ($auditContext !== null && $auditContext !== '') {
+            return $this->collectFilterOptionsByAuditContext($limit, $auditContext);
         }
 
         $this->initializeSchema();
@@ -384,5 +392,141 @@ class RuntimeAnalyticsAuditStore
         }
 
         return $value;
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     * @return array{items: array<int, array<string, mixed>>, total: int}
+     */
+    private function queryByAuditContext(array $filters, string $auditContext, int $limit): array
+    {
+        $rows = $this->fetchRowsForContextFilters($filters, $auditContext);
+        $total = count($rows);
+        $items = array_slice($rows, 0, $limit);
+
+        return [
+            'items' => array_map(fn (array $row): array => $this->normalizeAuditRow($row), $items),
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    private function collectFilterOptionsByAuditContext(int $limit, string $auditContext): array
+    {
+        $rows = array_map(
+            fn (array $row): array => $this->normalizeAuditRow($row),
+            $this->fetchRowsForContextFilters([], $auditContext)
+        );
+        $build = static function (string $key) use ($rows, $limit): array {
+            $values = [];
+            foreach ($rows as $row) {
+                $value = trim((string) ($row[$key] ?? ''));
+                if ($value === '' || in_array($value, $values, true)) {
+                    continue;
+                }
+                $values[] = $value;
+                if (count($values) >= $limit) {
+                    break;
+                }
+            }
+
+            return $values;
+        };
+
+        return [
+            'tenantIds' => $build('tenantId'),
+            'userIds' => $build('userId'),
+            'screenIds' => $build('screenId'),
+            'datasetIds' => $build('datasetId'),
+            'resultSources' => $build('resultSource'),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     * @return array<int, array<string, mixed>>
+     */
+    private function fetchRowsForContextFilters(array $filters, string $auditContext): array
+    {
+        $rows = $this->connection()
+            ->createQueryBuilder()
+            ->select('*')
+            ->from(self::TABLE)
+            ->orderBy('consulted_at', 'DESC')
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        return array_values(array_filter($rows, function (array $row) use ($filters, $auditContext): bool {
+            $normalized = $this->normalizeAuditRow($row);
+            $metadata = is_array($normalized['metadata'] ?? null) ? $normalized['metadata'] : [];
+            if (trim((string) ($metadata['auditContext'] ?? '')) !== $auditContext) {
+                return false;
+            }
+            if (!$this->matchesContextFilter($normalized, 'tenantId', $filters)) {
+                return false;
+            }
+            if (!$this->matchesContextFilter($normalized, 'userId', $filters)) {
+                return false;
+            }
+            if (!$this->matchesContextFilter($normalized, 'screenId', $filters)) {
+                return false;
+            }
+            if (!$this->matchesContextFilter($normalized, 'datasetId', $filters)) {
+                return false;
+            }
+            if (!$this->matchesContextFilter($normalized, 'resultSource', $filters)) {
+                return false;
+            }
+            if (!$this->matchesContextDate($normalized, 'dateFrom', true, $filters)) {
+                return false;
+            }
+            if (!$this->matchesContextDate($normalized, 'dateTo', false, $filters)) {
+                return false;
+            }
+            if ($auditContext === 'report') {
+                $reportId = trim((string) ($filters['reportId'] ?? ''));
+                if ($reportId !== '' && trim((string) ($metadata['reportId'] ?? '')) !== $reportId) {
+                    return false;
+                }
+            }
+
+            return true;
+        }));
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @param array<string, mixed> $filters
+     */
+    private function matchesContextFilter(array $row, string $key, array $filters): bool
+    {
+        $expected = trim((string) ($filters[$key] ?? ''));
+        if ($expected === '') {
+            return true;
+        }
+
+        return trim((string) ($row[$key] ?? '')) === $expected;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @param array<string, mixed> $filters
+     */
+    private function matchesContextDate(array $row, string $key, bool $isFrom, array $filters): bool
+    {
+        $expected = trim((string) ($filters[$key] ?? ''));
+        if ($expected === '') {
+            return true;
+        }
+
+        $consultedAt = trim((string) ($row['consultedAt'] ?? ''));
+        if ($consultedAt === '') {
+            return false;
+        }
+
+        $boundary = $expected . ($isFrom ? 'T00:00:00' : 'T23:59:59');
+        return $isFrom ? $consultedAt >= $boundary : $consultedAt <= $boundary;
     }
 }

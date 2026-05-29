@@ -1428,6 +1428,19 @@
     exportReportResult(result, format) {
       const columns = global.CrudUtils.ensureArray(result.columns || []);
       const rows = global.CrudUtils.ensureArray(result.rows || []);
+      if (String(format || "").toLowerCase() === "excel") {
+        const workbook = JSON.stringify({
+          columns: columns.map(function(column) { return column.title || column.field || ""; }),
+          rows: rows
+        });
+        return {
+          ok: true,
+          format: "excel",
+          fileName: (result.reportId || "relatorio") + ".xlsx",
+          contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          contentBase64: global.btoa(unescape(encodeURIComponent(workbook)))
+        };
+      }
       const lines = [];
       lines.push(columns.map(function(column) {
         return "\"" + String(column.title || column.field || "").replace(/"/g, "\"\"") + "\"";

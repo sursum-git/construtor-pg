@@ -137,13 +137,26 @@ class RuntimeReportService
         $result = $this->run($screenId, $payload, $tenantId);
         $rows = is_array($result['rows'] ?? null) ? $result['rows'] : [];
         $columns = is_array($result['columns'] ?? null) ? $result['columns'] : [];
+        $safeName = $this->safeFileName((string) ($result['reportId'] ?? 'relatorio'));
+
+        if ($format === 'excel') {
+            $xlsx = $this->rowsToXlsx($columns, $rows);
+
+            return [
+                'ok' => true,
+                'format' => 'excel',
+                'fileName' => $safeName . '.xlsx',
+                'contentType' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                'contentBase64' => base64_encode($xlsx),
+            ];
+        }
+
         $csv = $this->rowsToCsv($columns, $rows);
-        $fileName = $this->safeFileName((string) ($result['reportId'] ?? 'relatorio')) . '.csv';
 
         return [
             'ok' => true,
-            'format' => $format,
-            'fileName' => $fileName,
+            'format' => 'csv',
+            'fileName' => $safeName . '.csv',
             'contentType' => 'text/csv; charset=utf-8',
             'contentBase64' => base64_encode($csv),
         ];
@@ -562,6 +575,41 @@ class RuntimeReportService
         return "\xEF\xBB\xBF" . implode("\r\n", $lines);
     }
 
+    /**
+     * @param array<int, array<string, mixed>> $columns
+     * @param array<int, array<string, mixed>> $rows
+     */
+    private function rowsToXlsx(array $columns, array $rows): string
+    {
+        if (!class_exists(\ZipArchive::class)) {
+            throw new RuntimeHttpException('REPORT_EXPORT_EXCEL_UNAVAILABLE', 'Exportacao Excel indisponivel neste ambiente.', 500);
+        }
+
+        $tempFile = tempnam(sys_get_temp_dir(), 'report-xlsx-');
+        if ($tempFile === false) {
+            throw new RuntimeHttpException('REPORT_EXPORT_EXCEL_IO_ERROR', 'Nao foi possivel preparar o arquivo Excel.', 500);
+        }
+        $xlsxPath = $tempFile . '.xlsx';
+        @unlink($tempFile);
+
+        $zip = new \ZipArchive();
+        if ($zip->open($xlsxPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
+            throw new RuntimeHttpException('REPORT_EXPORT_EXCEL_IO_ERROR', 'Nao foi possivel gerar o arquivo Excel.', 500);
+        }
+
+        $zip->addFromString('[Content_Types].xml', $this->xlsxContentTypesXml());
+        $zip->addFromString('_rels/.rels', $this->xlsxRootRelationshipsXml());
+        $zip->addFromString('xl/workbook.xml', $this->xlsxWorkbookXml());
+        $zip->addFromString('xl/_rels/workbook.xml.rels', $this->xlsxWorkbookRelationshipsXml());
+        $zip->addFromString('xl/worksheets/sheet1.xml', $this->xlsxWorksheetXml($columns, $rows));
+        $zip->close();
+
+        $binary = (string) file_get_contents($xlsxPath);
+        @unlink($xlsxPath);
+
+        return $binary;
+    }
+
     private function escapeCsv(string $value): string
     {
         return '"' . str_replace('"', '""', $value) . '"';
@@ -580,6 +628,115 @@ class RuntimeReportService
         }
 
         return (string) json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    private function xlsxContentTypesXml(): string
+    {
+        return <<<XML
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+</Types>
+XML;
+    }
+
+    private function xlsxRootRelationshipsXml(): string
+    {
+        return <<<XML
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>
+XML;
+    }
+
+    private function xlsxWorkbookXml(): string
+    {
+        return <<<XML
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>
+    <sheet name="Relatorio" sheetId="1" r:id="rId1"/>
+  </sheets>
+</workbook>
+XML;
+    }
+
+    private function xlsxWorkbookRelationshipsXml(): string
+    {
+        return <<<XML
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+</Relationships>
+XML;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $columns
+     * @param array<int, array<string, mixed>> $rows
+     */
+    private function xlsxWorksheetXml(array $columns, array $rows): string
+    {
+        $lines = [];
+        $lines[] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+        $lines[] = '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+        $lines[] = '<sheetData>';
+
+        $rowIndex = 1;
+        $lines[] = '<row r="' . $rowIndex . '">';
+        foreach ($columns as $columnIndex => $column) {
+            $reference = $this->xlsxCellReference($columnIndex, $rowIndex);
+            $value = (string) ($column['title'] ?? $column['label'] ?? $column['field'] ?? '');
+            $lines[] = '<c r="' . $reference . '" t="inlineStr"><is><t>' . $this->escapeXml($value) . '</t></is></c>';
+        }
+        $lines[] = '</row>';
+
+        foreach ($rows as $row) {
+            ++$rowIndex;
+            $lines[] = '<row r="' . $rowIndex . '">';
+            foreach ($columns as $columnIndex => $column) {
+                $reference = $this->xlsxCellReference($columnIndex, $rowIndex);
+                $value = $row[$column['field']] ?? null;
+                if (is_numeric($value)) {
+                    $lines[] = '<c r="' . $reference . '"><v>' . $this->escapeXml((string) $value) . '</v></c>';
+                    continue;
+                }
+                $lines[] = '<c r="' . $reference . '" t="inlineStr"><is><t>' . $this->escapeXml($this->stringifyValue($value)) . '</t></is></c>';
+            }
+            $lines[] = '</row>';
+        }
+
+        $lines[] = '</sheetData>';
+        $lines[] = '</worksheet>';
+
+        return implode('', $lines);
+    }
+
+    private function xlsxCellReference(int $columnIndex, int $rowIndex): string
+    {
+        return $this->xlsxColumnLetters($columnIndex) . $rowIndex;
+    }
+
+    private function xlsxColumnLetters(int $columnIndex): string
+    {
+        $index = $columnIndex + 1;
+        $letters = '';
+        while ($index > 0) {
+            $remainder = ($index - 1) % 26;
+            $letters = chr(65 + $remainder) . $letters;
+            $index = (int) floor(($index - 1) / 26);
+        }
+
+        return $letters;
+    }
+
+    private function escapeXml(string $value): string
+    {
+        return htmlspecialchars($value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
     }
 
     private function quoteIdentifier(string $value): string

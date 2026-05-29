@@ -978,7 +978,14 @@
   padding-top: 4px;
 }
 
+.program-builder-report-validator {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+
 .program-builder-analytics-validator-header h3,
+.program-builder-report-validator-header h3,
 .program-builder-analytics-runner h4,
 .program-builder-analytics-runtime-block h5,
 .program-builder-analytics-dataset-card h4 {
@@ -986,6 +993,7 @@
 }
 
 .program-builder-analytics-validator-header p,
+.program-builder-report-validator-header p,
 .program-builder-analytics-dataset-card p,
 .program-builder-analytics-runtime-meta {
   margin: 0;
@@ -1029,7 +1037,20 @@
   background: #fff;
 }
 
+.program-builder-report-sample-table-wrap {
+  overflow: auto;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #fff;
+}
+
 .program-builder-analytics-sample-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.program-builder-report-sample-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;

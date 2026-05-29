@@ -177,6 +177,12 @@
         expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
       });
     }
+    if (/^\/api\/runtime\/screens\/[^/]+\/endpoints\/reports\.run$/.test(url) && method === "POST") {
+      return Promise.resolve(runReportDataset(url, data));
+    }
+    if (/^\/api\/runtime\/screens\/[^/]+\/endpoints\/reports\.export$/.test(url) && method === "POST") {
+      return Promise.resolve(exportReportDataset(url, data));
+    }
     return Promise.resolve({});
   };
 
@@ -333,6 +339,7 @@
 
   function buildReportPreview(data) {
     const reportConfig = Object.assign({
+      sourceType: "operational",
       documentKind: "management",
       groupField: "",
       totalField: "",
@@ -351,7 +358,8 @@
     const title = String(data && data.programTitle || "Relatorio").trim() || "Relatorio";
     const version = String(data && data.version || "1.0.0").trim() || "1.0.0";
     const entityCode = String(data && data.builderEntityCode || "cliente").trim() || "cliente";
-    const isSpecial = ["danfe", "dacte", "boleto", "label"].indexOf(String(reportConfig.documentKind || "").toLowerCase()) >= 0;
+    const sourceType = String(reportConfig.sourceType || "operational").toLowerCase() === "analytic" ? "analytic" : "operational";
+    const isSpecial = ["danfe", "dacte", "boleto", "label", "etiqueta"].indexOf(String(reportConfig.documentKind || "").toLowerCase()) >= 0;
     return {
       screenId: screenId,
       pageType: "report",
@@ -391,18 +399,24 @@
           run: { endpointId: "reports.run" },
           export: { endpointId: "reports.export" }
         },
-        source: {
+        source: sourceType === "analytic" ? {
+          type: "analytic",
+          analyticsScreenId: String(reportConfig.analyticsScreenId || "analytics.clientes"),
+          analyticsDatasetId: String(reportConfig.analyticsDatasetId || "clientes-uf-status")
+        } : {
           type: "operational",
           entityCode: entityCode
         },
         query: {
-          fields: [
+          fields: sourceType === "analytic" ? [] : [
             { field: "nome", label: "Nome" },
             { field: "uf", label: "UF" },
             { field: "status", label: "Status" },
             { field: "limite_credito", label: "Limite de credito", type: "decimal", format: "c2", align: "right", totalable: reportConfig.totalField === "limite_credito" }
           ],
-          parameters: [
+          parameters: sourceType === "analytic" ? [
+            { id: "status", field: "status", label: "Status", type: "text", operator: "contains" }
+          ] : [
             { id: "status", field: "status", label: "Status", type: "text", operator: "contains" },
             { id: "uf", field: "uf", label: "UF", type: "text", operator: "contains" }
           ],
@@ -413,19 +427,114 @@
         layout: {
           title: title,
           subtitle: "Preview local de relatorio",
-          groupField: reportConfig.groupField || "",
+          groupField: sourceType === "analytic" ? "" : (reportConfig.groupField || ""),
           footerText: "",
           blocks: [
             { id: "header", type: "header" },
             { id: "summary", type: "summary" },
             { id: "table", type: "table" },
-            reportConfig.groupField ? { id: "group", type: "group" } : null,
+            sourceType !== "analytic" && reportConfig.groupField ? { id: "group", type: "group" } : null,
             { id: "totals", type: "totals" },
             { id: "footer", type: "footer" }
           ].filter(Boolean)
         },
         outputs: reportConfig.outputs || {}
       }
+    };
+  }
+
+  function runReportDataset(url, data) {
+    const screenIdMatch = String(url || "").match(/^\/api\/runtime\/screens\/([^/]+)\/endpoints\/reports\.run$/);
+    const screenId = decodeURIComponent(screenIdMatch && screenIdMatch[1] || "relatorios.clientes-operacional");
+    const parameters = data && data.parameters || {};
+    if (screenId.indexOf("analitico") >= 0) {
+      const analytics = runAnalyticsDataset({
+        datasetId: "clientes-uf-status",
+        parameters: parameters
+      });
+      const rows = Array.isArray(analytics.data) ? analytics.data : [];
+      return {
+        screenId: screenId,
+        reportId: "relatorio-clientes-analitico",
+        title: "Relatorio analitico por UF",
+        sourceType: "analytic",
+        rows: rows,
+        columns: analytics.columns,
+        groups: Object.keys(rows.reduce(function(acc, row) {
+          const key = String(row.uf || "");
+          const existing = acc[key] || { key: key, label: key, rowCount: 0 };
+          existing.rowCount += 1;
+          acc[key] = existing;
+          return acc;
+        }, {})).map(function(key) {
+          return rows.reduce(function(acc, row) {
+            if (String(row.uf || "") === key) {
+              acc.rowCount += 1;
+            }
+            return acc;
+          }, { key: key, label: key, rowCount: 0 });
+        }),
+        total: rows.length,
+        generatedAt: new Date().toISOString()
+      };
+    }
+    const statusFilter = String(parameters.status || "").trim().toLowerCase();
+    const ufFilter = String(parameters.uf || "").trim().toLowerCase();
+    const rows = [
+      { nome: "Ana Comercio LTDA", uf: "CE", status: "Ativo", limite_credito: 7000 },
+      { nome: "Rio Norte SA", uf: "RJ", status: "Inativo", limite_credito: 4200 },
+      { nome: "Sol Paulista ME", uf: "SP", status: "Ativo", limite_credito: 5400 },
+      { nome: "Delta Paulista LTDA", uf: "SP", status: "Ativo", limite_credito: 6600 }
+    ].filter(function(item) {
+      const matchesStatus = !statusFilter || String(item.status || "").toLowerCase().indexOf(statusFilter) >= 0;
+      const matchesUf = !ufFilter || String(item.uf || "").toLowerCase().indexOf(ufFilter) >= 0;
+      return matchesStatus && matchesUf;
+    });
+    return {
+      screenId: screenId,
+      reportId: "relatorio-clientes-operacional",
+      title: "Relatorio operacional de clientes",
+      sourceType: "operational",
+      rows: rows,
+      columns: [
+        { field: "nome", title: "Nome", type: "string" },
+        { field: "uf", title: "UF", type: "string" },
+        { field: "status", title: "Status", type: "string" },
+        { field: "limite_credito", title: "Limite de credito", type: "decimal", format: "c2" }
+      ],
+      groups: [],
+      total: rows.length,
+      generatedAt: new Date().toISOString()
+    };
+  }
+
+  function exportReportDataset(url, data) {
+    const result = runReportDataset(String(url || "").replace(/reports\.export$/, "reports.run"), data);
+    const format = String(data && data.format || "csv").toLowerCase();
+    if (format === "excel") {
+      return {
+        ok: true,
+        format: "excel",
+        fileName: String(result.reportId || "relatorio") + ".xlsx",
+        contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        contentBase64: global.btoa(unescape(encodeURIComponent(JSON.stringify(result))))
+      };
+    }
+    const columns = Array.isArray(result.columns) ? result.columns : [];
+    const rows = Array.isArray(result.rows) ? result.rows : [];
+    const content = "\uFEFF" + [columns.map(function(column) {
+      return "\"" + String(column.title || column.field || "").replace(/"/g, "\"\"") + "\"";
+    }).join(";")].concat(rows.map(function(row) {
+      return columns.map(function(column) {
+        return "\"" + String(row[column.field] == null ? "" : row[column.field]).replace(/"/g, "\"\"") + "\"";
+      }).join(";");
+    })).join("\r\n");
+    return {
+      ok: true,
+      format: "csv",
+      fileName: String(result.reportId || "relatorio") + ".csv",
+      contentType: "text/csv;charset=utf-8",
+      contentBase64: global.btoa(unescape(encodeURIComponent(content)))
     };
   }
 

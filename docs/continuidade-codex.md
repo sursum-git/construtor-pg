@@ -843,7 +843,10 @@ Implementado ate agora, em nivel demo/frontend:
   - backend em `RuntimeReportService` e `RuntimeReportEndpointHandler`;
   - exemplos locais `examples/pages/report-operacional.html` e `examples/pages/report-analitico.html`;
   - seed publica `analytics.clientes`, `relatorios.clientes-operacional` e `relatorios.clientes-analitico`;
-  - a v1 cobre relatorios operacionais e analiticos em blocos fechados, sem DANFE, boleto, etiqueta ou formulario fiscal.
+  - a v1 cobre relatorios operacionais e analiticos em blocos fechados, sem DANFE, boleto, etiqueta ou formulario fiscal;
+  - o Program Builder agora tem validador visual de reports no painel lateral, com resumo da definicao, bloqueio explicito de documentos especiais, amostra por `reports.run` e teste de exportacao CSV/Excel;
+  - `reports.export` agora entrega CSV e tambem `.xlsx` simples gerado no backend, sem dependencia nova;
+  - existe agora a tela administrativa `admin.relatorios-auditoria`, com entrada custom `production/admin/report-audit.html` e endpoints `/api/admin/report-audit/bootstrap|entries`.
 - O servidor estatico `node scripts/serve-static.js` agora tambem pode encaminhar `/api/*` para `CRUD_ENGINE_API_PROXY`, facilitando validar `program-builder.html` contra backend real.
 - Se o construtor responder `PROGRAM_BUILDER_STORAGE_NOT_READY`, aplicar as migrations `Version20260509093000`, `Version20260510113000`, `Version20260510143000`, `Version20260510170000`, `Version20260510190000` e `Version20260510200000` antes de testar a interface.
 - O rollback estrutural da entidade depende do snapshot salvo em `builder_entity_version`; ele cobre metadados, rename de tabela, rename de coluna, defaults e constraints gerenciadas pelo construtor.

@@ -1915,6 +1915,48 @@
             notes: ["Exemplo local: ../../examples/pages/admin-analytics-audit.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.analytics-auditoria", "Entrada custom local/producao: ../../production/admin/analytics-audit.html", "Comando operacional: `php backend/bin/console app:analytics:audit:init`"]
           }
         },
+        "admin-report-audit": {
+          title: "Auditoria de relatorios",
+          module: "Administracao",
+          type: "Tela custom somente consulta",
+          route: "../../examples/pages/admin-report-audit.html",
+          screenId: "admin.relatorios-auditoria",
+          summary: "Consulta administrativa das emissoes de relatorios gravadas no banco separado de auditoria.",
+          functional: {
+            objective: "Permitir auditoria de filtros, parametros, origem e formato das emissoes da camada reports.",
+            scope: [
+              "Consulta por tenant, usuario, tela, relatorio, origem e periodo.",
+              "Leitura do payload tecnico retornado pela emissao auditada.",
+              "Exportacao local do recorte carregado."
+            ],
+            outputs: [
+              "Visao administrativa do uso da camada reports por emissao executada."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa de leitura.",
+              "Auditoria analytics habilitada no ambiente.",
+              "Banco separado configurado e inicializado."
+            ],
+            steps: [
+              "Abrir a tela de auditoria de relatorios.",
+              "Aplicar filtros por tenant, usuario, tela, relatorio, origem ou periodo.",
+              "Selecionar a emissao desejada na grade.",
+              "Ler o detalhe tecnico com parametros, filtros, formato e recorte auditado."
+            ],
+            cautions: [
+              "A tela reutiliza `ANALYTICS_AUDIT_ENABLED` e `ANALYTICS_AUDIT_DATABASE_URL`.",
+              "A estrutura do banco separado deve ser criada com `php backend/bin/console app:analytics:audit:init`.",
+              "O recorte de linhas auditadas continua limitado pela politica configurada no ambiente."
+            ]
+          },
+          references: {
+            permissions: ["admin.read"],
+            relatedPrograms: ["Relatorio operacional", "Relatorio analitico", "Auditoria analytics"],
+            notes: ["Exemplo local: ../../examples/pages/admin-report-audit.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.relatorios-auditoria", "Entrada custom local/producao: ../../production/admin/report-audit.html", "Comando operacional: `php backend/bin/console app:analytics:audit:init`"]
+          }
+        },
         "program-builder": {
           title: "Program Builder",
           module: "Construcao",
@@ -2081,6 +2123,8 @@
           { id: "admin-permissoes", text: "Permissoes" },
           { id: "admin-sessoes", text: "Sessoes" },
           { id: "admin-transacoes", text: "Transacoes" },
+          { id: "admin-analytics-audit", text: "Auditoria analytics" },
+          { id: "admin-report-audit", text: "Auditoria de relatorios" },
           { id: "admin-logs-transacoes", text: "Logs de transacoes" }
         ]},
         { text: "Construcao", expanded: true, items: [{ id: "program-builder", text: "Program Builder" }] }

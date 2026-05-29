@@ -302,6 +302,7 @@
     $("<p class=\"program-builder-diagnostics-intro\"></p>").text("Pendencias rapidas da entidade e do programa corrente.").appendTo(this.diagnosticsPanel);
     this.diagnosticsElement = $("<div class=\"program-builder-diagnostics-list\"></div>").appendTo(this.diagnosticsPanel);
     this.analyticsDiagnosticsElement = $("<section class=\"program-builder-analytics-validator\"></section>").appendTo(this.diagnosticsPanel);
+    this.reportDiagnosticsElement = $("<section class=\"program-builder-report-validator\"></section>").appendTo(this.diagnosticsPanel);
 
     this.renderModulesForm();
     this.renderModulesGrid();
@@ -5761,6 +5762,7 @@
         .append($("<span></span>").text("A configuracao corrente ja atende os pontos basicos."))
         .appendTo(this.diagnosticsElement);
       this.renderAnalyticsValidator();
+      this.renderReportValidator();
       return;
     }
     diagnostics.forEach(function(item) {
@@ -5778,6 +5780,7 @@
       }
     }, this);
     this.renderAnalyticsValidator();
+    this.renderReportValidator();
   };
 
   ProgramBuilder.prototype.collectDiagnostics = function() {
@@ -5822,6 +5825,7 @@
     const screenId = String(this.screenIdInput && this.screenIdInput.value ? this.screenIdInput.value() || "" : "").trim();
     const builderEntityCode = String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "").trim();
     const version = String(this.versionInput && this.versionInput.value ? this.versionInput.value() || "" : "").trim();
+    const pageType = String(this.pageTypeSelect && this.pageTypeSelect.value ? this.pageTypeSelect.value() || "crud" : "crud");
 
     if (builderEntityCode || programCode || programTitle || screenId) {
       if (!programCode) {
@@ -5841,6 +5845,13 @@
       }
       if (!version) {
         diagnostics.push({ level: "warn", title: "Versao ausente", message: "Informe a versao do programa.", actionId: "program.version" });
+      }
+      if (pageType === "report") {
+        const reportConfig = this.collectReportConfig();
+        const documentKind = String(reportConfig.documentKind || "").toLowerCase();
+        if (["danfe", "dacte", "boleto", "label", "etiqueta", "fiscal_form", "fiscal_document"].indexOf(documentKind) >= 0) {
+          diagnostics.push({ level: "error", title: "Documento especial bloqueado", message: "Reports v1 nao publicam DANFE, boleto, etiqueta ou formulario rigido.", actionId: "program.title" });
+        }
       }
     }
 
@@ -6420,6 +6431,364 @@
     if (item) {
       this.populateModuleForm(item.toJSON ? item.toJSON() : item);
       this.activateEditorTab(0);
+    }
+  };
+
+  ProgramBuilder.prototype.renderReportValidator = function() {
+    if (!this.reportDiagnosticsElement) {
+      return;
+    }
+    const host = this.reportDiagnosticsElement;
+    host.empty();
+
+    if (String(this.pageTypeSelect && this.pageTypeSelect.value ? this.pageTypeSelect.value() || "crud" : "crud") !== "report") {
+      return;
+    }
+
+    $("<div class=\"program-builder-report-validator-header\"></div>")
+      .append($("<h3></h3>").text("Validador de relatorio"))
+      .append($("<p></p>").text("Resume a definicao, bloqueia documentos especiais e tenta validar preview e exportacao pelo runtime seguro."))
+      .appendTo(host);
+
+    const definition = this.currentPreviewDefinition();
+    if (!definition || !definition.report) {
+      $("<div class=\"program-builder-diagnostic-item is-info\"></div>")
+        .append($("<strong></strong>").text("Preview pendente"))
+        .append($("<span></span>").text("Gere o preview para revisar fonte, blocos, parametros e exportacoes do relatorio."))
+        .appendTo(host);
+      return;
+    }
+
+    const report = definition.report || {};
+    const query = report.query || {};
+    const source = report.source || {};
+    const blocks = Array.isArray(report.layout && report.layout.blocks) ? report.layout.blocks : [];
+    const fields = Array.isArray(query.fields) ? query.fields : [];
+    const parameters = Array.isArray(query.parameters) ? query.parameters : [];
+    const badges = $("<div class=\"program-builder-analytics-badges\"></div>").appendTo(host);
+    [
+      "Fonte: " + String(source.type || "operational"),
+      "Blocos: " + blocks.length,
+      "Campos: " + fields.length,
+      "Tela: " + String(definition.screenId || "")
+    ].forEach(function(text) {
+      $("<span class=\"k-badge k-badge-solid k-badge-solid-base k-rounded-md\"></span>").text(text).appendTo(badges);
+    });
+
+    const diagnostics = this.collectReportDefinitionDiagnostics(definition);
+    const diagnosticsList = $("<div class=\"program-builder-analytics-diagnostics\"></div>").appendTo(host);
+    if (!diagnostics.length) {
+      $("<div class=\"program-builder-diagnostic-item is-ok\"></div>")
+        .append($("<strong></strong>").text("Estrutura de relatorio coerente"))
+        .append($("<span></span>").text("A definicao passou nas validacoes locais do builder para reports v1."))
+        .appendTo(diagnosticsList);
+    } else {
+      diagnostics.forEach(function(item) {
+        $("<div class=\"program-builder-diagnostic-item\"></div>")
+          .addClass("is-" + item.level)
+          .append($("<strong></strong>").text(item.title))
+          .append($("<span></span>").text(item.message))
+          .appendTo(diagnosticsList);
+      });
+    }
+
+    const summaryGrid = $("<div class=\"program-builder-analytics-dataset-grid\"></div>").appendTo(host);
+    const structureCard = $("<article class=\"program-builder-analytics-dataset-card\"></article>").appendTo(summaryGrid);
+    $("<h4></h4>").text("Estrutura").appendTo(structureCard);
+    $("<p></p>").text("Tipo documental: " + String(report.classification && report.classification.documentKind || "management")).appendTo(structureCard);
+    $("<p></p>").text("Parametros: " + parameters.length + " | ordenacao: " + (Array.isArray(query.sort) ? query.sort.length : 0)).appendTo(structureCard);
+    $("<p></p>").text("Agrupamento: " + String(report.layout && report.layout.groupField || "Nao usar")).appendTo(structureCard);
+    $("<p></p>").text("Saidas: " + this.reportEnabledOutputs(report.outputs || {}).join(", ")).appendTo(structureCard);
+
+    const sourceCard = $("<article class=\"program-builder-analytics-dataset-card\"></article>").appendTo(summaryGrid);
+    $("<h4></h4>").text("Fonte").appendTo(sourceCard);
+    if (String(source.type || "operational") === "analytic") {
+      $("<p></p>").text("ScreenId analytics: " + String(source.analyticsScreenId || "")).appendTo(sourceCard);
+      $("<p></p>").text("Dataset analytics: " + String(source.analyticsDatasetId || "")).appendTo(sourceCard);
+      $("<p></p>").text("Limite: " + String(query.limit || 0)).appendTo(sourceCard);
+    } else {
+      $("<p></p>").text("Entidade: " + String(source.entityCode || "")).appendTo(sourceCard);
+      $("<p></p>").text("Campos tabulares: " + fields.length).appendTo(sourceCard);
+      $("<p></p>").text("Limite: " + String(query.limit || 0)).appendTo(sourceCard);
+    }
+
+    this.ensureReportValidatorState(definition);
+    const state = this.state.reportValidator || {};
+    const runner = $("<section class=\"program-builder-analytics-runner\"></section>").appendTo(host);
+    $("<h4></h4>").text("Validacao runtime").appendTo(runner);
+    $("<p class=\"program-builder-diagnostics-intro\"></p>").text("Usa `reports.run` e `reports.export` com o `screenId` atual para validar preview e arquivos.").appendTo(runner);
+
+    const actions = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(runner);
+    $("<button type=\"button\"></button>").text("Executar amostra").appendTo(actions).kendoButton({
+      icon: "play",
+      click: this.handleRunReportSample.bind(this)
+    });
+    $("<button type=\"button\"></button>").text("Testar CSV").appendTo(actions).kendoButton({
+      icon: "file-csv",
+      click: function() { return this.handleExportReportSample("csv"); }.bind(this)
+    });
+    $("<button type=\"button\"></button>").text("Testar Excel").appendTo(actions).kendoButton({
+      icon: "file-excel",
+      click: function() { return this.handleExportReportSample("excel"); }.bind(this)
+    });
+
+    const parametersHost = $("<div class=\"program-builder-analytics-parameters\"></div>").appendTo(runner);
+    this.renderReportParameterInputs(parametersHost, parameters);
+
+    const resultHost = $("<div class=\"program-builder-analytics-results\"></div>").appendTo(runner);
+    this.renderReportRuntimeFeedback(resultHost, state);
+  };
+
+  ProgramBuilder.prototype.collectReportDefinitionDiagnostics = function(definition) {
+    const diagnostics = [];
+    const report = definition && definition.report || {};
+    const classification = report.classification || {};
+    const documentKind = String(classification.documentKind || "").toLowerCase();
+    const documentProfile = String(classification.documentProfile || "general").toLowerCase();
+    const source = report.source || {};
+    const query = report.query || {};
+    const outputs = report.outputs || {};
+    const blocks = Array.isArray(report.layout && report.layout.blocks) ? report.layout.blocks : [];
+    const fields = Array.isArray(query.fields) ? query.fields : [];
+    const parameters = Array.isArray(query.parameters) ? query.parameters : [];
+
+    if (documentProfile === "special" || ["danfe", "dacte", "boleto", "label", "etiqueta", "fiscal_form", "fiscal_document"].indexOf(documentKind) >= 0) {
+      diagnostics.push({ level: "error", title: "Documento especial bloqueado", message: "DANFE, boleto, etiqueta e formulario rigido ficam fora de `reports` v1 e devem seguir trilha separada." });
+    }
+    if (!blocks.length) {
+      diagnostics.push({ level: "error", title: "Sem blocos de layout", message: "A definicao precisa declarar blocos fechados como header, summary, table, totals e footer." });
+    }
+    if (!fields.length && String(source.type || "operational") !== "analytic") {
+      diagnostics.push({ level: "error", title: "Sem campos tabulares", message: "Relatorio operacional precisa de ao menos um campo legivel para detalhamento." });
+    }
+    if (String(source.type || "operational") === "analytic") {
+      if (!String(source.analyticsScreenId || "").trim()) {
+        diagnostics.push({ level: "error", title: "ScreenId analytics ausente", message: "Informe o screenId da tela analytics usada como fonte do relatorio analitico." });
+      }
+      if (!String(source.analyticsDatasetId || "").trim()) {
+        diagnostics.push({ level: "error", title: "Dataset analytics ausente", message: "Informe o dataset analytics usado como fonte do relatorio analitico." });
+      }
+    } else {
+      const entity = this.findEntityByCode(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() : "");
+      if (!entity) {
+        diagnostics.push({ level: "error", title: "Entidade base nao encontrada", message: "Selecione uma entidade valida para gerar o relatorio operacional." });
+      } else if (String(entity.entityType || "") !== "persistence") {
+        diagnostics.push({ level: "error", title: "Fonte invalida para v1", message: "Relatorios operacionais v1 aceitam somente entidade `persistence` como fonte." });
+      }
+    }
+    if (!parameters.length) {
+      diagnostics.push({ level: "info", title: "Sem parametros", message: "O relatorio pode ser emitido direto, mas vale revisar se filtros operacionais fariam sentido." });
+    }
+    if (outputs.excel !== true && outputs.csv !== true) {
+      diagnostics.push({ level: "warn", title: "Sem exportacao tabular", message: "Nenhuma exportacao CSV/Excel esta habilitada para este relatorio." });
+    }
+
+    return diagnostics;
+  };
+
+  ProgramBuilder.prototype.ensureReportValidatorState = function(definition) {
+    const report = definition && definition.report || {};
+    const signature = JSON.stringify({
+      screenId: definition && definition.screenId || "",
+      source: report.source || {},
+      parameters: Array.isArray(report.query && report.query.parameters) ? report.query.parameters.map(function(item) { return item.id || item.field || ""; }) : [],
+      outputs: report.outputs || {}
+    });
+    if (this.state.reportValidator && this.state.reportValidator.signature === signature) {
+      return;
+    }
+    this.state.reportValidator = {
+      signature: signature,
+      parameterValues: {},
+      sampleResult: null,
+      sampleError: "",
+      exportStatus: null,
+      exportError: ""
+    };
+  };
+
+  ProgramBuilder.prototype.renderReportParameterInputs = function(container, parameters) {
+    if (!parameters.length) {
+      $("<p class=\"program-builder-empty\"></p>").text("Nenhum parametro configurado para este relatorio.").appendTo(container);
+      return;
+    }
+    const state = this.state.reportValidator || {};
+    const grid = $("<div class=\"program-builder-analytics-parameters-grid\"></div>").appendTo(container);
+    parameters.forEach(function(parameter) {
+      const id = String(parameter.id || parameter.field || "");
+      const field = $("<label class=\"program-builder-field\"></label>").appendTo(grid);
+      $("<span></span>").text(parameter.label || id).appendTo(field);
+      let input;
+      if (Array.isArray(parameter.options) && parameter.options.length) {
+        input = $("<select class=\"program-builder-mini-select\"></select>").appendTo(field);
+        $("<option></option>").attr("value", "").text("Todos").appendTo(input);
+        parameter.options.forEach(function(option) {
+          $("<option></option>").attr("value", option.value).text(option.text || option.value).appendTo(input);
+        });
+      } else {
+        input = $("<input>").attr("type", this.analyticsParameterInputType(parameter)).addClass("program-builder-mini-input").appendTo(field);
+      }
+      input.val(state.parameterValues && state.parameterValues[id] != null ? state.parameterValues[id] : (parameter.defaultValue != null ? parameter.defaultValue : ""));
+      input.on("input change", function(event) {
+        this.state.reportValidator.parameterValues[id] = $(event.currentTarget).val();
+      }.bind(this));
+    }, this);
+  };
+
+  ProgramBuilder.prototype.reportEnabledOutputs = function(outputs) {
+    const flags = [];
+    if (outputs.html !== false) {
+      flags.push("HTML");
+    }
+    if (outputs.print !== false) {
+      flags.push("Impressao");
+    }
+    if (outputs.pdfBrowser !== false) {
+      flags.push("PDF navegador");
+    }
+    if (outputs.excel === true) {
+      flags.push("Excel");
+    }
+    if (outputs.csv === true) {
+      flags.push("CSV");
+    }
+    return flags.length ? flags : ["Nenhuma"];
+  };
+
+  ProgramBuilder.prototype.reportRuntimeRequest = function(endpointKey, payload) {
+    const definition = this.currentPreviewDefinition();
+    const screenId = String(definition && (definition.screenId || definition.program && definition.program.screenId) || this.screenIdInput.value() || "").trim();
+    const endpoints = definition && definition.report && definition.report.endpoints || {};
+    const endpoint = endpoints[endpointKey];
+    const fallbackEndpointId = {
+      run: "reports.run",
+      export: "reports.export"
+    }[endpointKey] || endpointKey;
+    const policy = global.CrudUtils.normalizeSecurityPolicy({}, { securityMode: "production" });
+    const resolved = global.CrudUtils.resolveEndpointForPolicy(endpoint, fallbackEndpointId, screenId, policy);
+    if (!resolved || !resolved.url) {
+      return Promise.reject(global.CrudUtils.makeError("REPORT_RUNTIME_ENDPOINT_UNRESOLVED", "Nao foi possivel resolver o endpoint runtime do relatorio."));
+    }
+    return this.http.request({
+      url: resolved.url,
+      method: String(resolved.method || "POST").toUpperCase(),
+      data: payload || {}
+    });
+  };
+
+  ProgramBuilder.prototype.reportValidatorPayload = function(extra) {
+    const definition = this.currentPreviewDefinition();
+    const report = definition && definition.report || {};
+    const parameters = {};
+    const configured = this.state.reportValidator && this.state.reportValidator.parameterValues || {};
+    (Array.isArray(report.query && report.query.parameters) ? report.query.parameters : []).forEach(function(parameter) {
+      const id = String(parameter.id || parameter.field || "");
+      const value = configured[id];
+      if (value != null && String(value).trim() !== "") {
+        parameters[id] = value;
+      }
+    });
+    return Object.assign({
+      parameters: parameters,
+      sort: Array.isArray(report.query && report.query.sort) ? global.CrudUtils.clone(report.query.sort) : [],
+      limit: Number(report.query && report.query.limit || 50) || 50
+    }, extra || {});
+  };
+
+  ProgramBuilder.prototype.handleRunReportSample = function() {
+    this.state.reportValidator.sampleError = "";
+    return this.reportRuntimeRequest("run", this.reportValidatorPayload()).then(function(response) {
+      this.state.reportValidator.sampleResult = response || null;
+      this.renderDiagnostics();
+      global.CrudUtils.showMessage("Amostra do relatorio carregada.", "success");
+      return response;
+    }.bind(this)).catch(function(error) {
+      const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel executar a amostra do relatorio.");
+      this.state.reportValidator.sampleResult = null;
+      this.state.reportValidator.sampleError = normalized.message || "Falha na amostra do relatorio.";
+      this.renderDiagnostics();
+      global.CrudUtils.showMessage(this.state.reportValidator.sampleError, "error");
+      return null;
+    }.bind(this));
+  };
+
+  ProgramBuilder.prototype.handleExportReportSample = function(format) {
+    this.state.reportValidator.exportError = "";
+    return this.reportRuntimeRequest("export", this.reportValidatorPayload({ format: format })).then(function(response) {
+      this.state.reportValidator.exportStatus = {
+        format: format,
+        fileName: response && response.fileName || "",
+        contentType: response && response.contentType || "",
+        size: response && response.contentBase64 ? String(response.contentBase64).length : 0
+      };
+      this.renderDiagnostics();
+      global.CrudUtils.showMessage("Exportacao " + String(format || "").toUpperCase() + " validada.", "success");
+      return response;
+    }.bind(this)).catch(function(error) {
+      const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel validar a exportacao do relatorio.");
+      this.state.reportValidator.exportStatus = null;
+      this.state.reportValidator.exportError = normalized.message || "Falha na exportacao.";
+      this.renderDiagnostics();
+      global.CrudUtils.showMessage(this.state.reportValidator.exportError, "error");
+      return null;
+    }.bind(this));
+  };
+
+  ProgramBuilder.prototype.renderReportRuntimeFeedback = function(container, state) {
+    const exportHost = $("<div class=\"program-builder-analytics-runtime-block\"></div>").appendTo(container);
+    $("<h5></h5>").text("Exportacao").appendTo(exportHost);
+    if (state.exportError) {
+      $("<div class=\"program-builder-diagnostic-item is-error\"></div>")
+        .append($("<strong></strong>").text("Falha na exportacao"))
+        .append($("<span></span>").text(state.exportError))
+        .appendTo(exportHost);
+    } else if (state.exportStatus) {
+      $("<div class=\"program-builder-analytics-runtime-meta\"></div>")
+        .text("Formato: " + String(state.exportStatus.format || "-") + " | arquivo: " + String(state.exportStatus.fileName || "-"))
+        .appendTo(exportHost);
+      $("<div class=\"program-builder-analytics-runtime-meta\"></div>")
+        .text("Content-Type: " + String(state.exportStatus.contentType || "-") + " | base64: " + String(state.exportStatus.size || 0) + " chars")
+        .appendTo(exportHost);
+    } else {
+      $("<p class=\"program-builder-empty\"></p>").text("Teste CSV ou Excel para validar o contrato de exportacao do runtime.").appendTo(exportHost);
+    }
+
+    const sampleHost = $("<div class=\"program-builder-analytics-runtime-block\"></div>").appendTo(container);
+    $("<h5></h5>").text("Amostra").appendTo(sampleHost);
+    if (state.sampleError) {
+      $("<div class=\"program-builder-diagnostic-item is-error\"></div>")
+        .append($("<strong></strong>").text("Falha na amostra"))
+        .append($("<span></span>").text(state.sampleError))
+        .appendTo(sampleHost);
+      return;
+    }
+    if (!state.sampleResult) {
+      $("<p class=\"program-builder-empty\"></p>").text("Execute a amostra para revisar resumo, linhas e agrupamentos devolvidos pelo runtime.").appendTo(sampleHost);
+      return;
+    }
+    const columns = Array.isArray(state.sampleResult.columns) ? state.sampleResult.columns : [];
+    const rows = Array.isArray(state.sampleResult.rows) ? state.sampleResult.rows : [];
+    const groups = Array.isArray(state.sampleResult.groups) ? state.sampleResult.groups : [];
+    $("<div class=\"program-builder-analytics-runtime-meta\"></div>")
+      .text("Linhas: " + String(state.sampleResult.total || rows.length || 0) + " | colunas: " + columns.length + " | grupos: " + groups.length)
+      .appendTo(sampleHost);
+    const tableWrap = $("<div class=\"program-builder-report-sample-table-wrap\"></div>").appendTo(sampleHost);
+    const table = $("<table class=\"program-builder-report-sample-table program-builder-analytics-sample-table\"></table>").appendTo(tableWrap);
+    const head = $("<thead><tr></tr></thead>").appendTo(table).find("tr");
+    columns.forEach(function(column) {
+      $("<th></th>").text(column.title || column.label || column.field || "").appendTo(head);
+    });
+    const body = $("<tbody></tbody>").appendTo(table);
+    rows.slice(0, 8).forEach(function(row) {
+      const tr = $("<tr></tr>").appendTo(body);
+      columns.forEach(function(column) {
+        $("<td></td>").text(row[column.field] == null ? "" : String(row[column.field])).appendTo(tr);
+      });
+    });
+    if (groups.length) {
+      $("<div class=\"program-builder-analytics-runtime-meta\"></div>")
+        .text("Primeiro grupo: " + String(groups[0].label || groups[0].key || "-") + " | linhas: " + String(groups[0].rowCount || 0))
+        .appendTo(sampleHost);
     }
   };
 

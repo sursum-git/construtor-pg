@@ -422,6 +422,14 @@
       page: pagePath + "admin-analytics-audit.html"
     },
     {
+      id: "admin-report-audit",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Auditoria de relatorios",
+      summary: "Tela administrativa para consultar emissoes de relatorios gravadas no banco separado de auditoria.",
+      page: pagePath + "admin-report-audit.html"
+    },
+    {
       id: "admin-central-operations",
       engine: "program-builder",
       category: "Administracao",

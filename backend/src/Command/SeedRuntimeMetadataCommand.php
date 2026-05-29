@@ -431,6 +431,22 @@ class SeedRuntimeMetadataCommand extends Command
                 'frameTitle' => 'Auditoria analytics',
             ],
         ];
+        $reportAuditAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.relatorios-auditoria',
+            'program' => [
+                'id' => 'admin-relatorios-auditoria',
+                'title' => 'Auditoria de relatorios',
+                'subtitle' => 'Consulta administrativa das emissoes de relatorios gravadas no banco separado',
+                'version' => '1.0.0',
+                'screenId' => 'admin.relatorios-auditoria',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/report-audit.html',
+                'frameTitle' => 'Auditoria de relatorios',
+            ],
+        ];
 
         $clientesDefinition['screenId'] = 'cadastros.clientes';
         $clientesDefinition['program']['screenId'] = 'cadastros.clientes';
@@ -462,6 +478,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-overlays-operacao', 'Overlays de programas', 'Operacao focada em overlays e rebase', 'admin.programa-overlays-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-overlay-versoes-operacao', 'Versoes de overlay', 'Operacao focada em versoes de overlay', 'admin.programa-overlay-versoes-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-analytics-auditoria', 'Auditoria analytics', 'Consulta das trilhas da camada BI em banco separado', 'admin.analytics-auditoria');
+        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-relatorios-auditoria', 'Auditoria de relatorios', 'Consulta das emissoes de relatorios gravadas no banco separado', 'admin.relatorios-auditoria');
         if ($this->central->isCentralControl()) {
             $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-assinante-ambientes', 'Provisionamento de assinantes', 'Criacao do assinante, SaaS e pacote on-premise', 'admin.assinante-ambientes');
             $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-atualizacoes', 'Atualizacoes do sistema', 'Releases, anuencia e aplicacao de atualizacoes', 'admin.atualizacoes');
@@ -489,6 +506,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertProgram('admin-programa-overlays-operacao', 'Overlays de programas', 'administracao', 'custom', 'admin.programa-overlays-operacao');
         $this->upsertProgram('admin-programa-overlay-versoes-operacao', 'Versoes de overlay', 'administracao', 'custom', 'admin.programa-overlay-versoes-operacao');
         $this->upsertProgram('admin-analytics-auditoria', 'Auditoria analytics', 'administracao', 'custom', 'admin.analytics-auditoria');
+        $this->upsertProgram('admin-relatorios-auditoria', 'Auditoria de relatorios', 'administracao', 'custom', 'admin.relatorios-auditoria');
         $this->upsertProgram('admin-assinante-ambientes', 'Provisionamento de assinantes', 'administracao', 'custom', 'admin.assinante-ambientes');
         $this->upsertProgram('admin-atualizacoes', 'Atualizacoes do sistema', 'administracao', 'custom', 'admin.atualizacoes');
         $this->upsertProgram('admin-atualizacoes-assinantes', 'Atualizacoes por assinante', 'administracao', 'custom', 'admin.atualizacoes-assinantes');
@@ -519,6 +537,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertScreen('admin.programa-overlays-operacao', 'custom', $programOverlaysAdminDefinition);
         $this->upsertScreen('admin.programa-overlay-versoes-operacao', 'custom', $programOverlayVersionsAdminDefinition);
         $this->upsertScreen('admin.analytics-auditoria', 'custom', $analyticsAuditAdminDefinition);
+        $this->upsertScreen('admin.relatorios-auditoria', 'custom', $reportAuditAdminDefinition);
         $this->upsertScreen('admin.assinante-ambientes', 'custom', $subscriberProvisioningAdminDefinition);
         $this->upsertScreen('admin.atualizacoes', 'custom', $systemUpdatesAdminDefinition);
         $this->upsertScreen('admin.atualizacoes-assinantes', 'custom', $systemUpdateSubscriberLogAdminDefinition);

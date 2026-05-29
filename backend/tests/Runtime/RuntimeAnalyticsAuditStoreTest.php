@@ -21,6 +21,7 @@ class RuntimeAnalyticsAuditStoreTest extends TestCase
             'resultSource' => 'live',
             'rowCount' => 2,
             'totalCount' => 2,
+            'metadata' => ['auditContext' => 'analytics'],
             'consultedAt' => '2026-05-29 03:00:00',
         ]);
         $store->record([
@@ -33,7 +34,22 @@ class RuntimeAnalyticsAuditStoreTest extends TestCase
             'resultSource' => 'cache_hit',
             'rowCount' => 1,
             'totalCount' => 1,
+            'metadata' => ['auditContext' => 'analytics'],
             'consultedAt' => '2026-05-29 04:00:00',
+        ]);
+        $store->record([
+            'tenantId' => 'tenant-a',
+            'userId' => 'admin',
+            'sessionId' => 'sess-3',
+            'screenId' => 'relatorios.clientes-operacional',
+            'datasetId' => 'relatorio-clientes-operacional',
+            'viewId' => 'excel',
+            'executionMode' => 'operational',
+            'resultSource' => 'report_run',
+            'rowCount' => 4,
+            'totalCount' => 4,
+            'metadata' => ['auditContext' => 'report', 'reportId' => 'relatorio-clientes-operacional'],
+            'consultedAt' => '2026-05-29 05:00:00',
         ]);
 
         $filtered = $store->query([
@@ -51,5 +67,12 @@ class RuntimeAnalyticsAuditStoreTest extends TestCase
         self::assertContains('tenant-b', $options['tenantIds']);
         self::assertContains('analytics.clientes', $options['screenIds']);
         self::assertContains('cache_hit', $options['resultSources']);
+
+        $reportOnly = $store->query(['reportId' => 'relatorio-clientes-operacional'], 'report');
+        self::assertSame(1, $reportOnly['total']);
+        self::assertSame('relatorios.clientes-operacional', $reportOnly['items'][0]['screenId']);
+
+        $reportOptions = $store->collectFilterOptions(40, 'report');
+        self::assertContains('relatorios.clientes-operacional', $reportOptions['screenIds']);
     }
 }

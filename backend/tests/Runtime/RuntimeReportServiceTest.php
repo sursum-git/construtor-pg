@@ -64,6 +64,26 @@ class RuntimeReportServiceTest extends TestCase
         self::assertStringContainsString('"Nome"', base64_decode((string) $result['contentBase64']));
     }
 
+    public function testExportReturnsXlsxPayload(): void
+    {
+        if (!class_exists(\ZipArchive::class)) {
+            self::markTestSkipped('ZipArchive nao disponivel neste ambiente.');
+        }
+
+        $service = $this->createService('tenant-a');
+
+        $result = $service->export('relatorios.clientes-operacional', [
+            'parameters' => ['status' => 'ATIVO'],
+            'format' => 'excel',
+        ]);
+
+        self::assertSame('excel', $result['format']);
+        self::assertSame('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $result['contentType']);
+        self::assertStringEndsWith('.xlsx', $result['fileName']);
+        $binary = base64_decode((string) $result['contentBase64']);
+        self::assertStringStartsWith('PK', $binary);
+    }
+
     /**
      * @param array<string, mixed> $definitionPatch
      */
