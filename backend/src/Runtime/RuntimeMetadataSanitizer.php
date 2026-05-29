@@ -37,6 +37,9 @@ class RuntimeMetadataSanitizer
         if ($pageType === 'analytics') {
             $definition = $this->sanitizeAnalyticsDefinition($definition, $screenId);
         }
+        if ($pageType === 'report') {
+            $definition = $this->sanitizeReportDefinition($definition, $screenId);
+        }
 
         if ($pageType === 'home') {
             $definition = $this->sanitizeHomeDefinition($definition, $screenId);
@@ -56,6 +59,24 @@ class RuntimeMetadataSanitizer
 
         if (!empty($definition['analytics']['endpoints']) && is_array($definition['analytics']['endpoints'])) {
             $definition['analytics']['endpoints'] = $this->sanitizeEndpointMap($definition['analytics']['endpoints']);
+        }
+
+        unset($definition['definition'], $definition['definitionUrl'], $definition['openUrl'], $definition['url'], $definition['html'], $definition['htmlUrl']);
+
+        return $definition;
+    }
+
+    private function sanitizeReportDefinition(array $definition, string $screenId): array
+    {
+        $definition['screenId'] = $screenId;
+        $definition['program']['screenId'] = $screenId;
+        $api = $definition['dataSource']['api'] ?? $definition['api'] ?? [];
+        $api = $this->sanitizeEndpointMap(is_array($api) ? $api : []);
+        $definition['api'] = $api;
+        $definition['dataSource']['api'] = $api;
+
+        if (!empty($definition['report']['endpoints']) && is_array($definition['report']['endpoints'])) {
+            $definition['report']['endpoints'] = $this->sanitizeEndpointMap($definition['report']['endpoints']);
         }
 
         unset($definition['definition'], $definition['definitionUrl'], $definition['openUrl'], $definition['url'], $definition['html'], $definition['htmlUrl']);
@@ -239,7 +260,7 @@ class RuntimeMetadataSanitizer
 
     private function sanitizeHomeRuntimeProgram(array $program): ?array
     {
-        if (!in_array((string) ($program['type'] ?? 'iframe'), ['crud', 'process', 'analytics'], true)) {
+        if (!in_array((string) ($program['type'] ?? 'iframe'), ['crud', 'process', 'analytics', 'report'], true)) {
             return null;
         }
 
@@ -248,6 +269,12 @@ class RuntimeMetadataSanitizer
         }
         if (($program['id'] ?? '') === 'processamento-clientes') {
             $program['screenId'] = 'processamento.relatorio-clientes';
+        }
+        if (($program['id'] ?? '') === 'relatorio-clientes-operacional') {
+            $program['screenId'] = 'relatorios.clientes-operacional';
+        }
+        if (($program['id'] ?? '') === 'relatorio-clientes-analitico') {
+            $program['screenId'] = 'relatorios.clientes-analitico';
         }
 
         if (empty($program['id']) || empty($program['screenId'])) {

@@ -67,6 +67,10 @@
         if (analyticsEngine && analyticsEngine.currentResult) {
           analyticsEngine.renderResult();
         }
+        const reportEngine = global.currentReportExampleEngine;
+        if (reportEngine && reportEngine.currentResult) {
+          reportEngine.renderResult();
+        }
       }
     });
     const widget = tabs.data("kendoTabStrip");
@@ -90,6 +94,9 @@
     }
     if (example.engine === "analytics") {
       return initializeAnalyticsEngine(example, catalog, state, root);
+    }
+    if (example.engine === "report") {
+      return initializeReportEngine(example, catalog, state, root);
     }
     return initializeCrudEngine(example, catalog, state, root);
   }
@@ -189,6 +196,28 @@
     });
   }
 
+  function initializeReportEngine(example, catalog, state, root) {
+    $(root).removeClass("home-app-root").addClass("crud-app-shell");
+    const artifacts = buildReportRuntimeArtifacts(example, catalog, state);
+    const httpClient = new global.DemoMockHttpClient({
+      storageSuffix: "examples-" + example.id
+    });
+    const engine = new global.ReportEngine({
+      root: "#example-render-root",
+      definition: artifacts.definition,
+      config: artifacts.config,
+      httpClient
+    });
+
+    return engine.init().then(function(instance) {
+      global.currentReportExampleEngine = instance;
+      return instance;
+    }).catch(function(error) {
+      console.error("Falha ao renderizar exemplo de relatorio.", error);
+      throw error;
+    });
+  }
+
   function destroyCurrentEngine(root) {
     const engine = global.currentCrudExampleEngine;
     if (engine && engine.gridRenderer && typeof engine.gridRenderer.destroy === "function") {
@@ -201,6 +230,7 @@
       destroyHomeExampleEngine();
       destroyProcessExampleEngine();
       destroyAnalyticsExampleEngine();
+      destroyReportExampleEngine();
       global.kendo.destroy($(root));
     }
     $(root).empty();
@@ -208,6 +238,7 @@
     global.currentHomeExampleEngine = null;
     global.currentProcessExampleEngine = null;
     global.currentAnalyticsExampleEngine = null;
+    global.currentReportExampleEngine = null;
   }
 
   function destroyHomeExampleEngine() {
@@ -231,6 +262,13 @@
 
   function destroyAnalyticsExampleEngine() {
     const engine = global.currentAnalyticsExampleEngine;
+    if (engine && typeof engine.destroy === "function") {
+      engine.destroy();
+    }
+  }
+
+  function destroyReportExampleEngine() {
+    const engine = global.currentReportExampleEngine;
     if (engine && typeof engine.destroy === "function") {
       engine.destroy();
     }
@@ -292,6 +330,22 @@
 
   function buildAnalyticsRuntimeArtifacts(example, catalog, state) {
     const definition = catalog.buildAnalyticsDefinition(example.id);
+    const config = catalog.buildConfig(example.id, { assetPrefix: EXAMPLE_ASSET_PREFIX });
+    const patch = diffValue(state.originalPatch, state.currentPatch) || {};
+    const configPatch = patch[CONFIG_ROOT_KEY];
+
+    if (configPatch) {
+      deepMerge(config, configPatch);
+      normalizeConfigAssets(config);
+      delete patch[CONFIG_ROOT_KEY];
+    }
+
+    deepMerge(definition, patch);
+    return { definition, config };
+  }
+
+  function buildReportRuntimeArtifacts(example, catalog, state) {
+    const definition = catalog.buildReportDefinition(example.id);
     const config = catalog.buildConfig(example.id, { assetPrefix: EXAMPLE_ASSET_PREFIX });
     const patch = diffValue(state.originalPatch, state.currentPatch) || {};
     const configPatch = patch[CONFIG_ROOT_KEY];

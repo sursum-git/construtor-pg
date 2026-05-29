@@ -1793,6 +1793,128 @@
             notes: ["Exemplo local: ../../examples/pages/admin-logs-transacoes.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.logs-transacoes"]
           }
         },
+        "report-operacional": {
+          title: "Relatorio operacional",
+          module: "Operacional",
+          type: "Report v1",
+          route: "../../examples/pages/report-operacional.html",
+          screenId: "relatorios.clientes-operacional",
+          summary: "Relatorio nativo HTML para documentos operacionais em blocos fechados, com filtros, totais, impressao e exportacao tabular.",
+          functional: {
+            objective: "Emitir relatorios operacionais padronizados sem designer livre nem SQL exposto.",
+            scope: [
+              "Fonte operacional por entidade interna `persistence`.",
+              "Filtros e parametros fechados.",
+              "Layout em `header`, `summary`, `table`, `totals` e `footer`.",
+              "Saidas HTML, impressao, CSV e Excel tabular."
+            ],
+            outputs: [
+              "Relatorio detalhado com totais e contexto de emissao."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Tela report publicada por `screenId`.",
+              "Entidade persistence com campos legiveis."
+            ],
+            steps: [
+              "Abrir o relatorio operacional.",
+              "Preencher filtros e parametros quando existirem.",
+              "Gerar o relatorio.",
+              "Usar impressao ou exportacao tabular quando necessario."
+            ],
+            cautions: [
+              "A v1 nao aceita layout livre, sub-relatorio, DANFE, boleto ou formulario fiscal.",
+              "Em producao o runtime continua fechado por `screenId` e `endpointId`."
+            ]
+          },
+          references: {
+            permissions: ["relatorios.read"],
+            relatedPrograms: ["Program Builder"],
+            notes: ["Exemplo local: ../../examples/pages/report-operacional.html", "JSON exemplo: ../../examples/report-operacional.report.json", "ProduÃ§Ã£o: ../../production/app.html?screenId=relatorios.clientes-operacional"]
+          }
+        },
+        "report-analitico": {
+          title: "Relatorio analitico",
+          module: "Operacional",
+          type: "Report v1",
+          route: "../../examples/pages/report-analitico.html",
+          screenId: "relatorios.clientes-analitico",
+          summary: "Relatorio gerencial em cima de dataset analytics publicado, com agrupamento unico e totais por medida.",
+          functional: {
+            objective: "Reaproveitar datasets analytics internos para emissao gerencial sem abrir template ou SQL livre.",
+            scope: [
+              "Fonte `analytic` por `analyticsScreenId` e `analyticsDatasetId`.",
+              "Agrupamento simples na v1.",
+              "Totais por medida e impressao HTML."
+            ],
+            outputs: [
+              "Relatorio gerencial padronizado sobre dataset BI."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Dataset analytics ja publicado.",
+              "Tela report publicada por `screenId`."
+            ],
+            steps: [
+              "Abrir o relatorio analitico.",
+              "Aplicar parametros do dataset quando existirem.",
+              "Gerar o relatorio e conferir grupos/totais."
+            ],
+            cautions: [
+              "A v1 suporta apenas um nivel de agrupamento.",
+              "Documentos especiais continuam fora da camada `reports`."
+            ]
+          },
+          references: {
+            permissions: ["relatorios.read"],
+            relatedPrograms: ["Consultas avancadas e BI", "Program Builder"],
+            notes: ["Exemplo local: ../../examples/pages/report-analitico.html", "JSON exemplo: ../../examples/report-analitico.report.json", "ProduÃ§Ã£o: ../../production/app.html?screenId=relatorios.clientes-analitico"]
+          }
+        },
+        "admin-analytics-audit": {
+          title: "Auditoria analytics",
+          module: "Administracao",
+          type: "Tela custom somente consulta",
+          route: "../../examples/pages/admin-analytics-audit.html",
+          screenId: "admin.analytics-auditoria",
+          summary: "Consulta administrativa da trilha de consultas BI gravada em banco separado de auditoria.",
+          functional: {
+            objective: "Permitir auditoria de filtros, parametros, recorte consultado e origem de resultado da camada analytics.",
+            scope: [
+              "Consulta por tenant, usuario, tela, dataset, origem e periodo.",
+              "Leitura do payload tecnico retornado pela consulta BI.",
+              "Exportacao local do recorte carregado."
+            ],
+            outputs: [
+              "Visao administrativa do uso da camada BI por consulta executada."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao administrativa de leitura.",
+              "Auditoria analytics habilitada no ambiente.",
+              "Banco separado configurado e inicializado."
+            ],
+            steps: [
+              "Abrir a tela de auditoria analytics.",
+              "Aplicar filtros por tenant, usuario, tela, dataset, origem ou periodo.",
+              "Selecionar a consulta desejada na grade.",
+              "Ler o detalhe tecnico com filtros, parametros, colunas e linhas auditadas."
+            ],
+            cautions: [
+              "A tela depende de `ANALYTICS_AUDIT_ENABLED` e `ANALYTICS_AUDIT_DATABASE_URL`.",
+              "A estrutura do banco separado deve ser criada com `php backend/bin/console app:analytics:audit:init`.",
+              "O recorte de linhas auditadas continua limitado pela politica configurada no ambiente."
+            ]
+          },
+          references: {
+            permissions: ["admin.read"],
+            relatedPrograms: ["Transacoes", "Logs de transacoes"],
+            notes: ["Exemplo local: ../../examples/pages/admin-analytics-audit.html", "ProduÃ§Ã£o: ../../production/app.html?screenId=admin.analytics-auditoria", "Entrada custom local/producao: ../../production/admin/analytics-audit.html", "Comando operacional: `php backend/bin/console app:analytics:audit:init`"]
+          }
+        },
         "program-builder": {
           title: "Program Builder",
           module: "Construcao",
@@ -1890,7 +2012,8 @@
           { name: "HomeEngine", role: "Monta o shell global com appbar, menu lateral, favoritos, notificacoes, jobs, suporte e abertura de programas." },
           { name: "ProcessEngine", role: "Executa processos por parametros, acompanha status e mostra grid, mensagem, documento ou job." },
           { name: "CustomPageEngine", role: "Abre programas manuais/custom registrados no catalogo runtime." },
-          { name: "Program Builder", role: "Editor visual para modulos, entidades, programas, APIs, Odoo, IA, import/export, literais e publicacao." }
+          { name: "Program Builder", role: "Editor visual para modulos, entidades, programas, APIs, Odoo, IA, import/export, literais, reports e publicacao." },
+          { name: "ReportEngine", role: "Renderiza relatorios nativos v1 com blocos fechados, filtros, totais, impressao e exportacao tabular." }
         ],
         supportedToday: [
           "CRUD de entidades `persistence` com grid e formulario.",
@@ -1903,6 +2026,7 @@
           "Assistente interno de IA com sessao persistente, catalogo versionado e rascunho validado.",
           "Catalogo inicial de importacao/exportacao com CSV, TXT plano/hierarquico, XML de exportacao e importacao XML declarativa.",
           "Tela administrativa `admin.integracoes` para cadastro, TreeView, preview estrutural, historico persistido, versoes e agendamentos.",
+          "Camada `reports` nativa para relatorios operacionais e analiticos com `pageType=report`, `ReportEngine` e endpoints `reports.*`.",
           "Catalogo administrativo de literais e traducoes por locale.",
           "Mensagens de validacao e regra por chave, com parametros substituiveis no frontend.",
           "Notificacoes runtime por usuario e grupo, com entrega, leitura por destinatario e marcacao em lote na Home.",
@@ -1927,7 +2051,7 @@
       const treeData = [
         { text: "Roteiro inicial", expanded: true, items: [{ id: "roteiro-analista-funcional", text: "Roteiro do analista funcional" }, { id: "manual-instalacao", text: "Manual de instalacao" }] },
         { text: "Acesso e navegacao", expanded: true, items: [{ id: "login", text: "Login" }, { id: "home", text: "Home" }] },
-        { text: "Operacional", expanded: true, items: [{ id: "clientes", text: "Cadastro de clientes" }, { id: "processamento-clientes", text: "Processamento de clientes" }, { id: "jobs", text: "Meus Jobs / Jobs" }] },
+        { text: "Operacional", expanded: true, items: [{ id: "clientes", text: "Cadastro de clientes" }, { id: "processamento-clientes", text: "Processamento de clientes" }, { id: "report-operacional", text: "Relatorio operacional" }, { id: "report-analitico", text: "Relatorio analitico" }, { id: "jobs", text: "Meus Jobs / Jobs" }] },
         { text: "Administracao", expanded: true, items: [
           { id: "admin-parametros", text: "Parametros" },
           { id: "admin-parametro-valores", text: "Valores de parametros" },

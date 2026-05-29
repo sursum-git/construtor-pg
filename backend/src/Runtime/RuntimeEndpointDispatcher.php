@@ -21,6 +21,7 @@ class RuntimeEndpointDispatcher
         private readonly RuntimeApiEntityActionService $apiEntities,
         private readonly RuntimeOdooEntityActionService $odooEntities,
         private readonly RuntimeAnalyticsEndpointHandler $analytics,
+        private readonly RuntimeReportEndpointHandler $reports,
         private readonly RuntimeJobEnqueueService $jobEnqueue,
         private readonly RuntimeExecutionContext $executionContext,
         private readonly RuntimeAsyncJobService $asyncJobs,
@@ -76,6 +77,7 @@ class RuntimeEndpointDispatcher
             'entity.api.crud' => $this->apiEntities->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
             'entity.api.odoo.readonly' => $this->odooEntities->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
             'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status' => $this->analytics->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
+            'reports.schema', 'reports.run', 'reports.export' => $this->reports->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
             'cliente.read' => $this->entities->handle($screenId, 'read', ['entityCode' => 'cliente', 'operation' => 'read'], $payload),
             'cliente.get' => $this->entities->handle($screenId, 'get', ['entityCode' => 'cliente', 'operation' => 'get'], $payload),
             'cliente.create' => $this->entities->handle($screenId, 'create', ['entityCode' => 'cliente', 'operation' => 'create'], $payload),
@@ -144,7 +146,7 @@ class RuntimeEndpointDispatcher
     private function enrichPayloadFromEndpoint(RuntimeEndpoint $endpoint, array $payload): array
     {
         $config = $endpoint->getConfig();
-        if (!in_array($endpoint->getHandler(), ['entity.crud', 'entity.api.readonly', 'entity.api.crud', 'entity.api.odoo.readonly', 'runtime.job.enqueue', 'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status'], true)) {
+        if (!in_array($endpoint->getHandler(), ['entity.crud', 'entity.api.readonly', 'entity.api.crud', 'entity.api.odoo.readonly', 'runtime.job.enqueue', 'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status', 'reports.schema', 'reports.run', 'reports.export'], true)) {
             return $payload;
         }
 

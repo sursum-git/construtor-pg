@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://construtor-pg.local/metadata/schemas/report-definition-v1.schema.json",
+  "title": "Report Definition v1",
+  "type": "object",
+  "required": ["schemaVersion", "pageType", "screenId", "program", "report"],
+  "properties": {
+    "schemaVersion": { "type": "string" },
+    "pageType": { "const": "report" },
+    "screenId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+    "program": {
+      "type": "object",
+      "required": ["id", "title"],
+      "properties": {
+        "id": { "type": "string" },
+        "screenId": { "type": "string" },
+        "module": { "type": "string" },
+        "entity": { "type": "string" },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "version": { "type": "string" },
+        "icon": { "type": "string" },
+        "permission": {
+          "oneOf": [
+            { "type": "boolean" },
+            { "type": "string" }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "permissions": {
+      "type": "object",
+      "additionalProperties": {
+        "oneOf": [
+          { "type": "boolean" },
+          { "type": "string" }
+        ]
+      }
+    },
+    "dataSource": {
+      "type": "object",
+      "properties": {
+        "api": {
+          "type": "object",
+          "properties": {
+            "schema": { "$ref": "#/$defs/endpointRef" },
+            "run": { "$ref": "#/$defs/endpointRef" },
+            "export": { "$ref": "#/$defs/endpointRef" }
+          },
+          "additionalProperties": { "$ref": "#/$defs/endpointRef" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "report": {
+      "type": "object",
+      "required": ["source", "query", "layout", "outputs"],
+      "properties": {
+        "version": { "type": "string" },
+        "classification": {
+          "type": "object",
+          "properties": {
+            "documentProfile": { "type": "string", "enum": ["general", "special"] },
+            "documentKind": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "endpoints": {
+          "type": "object",
+          "properties": {
+            "schema": { "$ref": "#/$defs/endpointRef" },
+            "run": { "$ref": "#/$defs/endpointRef" },
+            "export": { "$ref": "#/$defs/endpointRef" }
+          },
+          "additionalProperties": { "$ref": "#/$defs/endpointRef" }
+        },
+        "source": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "type": "string", "enum": ["operational", "analytic"] },
+            "entityCode": { "type": "string" },
+            "analyticsScreenId": { "type": "string" },
+            "analyticsDatasetId": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "query": {
+          "type": "object",
+          "properties": {
+            "fields": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["field"],
+                "properties": {
+                  "field": { "type": "string" },
+                  "label": { "type": "string" },
+                  "type": { "type": "string" },
+                  "format": { "type": "string" },
+                  "groupable": { "type": "boolean" },
+                  "totalable": { "type": "boolean" },
+                  "width": { "type": "integer" },
+                  "align": { "type": "string", "enum": ["left", "center", "right"] }
+                },
+                "additionalProperties": false
+              }
+            },
+            "parameters": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "field", "label", "type"],
+                "properties": {
+                  "id": { "type": "string" },
+                  "field": { "type": "string" },
+                  "label": { "type": "string" },
+                  "type": { "type": "string" },
+                  "operator": { "type": "string" },
+                  "options": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "value": {},
+                        "text": { "type": "string" }
+                      },
+                      "required": ["text"],
+                      "additionalProperties": true
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "filters": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["field", "operator"],
+                "properties": {
+                  "field": { "type": "string" },
+                  "operator": { "type": "string" },
+                  "value": {}
+                },
+                "additionalProperties": false
+              }
+            },
+            "sort": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["field", "dir"],
+                "properties": {
+                  "field": { "type": "string" },
+                  "dir": { "type": "string", "enum": ["asc", "desc"] }
+                },
+                "additionalProperties": false
+              }
+            },
+            "limit": { "type": "integer", "minimum": 1, "maximum": 5000 }
+          },
+          "additionalProperties": false
+        },
+        "layout": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string" },
+            "subtitle": { "type": "string" },
+            "groupField": { "type": "string" },
+            "footerText": { "type": "string" },
+            "blocks": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["id", "type"],
+                "properties": {
+                  "id": { "type": "string" },
+                  "type": { "type": "string", "enum": ["header", "summary", "table", "group", "totals", "footer"] },
+                  "title": { "type": "string" }
+                },
+                "additionalProperties": true
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "outputs": {
+          "type": "object",
+          "properties": {
+            "html": { "type": "boolean" },
+            "print": { "type": "boolean" },
+            "pdfBrowser": { "type": "boolean" },
+            "excel": { "type": "boolean" },
+            "csv": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "endpointRef": {
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "endpointId": { "type": "string" },
+            "actionId": { "type": "string" },
+            "method": { "type": "string" }
+          },
+          "additionalProperties": true
+        }
+      ]
+    }
+  },
+  "additionalProperties": true
+}

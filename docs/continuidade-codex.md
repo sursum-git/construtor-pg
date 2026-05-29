@@ -835,6 +835,15 @@ Implementado ate agora, em nivel demo/frontend:
   - comando `php bin\console app:analytics:audit:init`;
   - tabela alvo `runtime_analytics_audit_entry` no banco configurado em `ANALYTICS_AUDIT_DATABASE_URL`;
   - grava filtros, parametros, ordenacao, colunas e recorte das linhas consultadas no runtime analytics.
+  - existe agora a tela administrativa `admin.analytics-auditoria`, com entrada custom `production/admin/analytics-audit.html` e endpoints `/api/admin/analytics-audit/bootstrap|entries`.
+- Camada `reports` v1 nativa:
+  - `pageType=report` com `ReportEngine` em `src/report-engine/ReportEngine.js`;
+  - schema em `public/metadata/schemas/report-definition-v1.schema.json`;
+  - endpoints runtime fechados `reports.schema`, `reports.run` e `reports.export`;
+  - backend em `RuntimeReportService` e `RuntimeReportEndpointHandler`;
+  - exemplos locais `examples/pages/report-operacional.html` e `examples/pages/report-analitico.html`;
+  - seed publica `analytics.clientes`, `relatorios.clientes-operacional` e `relatorios.clientes-analitico`;
+  - a v1 cobre relatorios operacionais e analiticos em blocos fechados, sem DANFE, boleto, etiqueta ou formulario fiscal.
 - O servidor estatico `node scripts/serve-static.js` agora tambem pode encaminhar `/api/*` para `CRUD_ENGINE_API_PROXY`, facilitando validar `program-builder.html` contra backend real.
 - Se o construtor responder `PROGRAM_BUILDER_STORAGE_NOT_READY`, aplicar as migrations `Version20260509093000`, `Version20260510113000`, `Version20260510143000`, `Version20260510170000`, `Version20260510190000` e `Version20260510200000` antes de testar a interface.
 - O rollback estrutural da entidade depende do snapshot salvo em `builder_entity_version`; ele cobre metadados, rename de tabela, rename de coluna, defaults e constraints gerenciadas pelo construtor.

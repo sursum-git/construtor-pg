@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auditoria analytics (demo local)</title>
+  <link rel="stylesheet" href="../../kendo/styles/default-urban.css">
+  <link rel="stylesheet" href="../../src/styles/crud-engine.css">
+  <link rel="stylesheet" href="../../src/styles/program-builder.css">
+  <style>
+    .subscriber-provisioning-notes {
+      margin: 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--crud-border);
+      border-radius: 6px;
+      background: var(--crud-readonly-bg);
+      color: var(--crud-text);
+    }
+    .subscriber-provisioning-notes h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      color: var(--crud-title);
+    }
+    .subscriber-provisioning-notes ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+  </style>
+</head>
+<body>
+  <section class="subscriber-provisioning-notes" aria-label="Observacoes operacionais">
+    <h2>Observacoes operacionais</h2>
+    <ul>
+      <li>Esta pagina local usa demo em memoria para a consulta de auditoria analytics.</li>
+      <li>No sistema real, a tela roda por <code>screenId=admin.analytics-auditoria</code> e consulta o banco separado de auditoria.</li>
+      <li>A habilitacao real depende de <code>ANALYTICS_AUDIT_ENABLED</code> e da conexao configurada em <code>ANALYTICS_AUDIT_DATABASE_URL</code>.</li>
+      <li>O comando operacional correspondente e <code>php backend/bin/console app:analytics:audit:init</code>.</li>
+    </ul>
+  </section>
+  <main id="analytics-audit-admin-root" class="program-builder-root"></main>
+
+  <script src="../../vendor/jquery/jquery-4.0.0.min.js"></script>
+  <script src="../../kendo/js/kendo.all.min.js"></script>
+  <script src="../../kendo/kendo-license.js"></script>
+  <script src="../../kendo/js/cultures/kendo.culture.pt-BR.min.js"></script>
+  <script src="../../kendo/js/messages/kendo.messages.pt-BR.min.js"></script>
+  <script src="../../src/bootstrap/kendo-ptbr.js"></script>
+  <script src="../../src/crud-engine/CrudUtils.js"></script>
+  <script src="../../src/crud-engine/CrudHttpClient.js"></script>
+  <script src="../../src/demo/analytics-audit-admin-demo.js"></script>
+  <script src="../../src/analytics-audit/analytics-audit-admin.js"></script>
+  <script src="../../src/analytics-audit/analytics-audit-admin.boot.js"></script>
+</body>
+</html>

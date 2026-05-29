@@ -24,6 +24,10 @@
   },
   "analytics": {
     "version": "1.0",
+    "audit": {
+      "enabled": true,
+      "includeCacheHits": true
+    },
     "endpoints": {
       "schema": { "endpointId": "analytics.schema", "method": "POST" },
       "run": { "endpointId": "analytics.query.run", "method": "POST" },
@@ -70,6 +74,10 @@
         "defaultSort": [{ "field": "uf", "dir": "asc" }],
         "limit": 1000,
         "executionMode": "auto",
+        "audit": {
+          "enabled": true,
+          "includeCacheHits": true
+        },
         "cache": { "ttlSeconds": 900 }
       }
     ],

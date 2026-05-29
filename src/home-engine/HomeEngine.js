@@ -4295,6 +4295,9 @@
       if (program.type === "analytics") {
         return this.renderAnalyticsProgram(program);
       }
+      if (program.type === "report") {
+        return this.renderReportProgram(program);
+      }
       if (program.type === "custom") {
         return this.renderCustomProgram(program);
       }
@@ -4388,6 +4391,35 @@
         .appendTo(this.contentRoot);
 
       const engine = new global.AnalyticsEngine({
+        root: "#" + rootId,
+        screenId: program.screenId,
+        definitionUrl: program.definitionUrl,
+        definition: program.definition,
+        config: this.getEmbeddedProgramConfig(),
+        security: this.securityPolicy,
+        hideHeader: true,
+        onLastUpdated: (date) => this.updateProgramLastUpdated(date),
+        httpClient: this.httpClient
+      });
+      this.currentProgramEngine = engine;
+      return engine.init().then((instance) => {
+        if (this.currentProgram && this.currentProgram.id === program.id) {
+          this.currentProgramEngine = instance;
+          this.updateProgramHeader(program, instance.definition);
+        }
+        return instance;
+      });
+    }
+
+    renderReportProgram(program) {
+      this.contentRoot.empty();
+      const rootId = "home-report-program-" + this.normalizeDomId(program.id);
+      $("<main></main>")
+        .attr("id", rootId)
+        .addClass("home-report-root crud-app-shell")
+        .appendTo(this.contentRoot);
+
+      const engine = new global.ReportEngine({
         root: "#" + rootId,
         screenId: program.screenId,
         definitionUrl: program.definitionUrl,

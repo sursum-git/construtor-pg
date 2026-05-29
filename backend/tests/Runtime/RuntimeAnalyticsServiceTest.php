@@ -99,6 +99,30 @@ class RuntimeAnalyticsServiceTest extends TestCase
         self::assertSame('live', $rows[0]['result_source']);
     }
 
+    public function testRunSkipsAuditWhenDatasetDisablesIt(): void
+    {
+        $connection = null;
+        $auditConnection = DriverManager::getConnection([
+            'driver' => 'pdo_sqlite',
+            'memory' => true,
+        ]);
+        $auditStore = new RuntimeAnalyticsAuditStore('sqlite:///:memory:', true, 50, true);
+        $auditStoreReflection = new \ReflectionProperty($auditStore, 'connection');
+        $auditStoreReflection->setValue($auditStore, $auditConnection);
+
+        $service = $this->createService('tenant-a', [
+            'audit' => [
+                'enabled' => false,
+            ],
+        ], $connection, $auditStore);
+        $service->run('analytics.clientes', [
+            'datasetId' => 'clientes',
+            'parameters' => ['status' => 'ATIVO'],
+        ]);
+
+        self::assertCount(0, $auditStore->fetchRecent());
+    }
+
     /**
      * @param array<string, mixed> $datasetPatch
      */

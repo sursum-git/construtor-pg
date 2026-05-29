@@ -125,4 +125,36 @@ class RuntimeMetadataSanitizerTest extends TestCase
         self::assertSame('home.alerts.list', $sanitized['layout']['appbar']['alerts']['endpoints']['list']['endpointId']);
         self::assertArrayNotHasKey('url', $sanitized['layout']['appbar']['alerts']['endpoints']['list']);
     }
+
+    public function testReportDefinitionUsesEndpointIdsAndRemovesDangerousKeys(): void
+    {
+        $definition = [
+            'schemaVersion' => '1.0',
+            'pageType' => 'report',
+            'screenId' => 'relatorios.clientes-operacional',
+            'program' => [
+                'id' => 'relatorio-clientes-operacional',
+            ],
+            'dataSource' => [
+                'api' => [
+                    'run' => ['url' => '/api/reports/run', 'method' => 'POST', 'script' => 'blocked'],
+                    'export' => ['endpointId' => 'reports.export', 'method' => 'POST'],
+                ],
+            ],
+            'report' => [
+                'endpoints' => [
+                    'run' => ['url' => '/api/reports/run', 'method' => 'POST'],
+                ],
+            ],
+            'definitionUrl' => 'examples/report-operacional.report.json',
+        ];
+
+        $sanitized = (new RuntimeMetadataSanitizer())->sanitize($definition);
+
+        self::assertSame('run', $sanitized['dataSource']['api']['run']['endpointId']);
+        self::assertSame('reports.export', $sanitized['dataSource']['api']['export']['endpointId']);
+        self::assertSame('run', $sanitized['report']['endpoints']['run']['endpointId']);
+        self::assertArrayNotHasKey('url', $sanitized['dataSource']['api']['run']);
+        self::assertArrayNotHasKey('definitionUrl', $sanitized);
+    }
 }

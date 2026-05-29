@@ -3205,6 +3205,7 @@
       dataSource: [
         { value: "crud", text: "CRUD" },
         { value: "analytics", text: "Analytics / BI" },
+        { value: "report", text: "Relatorios" },
         { value: "custom", text: "Custom" }
       ],
       dataTextField: "text",
@@ -3307,6 +3308,21 @@
     this.analyticsLimitInput = $("<input type=\"number\" min=\"1\" class=\"program-builder-mini-input\">").appendTo(this.appendField(analyticsSplitA, "Limite"));
     this.analyticsCacheTtlInput = $("<input type=\"number\" min=\"0\" class=\"program-builder-mini-input\">").appendTo(this.appendField(analyticsSplitA, "TTL cache (s)"));
 
+    const analyticsAuditField = this.appendField(analyticsForm, "Auditoria");
+    const analyticsAuditFlags = $("<div class=\"program-builder-flags\"></div>").appendTo(analyticsAuditField);
+    this.analyticsAuditEnabledInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(analyticsAuditFlags));
+    $("<span></span>").text("Auditar tela/programa").appendTo(this.analyticsAuditEnabledInput.parent());
+    this.analyticsAuditIncludeCacheHitsInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(analyticsAuditFlags));
+    $("<span></span>").text("Auditar cache hit").appendTo(this.analyticsAuditIncludeCacheHitsInput.parent());
+    this.analyticsDatasetAuditEnabledInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(analyticsAuditFlags));
+    $("<span></span>").text("Auditar dataset").appendTo(this.analyticsDatasetAuditEnabledInput.parent());
+    this.analyticsDatasetAuditIncludeCacheHitsInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(analyticsAuditFlags));
+    $("<span></span>").text("Dataset inclui cache hit").appendTo(this.analyticsDatasetAuditIncludeCacheHitsInput.parent());
+    this.analyticsAuditEnabledInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    this.analyticsAuditIncludeCacheHitsInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    this.analyticsDatasetAuditEnabledInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    this.analyticsDatasetAuditIncludeCacheHitsInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+
     const analyticsSplitB = $("<div class=\"program-builder-split\"></div>").appendTo(analyticsForm);
     this.analyticsSortFieldSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(analyticsSplitB, "Ordenar por"));
     this.analyticsSortDirSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(analyticsSplitB, "Direcao"));
@@ -3360,6 +3376,70 @@
     this.analyticsProgramHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(analyticsForm);
     this.analyticsProgramHint.text("Os joins usam metadados fechados do builder. Prefira relacionamentos FK ja cadastrados na modelagem.");
 
+    this.reportProgramPanel = $("<section class=\"program-builder-subpanel\"></section>").appendTo(form);
+    $("<div class=\"program-builder-versions-header\"><h3>Configuracao do relatorio</h3><p>Relatorios v1 usam layout controlado. DANFE, boleto, etiquetas e formularios rigidos ficam fora desta camada.</p></div>").appendTo(this.reportProgramPanel);
+    const reportForm = $("<div class=\"program-builder-form\"></div>").appendTo(this.reportProgramPanel);
+    const reportSplitA = $("<div class=\"program-builder-split\"></div>").appendTo(reportForm);
+    const reportSourceField = this.appendField(reportSplitA, "Fonte");
+    this.reportSourceTypeSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(reportSourceField);
+    [
+      { value: "operational", text: "Operacional" },
+      { value: "analytic", text: "Analytics" }
+    ].forEach(function(item) {
+      $("<option></option>").attr("value", item.value).text(item.text).appendTo(this.reportSourceTypeSelect);
+    }, this);
+    const reportKindField = this.appendField(reportSplitA, "Tipo documental", this.programFieldTechnicalProperties("reportDocumentKind"));
+    this.reportDocumentKindSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(reportKindField);
+    [
+      { value: "purchase_order", text: "Pedido de compra" },
+      { value: "budget", text: "Orcamento" },
+      { value: "management", text: "Gerencial" },
+      { value: "customer_statement", text: "Espelho cadastral" },
+      { value: "danfe", text: "DANFE (bloqueado)" },
+      { value: "dacte", text: "DACTE (bloqueado)" },
+      { value: "boleto", text: "Boleto (bloqueado)" },
+      { value: "label", text: "Etiqueta (bloqueado)" }
+    ].forEach(function(item) {
+      $("<option></option>").attr("value", item.value).text(item.text).appendTo(this.reportDocumentKindSelect);
+    }, this);
+    this.reportLimitInput = $("<input type=\"number\" min=\"1\" class=\"program-builder-mini-input\">").appendTo(this.appendField(reportSplitA, "Limite"));
+
+    const reportSplitB = $("<div class=\"program-builder-split\"></div>").appendTo(reportForm);
+    this.reportGroupFieldSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(reportSplitB, "Agrupar por"));
+    this.reportTotalFieldSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(reportSplitB, "Totalizar campo"));
+    this.reportAnalyticsScreenIdInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(reportSplitB, "ScreenId analytics"));
+    this.reportAnalyticsDatasetIdInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(reportSplitB, "Dataset analytics"));
+
+    const reportSplitC = $("<div class=\"program-builder-split\"></div>").appendTo(reportForm);
+    this.reportSortFieldSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(reportSplitC, "Ordenar por"));
+    this.reportSortDirSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(reportSplitC, "Direcao"));
+    [
+      { value: "asc", text: "Asc" },
+      { value: "desc", text: "Desc" }
+    ].forEach(function(item) {
+      $("<option></option>").attr("value", item.value).text(item.text).appendTo(this.reportSortDirSelect);
+    }, this);
+
+    const reportOutputsField = this.appendField(reportForm, "Saidas");
+    const reportOutputFlags = $("<div class=\"program-builder-flags\"></div>").appendTo(reportOutputsField);
+    this.reportOutputHtmlInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(reportOutputFlags));
+    $("<span></span>").text("HTML").appendTo(this.reportOutputHtmlInput.parent());
+    this.reportOutputPrintInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(reportOutputFlags));
+    $("<span></span>").text("Impressao").appendTo(this.reportOutputPrintInput.parent());
+    this.reportOutputPdfInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(reportOutputFlags));
+    $("<span></span>").text("PDF navegador").appendTo(this.reportOutputPdfInput.parent());
+    this.reportOutputExcelInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(reportOutputFlags));
+    $("<span></span>").text("Excel").appendTo(this.reportOutputExcelInput.parent());
+    this.reportOutputCsvInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(reportOutputFlags));
+    $("<span></span>").text("CSV").appendTo(this.reportOutputCsvInput.parent());
+    this.reportOutputHtmlInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    this.reportOutputPrintInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    this.reportOutputPdfInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    this.reportOutputExcelInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    this.reportOutputCsvInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    this.reportProgramHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(reportForm);
+    this.reportProgramHint.text("Documentos especiais continuam fora de `reports` e devem usar trilha separada.");
+
     this.programWriteFlagsField = this.appendField(form, "Permissoes de escrita", this.programFieldTechnicalProperties("writeFlags"));
     const flags = $("<div class=\"program-builder-flags\"></div>").appendTo(this.programWriteFlagsField);
     this.allowCreateInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(flags));
@@ -3403,6 +3483,14 @@
       chartSeriesType: "column",
       chartCategoryField: "",
       chartValueField: "",
+      audit: {
+        enabled: true,
+        includeCacheHits: true
+      },
+      datasetAudit: {
+        enabled: true,
+        includeCacheHits: true
+      },
       views: {
         grid: true,
         chart: true,
@@ -3411,6 +3499,29 @@
         dashboard: true
       },
       joins: []
+    };
+  };
+
+  ProgramBuilder.prototype.defaultReportConfig = function() {
+    return {
+      sourceType: "operational",
+      documentKind: "management",
+      groupField: "",
+      totalField: "",
+      sortField: "",
+      sortDir: "asc",
+      limit: 200,
+      analyticsScreenId: "",
+      analyticsDatasetId: "",
+      headerText: "",
+      footerText: "",
+      outputs: {
+        html: true,
+        print: true,
+        pdfBrowser: true,
+        excel: true,
+        csv: true
+      }
     };
   };
 
@@ -3436,6 +3547,29 @@
       return {
         value: String(field.code || ""),
         text: String(field.label || field.code || "") + " (" + String(field.code || "") + ")"
+      };
+    });
+  };
+
+  ProgramBuilder.prototype.reportFieldOptionItems = function() {
+    return this.currentProgramEntityFields().filter(function(field) {
+      const type = String(field && (field.type || field.dataType) || "").toLowerCase();
+      return field && field.code && field.virtualField !== true && type !== "json";
+    }).map(function(field) {
+      return {
+        value: field.code,
+        text: field.label ? field.code + " - " + field.label : field.code
+      };
+    });
+  };
+
+  ProgramBuilder.prototype.reportNumericFieldOptionItems = function() {
+    return this.currentProgramEntityFields().filter(function(field) {
+      return field && field.code && ["integer", "decimal", "number", "currency"].indexOf(String(field.type || field.dataType || "").toLowerCase()) >= 0;
+    }).map(function(field) {
+      return {
+        value: field.code,
+        text: field.label ? field.code + " - " + field.label : field.code
       };
     });
   };
@@ -3530,9 +3664,17 @@
     if (!this.analyticsProgramPanel) {
       return;
     }
-    const isAnalytics = String(this.pageTypeSelect && this.pageTypeSelect.value ? this.pageTypeSelect.value() || "crud" : "crud") === "analytics";
+    const currentType = String(this.pageTypeSelect && this.pageTypeSelect.value ? this.pageTypeSelect.value() || "crud" : "crud");
+    const isAnalytics = currentType === "analytics";
+    const isReport = currentType === "report";
     this.analyticsProgramPanel.toggle(isAnalytics);
+    if (this.reportProgramPanel) {
+      this.reportProgramPanel.toggle(isReport);
+    }
     if (!isAnalytics) {
+      if (isReport) {
+        this.syncReportProgramPanelState();
+      }
       return;
     }
     this.refreshAnalyticsConfigOptions();
@@ -3541,6 +3683,73 @@
     this.analyticsCacheTtlInput.prop("disabled", !cacheEnabled);
     if (!cacheEnabled && !String(this.analyticsCacheTtlInput.val() || "").trim()) {
       this.analyticsCacheTtlInput.val("900");
+    }
+  };
+
+  ProgramBuilder.prototype.refreshReportConfigOptions = function() {
+    if (!this.reportProgramPanel) {
+      return;
+    }
+    const fieldItems = this.reportFieldOptionItems();
+    const numericItems = this.reportNumericFieldOptionItems();
+    const applyOptions = function(select, items, includeEmpty) {
+      if (!select || !select.length) {
+        return;
+      }
+      const current = String(select.val() || "");
+      select.empty();
+      if (includeEmpty !== false) {
+        $("<option></option>").attr("value", "").text("Nao usar").appendTo(select);
+      }
+      items.forEach(function(item) {
+        $("<option></option>").attr("value", item.value).text(item.text).appendTo(select);
+      });
+      select.val(current);
+      if (String(select.val() || "") !== current) {
+        select.val("");
+      }
+    };
+    applyOptions(this.reportGroupFieldSelect, fieldItems, true);
+    applyOptions(this.reportSortFieldSelect, fieldItems, true);
+    applyOptions(this.reportTotalFieldSelect, numericItems, true);
+  };
+
+  ProgramBuilder.prototype.syncReportProgramPanelState = function() {
+    if (!this.reportProgramPanel) {
+      return;
+    }
+    const isReport = String(this.pageTypeSelect && this.pageTypeSelect.value ? this.pageTypeSelect.value() || "crud" : "crud") === "report";
+    const sourceType = String(this.reportSourceTypeSelect && this.reportSourceTypeSelect.val ? this.reportSourceTypeSelect.val() || "operational" : "operational");
+    const isAnalytic = sourceType === "analytic";
+    this.reportProgramPanel.toggle(isReport);
+    if (isReport) {
+      this.refreshReportConfigOptions();
+    }
+    if (this.builderEntityField) {
+      this.builderEntityField.toggle(!isReport || !isAnalytic);
+    }
+    if (this.builderEntitySelect) {
+      this.builderEntitySelect.enable(!isReport || !isAnalytic);
+    }
+    if (this.reportGroupFieldSelect) {
+      this.reportGroupFieldSelect.prop("disabled", isAnalytic);
+    }
+    if (this.reportTotalFieldSelect) {
+      this.reportTotalFieldSelect.prop("disabled", isAnalytic);
+    }
+    if (this.reportSortFieldSelect) {
+      this.reportSortFieldSelect.prop("disabled", isAnalytic);
+    }
+    if (this.reportAnalyticsScreenIdInput) {
+      this.reportAnalyticsScreenIdInput.prop("disabled", !isAnalytic);
+    }
+    if (this.reportAnalyticsDatasetIdInput) {
+      this.reportAnalyticsDatasetIdInput.prop("disabled", !isAnalytic);
+    }
+    if (this.reportProgramHint) {
+      this.reportProgramHint.text(isAnalytic
+        ? "Fonte analytics usa dataset interno ja publicado. Nesta opcao a entidade base nao e obrigatoria."
+        : "Documentos especiais continuam fora de `reports` e devem usar trilha separada.");
     }
   };
 
@@ -3651,6 +3860,14 @@
       chartSeriesType: String(this.analyticsChartSeriesTypeSelect.val() || "column"),
       chartCategoryField: String(this.analyticsChartCategoryFieldSelect.val() || ""),
       chartValueField: String(this.analyticsChartValueFieldSelect.val() || ""),
+      audit: {
+        enabled: this.analyticsAuditEnabledInput.is(":checked"),
+        includeCacheHits: this.analyticsAuditIncludeCacheHitsInput.is(":checked")
+      },
+      datasetAudit: {
+        enabled: this.analyticsDatasetAuditEnabledInput.is(":checked"),
+        includeCacheHits: this.analyticsDatasetAuditIncludeCacheHitsInput.is(":checked")
+      },
       views: {
         grid: this.analyticsViewGridInput.is(":checked"),
         chart: this.analyticsViewChartInput.is(":checked"),
@@ -3659,6 +3876,27 @@
         dashboard: this.analyticsViewDashboardInput.is(":checked")
       },
       joins: this.collectAnalyticsJoinRows()
+    };
+  };
+
+  ProgramBuilder.prototype.collectReportConfig = function() {
+    return {
+      sourceType: String(this.reportSourceTypeSelect.val() || "operational"),
+      documentKind: String(this.reportDocumentKindSelect.val() || "management"),
+      groupField: String(this.reportGroupFieldSelect.val() || ""),
+      totalField: String(this.reportTotalFieldSelect.val() || ""),
+      sortField: String(this.reportSortFieldSelect.val() || ""),
+      sortDir: String(this.reportSortDirSelect.val() || "asc"),
+      limit: Number(this.reportLimitInput.val() || 200),
+      analyticsScreenId: String(this.reportAnalyticsScreenIdInput.val() || ""),
+      analyticsDatasetId: String(this.reportAnalyticsDatasetIdInput.val() || ""),
+      outputs: {
+        html: this.reportOutputHtmlInput.is(":checked"),
+        print: this.reportOutputPrintInput.is(":checked"),
+        pdfBrowser: this.reportOutputPdfInput.is(":checked"),
+        excel: this.reportOutputExcelInput.is(":checked"),
+        csv: this.reportOutputCsvInput.is(":checked")
+      }
     };
   };
 
@@ -3674,6 +3912,10 @@
     this.analyticsChartSeriesTypeSelect.val(value.chartSeriesType || "column");
     this.analyticsChartCategoryFieldSelect.val(value.chartCategoryField || "");
     this.analyticsChartValueFieldSelect.val(value.chartValueField || "");
+    this.analyticsAuditEnabledInput.prop("checked", !value.audit || value.audit.enabled !== false);
+    this.analyticsAuditIncludeCacheHitsInput.prop("checked", !value.audit || value.audit.includeCacheHits !== false);
+    this.analyticsDatasetAuditEnabledInput.prop("checked", !value.datasetAudit || value.datasetAudit.enabled !== false);
+    this.analyticsDatasetAuditIncludeCacheHitsInput.prop("checked", !value.datasetAudit || value.datasetAudit.includeCacheHits !== false);
     this.analyticsViewGridInput.prop("checked", views.grid !== false);
     this.analyticsViewChartInput.prop("checked", views.chart !== false);
     this.analyticsViewPivotInput.prop("checked", views.pivot !== false);
@@ -3684,6 +3926,30 @@
       this.addAnalyticsJoinRow(join);
     }, this);
     this.syncAnalyticsProgramPanelState();
+  };
+
+  ProgramBuilder.prototype.populateReportProgramConfig = function(config) {
+    const value = Object.assign({}, this.defaultReportConfig(), config || {});
+    const outputs = Object.assign({}, this.defaultReportConfig().outputs, value.outputs || {});
+    if (!this.reportProgramPanel) {
+      return;
+    }
+    this.reportSourceTypeSelect.val(value.sourceType || "operational");
+    this.reportDocumentKindSelect.val(value.documentKind || "management");
+    this.reportLimitInput.val(value.limit || 200);
+    this.refreshReportConfigOptions();
+    this.reportGroupFieldSelect.val(value.groupField || "");
+    this.reportTotalFieldSelect.val(value.totalField || "");
+    this.reportSortFieldSelect.val(value.sortField || "");
+    this.reportSortDirSelect.val(value.sortDir || "asc");
+    this.reportAnalyticsScreenIdInput.val(value.analyticsScreenId || "");
+    this.reportAnalyticsDatasetIdInput.val(value.analyticsDatasetId || "");
+    this.reportOutputHtmlInput.prop("checked", outputs.html !== false);
+    this.reportOutputPrintInput.prop("checked", outputs.print !== false);
+    this.reportOutputPdfInput.prop("checked", outputs.pdfBrowser !== false);
+    this.reportOutputExcelInput.prop("checked", outputs.excel !== false);
+    this.reportOutputCsvInput.prop("checked", outputs.csv !== false);
+    this.syncReportProgramPanelState();
   };
 
   ProgramBuilder.prototype.attachLivePreview = function() {
@@ -3718,6 +3984,22 @@
       if (widget && typeof widget.bind === "function") {
         widget.bind("change", self.schedulePreview.bind(self));
       }
+    });
+    [this.reportSourceTypeSelect, this.reportDocumentKindSelect, this.reportGroupFieldSelect, this.reportTotalFieldSelect, this.reportSortFieldSelect, this.reportSortDirSelect].forEach(function(input) {
+      if (!input || typeof input.on !== "function") {
+        return;
+      }
+      input.on("change", function() {
+        self.syncProgramTypeState();
+        self.schedulePreview();
+      });
+    });
+    [this.reportLimitInput, this.reportAnalyticsScreenIdInput, this.reportAnalyticsDatasetIdInput].forEach(function(input) {
+      if (!input || typeof input.on !== "function") {
+        return;
+      }
+      input.on("input", self.schedulePreview.bind(self));
+      input.on("change", self.schedulePreview.bind(self));
     });
     [this.customEntryUrlInput, this.customFrameTitleInput].forEach(function(widget) {
       const input = widget && (widget.input || widget.element);
@@ -3769,7 +4051,9 @@
     const pageType = String(this.pageTypeSelect && this.pageTypeSelect.value ? this.pageTypeSelect.value() || "crud" : "crud");
     const isCrud = pageType === "crud";
     const isAnalytics = pageType === "analytics";
-    const usesEntity = isCrud || isAnalytics;
+    const isReport = pageType === "report";
+    const reportSourceType = String(this.reportSourceTypeSelect && this.reportSourceTypeSelect.val ? this.reportSourceTypeSelect.val() || "operational" : "operational");
+    const usesEntity = isCrud || isAnalytics || (isReport && reportSourceType !== "analytic");
     const entity = usesEntity ? this.findEntitySummary(String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "")) : null;
     const apiEntity = !!(entity && entity.entityType === "api");
     const sameLoadedApi = isCrud && apiEntity && this.state.currentEntityCode === String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "");
@@ -3789,6 +4073,9 @@
     if (this.analyticsProgramPanel) {
       this.analyticsProgramPanel.toggle(isAnalytics);
     }
+    if (this.reportProgramPanel) {
+      this.reportProgramPanel.toggle(isReport);
+    }
     if (this.builderEntitySelect) {
       this.builderEntitySelect.enable(usesEntity);
     }
@@ -3799,6 +4086,15 @@
     }
     if (isAnalytics && entity && entity.entityType && entity.entityType !== "persistence") {
       this.previewFooter.text("Analytics v1 aceita somente entidades persistence como fonte interna.");
+    }
+    if (isReport && reportSourceType !== "analytic" && entity && entity.entityType && entity.entityType !== "persistence") {
+      this.previewFooter.text("Reports v1 aceitam somente entidades persistence na fonte operacional.");
+    }
+    if (isReport && reportSourceType === "analytic" && !String(this.reportAnalyticsScreenIdInput && this.reportAnalyticsScreenIdInput.val ? this.reportAnalyticsScreenIdInput.val() || "" : "").trim()) {
+      this.previewFooter.text("Informe o screenId e o dataset da fonte analytics para publicar um relatorio analitico.");
+    }
+    if (isReport) {
+      this.syncReportProgramPanelState();
     }
     if (readOnlyApi) {
       this.allowCreateInput.prop("checked", false).prop("disabled", true);
@@ -7552,7 +7848,7 @@
 
   ProgramBuilder.prototype.handleProgramEntityChange = function(prefillOnlyWhenEmpty) {
     const pageType = String(this.pageTypeSelect.value() || "crud");
-    if (pageType !== "crud" && pageType !== "analytics") {
+    if (pageType !== "crud" && pageType !== "analytics" && pageType !== "report") {
       this.schedulePreview();
       return;
     }
@@ -7580,10 +7876,10 @@
         this.programTitleInput.value(entity.name || entityCode);
       }
       if (!String(this.screenIdInput.value() || "").trim()) {
-        this.screenIdInput.value(pageType === "analytics" ? "analytics." + entityCode : "cadastros." + entityCode);
+        this.screenIdInput.value(pageType === "analytics" ? "analytics." + entityCode : (pageType === "report" ? "relatorios." + entityCode : "cadastros." + entityCode));
       }
       if (!String(this.permissionPrefixInput.value() || "").trim()) {
-        this.permissionPrefixInput.value(pageType === "analytics" ? "analytics." + entityCode : "cadastros." + entityCode);
+        this.permissionPrefixInput.value(pageType === "analytics" ? "analytics." + entityCode : (pageType === "report" ? "relatorios." + entityCode : "cadastros." + entityCode));
       }
     }
     this.ensureEntityDetail(entityCode).then(function() {
@@ -7599,6 +7895,10 @@
           this.analyticsChartValueFieldSelect.val(this.analyticsMeasureOptionItems()[0] && this.analyticsMeasureOptionItems()[0].value || "");
         }
         this.syncAnalyticsProgramPanelState();
+      }
+      if (pageType === "report" && this.reportProgramPanel) {
+        this.refreshReportConfigOptions();
+        this.syncReportProgramPanelState();
       }
       this.schedulePreview();
     }.bind(this));
@@ -7762,6 +8062,7 @@
     this.allowDeleteInput.prop("checked", version.allowDelete === true);
     this.changeSummaryTextArea.value(version.changeSummary || "");
     this.populateAnalyticsProgramConfig(version.builderConfig && version.builderConfig.analyticsConfig);
+    this.populateReportProgramConfig(version.builderConfig && version.builderConfig.reportConfig);
     this.ensureEntityDetail(version.builderEntityCode || "");
     this.syncProgramTypeState();
     this.renderDefinition(version.generatedDefinition || {});
@@ -7807,6 +8108,7 @@
     this.allowDeleteInput.prop("checked", false);
     this.changeSummaryTextArea.value("");
     this.populateAnalyticsProgramConfig(null);
+    this.populateReportProgramConfig(null);
     this.state.analyticsValidator = {
       signature: "",
       datasetId: "",
@@ -7895,7 +8197,7 @@
     const current = this.state.currentVersion || {};
     const editableCurrent = current.status === "draft";
     const pageType = String(this.pageTypeSelect.value() || "crud");
-    const usesEntity = pageType === "crud" || pageType === "analytics";
+    const usesEntity = pageType === "crud" || pageType === "analytics" || pageType === "report";
     return {
       id: editableCurrent ? (current.id || null) : null,
       programCode: this.programCodeInput.value(),
@@ -7923,6 +8225,7 @@
       allowUpdate: pageType === "crud" && this.allowUpdateInput.is(":checked"),
       allowDelete: pageType === "crud" && this.allowDeleteInput.is(":checked"),
       analyticsConfig: pageType === "analytics" ? this.collectAnalyticsConfig() : null,
+      reportConfig: pageType === "report" ? this.collectReportConfig() : null,
       customMode: pageType === "custom" ? String(this.customModeSelect.value() || "iframe") : "",
       customEntryUrl: pageType === "custom" ? this.customEntryUrlInput.value() : "",
       customFrameTitle: pageType === "custom" ? this.customFrameTitleInput.value() : "",
@@ -7937,7 +8240,7 @@
     this.state.versions = [];
     this.versionsGrid.dataSource.data([]);
     this.resetProgramForm();
-    if (String(this.pageTypeSelect.value() || "crud") === "crud" || String(this.pageTypeSelect.value() || "crud") === "analytics") {
+    if (String(this.pageTypeSelect.value() || "crud") === "crud" || String(this.pageTypeSelect.value() || "crud") === "analytics" || String(this.pageTypeSelect.value() || "crud") === "report") {
       this.builderEntitySelect.value(this.state.currentEntityCode || "");
       this.handleProgramEntityChange(true);
     }
@@ -7961,7 +8264,7 @@
 
   ProgramBuilder.prototype.requestPreview = function(notifyOnSuccess) {
     const payload = this.collectProgramPayload();
-    const usesEntity = payload.pageType === "crud" || payload.pageType === "analytics";
+    const usesEntity = payload.pageType === "crud" || payload.pageType === "analytics" || payload.pageType === "report";
     const hasRequiredCrud = usesEntity
       ? (!!payload.programCode && !!payload.programTitle && !!payload.builderEntityCode && !!payload.screenId && !!payload.version)
       : (!!payload.programCode && !!payload.programTitle && !!payload.screenId && !!payload.version && !!payload.customEntryUrl);
@@ -8025,6 +8328,10 @@
       const analyticsConfig = Object.assign({}, this.defaultAnalyticsConfig(), payload.analyticsConfig || {});
       preview.runtime.entityCode = payload.builderEntityCode;
       preview.analytics = {
+        audit: {
+          enabled: !analyticsConfig.audit || analyticsConfig.audit.enabled !== false,
+          includeCacheHits: !analyticsConfig.audit || analyticsConfig.audit.includeCacheHits !== false
+        },
         datasets: [
           {
             id: "principal",
@@ -8034,6 +8341,10 @@
             limit: analyticsConfig.limit || 1000,
             joins: analyticsConfig.joins || [],
             defaultSort: analyticsConfig.defaultSortField ? [{ field: analyticsConfig.defaultSortField, dir: analyticsConfig.defaultSortDir || "asc" }] : [],
+            audit: {
+              enabled: !analyticsConfig.datasetAudit || analyticsConfig.datasetAudit.enabled !== false,
+              includeCacheHits: !analyticsConfig.datasetAudit || analyticsConfig.datasetAudit.includeCacheHits !== false
+            },
             cache: { ttlSeconds: analyticsConfig.cacheTtlSeconds || 900 }
           }
         ],
@@ -8044,6 +8355,47 @@
           analyticsConfig.views && analyticsConfig.views.kpi === true ? { id: "kpi", type: "kpi", datasetId: "principal", valueField: analyticsConfig.chartValueField || null } : null,
           analyticsConfig.views && analyticsConfig.views.dashboard !== false ? { id: "dashboard", type: "dashboard", datasetId: "principal" } : null
         ].filter(Boolean)
+      };
+    } else if (payload.pageType === "report") {
+      const reportConfig = Object.assign({}, this.defaultReportConfig(), payload.reportConfig || {});
+      if (reportConfig.sourceType !== "analytic") {
+        preview.runtime.entityCode = payload.builderEntityCode;
+      }
+      preview.report = {
+        classification: {
+          documentProfile: ["danfe", "dacte", "boleto", "label"].indexOf(String(reportConfig.documentKind || "").toLowerCase()) >= 0 ? "special" : "general",
+          documentKind: reportConfig.documentKind || "management"
+        },
+        source: reportConfig.sourceType === "analytic" ? {
+          type: "analytic",
+          analyticsScreenId: reportConfig.analyticsScreenId || "",
+          analyticsDatasetId: reportConfig.analyticsDatasetId || ""
+        } : {
+          type: "operational",
+          entityCode: payload.builderEntityCode
+        },
+        query: {
+          fields: [],
+          parameters: [],
+          filters: [],
+          sort: reportConfig.sortField ? [{ field: reportConfig.sortField, dir: reportConfig.sortDir || "asc" }] : [],
+          limit: reportConfig.limit || 200
+        },
+        layout: {
+          title: payload.programTitle,
+          subtitle: payload.subtitle,
+          groupField: reportConfig.groupField || null,
+          footerText: "",
+          blocks: [
+            { id: "header", type: "header" },
+            { id: "summary", type: "summary" },
+            { id: "table", type: "table" },
+            reportConfig.groupField ? { id: "group", type: "group" } : null,
+            { id: "totals", type: "totals" },
+            { id: "footer", type: "footer" }
+          ].filter(Boolean)
+        },
+        outputs: reportConfig.outputs
       };
     } else {
       preview.custom = {
@@ -8060,7 +8412,7 @@
     this.updatePreviewMeta({
       status: this.state.currentVersion && this.state.currentVersion.status || "draft",
       version: payload.version,
-      builderEntityCode: payload.pageType === "crud" || payload.pageType === "analytics" ? payload.builderEntityCode : "",
+      builderEntityCode: payload.pageType === "crud" || payload.pageType === "analytics" || payload.pageType === "report" ? payload.builderEntityCode : "",
       screenId: payload.screenId
     });
     this.previewFooter.text("Resumo local. O JSON completo aparece quando os campos obrigatorios permitem gerar preview no backend.");

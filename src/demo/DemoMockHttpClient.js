@@ -629,6 +629,12 @@
       if (normalized === "analytics.clientes") {
         return this.buildAnalyticsClientesDefinition(normalized);
       }
+      if (normalized === "relatorios.clientes-operacional" || normalized === "relatorios.clientes-operacional.producao") {
+        return this.buildReportClientesDefinition(normalized, "operational");
+      }
+      if (normalized === "relatorios.clientes-analitico" || normalized === "relatorios.clientes-analitico.producao") {
+        return this.buildReportClientesDefinition(normalized, "analytic");
+      }
       if (normalized === "assistente.codificacao.produto-pdm") {
         const definition = global.CrudDemoEmbedded && global.CrudDemoEmbedded.codificacaoAssistentePdmDefinition;
         if (definition) {
@@ -884,6 +890,28 @@
       return definition;
     }
 
+    buildReportClientesDefinition(screenId, mode) {
+      const source = global.ReportDemoEmbedded && (mode === "analytic" ? global.ReportDemoEmbedded.analyticDefinition : global.ReportDemoEmbedded.operationalDefinition);
+      const definition = global.CrudUtils.clone(source || {});
+      if (!definition || !definition.program) {
+        return definition;
+      }
+      definition.screenId = screenId;
+      definition.program.screenId = screenId;
+      definition.program.subtitle = "Relatorio carregado por screenId e endpoints fechados.";
+      const api = {
+        schema: { endpointId: "reports.schema", method: "POST" },
+        run: { endpointId: "reports.run", method: "POST" },
+        export: { endpointId: "reports.export", method: "POST" }
+      };
+      definition.dataSource = definition.dataSource || {};
+      definition.dataSource.api = api;
+      definition.api = api;
+      definition.report = definition.report || {};
+      definition.report.endpoints = api;
+      return definition;
+    }
+
     buildRuntimeJobsDefinition(screenId) {
       const mine = screenId === "runtime.jobs.mine";
       const statusOptions = [
@@ -1102,6 +1130,9 @@
       if (normalizedScreenId === "analytics.clientes" || normalizedScreenId === "analytics.clientes.producao") {
         return this.routeAnalyticsClientesEndpoint(normalizedScreenId, endpointId, data || {});
       }
+      if (normalizedScreenId === "relatorios.clientes-operacional" || normalizedScreenId === "relatorios.clientes-operacional.producao" || normalizedScreenId === "relatorios.clientes-analitico" || normalizedScreenId === "relatorios.clientes-analitico.producao") {
+        return this.routeReportClientesEndpoint(normalizedScreenId, endpointId, data || {});
+      }
       if (this.isSessionRevoked()) {
         throw global.CrudUtils.makeError("SESSION_REVOKED", "Sua sessao foi encerrada.", {
           reason: "Sessao encerrada no mock."
@@ -1211,6 +1242,21 @@
       throw global.CrudUtils.makeError("RUNTIME_ENDPOINT_NOT_FOUND", "Endpoint analytics mock nao encontrado.", { screenId, endpointId });
     }
 
+    routeReportClientesEndpoint(screenId, endpointId, data) {
+      const analytic = screenId.indexOf("analitico") >= 0;
+      if (endpointId === "reports.schema") {
+        return this.buildReportClientesDefinition(screenId, analytic ? "analytic" : "operational");
+      }
+      if (endpointId === "reports.run") {
+        return analytic ? this.runAnalyticReport(data || {}) : this.runOperationalReport(data || {});
+      }
+      if (endpointId === "reports.export") {
+        const result = analytic ? this.runAnalyticReport(data || {}) : this.runOperationalReport(data || {});
+        return this.exportReportResult(result, data && data.format || "csv");
+      }
+      throw global.CrudUtils.makeError("RUNTIME_ENDPOINT_NOT_FOUND", "Endpoint de relatorio mock nao encontrado.", { screenId, endpointId });
+    }
+
     runAnalyticsClientes(data) {
       const parameters = data && data.parameters || {};
       let rows = global.CrudUtils.clone(this.records || []);
@@ -1271,6 +1317,133 @@
             status: "miss_live"
           }
         }
+      };
+    }
+
+    runOperationalReport(data) {
+      const parameters = data && data.parameters || {};
+      let rows = global.CrudUtils.clone(this.records || []);
+      const status = String(parameters.status || "").trim();
+      const uf = String(parameters.uf || "").trim().toUpperCase();
+      if (status) {
+        rows = rows.filter(function(row) {
+          return String(row.status || "") === status;
+        });
+      }
+      if (uf) {
+        rows = rows.filter(function(row) {
+          return String(row.uf || "").toUpperCase() === uf;
+        });
+      }
+      rows = rows.map(function(row) {
+        return {
+          nome: row.nome,
+          uf: row.uf,
+          status: row.status,
+          valor_total: row.valor_total,
+          qtde_pedidos: row.qtde_pedidos
+        };
+      });
+      return {
+        screenId: "relatorios.clientes-operacional",
+        reportId: "relatorio-clientes-operacional",
+        title: "Relatorio operacional de clientes",
+        sourceType: "operational",
+        rows: rows,
+        columns: [
+          { field: "nome", title: "Nome", type: "string", align: "left" },
+          { field: "uf", title: "UF", type: "string", align: "left" },
+          { field: "status", title: "Status", type: "string", align: "left" },
+          { field: "valor_total", title: "Valor total", type: "currency", format: "c2", align: "right", totalable: true },
+          { field: "qtde_pedidos", title: "Pedidos", type: "integer", format: "n0", align: "right", totalable: true }
+        ],
+        totals: {
+          valor_total: rows.reduce(function(sum, row) { return sum + Number(row.valor_total || 0); }, 0),
+          qtde_pedidos: rows.reduce(function(sum, row) { return sum + Number(row.qtde_pedidos || 0); }, 0)
+        },
+        summary: [
+          { label: "Linhas", value: rows.length },
+          { label: "Valor total", formattedValue: kendo.toString(rows.reduce(function(sum, row) { return sum + Number(row.valor_total || 0); }, 0), "c2") }
+        ],
+        metadata: [
+          { label: "Gerado em", value: new Date().toISOString() },
+          { label: "Parametros", value: status || uf ? ("status=" + (status || "todos") + " | uf=" + (uf || "todas")) : "Sem parametros" }
+        ],
+        total: rows.length,
+        generatedAt: new Date().toISOString()
+      };
+    }
+
+    runAnalyticReport(data) {
+      const analytics = this.runAnalyticsClientes({
+        datasetId: "clientes-uf-status",
+        parameters: data && data.parameters || {}
+      });
+      const rows = analytics.data || [];
+      const groups = {};
+      rows.forEach(function(row) {
+        const key = String(row.uf || "");
+        if (!groups[key]) {
+          groups[key] = { key: key, label: key, rows: [], totals: { clientes: 0, valor_total_sum: 0, qtde_pedidos_sum: 0 } };
+        }
+        groups[key].rows.push(row);
+        groups[key].totals.clientes += Number(row.clientes || 0);
+        groups[key].totals.valor_total_sum += Number(row.valor_total_sum || 0);
+        groups[key].totals.qtde_pedidos_sum += Number(row.qtde_pedidos_sum || 0);
+      });
+      return {
+        screenId: "relatorios.clientes-analitico",
+        reportId: "relatorio-clientes-analitico",
+        title: "Relatorio analitico por UF",
+        sourceType: "analytic",
+        rows: rows,
+        columns: [
+          { field: "uf", title: "UF", type: "string", align: "left" },
+          { field: "status", title: "Status", type: "string", align: "left" },
+          { field: "clientes", title: "Clientes", type: "integer", format: "n0", align: "right", totalable: true },
+          { field: "valor_total_sum", title: "Valor total", type: "currency", format: "c2", align: "right", totalable: true },
+          { field: "qtde_pedidos_sum", title: "Pedidos", type: "integer", format: "n0", align: "right", totalable: true }
+        ],
+        groups: Object.keys(groups).sort().map(function(key) {
+          return Object.assign(groups[key], { rowCount: groups[key].rows.length });
+        }),
+        totals: {
+          clientes: rows.reduce(function(sum, row) { return sum + Number(row.clientes || 0); }, 0),
+          valor_total_sum: rows.reduce(function(sum, row) { return sum + Number(row.valor_total_sum || 0); }, 0),
+          qtde_pedidos_sum: rows.reduce(function(sum, row) { return sum + Number(row.qtde_pedidos_sum || 0); }, 0)
+        },
+        summary: [
+          { label: "Linhas", value: rows.length },
+          { label: "Clientes", value: rows.reduce(function(sum, row) { return sum + Number(row.clientes || 0); }, 0) }
+        ],
+        metadata: [
+          { label: "Gerado em", value: new Date().toISOString() },
+          { label: "Fonte", value: "Analytics" }
+        ],
+        total: rows.length,
+        generatedAt: new Date().toISOString()
+      };
+    }
+
+    exportReportResult(result, format) {
+      const columns = global.CrudUtils.ensureArray(result.columns || []);
+      const rows = global.CrudUtils.ensureArray(result.rows || []);
+      const lines = [];
+      lines.push(columns.map(function(column) {
+        return "\"" + String(column.title || column.field || "").replace(/"/g, "\"\"") + "\"";
+      }).join(";"));
+      rows.forEach(function(row) {
+        lines.push(columns.map(function(column) {
+          return "\"" + String(row[column.field] == null ? "" : row[column.field]).replace(/"/g, "\"\"") + "\"";
+        }).join(";"));
+      });
+      const content = "\uFEFF" + lines.join("\r\n");
+      return {
+        ok: true,
+        format: format,
+        fileName: (result.reportId || "relatorio") + ".csv",
+        contentType: "text/csv; charset=utf-8",
+        contentBase64: global.btoa(unescape(encodeURIComponent(content)))
       };
     }
 

@@ -135,6 +135,19 @@ class SeedRuntimeMetadataCommand extends Command
         'status' => 'process.clientes.status',
     ];
 
+    private const ANALYTICS_ENDPOINTS = [
+        'analytics.schema' => 'analytics.schema',
+        'analytics.query.run' => 'analytics.query.run',
+        'analytics.materialize' => 'analytics.materialize',
+        'analytics.cache.status' => 'analytics.cache.status',
+    ];
+
+    private const REPORT_ENDPOINTS = [
+        'reports.schema' => 'reports.schema',
+        'reports.run' => 'reports.run',
+        'reports.export' => 'reports.export',
+    ];
+
     private const CUSTOM_CODE_PDM_ENDPOINTS = [
         'process' => 'process.customCode.pdm',
     ];
@@ -174,6 +187,9 @@ class SeedRuntimeMetadataCommand extends Command
         $jobsDefinition = $this->readJson($projectRoot . '/examples/runtime-jobs.crud.json');
         $homeDefinition = $this->readJson($projectRoot . '/examples/home.home.json');
         $processDefinition = $this->readJson($projectRoot . '/examples/processamento-relatorio.process.json');
+        $analyticsDefinition = $this->readJson($projectRoot . '/examples/analytics-bi.analytics.json');
+        $reportOperationalDefinition = $this->readJson($projectRoot . '/examples/report-operacional.report.json');
+        $reportAnalyticDefinition = $this->readJson($projectRoot . '/examples/report-analitico.report.json');
         $customCodePdmDefinition = $this->readJson($projectRoot . '/examples/codificacao-assistente-pdm.process.json');
         $importExportAdminDefinition = [
             'pageType' => 'custom',
@@ -399,6 +415,22 @@ class SeedRuntimeMetadataCommand extends Command
                 'frameTitle' => 'Operacoes da central',
             ],
         ];
+        $analyticsAuditAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.analytics-auditoria',
+            'program' => [
+                'id' => 'admin-analytics-auditoria',
+                'title' => 'Auditoria analytics',
+                'subtitle' => 'Consulta administrativa da trilha de consultas BI em banco separado',
+                'version' => '1.0.0',
+                'screenId' => 'admin.analytics-auditoria',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/analytics-audit.html',
+                'frameTitle' => 'Auditoria analytics',
+            ],
+        ];
 
         $clientesDefinition['screenId'] = 'cadastros.clientes';
         $clientesDefinition['program']['screenId'] = 'cadastros.clientes';
@@ -406,6 +438,12 @@ class SeedRuntimeMetadataCommand extends Command
         $jobsDefinition['program']['screenId'] = 'admin.jobs';
         $processDefinition['screenId'] = 'processamento.relatorio-clientes';
         $processDefinition['program']['screenId'] = 'processamento.relatorio-clientes';
+        $analyticsDefinition['screenId'] = 'analytics.clientes';
+        $analyticsDefinition['program']['screenId'] = 'analytics.clientes';
+        $reportOperationalDefinition['screenId'] = 'relatorios.clientes-operacional';
+        $reportOperationalDefinition['program']['screenId'] = 'relatorios.clientes-operacional';
+        $reportAnalyticDefinition['screenId'] = 'relatorios.clientes-analitico';
+        $reportAnalyticDefinition['program']['screenId'] = 'relatorios.clientes-analitico';
         $customCodePdmDefinition['screenId'] = 'assistente.codificacao.produto-pdm';
         $customCodePdmDefinition['program']['screenId'] = 'assistente.codificacao.produto-pdm';
         $homeDefinition['screenId'] = 'home';
@@ -423,6 +461,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-operacoes-operacao', 'Operacoes da governanca', 'Operacao administrativa unificada', 'admin.programa-operacoes-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-overlays-operacao', 'Overlays de programas', 'Operacao focada em overlays e rebase', 'admin.programa-overlays-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-overlay-versoes-operacao', 'Versoes de overlay', 'Operacao focada em versoes de overlay', 'admin.programa-overlay-versoes-operacao');
+        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-analytics-auditoria', 'Auditoria analytics', 'Consulta das trilhas da camada BI em banco separado', 'admin.analytics-auditoria');
         if ($this->central->isCentralControl()) {
             $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-assinante-ambientes', 'Provisionamento de assinantes', 'Criacao do assinante, SaaS e pacote on-premise', 'admin.assinante-ambientes');
             $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-atualizacoes', 'Atualizacoes do sistema', 'Releases, anuencia e aplicacao de atualizacoes', 'admin.atualizacoes');
@@ -449,11 +488,15 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertProgram('admin-programa-operacoes-operacao', 'Operacoes da governanca', 'administracao', 'custom', 'admin.programa-operacoes-operacao');
         $this->upsertProgram('admin-programa-overlays-operacao', 'Overlays de programas', 'administracao', 'custom', 'admin.programa-overlays-operacao');
         $this->upsertProgram('admin-programa-overlay-versoes-operacao', 'Versoes de overlay', 'administracao', 'custom', 'admin.programa-overlay-versoes-operacao');
+        $this->upsertProgram('admin-analytics-auditoria', 'Auditoria analytics', 'administracao', 'custom', 'admin.analytics-auditoria');
         $this->upsertProgram('admin-assinante-ambientes', 'Provisionamento de assinantes', 'administracao', 'custom', 'admin.assinante-ambientes');
         $this->upsertProgram('admin-atualizacoes', 'Atualizacoes do sistema', 'administracao', 'custom', 'admin.atualizacoes');
         $this->upsertProgram('admin-atualizacoes-assinantes', 'Atualizacoes por assinante', 'administracao', 'custom', 'admin.atualizacoes-assinantes');
         $this->upsertProgram('admin-central-operacoes', 'Operacoes da central', 'administracao', 'custom', 'admin.central-operacoes');
         $this->upsertProgram('processamento-clientes', 'Processamento de Clientes', 'operacional', 'process', 'processamento.relatorio-clientes');
+        $this->upsertProgram('analytics-clientes', 'BI de Clientes', 'analytics', 'analytics', 'analytics.clientes');
+        $this->upsertProgram('relatorio-clientes-operacional', 'Relatorio operacional de clientes', 'relatorios', 'report', 'relatorios.clientes-operacional');
+        $this->upsertProgram('relatorio-clientes-analitico', 'Relatorio analitico por UF', 'relatorios', 'report', 'relatorios.clientes-analitico');
         $this->upsertProgram('home', 'Home', 'global', 'home', 'home');
         foreach ($adminScreens as $screen) {
             $this->upsertProgram((string) $screen['programId'], (string) $screen['title'], 'administracao', 'crud', (string) $screen['screenId']);
@@ -475,11 +518,15 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertScreen('admin.programa-operacoes-operacao', 'custom', $programOperationsAdminDefinition);
         $this->upsertScreen('admin.programa-overlays-operacao', 'custom', $programOverlaysAdminDefinition);
         $this->upsertScreen('admin.programa-overlay-versoes-operacao', 'custom', $programOverlayVersionsAdminDefinition);
+        $this->upsertScreen('admin.analytics-auditoria', 'custom', $analyticsAuditAdminDefinition);
         $this->upsertScreen('admin.assinante-ambientes', 'custom', $subscriberProvisioningAdminDefinition);
         $this->upsertScreen('admin.atualizacoes', 'custom', $systemUpdatesAdminDefinition);
         $this->upsertScreen('admin.atualizacoes-assinantes', 'custom', $systemUpdateSubscriberLogAdminDefinition);
         $this->upsertScreen('admin.central-operacoes', 'custom', $centralOperationsAdminDefinition);
         $this->upsertScreen('processamento.relatorio-clientes', 'process', $processDefinition);
+        $this->upsertScreen('analytics.clientes', 'analytics', $analyticsDefinition);
+        $this->upsertScreen('relatorios.clientes-operacional', 'report', $reportOperationalDefinition);
+        $this->upsertScreen('relatorios.clientes-analitico', 'report', $reportAnalyticDefinition);
         $this->upsertScreen('assistente.codificacao.produto-pdm', 'process', $customCodePdmDefinition);
         foreach ($adminScreens as $screen) {
             $this->upsertScreen((string) $screen['screenId'], 'crud', $screen['definition']);
@@ -488,6 +535,9 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertEndpoints('cadastros.clientes', array_merge(self::CLIENT_ENDPOINTS, self::SYSTEM_ENDPOINTS));
         $this->upsertEndpoints('admin.jobs', array_merge(self::JOB_ENDPOINTS, self::SYSTEM_ENDPOINTS));
         $this->upsertEndpoints('processamento.relatorio-clientes', self::PROCESS_ENDPOINTS);
+        $this->upsertEndpoints('analytics.clientes', self::ANALYTICS_ENDPOINTS);
+        $this->upsertEndpoints('relatorios.clientes-operacional', self::REPORT_ENDPOINTS);
+        $this->upsertEndpoints('relatorios.clientes-analitico', self::REPORT_ENDPOINTS);
         $this->upsertEndpoints('assistente.codificacao.produto-pdm', self::CUSTOM_CODE_PDM_ENDPOINTS);
         foreach ($adminScreens as $screen) {
             $this->upsertEndpoints((string) $screen['screenId'], $this->adminEndpointHandlers($screen));

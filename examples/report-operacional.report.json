@@ -1,0 +1,75 @@
+{
+  "$schema": "../public/metadata/schemas/report-definition-v1.schema.json",
+  "schemaVersion": "1.0",
+  "pageType": "report",
+  "screenId": "relatorios.clientes-operacional",
+  "program": {
+    "id": "relatorio-clientes-operacional",
+    "screenId": "relatorios.clientes-operacional",
+    "module": "relatorios",
+    "title": "Relatorio operacional de clientes",
+    "subtitle": "Listagem detalhada com filtros, totais e impressao",
+    "version": "1.0.0"
+  },
+  "permissions": {
+    "read": true,
+    "export": true
+  },
+  "dataSource": {
+    "api": {
+      "schema": { "endpointId": "reports.schema", "method": "POST" },
+      "run": { "endpointId": "reports.run", "method": "POST" },
+      "export": { "endpointId": "reports.export", "method": "POST" }
+    }
+  },
+  "report": {
+    "version": "1.0",
+    "classification": {
+      "documentProfile": "general",
+      "documentKind": "purchase_order"
+    },
+    "endpoints": {
+      "schema": { "endpointId": "reports.schema", "method": "POST" },
+      "run": { "endpointId": "reports.run", "method": "POST" },
+      "export": { "endpointId": "reports.export", "method": "POST" }
+    },
+    "source": {
+      "type": "operational",
+      "entityCode": "cliente"
+    },
+    "query": {
+      "fields": [
+        { "field": "nome", "label": "Nome" },
+        { "field": "uf", "label": "UF" },
+        { "field": "status", "label": "Status" },
+        { "field": "valorTotal", "label": "Valor total", "type": "currency", "format": "c2", "align": "right", "totalable": true },
+        { "field": "qtdePedidos", "label": "Pedidos", "type": "integer", "format": "n0", "align": "right", "totalable": true }
+      ],
+      "parameters": [
+        { "id": "status", "field": "status", "label": "Status", "type": "enum", "operator": "eq", "options": [{ "value": "ATIVO", "text": "Ativo" }, { "value": "INATIVO", "text": "Inativo" }] },
+        { "id": "uf", "field": "uf", "label": "UF", "type": "text", "operator": "eq" }
+      ],
+      "sort": [{ "field": "nome", "dir": "asc" }],
+      "limit": 200
+    },
+    "layout": {
+      "title": "Relatorio operacional de clientes",
+      "subtitle": "Exemplo nativo de emissao HTML",
+      "footerText": "Somente documentos compativeis com a v1 entram em reports.",
+      "blocks": [
+        { "id": "header", "type": "header" },
+        { "id": "summary", "type": "summary" },
+        { "id": "table", "type": "table" },
+        { "id": "totals", "type": "totals" },
+        { "id": "footer", "type": "footer" }
+      ]
+    },
+    "outputs": {
+      "html": true,
+      "print": true,
+      "pdfBrowser": true,
+      "excel": true,
+      "csv": true
+    }
+  }
+}

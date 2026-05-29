@@ -1,7 +1,7 @@
 (function(global) {
   "use strict";
 
-  const ALLOWED_PROGRAM_TYPES = ["iframe", "crud", "html", "process", "custom"];
+  const ALLOWED_PROGRAM_TYPES = ["iframe", "crud", "html", "process", "custom", "analytics", "report"];
   const ALL_MODULES_ID = "__all__";
   const UNSAFE_KEY_PATTERN = /^(on[A-Z]|on_|script|eval|template|handler)$/i;
   const UNSAFE_HTML_PATTERN = /<\s*script|javascript\s*:|on[a-z]+\s*=|<\s*(object|embed|base|meta|link)\b/i;
@@ -487,6 +487,30 @@
         if (type === "process") {
           if (!program.definition && !program.definitionUrl && !program.screenId) {
             errors.push(label + " precisa informar definition, definitionUrl ou screenId quando type=process.");
+          }
+          if (program.definition && this.securityPolicy.definitionSource.allowDirectDefinition === false) {
+            errors.push(label + ".definition nao pode ser usado em modo producao. Use screenId.");
+          }
+          if (program.definitionUrl && this.securityPolicy.definitionSource.allowDefinitionUrl === false) {
+            errors.push(label + ".definitionUrl nao pode ser usado em modo producao. Use screenId.");
+          }
+          this.validateDocumentUrl(program.definitionUrl, label + ".definitionUrl", errors, false);
+        }
+        if (type === "analytics") {
+          if (!program.definition && !program.definitionUrl && !program.screenId) {
+            errors.push(label + " precisa informar definition, definitionUrl ou screenId quando type=analytics.");
+          }
+          if (program.definition && this.securityPolicy.definitionSource.allowDirectDefinition === false) {
+            errors.push(label + ".definition nao pode ser usado em modo producao. Use screenId.");
+          }
+          if (program.definitionUrl && this.securityPolicy.definitionSource.allowDefinitionUrl === false) {
+            errors.push(label + ".definitionUrl nao pode ser usado em modo producao. Use screenId.");
+          }
+          this.validateDocumentUrl(program.definitionUrl, label + ".definitionUrl", errors, false);
+        }
+        if (type === "report") {
+          if (!program.definition && !program.definitionUrl && !program.screenId) {
+            errors.push(label + " precisa informar definition, definitionUrl ou screenId quando type=report.");
           }
           if (program.definition && this.securityPolicy.definitionSource.allowDirectDefinition === false) {
             errors.push(label + ".definition nao pode ser usado em modo producao. Use screenId.");

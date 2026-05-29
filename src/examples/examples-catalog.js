@@ -217,6 +217,36 @@
       }
     },
     {
+      id: "report-operacional",
+      engine: "report",
+      category: "Relatorios",
+      title: "Relatorio operacional",
+      summary: "Relatorio nativo com filtros, detalhamento tabular, totais e exportacao CSV/Excel.",
+      code: {
+        pageType: "report",
+        screenId: "relatorios.clientes-operacional",
+        program: {
+          title: "Relatorio operacional de clientes",
+          subtitle: "Listagem detalhada com filtros, totais e impressao"
+        }
+      }
+    },
+    {
+      id: "report-analitico",
+      engine: "report",
+      category: "Relatorios",
+      title: "Relatorio analitico",
+      summary: "Relatorio gerencial em cima de dataset analytics, com agrupamento por UF e totais por medida.",
+      code: {
+        pageType: "report",
+        screenId: "relatorios.clientes-analitico",
+        program: {
+          title: "Relatorio analitico por UF",
+          subtitle: "Agrupamento simples sobre dataset analytics"
+        }
+      }
+    },
+    {
       id: "processamento-parametros",
       engine: "process",
       category: "Processamento",
@@ -382,6 +412,14 @@
       title: "Atualizacoes por assinante",
       summary: "Tela administrativa central para consultar o historico do que foi aplicado em cada assinante SaaS.",
       page: pagePath + "admin-system-update-subscriber-log.html"
+    },
+    {
+      id: "admin-analytics-audit",
+      engine: "program-builder",
+      category: "Administracao",
+      title: "Auditoria analytics",
+      summary: "Tela administrativa para consultar a trilha de consultas BI gravada no banco separado de auditoria.",
+      page: pagePath + "admin-analytics-audit.html"
     },
     {
       id: "admin-central-operations",
@@ -2050,6 +2088,19 @@
     return definition;
   }
 
+  function buildReportDefinition(id) {
+    const example = get(id);
+    const source = global.ReportDemoEmbedded && (id === "report-analitico" ? global.ReportDemoEmbedded.analyticDefinition : global.ReportDemoEmbedded.operationalDefinition) || {};
+    const definition = clone(source);
+    if (example && example.code) {
+      deepMerge(definition, example.code);
+    }
+    if (example && typeof example.applyReport === "function") {
+      example.applyReport(definition, source);
+    }
+    return definition;
+  }
+
   function buildConfig(id, options) {
     const example = get(id);
     const config = clone(global.CrudDemoEmbedded && global.CrudDemoEmbedded.config || {});
@@ -2237,6 +2288,7 @@
     buildHomeDefinition,
     buildProcessDefinition,
     buildAnalyticsDefinition,
+    buildReportDefinition,
     buildConfig,
     getCode,
     getPropertyOptions

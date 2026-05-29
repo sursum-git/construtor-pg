@@ -151,6 +151,83 @@ class RuntimeAnalyticsAuditStore
             ->fetchAllAssociative();
     }
 
+    /**
+     * @param array<string, mixed> $filters
+     * @return array{items: array<int, array<string, mixed>>, total: int}
+     */
+    public function query(array $filters = []): array
+    {
+        if (!$this->isEnabled()) {
+            return ['items' => [], 'total' => 0];
+        }
+
+        $this->initializeSchema();
+        $connection = $this->connection();
+        $limit = max(1, min(300, (int) ($filters['limit'] ?? 120)));
+
+        $qb = $connection->createQueryBuilder()
+            ->select('*')
+            ->from(self::TABLE)
+            ->orderBy('consulted_at', 'DESC')
+            ->setMaxResults($limit);
+
+        $countQb = $connection->createQueryBuilder()
+            ->select('COUNT(*) AS total')
+            ->from(self::TABLE);
+
+        $this->applyQueryFilters($qb, $filters);
+        $this->applyQueryFilters($countQb, $filters);
+
+        $rows = $qb->executeQuery()->fetchAllAssociative();
+        $total = (int) $countQb->executeQuery()->fetchOne();
+
+        return [
+            'items' => array_map(fn (array $row): array => $this->normalizeAuditRow($row), $rows),
+            'total' => $total,
+        ];
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    public function collectFilterOptions(int $limit = 40): array
+    {
+        if (!$this->isEnabled()) {
+            return [
+                'tenantIds' => [],
+                'userIds' => [],
+                'screenIds' => [],
+                'datasetIds' => [],
+                'resultSources' => [],
+            ];
+        }
+
+        $this->initializeSchema();
+        $connection = $this->connection();
+        $build = function (string $column) use ($connection, $limit): array {
+            $rows = $connection->createQueryBuilder()
+                ->select($column)
+                ->from(self::TABLE)
+                ->where($column . ' IS NOT NULL')
+                ->andWhere($column . " <> ''")
+                ->groupBy($column)
+                ->orderBy('MAX(consulted_at)', 'DESC')
+                ->setMaxResults($limit)
+                ->executeQuery()
+                ->fetchFirstColumn();
+
+            return array_values(array_filter(array_map('strval', $rows)));
+        };
+
+        return [
+            'tenantIds' => $build('tenant_id'),
+            'userIds' => $build('user_id'),
+            'screenIds' => $build('screen_id'),
+            'datasetIds' => $build('dataset_id'),
+            'resultSources' => $build('result_source'),
+        ];
+    }
+
     private function connection(): Connection
     {
         if (!$this->connection instanceof Connection) {
@@ -219,5 +296,93 @@ class RuntimeAnalyticsAuditStore
         }
 
         return new \DateTimeImmutable();
+    }
+
+    private function formatDateTime(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if ($value instanceof \DateTimeInterface) {
+            return \DateTimeImmutable::createFromInterface($value)->format(DATE_ATOM);
+        }
+
+        return (new \DateTimeImmutable((string) $value))->format(DATE_ATOM);
+    }
+
+    /**
+     * @param array<string, mixed> $filters
+     */
+    private function applyQueryFilters(\Doctrine\DBAL\Query\QueryBuilder $qb, array $filters): void
+    {
+        $map = [
+            'tenantId' => 'tenant_id',
+            'userId' => 'user_id',
+            'screenId' => 'screen_id',
+            'datasetId' => 'dataset_id',
+            'resultSource' => 'result_source',
+        ];
+        foreach ($map as $filterKey => $column) {
+            $value = trim((string) ($filters[$filterKey] ?? ''));
+            if ($value === '') {
+                continue;
+            }
+            $qb->andWhere($column . ' = :' . $filterKey)->setParameter($filterKey, $value);
+        }
+
+        $dateFrom = trim((string) ($filters['dateFrom'] ?? ''));
+        if ($dateFrom !== '') {
+            $qb->andWhere('consulted_at >= :dateFrom')->setParameter('dateFrom', $dateFrom . ' 00:00:00');
+        }
+        $dateTo = trim((string) ($filters['dateTo'] ?? ''));
+        if ($dateTo !== '') {
+            $qb->andWhere('consulted_at <= :dateTo')->setParameter('dateTo', $dateTo . ' 23:59:59');
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @return array<string, mixed>
+     */
+    private function normalizeAuditRow(array $row): array
+    {
+        return [
+            'id' => (int) ($row['id'] ?? 0),
+            'tenantId' => (string) ($row['tenant_id'] ?? ''),
+            'userId' => (string) ($row['user_id'] ?? ''),
+            'sessionId' => $row['session_id'] ?? null,
+            'screenId' => (string) ($row['screen_id'] ?? ''),
+            'datasetId' => (string) ($row['dataset_id'] ?? ''),
+            'viewId' => $row['view_id'] ?? null,
+            'executionMode' => (string) ($row['execution_mode'] ?? ''),
+            'resultSource' => (string) ($row['result_source'] ?? ''),
+            'filterFingerprint' => (string) ($row['filter_fingerprint'] ?? ''),
+            'rowCount' => (int) ($row['row_count'] ?? 0),
+            'totalCount' => (int) ($row['total_count'] ?? 0),
+            'filters' => $this->decodeJsonColumn($row['filters_json'] ?? null),
+            'parameters' => $this->decodeJsonColumn($row['parameters_json'] ?? null),
+            'sort' => $this->decodeJsonColumn($row['sort_json'] ?? null),
+            'requestPayload' => $this->decodeJsonColumn($row['request_payload_json'] ?? null),
+            'resultColumns' => $this->decodeJsonColumn($row['result_columns_json'] ?? null),
+            'resultRows' => $this->decodeJsonColumn($row['result_rows_json'] ?? null),
+            'metadata' => $this->decodeJsonColumn($row['metadata_json'] ?? null),
+            'errorMessage' => $row['error_message'] ?? null,
+            'consultedAt' => $this->formatDateTime($row['consulted_at'] ?? null),
+        ];
+    }
+
+    private function decodeJsonColumn(mixed $value): mixed
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        if (is_array($value)) {
+            return $value;
+        }
+        if (is_string($value)) {
+            return json_decode($value, true);
+        }
+
+        return $value;
     }
 }

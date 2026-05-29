@@ -132,6 +132,12 @@
           diagnostics: []
         });
       }
+      if (String(data.pageType || "crud") === "report") {
+        return Promise.resolve({
+          generatedDefinition: buildReportPreview(data),
+          diagnostics: []
+        });
+      }
       return Promise.resolve({
         generatedDefinition: {
           screenId: "cadastros.clientes",
@@ -244,6 +250,10 @@
       },
       analytics: {
         version: "1.0",
+        audit: {
+          enabled: !(analyticsConfig.audit && analyticsConfig.audit.enabled === false),
+          includeCacheHits: !(analyticsConfig.audit && analyticsConfig.audit.includeCacheHits === false)
+        },
         endpoints: {
           schema: { endpointId: "analytics.schema" },
           run: { endpointId: "analytics.query.run" },
@@ -276,6 +286,10 @@
             defaultSort: analyticsConfig.defaultSortField ? [{ field: analyticsConfig.defaultSortField, dir: analyticsConfig.defaultSortDir || "asc" }] : [{ field: "uf", dir: "asc" }],
             limit: analyticsConfig.limit || 1000,
             executionMode: analyticsConfig.executionMode || "auto",
+            audit: {
+              enabled: !(analyticsConfig.datasetAudit && analyticsConfig.datasetAudit.enabled === false),
+              includeCacheHits: !(analyticsConfig.datasetAudit && analyticsConfig.datasetAudit.includeCacheHits === false)
+            },
             cache: { ttlSeconds: analyticsConfig.cacheTtlSeconds || 900 }
           }
         ],
@@ -313,6 +327,104 @@
         analyticsCache: {
           status: "ready"
         }
+      }
+    };
+  }
+
+  function buildReportPreview(data) {
+    const reportConfig = Object.assign({
+      documentKind: "management",
+      groupField: "",
+      totalField: "",
+      sortField: "",
+      sortDir: "asc",
+      limit: 200,
+      outputs: {
+        html: true,
+        print: true,
+        pdfBrowser: true,
+        excel: true,
+        csv: true
+      }
+    }, data && data.reportConfig || {});
+    const screenId = String(data && data.screenId || "relatorios.clientes").trim() || "relatorios.clientes";
+    const title = String(data && data.programTitle || "Relatorio").trim() || "Relatorio";
+    const version = String(data && data.version || "1.0.0").trim() || "1.0.0";
+    const entityCode = String(data && data.builderEntityCode || "cliente").trim() || "cliente";
+    const isSpecial = ["danfe", "dacte", "boleto", "label"].indexOf(String(reportConfig.documentKind || "").toLowerCase()) >= 0;
+    return {
+      screenId: screenId,
+      pageType: "report",
+      program: {
+        id: String(data && data.programCode || "cd1001").trim() || "cd1001",
+        title: title,
+        module: String(data && data.module || "relatorios").trim() || "relatorios",
+        version: version,
+        subtitle: "Preview local de relatorio",
+        icon: "file",
+        screenId: screenId
+      },
+      permissions: {
+        read: true,
+        export: true
+      },
+      runtime: {
+        entityCode: entityCode,
+        programId: String(data && data.programCode || "cd1001").trim() || "cd1001",
+        mode: "report"
+      },
+      dataSource: {
+        api: {
+          schema: { endpointId: "reports.schema" },
+          run: { endpointId: "reports.run" },
+          export: { endpointId: "reports.export" }
+        }
+      },
+      report: {
+        version: "1.0",
+        classification: {
+          documentProfile: isSpecial ? "special" : "general",
+          documentKind: reportConfig.documentKind || "management"
+        },
+        endpoints: {
+          schema: { endpointId: "reports.schema" },
+          run: { endpointId: "reports.run" },
+          export: { endpointId: "reports.export" }
+        },
+        source: {
+          type: "operational",
+          entityCode: entityCode
+        },
+        query: {
+          fields: [
+            { field: "nome", label: "Nome" },
+            { field: "uf", label: "UF" },
+            { field: "status", label: "Status" },
+            { field: "limite_credito", label: "Limite de credito", type: "decimal", format: "c2", align: "right", totalable: reportConfig.totalField === "limite_credito" }
+          ],
+          parameters: [
+            { id: "status", field: "status", label: "Status", type: "text", operator: "contains" },
+            { id: "uf", field: "uf", label: "UF", type: "text", operator: "contains" }
+          ],
+          filters: [],
+          sort: reportConfig.sortField ? [{ field: reportConfig.sortField, dir: reportConfig.sortDir || "asc" }] : [],
+          limit: reportConfig.limit || 200
+        },
+        layout: {
+          title: title,
+          subtitle: "Preview local de relatorio",
+          groupField: reportConfig.groupField || "",
+          footerText: "",
+          blocks: [
+            { id: "header", type: "header" },
+            { id: "summary", type: "summary" },
+            { id: "table", type: "table" },
+            reportConfig.groupField ? { id: "group", type: "group" } : null,
+            { id: "totals", type: "totals" },
+            { id: "footer", type: "footer" }
+          ].filter(Boolean)
+        },
+        outputs: reportConfig.outputs || {}
       }
     };
   }
