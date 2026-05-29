@@ -84,6 +84,42 @@ class RuntimeReportServiceTest extends TestCase
         self::assertStringStartsWith('PK', $binary);
     }
 
+    public function testExportReturnsPdfPayload(): void
+    {
+        $service = $this->createService('tenant-a');
+
+        $result = $service->export('relatorios.clientes-operacional', [
+            'parameters' => ['status' => 'ATIVO'],
+            'format' => 'pdf',
+        ]);
+
+        self::assertSame('pdf', $result['format']);
+        self::assertSame('application/pdf', $result['contentType']);
+        self::assertStringEndsWith('.pdf', $result['fileName']);
+        self::assertStringStartsWith('%PDF', (string) base64_decode((string) $result['contentBase64']));
+    }
+
+    public function testOperationalRunSupportsNestedGroups(): void
+    {
+        $service = $this->createService('tenant-a', [
+            'report' => [
+                'layout' => [
+                    'groups' => [
+                        ['field' => 'uf', 'label' => 'UF', 'showSubtotal' => true],
+                        ['field' => 'status', 'label' => 'Status', 'showSubtotal' => true],
+                    ],
+                ],
+            ],
+        ]);
+
+        $result = $service->run('relatorios.clientes-operacional', []);
+
+        self::assertNotEmpty($result['groups']);
+        self::assertSame('UF: CE', $result['groups'][0]['label']);
+        self::assertArrayHasKey('children', $result['groups'][0]);
+        self::assertSame(2, $result['_runtime']['report']['groupCount']);
+    }
+
     /**
      * @param array<string, mixed> $definitionPatch
      */

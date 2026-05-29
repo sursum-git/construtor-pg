@@ -72,8 +72,8 @@ class RuntimeReportService
 
         $columns = is_array($sourceResult['columns'] ?? null) ? $sourceResult['columns'] : [];
         $rows = is_array($sourceResult['rows'] ?? null) ? $sourceResult['rows'] : [];
-        $groupField = trim((string) ($report['layout']['groupField'] ?? ''));
-        $groups = $groupField !== '' ? $this->groupRows($rows, $columns, $groupField) : [];
+        $groupDefinitions = $this->normalizeGroupDefinitions(is_array($report['layout'] ?? null) ? $report['layout'] : []);
+        $groups = $groupDefinitions ? $this->groupRows($rows, $columns, $groupDefinitions) : [];
         $totals = $this->summarizeRows($rows, $columns);
         $summary = [
             ['label' => 'Linhas', 'value' => count($rows)],
@@ -108,10 +108,11 @@ class RuntimeReportService
             ],
             'total' => count($rows),
             'generatedAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
-            'outputs' => is_array($report['outputs'] ?? null) ? $report['outputs'] : [],
+            'outputs' => $this->normalizeOutputs(is_array($report['outputs'] ?? null) ? $report['outputs'] : []),
             '_runtime' => [
                 'report' => [
                     'sourceType' => $sourceType,
+                    'groupCount' => count($groupDefinitions),
                 ],
             ],
         ];
@@ -128,8 +129,8 @@ class RuntimeReportService
     public function export(string $screenId, array $payload, ?string $tenantId = null): array
     {
         $format = strtolower(trim((string) ($payload['format'] ?? 'csv')));
-        if (!in_array($format, ['csv', 'excel'], true)) {
-            throw new RuntimeHttpException('REPORT_EXPORT_FORMAT_NOT_SUPPORTED', 'A exportacao da v1 aceita apenas CSV/Excel tabular.', 422, [
+        if (!in_array($format, ['csv', 'excel', 'pdf'], true)) {
+            throw new RuntimeHttpException('REPORT_EXPORT_FORMAT_NOT_SUPPORTED', 'A exportacao da camada reports aceita CSV, Excel e PDF.', 422, [
                 'format' => $format,
             ]);
         }
@@ -148,6 +149,17 @@ class RuntimeReportService
                 'fileName' => $safeName . '.xlsx',
                 'contentType' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                 'contentBase64' => base64_encode($xlsx),
+            ];
+        }
+        if ($format === 'pdf') {
+            $pdf = $this->resultToPdf($result);
+
+            return [
+                'ok' => true,
+                'format' => 'pdf',
+                'fileName' => $safeName . '.pdf',
+                'contentType' => 'application/pdf',
+                'contentBase64' => base64_encode($pdf),
             ];
         }
 
@@ -502,15 +514,27 @@ class RuntimeReportService
      * @param array<int, array<string, mixed>> $columns
      * @return array<int, array<string, mixed>>
      */
-    private function groupRows(array $rows, array $columns, string $field): array
+    private function groupRows(array $rows, array $columns, array $groupDefinitions, int $level = 0): array
     {
         $groups = [];
+        $groupDefinition = $groupDefinitions[$level] ?? null;
+        if (!is_array($groupDefinition)) {
+            return [];
+        }
+        $field = (string) ($groupDefinition['field'] ?? '');
+        if ($field === '') {
+            return [];
+        }
         foreach ($rows as $row) {
             $key = (string) ($row[$field] ?? '(vazio)');
             if (!isset($groups[$key])) {
                 $groups[$key] = [
+                    'field' => $field,
                     'key' => $key,
-                    'label' => $key,
+                    'label' => trim((string) ($groupDefinition['label'] ?? '')) !== '' ? (string) $groupDefinition['label'] . ': ' . $key : $key,
+                    'level' => $level + 1,
+                    'showSubtotal' => ($groupDefinition['showSubtotal'] ?? true) !== false,
+                    'pageBreakBefore' => ($groupDefinition['pageBreakBefore'] ?? false) === true,
                     'rows' => [],
                 ];
             }
@@ -520,6 +544,10 @@ class RuntimeReportService
         foreach ($groups as &$group) {
             $group['rowCount'] = count($group['rows']);
             $group['totals'] = $this->summarizeRows($group['rows'], $columns);
+            $children = $this->groupRows($group['rows'], $columns, $groupDefinitions, $level + 1);
+            if ($children) {
+                $group['children'] = $children;
+            }
         }
         unset($group);
 
@@ -554,6 +582,65 @@ class RuntimeReportService
         }
 
         return $totals;
+    }
+
+    /**
+     * @param array<string, mixed> $layout
+     * @return array<int, array<string, mixed>>
+     */
+    private function normalizeGroupDefinitions(array $layout): array
+    {
+        $groups = [];
+        foreach ((array) ($layout['groups'] ?? []) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $field = trim((string) ($item['field'] ?? ''));
+            if ($field === '') {
+                continue;
+            }
+            $groups[] = [
+                'field' => $field,
+                'label' => trim((string) ($item['label'] ?? '')),
+                'showSubtotal' => ($item['showSubtotal'] ?? true) !== false,
+                'pageBreakBefore' => ($item['pageBreakBefore'] ?? false) === true,
+            ];
+            if (count($groups) >= 3) {
+                break;
+            }
+        }
+
+        if (!$groups) {
+            $legacyField = trim((string) ($layout['groupField'] ?? ''));
+            if ($legacyField !== '') {
+                $groups[] = [
+                    'field' => $legacyField,
+                    'label' => '',
+                    'showSubtotal' => true,
+                    'pageBreakBefore' => false,
+                ];
+            }
+        }
+
+        return $groups;
+    }
+
+    /**
+     * @param array<string, mixed> $outputs
+     * @return array<string, bool>
+     */
+    private function normalizeOutputs(array $outputs): array
+    {
+        $pdfEnabled = ($outputs['pdf'] ?? null) === true || ($outputs['pdfBrowser'] ?? true) !== false;
+
+        return [
+            'html' => ($outputs['html'] ?? true) !== false,
+            'print' => ($outputs['print'] ?? true) !== false,
+            'pdf' => $pdfEnabled,
+            'pdfBrowser' => ($outputs['pdfBrowser'] ?? true) !== false,
+            'excel' => ($outputs['excel'] ?? true) !== false,
+            'csv' => ($outputs['csv'] ?? true) !== false,
+        ];
     }
 
     /**
@@ -599,8 +686,9 @@ class RuntimeReportService
 
         $zip->addFromString('[Content_Types].xml', $this->xlsxContentTypesXml());
         $zip->addFromString('_rels/.rels', $this->xlsxRootRelationshipsXml());
-        $zip->addFromString('xl/workbook.xml', $this->xlsxWorkbookXml());
+        $zip->addFromString('xl/workbook.xml', $this->xlsxWorkbookXml('Relatorio'));
         $zip->addFromString('xl/_rels/workbook.xml.rels', $this->xlsxWorkbookRelationshipsXml());
+        $zip->addFromString('xl/styles.xml', $this->xlsxStylesXml());
         $zip->addFromString('xl/worksheets/sheet1.xml', $this->xlsxWorksheetXml($columns, $rows));
         $zip->close();
 
@@ -639,6 +727,7 @@ class RuntimeReportService
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
   <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
 </Types>
 XML;
     }
@@ -653,13 +742,15 @@ XML;
 XML;
     }
 
-    private function xlsxWorkbookXml(): string
+    private function xlsxWorkbookXml(string $sheetName): string
     {
+        $safeSheetName = trim(substr(preg_replace('/[\\\\\\/\\?\\*\\[\\]:]+/', '-', $sheetName) ?: 'Relatorio', 0, 31)) ?: 'Relatorio';
+        $escapedSheetName = $this->escapeXml($safeSheetName);
         return <<<XML
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
   <sheets>
-    <sheet name="Relatorio" sheetId="1" r:id="rId1"/>
+    <sheet name="{$escapedSheetName}" sheetId="1" r:id="rId1"/>
   </sheets>
 </workbook>
 XML;
@@ -671,7 +762,37 @@ XML;
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
 </Relationships>
+XML;
+    }
+
+    private function xlsxStylesXml(): string
+    {
+        return <<<XML
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="2">
+    <font><sz val="11"/><name val="Calibri"/></font>
+    <font><b/><sz val="11"/><name val="Calibri"/></font>
+  </fonts>
+  <fills count="2">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+  </fills>
+  <borders count="1">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+  </borders>
+  <cellStyleXfs count="1">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0"/>
+  </cellStyleXfs>
+  <cellXfs count="4">
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
+    <xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>
+    <xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>
+    <xf numFmtId="2" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyNumberFormat="1"/>
+  </cellXfs>
+</styleSheet>
 XML;
     }
 
@@ -681,9 +802,21 @@ XML;
      */
     private function xlsxWorksheetXml(array $columns, array $rows): string
     {
+        $totals = $this->summarizeRows($rows, $columns);
         $lines = [];
         $lines[] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
         $lines[] = '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">';
+        if ($columns) {
+            $lines[] = '<cols>';
+            foreach ($columns as $columnIndex => $column) {
+                $width = (int) ($column['width'] ?? 0);
+                if ($width <= 0) {
+                    $width = $this->xlsxSuggestedWidth((string) ($column['title'] ?? $column['label'] ?? $column['field'] ?? ''));
+                }
+                $lines[] = '<col min="' . ($columnIndex + 1) . '" max="' . ($columnIndex + 1) . '" width="' . max(12, min(40, $width / 8)) . '" customWidth="1"/>';
+            }
+            $lines[] = '</cols>';
+        }
         $lines[] = '<sheetData>';
 
         $rowIndex = 1;
@@ -691,7 +824,7 @@ XML;
         foreach ($columns as $columnIndex => $column) {
             $reference = $this->xlsxCellReference($columnIndex, $rowIndex);
             $value = (string) ($column['title'] ?? $column['label'] ?? $column['field'] ?? '');
-            $lines[] = '<c r="' . $reference . '" t="inlineStr"><is><t>' . $this->escapeXml($value) . '</t></is></c>';
+            $lines[] = '<c r="' . $reference . '" s="1" t="inlineStr"><is><t>' . $this->escapeXml($value) . '</t></is></c>';
         }
         $lines[] = '</row>';
 
@@ -702,10 +835,29 @@ XML;
                 $reference = $this->xlsxCellReference($columnIndex, $rowIndex);
                 $value = $row[$column['field']] ?? null;
                 if (is_numeric($value)) {
-                    $lines[] = '<c r="' . $reference . '"><v>' . $this->escapeXml((string) $value) . '</v></c>';
+                    $lines[] = '<c r="' . $reference . '" s="2"><v>' . $this->escapeXml((string) $value) . '</v></c>';
                     continue;
                 }
                 $lines[] = '<c r="' . $reference . '" t="inlineStr"><is><t>' . $this->escapeXml($this->stringifyValue($value)) . '</t></is></c>';
+            }
+            $lines[] = '</row>';
+        }
+
+        if ($totals) {
+            ++$rowIndex;
+            $lines[] = '<row r="' . $rowIndex . '">';
+            foreach ($columns as $columnIndex => $column) {
+                $reference = $this->xlsxCellReference($columnIndex, $rowIndex);
+                $field = (string) ($column['field'] ?? '');
+                if ($columnIndex === 0) {
+                    $lines[] = '<c r="' . $reference . '" s="1" t="inlineStr"><is><t>Total geral</t></is></c>';
+                    continue;
+                }
+                if ($field !== '' && array_key_exists($field, $totals)) {
+                    $lines[] = '<c r="' . $reference . '" s="3"><v>' . $this->escapeXml((string) $totals[$field]) . '</v></c>';
+                    continue;
+                }
+                $lines[] = '<c r="' . $reference . '" s="1" t="inlineStr"><is><t></t></is></c>';
             }
             $lines[] = '</row>';
         }
@@ -732,6 +884,11 @@ XML;
         }
 
         return $letters;
+    }
+
+    private function xlsxSuggestedWidth(string $value): int
+    {
+        return max(96, min(320, (int) strlen($value) * 10));
     }
 
     private function escapeXml(string $value): string
@@ -818,6 +975,183 @@ XML;
         }
 
         return implode(' | ', $items);
+    }
+
+    /**
+     * @param array<string, mixed> $result
+     */
+    private function resultToPdf(array $result): string
+    {
+        $lines = [];
+        $lines[] = (string) ($result['title'] ?? 'Relatorio');
+        if (trim((string) ($result['subtitle'] ?? '')) !== '') {
+            $lines[] = (string) $result['subtitle'];
+        }
+        $lines[] = 'Gerado em: ' . $this->stringifyValue($result['generatedAt'] ?? '');
+        foreach ((array) ($result['metadata'] ?? []) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $lines[] = (string) ($item['label'] ?? 'Item') . ': ' . $this->stringifyValue($item['value'] ?? '');
+        }
+        $lines[] = ' ';
+        foreach ((array) ($result['summary'] ?? []) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $lines[] = (string) ($item['label'] ?? 'Resumo') . ': ' . $this->stringifyValue($item['formattedValue'] ?? $item['value'] ?? '');
+        }
+        $lines[] = ' ';
+
+        $columns = is_array($result['columns'] ?? null) ? $result['columns'] : [];
+        $groups = is_array($result['groups'] ?? null) ? $result['groups'] : [];
+        if ($groups) {
+            $this->appendGroupPdfLines($lines, $groups, $columns, 0);
+        } else {
+            $this->appendTablePdfLines($lines, $columns, is_array($result['rows'] ?? null) ? $result['rows'] : []);
+        }
+
+        if (!empty($result['totals']) && is_array($result['totals'])) {
+            $lines[] = ' ';
+            $lines[] = 'Total geral';
+            foreach ($result['totals'] as $field => $value) {
+                $column = $this->findColumn($columns, (string) $field);
+                $label = (string) ($column['title'] ?? $column['label'] ?? $field);
+                $lines[] = '  ' . $label . ': ' . $this->formatValue($value, $column['format'] ?? null);
+            }
+        }
+
+        return $this->textLinesToPdf($lines);
+    }
+
+    /**
+     * @param list<string> $lines
+     * @param array<int, array<string, mixed>> $groups
+     * @param array<int, array<string, mixed>> $columns
+     */
+    private function appendGroupPdfLines(array &$lines, array $groups, array $columns, int $indent): void
+    {
+        foreach ($groups as $group) {
+            if (!is_array($group)) {
+                continue;
+            }
+            $prefix = str_repeat('  ', $indent);
+            $lines[] = $prefix . (string) ($group['label'] ?? $group['key'] ?? 'Grupo') . ' (' . (int) ($group['rowCount'] ?? 0) . ')';
+            if (!empty($group['children']) && is_array($group['children'])) {
+                $this->appendGroupPdfLines($lines, $group['children'], $columns, $indent + 1);
+            } else {
+                $this->appendTablePdfLines($lines, $columns, is_array($group['rows'] ?? null) ? $group['rows'] : [], $indent + 1);
+            }
+            if (($group['showSubtotal'] ?? true) !== false && !empty($group['totals']) && is_array($group['totals'])) {
+                foreach ($group['totals'] as $field => $value) {
+                    $column = $this->findColumn($columns, (string) $field);
+                    $label = (string) ($column['title'] ?? $column['label'] ?? $field);
+                    $lines[] = $prefix . 'Subtotal ' . $label . ': ' . $this->formatValue($value, $column['format'] ?? null);
+                }
+            }
+            $lines[] = ' ';
+        }
+    }
+
+    /**
+     * @param list<string> $lines
+     * @param array<int, array<string, mixed>> $columns
+     * @param array<int, array<string, mixed>> $rows
+     */
+    private function appendTablePdfLines(array &$lines, array $columns, array $rows, int $indent = 0): void
+    {
+        $prefix = str_repeat('  ', $indent);
+        $headers = [];
+        foreach ($columns as $column) {
+            $headers[] = (string) ($column['title'] ?? $column['label'] ?? $column['field'] ?? '');
+        }
+        if ($headers) {
+            $lines[] = $prefix . implode(' | ', $headers);
+        }
+        foreach ($rows as $row) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $values = [];
+            foreach ($columns as $column) {
+                $values[] = $this->stringifyValue($row[$column['field']] ?? null);
+            }
+            $lines[] = $prefix . implode(' | ', $values);
+        }
+    }
+
+    /**
+     * @param list<string> $lines
+     */
+    private function textLinesToPdf(array $lines): string
+    {
+        $pageContents = [];
+        $currentPage = [];
+        $lineCount = 0;
+        foreach ($lines as $line) {
+            $currentPage[] = $line;
+            ++$lineCount;
+            if ($lineCount >= 42) {
+                $pageContents[] = $currentPage;
+                $currentPage = [];
+                $lineCount = 0;
+            }
+        }
+        if ($currentPage) {
+            $pageContents[] = $currentPage;
+        }
+        if (!$pageContents) {
+            $pageContents[] = ['Relatorio'];
+        }
+
+        $objects = [];
+        $pageObjectIds = [];
+        $nextObjectId = 3;
+        foreach ($pageContents as $linesPerPage) {
+            $content = "BT /F1 10 Tf 40 800 Td 14 TL ";
+            $first = true;
+            foreach ($linesPerPage as $line) {
+                if (!$first) {
+                    $content .= "T* ";
+                }
+                $content .= '(' . $this->escapePdfText((string) $line) . ') Tj ';
+                $first = false;
+            }
+            $content .= 'ET';
+
+            $pageObjectId = $nextObjectId++;
+            $contentObjectId = $nextObjectId++;
+            $pageObjectIds[] = $pageObjectId;
+            $objects[$pageObjectId] = $pageObjectId . " 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents " . $contentObjectId . " 0 R /Resources << /Font << /F1 1 0 R >> >> >> endobj\n";
+            $objects[$contentObjectId] = $contentObjectId . " 0 obj << /Length " . strlen($content) . " >> stream\n" . $content . "\nendstream endobj\n";
+        }
+        $objects[1] = "1 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\n";
+        $objects[2] = "2 0 obj << /Type /Pages /Kids [" . implode(' ', array_map(static fn (int $id): string => $id . ' 0 R', $pageObjectIds)) . "] /Count " . count($pageObjectIds) . " >> endobj\n";
+        $catalogObjectId = $nextObjectId++;
+        $objects[$catalogObjectId] = $catalogObjectId . " 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n";
+        ksort($objects);
+
+        $pdf = "%PDF-1.4\n";
+        $offsets = [0];
+        foreach ($objects as $id => $object) {
+            $offsets[$id] = strlen($pdf);
+            $pdf .= $object;
+        }
+        $xrefOffset = strlen($pdf);
+        $pdf .= "xref\n0 " . ($catalogObjectId + 1) . "\n";
+        $pdf .= "0000000000 65535 f \n";
+        for ($index = 1; $index <= $catalogObjectId; ++$index) {
+            $pdf .= sprintf("%010d 00000 n \n", $offsets[$index] ?? 0);
+        }
+        $pdf .= "trailer << /Size " . ($catalogObjectId + 1) . " /Root " . $catalogObjectId . " 0 R >>\nstartxref\n" . $xrefOffset . "\n%%EOF";
+
+        return $pdf;
+    }
+
+    private function escapePdfText(string $value): string
+    {
+        $normalized = preg_replace('/[^\x20-\x7E]/', '?', $value) ?? '';
+        return str_replace(['\\', '(', ')'], ['\\\\', '\\(', '\\)'], $normalized);
     }
 
     /**

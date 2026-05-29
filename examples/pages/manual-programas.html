@@ -1873,6 +1873,45 @@
             notes: ["Exemplo local: ../../examples/pages/report-analitico.html", "JSON exemplo: ../../examples/report-analitico.report.json", "ProduÃ§Ã£o: ../../production/app.html?screenId=relatorios.clientes-analitico"]
           }
         },
+        "special-document-base": {
+          title: "Documento especial base",
+          module: "Documentos especiais",
+          type: "Tela especial separada",
+          route: "../../examples/pages/special-document-base.html",
+          screenId: "documentos.especiais-base",
+          summary: "Contrato separado da camada reports para documentos rigidos, com renderer interno fechado e extensao futura de engine.",
+          functional: {
+            objective: "Preparar fonte, contrato e auditoria para documentos rigidos sem contaminar a camada de relatorios.",
+            scope: [
+              "Renderer interno fechado `native_stub`.",
+              "Fonte operacional ou analytics.",
+              "Exportacao HTML/PDF controlada."
+            ],
+            outputs: [
+              "Placeholder seguro para futura engine documental."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Permissao de leitura/exportacao.",
+              "ScreenId publicado no runtime."
+            ],
+            steps: [
+              "Abrir o documento especial base.",
+              "Gerar a visualizacao controlada.",
+              "Exportar HTML ou PDF quando habilitado."
+            ],
+            cautions: [
+              "Nao e emissor fiscal final nesta fase.",
+              "Nao aceita layout livre nem template arbitrario."
+            ]
+          },
+          references: {
+            permissions: ["read", "export"],
+            relatedPrograms: ["Relatorio operacional", "Relatorio analitico"],
+            notes: ["Exemplo local: ../../examples/pages/special-document-base.html", "Produção: ../../production/app.html?screenId=documentos.especiais-base"]
+          }
+        },
         "admin-analytics-audit": {
           title: "Auditoria analytics",
           module: "Administracao",
@@ -2093,7 +2132,7 @@
       const treeData = [
         { text: "Roteiro inicial", expanded: true, items: [{ id: "roteiro-analista-funcional", text: "Roteiro do analista funcional" }, { id: "manual-instalacao", text: "Manual de instalacao" }] },
         { text: "Acesso e navegacao", expanded: true, items: [{ id: "login", text: "Login" }, { id: "home", text: "Home" }] },
-        { text: "Operacional", expanded: true, items: [{ id: "clientes", text: "Cadastro de clientes" }, { id: "processamento-clientes", text: "Processamento de clientes" }, { id: "report-operacional", text: "Relatorio operacional" }, { id: "report-analitico", text: "Relatorio analitico" }, { id: "jobs", text: "Meus Jobs / Jobs" }] },
+        { text: "Operacional", expanded: true, items: [{ id: "clientes", text: "Cadastro de clientes" }, { id: "processamento-clientes", text: "Processamento de clientes" }, { id: "report-operacional", text: "Relatorio operacional" }, { id: "report-analitico", text: "Relatorio analitico" }, { id: "special-document-base", text: "Documento especial base" }, { id: "jobs", text: "Meus Jobs / Jobs" }] },
         { text: "Administracao", expanded: true, items: [
           { id: "admin-parametros", text: "Parametros" },
           { id: "admin-parametro-valores", text: "Valores de parametros" },

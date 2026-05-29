@@ -37,6 +37,9 @@
     this.appendPropertyText(panel, "Versao", () => this.versionInput.value(), (value) => this.versionInput.value(value), "text", this.programFieldTechnicalProperties("version"));
     this.appendPropertySelect(panel, "Tipo", [
       { value: "crud", text: "CRUD" },
+      { value: "analytics", text: "Analytics / BI" },
+      { value: "report", text: "Relatorios" },
+      { value: "special_document", text: "Documento especial" },
       { value: "custom", text: "Custom" }
     ], () => this.pageTypeSelect.value(), (value) => { this.pageTypeSelect.value(value); this.syncProgramTypeState(); }, this.programFieldTechnicalProperties("pageType"));
     this.appendPropertySelect(panel, "Modulo", this.state.modules.map(function(item) {

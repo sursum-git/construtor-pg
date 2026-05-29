@@ -169,6 +169,21 @@
             "title": { "type": "string" },
             "subtitle": { "type": "string" },
             "groupField": { "type": "string" },
+            "groups": {
+              "type": "array",
+              "maxItems": 3,
+              "items": {
+                "type": "object",
+                "required": ["field"],
+                "properties": {
+                  "field": { "type": "string" },
+                  "label": { "type": "string" },
+                  "showSubtotal": { "type": "boolean" },
+                  "pageBreakBefore": { "type": "boolean" }
+                },
+                "additionalProperties": false
+              }
+            },
             "footerText": { "type": "string" },
             "blocks": {
               "type": "array",
@@ -191,6 +206,7 @@
           "properties": {
             "html": { "type": "boolean" },
             "print": { "type": "boolean" },
+            "pdf": { "type": "boolean" },
             "pdfBrowser": { "type": "boolean" },
             "excel": { "type": "boolean" },
             "csv": { "type": "boolean" }

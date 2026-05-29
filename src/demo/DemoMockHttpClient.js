@@ -635,6 +635,9 @@
       if (normalized === "relatorios.clientes-analitico" || normalized === "relatorios.clientes-analitico.producao") {
         return this.buildReportClientesDefinition(normalized, "analytic");
       }
+      if (normalized === "documentos.especiais-base" || normalized === "documentos.especiais-base.producao") {
+        return this.buildSpecialDocumentDefinition(normalized);
+      }
       if (normalized === "assistente.codificacao.produto-pdm") {
         const definition = global.CrudDemoEmbedded && global.CrudDemoEmbedded.codificacaoAssistentePdmDefinition;
         if (definition) {
@@ -912,6 +915,53 @@
       return definition;
     }
 
+    buildSpecialDocumentDefinition(screenId) {
+      return {
+        schemaVersion: "1.0",
+        pageType: "special_document",
+        screenId: screenId,
+        program: {
+          id: "documento-especial-base",
+          title: "Documento especial base",
+          subtitle: "Contrato separado para documentos rigidos",
+          version: "1.0.0",
+          screenId: screenId
+        },
+        dataSource: {
+          api: {
+            schema: { endpointId: "specialDocuments.schema", method: "POST" },
+            render: { endpointId: "specialDocuments.render", method: "POST" },
+            export: { endpointId: "specialDocuments.export", method: "POST" }
+          }
+        },
+        specialDocument: {
+          classification: {
+            documentProfile: "special",
+            documentKind: "danfe"
+          },
+          renderEngine: "native_stub",
+          endpoints: {
+            schema: { endpointId: "specialDocuments.schema", method: "POST" },
+            render: { endpointId: "specialDocuments.render", method: "POST" },
+            export: { endpointId: "specialDocuments.export", method: "POST" }
+          },
+          source: {
+            type: "operational",
+            entityCode: "cliente"
+          },
+          layout: {
+            title: "Documento especial base",
+            subtitle: "Renderer fechado",
+            notes: "Sem layout livre na v1."
+          },
+          outputs: {
+            html: true,
+            pdf: true
+          }
+        }
+      };
+    }
+
     buildRuntimeJobsDefinition(screenId) {
       const mine = screenId === "runtime.jobs.mine";
       const statusOptions = [
@@ -1133,6 +1183,9 @@
       if (normalizedScreenId === "relatorios.clientes-operacional" || normalizedScreenId === "relatorios.clientes-operacional.producao" || normalizedScreenId === "relatorios.clientes-analitico" || normalizedScreenId === "relatorios.clientes-analitico.producao") {
         return this.routeReportClientesEndpoint(normalizedScreenId, endpointId, data || {});
       }
+      if (normalizedScreenId === "documentos.especiais-base" || normalizedScreenId === "documentos.especiais-base.producao") {
+        return this.routeSpecialDocumentEndpoint(normalizedScreenId, endpointId, data || {});
+      }
       if (this.isSessionRevoked()) {
         throw global.CrudUtils.makeError("SESSION_REVOKED", "Sua sessao foi encerrada.", {
           reason: "Sessao encerrada no mock."
@@ -1255,6 +1308,40 @@
         return this.exportReportResult(result, data && data.format || "csv");
       }
       throw global.CrudUtils.makeError("RUNTIME_ENDPOINT_NOT_FOUND", "Endpoint de relatorio mock nao encontrado.", { screenId, endpointId });
+    }
+
+    routeSpecialDocumentEndpoint(screenId, endpointId, data) {
+      if (endpointId === "specialDocuments.schema") {
+        return this.buildSpecialDocumentDefinition(screenId);
+      }
+      if (endpointId === "specialDocuments.render") {
+        return {
+          ok: true,
+          documentId: "documento-especial-base",
+          documentKind: "danfe",
+          renderEngine: "native_stub",
+          sourceType: "operational",
+          message: "Contrato pronto para documentos especiais. O renderer final continua separado da camada reports.",
+          sections: [
+            { title: "Escopo", lines: ["Layout rigido separado de reports.", "Ponto de extensao futuro para engine dedicada."] },
+            { title: "Saida", lines: ["HTML placeholder controlado.", "PDF placeholder controlado."] }
+          ]
+        };
+      }
+      if (endpointId === "specialDocuments.export") {
+        const format = String(data && data.format || "pdf").toLowerCase();
+        const content = format === "html"
+          ? "<html><body><h1>Documento especial base</h1><p>Placeholder controlado.</p></body></html>"
+          : "%PDF-1.4\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF";
+        return {
+          ok: true,
+          format: format,
+          fileName: "documento-especial-base." + (format === "html" ? "html" : "pdf"),
+          contentType: format === "html" ? "text/html;charset=utf-8" : "application/pdf",
+          contentBase64: global.btoa(unescape(encodeURIComponent(content)))
+        };
+      }
+      throw global.CrudUtils.makeError("RUNTIME_ENDPOINT_NOT_FOUND", "Endpoint de documento especial mock nao encontrado.", { screenId, endpointId });
     }
 
     runAnalyticsClientes(data) {
@@ -1428,6 +1515,15 @@
     exportReportResult(result, format) {
       const columns = global.CrudUtils.ensureArray(result.columns || []);
       const rows = global.CrudUtils.ensureArray(result.rows || []);
+      if (String(format || "").toLowerCase() === "pdf") {
+        return {
+          ok: true,
+          format: "pdf",
+          fileName: (result.reportId || "relatorio") + ".pdf",
+          contentType: "application/pdf",
+          contentBase64: global.btoa("%PDF-1.4\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF")
+        };
+      }
       if (String(format || "").toLowerCase() === "excel") {
         const workbook = JSON.stringify({
           columns: columns.map(function(column) { return column.title || column.field || ""; }),

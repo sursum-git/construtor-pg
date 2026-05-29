@@ -138,6 +138,12 @@
           diagnostics: []
         });
       }
+      if (String(data.pageType || "crud") === "special_document") {
+        return Promise.resolve({
+          generatedDefinition: buildSpecialDocumentPreview(data),
+          diagnostics: []
+        });
+      }
       return Promise.resolve({
         generatedDefinition: {
           screenId: "cadastros.clientes",
@@ -342,6 +348,7 @@
       sourceType: "operational",
       documentKind: "management",
       groupField: "",
+      groups: [],
       totalField: "",
       sortField: "",
       sortDir: "asc",
@@ -349,6 +356,7 @@
       outputs: {
         html: true,
         print: true,
+        pdf: true,
         pdfBrowser: true,
         excel: true,
         csv: true
@@ -428,17 +436,81 @@
           title: title,
           subtitle: "Preview local de relatorio",
           groupField: sourceType === "analytic" ? "" : (reportConfig.groupField || ""),
+          groups: sourceType === "analytic" ? [] : (reportConfig.groups || []),
           footerText: "",
           blocks: [
             { id: "header", type: "header" },
             { id: "summary", type: "summary" },
             { id: "table", type: "table" },
-            sourceType !== "analytic" && reportConfig.groupField ? { id: "group", type: "group" } : null,
+            sourceType !== "analytic" && (reportConfig.groupField || (reportConfig.groups || []).length) ? { id: "group", type: "group" } : null,
             { id: "totals", type: "totals" },
             { id: "footer", type: "footer" }
           ].filter(Boolean)
         },
         outputs: reportConfig.outputs || {}
+      }
+    };
+  }
+
+  function buildSpecialDocumentPreview(data) {
+    const config = Object.assign({
+      sourceType: "operational",
+      documentKind: "danfe",
+      analyticsScreenId: "",
+      analyticsDatasetId: "",
+      title: "",
+      subtitle: "",
+      notes: "",
+      outputs: {
+        html: true,
+        pdf: true
+      }
+    }, data && data.specialDocumentConfig || {});
+    const screenId = String(data && data.screenId || "documentos.especiais-base").trim() || "documentos.especiais-base";
+    return {
+      screenId: screenId,
+      pageType: "special_document",
+      program: {
+        id: String(data && data.programCode || "dc1001").trim() || "dc1001",
+        title: String(data && data.programTitle || "Documento especial").trim() || "Documento especial",
+        module: String(data && data.module || "documentos").trim() || "documentos",
+        version: String(data && data.version || "1.0.0").trim() || "1.0.0",
+        subtitle: config.subtitle || "Preview local de documento especial",
+        icon: "file",
+        screenId: screenId
+      },
+      dataSource: {
+        api: {
+          schema: { endpointId: "specialDocuments.schema" },
+          render: { endpointId: "specialDocuments.render" },
+          export: { endpointId: "specialDocuments.export" }
+        }
+      },
+      specialDocument: {
+        classification: {
+          documentProfile: "special",
+          documentKind: config.documentKind || "danfe"
+        },
+        renderEngine: "native_stub",
+        endpoints: {
+          schema: { endpointId: "specialDocuments.schema" },
+          render: { endpointId: "specialDocuments.render" },
+          export: { endpointId: "specialDocuments.export" }
+        },
+        source: config.sourceType === "analytic" ? {
+          type: "analytic",
+          analyticsScreenId: String(config.analyticsScreenId || "analytics.clientes"),
+          analyticsDatasetId: String(config.analyticsDatasetId || "clientes-uf-status")
+        } : {
+          type: "operational",
+          entityCode: String(data && data.builderEntityCode || "cliente")
+        },
+        layout: {
+          title: config.title || String(data && data.programTitle || "Documento especial"),
+          subtitle: config.subtitle || "Preview local de documento especial",
+          notes: config.notes || ""
+        },
+        outputs: config.outputs || { html: true, pdf: true }
       }
     };
   }
@@ -511,6 +583,15 @@
   function exportReportDataset(url, data) {
     const result = runReportDataset(String(url || "").replace(/reports\.export$/, "reports.run"), data);
     const format = String(data && data.format || "csv").toLowerCase();
+    if (format === "pdf") {
+      return {
+        ok: true,
+        format: "pdf",
+        fileName: String(result.reportId || "relatorio") + ".pdf",
+        contentType: "application/pdf",
+        contentBase64: global.btoa("%PDF-1.4\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF")
+      };
+    }
     if (format === "excel") {
       return {
         ok: true,

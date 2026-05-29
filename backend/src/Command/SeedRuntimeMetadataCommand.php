@@ -148,6 +148,12 @@ class SeedRuntimeMetadataCommand extends Command
         'reports.export' => 'reports.export',
     ];
 
+    private const SPECIAL_DOCUMENT_ENDPOINTS = [
+        'specialDocuments.schema' => 'specialDocuments.schema',
+        'specialDocuments.render' => 'specialDocuments.render',
+        'specialDocuments.export' => 'specialDocuments.export',
+    ];
+
     private const CUSTOM_CODE_PDM_ENDPOINTS = [
         'process' => 'process.customCode.pdm',
     ];
@@ -190,6 +196,54 @@ class SeedRuntimeMetadataCommand extends Command
         $analyticsDefinition = $this->readJson($projectRoot . '/examples/analytics-bi.analytics.json');
         $reportOperationalDefinition = $this->readJson($projectRoot . '/examples/report-operacional.report.json');
         $reportAnalyticDefinition = $this->readJson($projectRoot . '/examples/report-analitico.report.json');
+        $specialDocumentDefinition = [
+            'schemaVersion' => '1.0',
+            'pageType' => 'special_document',
+            'screenId' => 'documentos.especiais-base',
+            'program' => [
+                'id' => 'documento-especial-base',
+                'title' => 'Documento especial base',
+                'subtitle' => 'Contrato separado para documentos rigidos',
+                'version' => '1.0.0',
+                'screenId' => 'documentos.especiais-base',
+            ],
+            'permissions' => [
+                'read' => true,
+                'export' => true,
+            ],
+            'dataSource' => [
+                'api' => [
+                    'schema' => ['endpointId' => 'specialDocuments.schema', 'method' => 'POST'],
+                    'render' => ['endpointId' => 'specialDocuments.render', 'method' => 'POST'],
+                    'export' => ['endpointId' => 'specialDocuments.export', 'method' => 'POST'],
+                ],
+            ],
+            'specialDocument' => [
+                'classification' => [
+                    'documentProfile' => 'special',
+                    'documentKind' => 'danfe',
+                ],
+                'renderEngine' => 'native_stub',
+                'endpoints' => [
+                    'schema' => ['endpointId' => 'specialDocuments.schema', 'method' => 'POST'],
+                    'render' => ['endpointId' => 'specialDocuments.render', 'method' => 'POST'],
+                    'export' => ['endpointId' => 'specialDocuments.export', 'method' => 'POST'],
+                ],
+                'source' => [
+                    'type' => 'operational',
+                    'entityCode' => 'cliente',
+                ],
+                'layout' => [
+                    'title' => 'Documento especial base',
+                    'subtitle' => 'Placeholder controlado',
+                    'notes' => 'Sem layout livre na v1.',
+                ],
+                'outputs' => [
+                    'html' => true,
+                    'pdf' => true,
+                ],
+            ],
+        ];
         $customCodePdmDefinition = $this->readJson($projectRoot . '/examples/codificacao-assistente-pdm.process.json');
         $importExportAdminDefinition = [
             'pageType' => 'custom',
@@ -460,6 +514,8 @@ class SeedRuntimeMetadataCommand extends Command
         $reportOperationalDefinition['program']['screenId'] = 'relatorios.clientes-operacional';
         $reportAnalyticDefinition['screenId'] = 'relatorios.clientes-analitico';
         $reportAnalyticDefinition['program']['screenId'] = 'relatorios.clientes-analitico';
+        $specialDocumentDefinition['screenId'] = 'documentos.especiais-base';
+        $specialDocumentDefinition['program']['screenId'] = 'documentos.especiais-base';
         $customCodePdmDefinition['screenId'] = 'assistente.codificacao.produto-pdm';
         $customCodePdmDefinition['program']['screenId'] = 'assistente.codificacao.produto-pdm';
         $homeDefinition['screenId'] = 'home';
@@ -515,6 +571,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertProgram('analytics-clientes', 'BI de Clientes', 'analytics', 'analytics', 'analytics.clientes');
         $this->upsertProgram('relatorio-clientes-operacional', 'Relatorio operacional de clientes', 'relatorios', 'report', 'relatorios.clientes-operacional');
         $this->upsertProgram('relatorio-clientes-analitico', 'Relatorio analitico por UF', 'relatorios', 'report', 'relatorios.clientes-analitico');
+        $this->upsertProgram('documento-especial-base', 'Documento especial base', 'relatorios', 'special_document', 'documentos.especiais-base');
         $this->upsertProgram('home', 'Home', 'global', 'home', 'home');
         foreach ($adminScreens as $screen) {
             $this->upsertProgram((string) $screen['programId'], (string) $screen['title'], 'administracao', 'crud', (string) $screen['screenId']);
@@ -546,6 +603,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertScreen('analytics.clientes', 'analytics', $analyticsDefinition);
         $this->upsertScreen('relatorios.clientes-operacional', 'report', $reportOperationalDefinition);
         $this->upsertScreen('relatorios.clientes-analitico', 'report', $reportAnalyticDefinition);
+        $this->upsertScreen('documentos.especiais-base', 'special_document', $specialDocumentDefinition);
         $this->upsertScreen('assistente.codificacao.produto-pdm', 'process', $customCodePdmDefinition);
         foreach ($adminScreens as $screen) {
             $this->upsertScreen((string) $screen['screenId'], 'crud', $screen['definition']);
@@ -557,6 +615,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertEndpoints('analytics.clientes', self::ANALYTICS_ENDPOINTS);
         $this->upsertEndpoints('relatorios.clientes-operacional', self::REPORT_ENDPOINTS);
         $this->upsertEndpoints('relatorios.clientes-analitico', self::REPORT_ENDPOINTS);
+        $this->upsertEndpoints('documentos.especiais-base', self::SPECIAL_DOCUMENT_ENDPOINTS);
         $this->upsertEndpoints('assistente.codificacao.produto-pdm', self::CUSTOM_CODE_PDM_ENDPOINTS);
         foreach ($adminScreens as $screen) {
             $this->upsertEndpoints((string) $screen['screenId'], $this->adminEndpointHandlers($screen));

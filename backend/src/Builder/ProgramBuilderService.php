@@ -3344,8 +3344,8 @@ class ProgramBuilderService
         if ($programCode === '' || $programTitle === '' || $moduleCode === '' || $screenId === '') {
             throw new RuntimeHttpException('PROGRAM_BUILDER_REQUIRED_FIELDS', 'Informe codigo, titulo, modulo e screenId.', 422);
         }
-        if (!in_array($pageType, ['crud', 'custom', 'analytics', 'report'], true)) {
-            throw new RuntimeHttpException('PROGRAM_BUILDER_PAGE_TYPE_NOT_SUPPORTED', 'Nesta etapa o construtor visual suporta programas CRUD, analytics, report e custom.', 422, [
+        if (!in_array($pageType, ['crud', 'custom', 'analytics', 'report', 'special_document'], true)) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_PAGE_TYPE_NOT_SUPPORTED', 'Nesta etapa o construtor visual suporta programas CRUD, analytics, report, special_document e custom.', 422, [
                 'pageType' => $pageType,
             ]);
         }
@@ -3413,7 +3413,11 @@ class ProgramBuilderService
         }
 
         $entity = $overrideEntity;
-        if (in_array($pageType, ['crud', 'analytics'], true) || ($pageType === 'report' && $reportSourceType !== 'analytic')) {
+        if (
+            in_array($pageType, ['crud', 'analytics'], true)
+            || ($pageType === 'report' && $reportSourceType !== 'analytic')
+            || ($pageType === 'special_document' && $reportSourceType !== 'analytic')
+        ) {
             if ($builderEntityCode === '') {
                 throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_REQUIRED', 'Informe a entidade base para o programa.', 422);
             }
@@ -3431,8 +3435,8 @@ class ProgramBuilderService
                     'entityType' => $entity->getEntityType(),
                 ]);
             }
-            if ($pageType === 'report' && $entity->getEntityType() !== 'persistence') {
-                throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_TYPE_NOT_SUPPORTED', 'Reports v1 aceitam apenas entidades persistence na fonte operacional.', 422, [
+            if (in_array($pageType, ['report', 'special_document'], true) && $entity->getEntityType() !== 'persistence') {
+                throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_TYPE_NOT_SUPPORTED', 'Reports e documentos especiais v1 aceitam apenas entidades persistence na fonte operacional.', 422, [
                     'builderEntityCode' => $builderEntityCode,
                     'entityType' => $entity->getEntityType(),
                 ]);
@@ -3503,6 +3507,7 @@ class ProgramBuilderService
             'publicationPolicy' => $publicationPolicy,
             'analyticsConfig' => $pageType === 'analytics' && $entity instanceof BuilderEntity ? $this->normalizeAnalyticsBuilderConfig($payload['analyticsConfig'] ?? null, $entity) : null,
             'reportConfig' => $pageType === 'report' ? $this->normalizeReportBuilderConfig($payload['reportConfig'] ?? null, $entity instanceof BuilderEntity ? $entity : null) : null,
+            'specialDocumentConfig' => $pageType === 'special_document' ? $this->normalizeSpecialDocumentBuilderConfig($payload['specialDocumentConfig'] ?? null, $entity instanceof BuilderEntity ? $entity : null) : null,
             'customMode' => $pageType === 'custom' ? $customMode : null,
             'customEntryUrl' => $pageType === 'custom' ? $customEntryUrl : null,
             'customFrameTitle' => $pageType === 'custom' ? ($customFrameTitle !== '' ? $customFrameTitle : $programTitle) : null,
@@ -3530,6 +3535,7 @@ class ProgramBuilderService
         $sortField = $this->safeCode((string) ($config['sortField'] ?? ''));
         $sortDir = strtolower(trim((string) ($config['sortDir'] ?? 'asc'))) === 'desc' ? 'desc' : 'asc';
         $outputs = is_array($config['outputs'] ?? null) ? $config['outputs'] : [];
+        $groups = [];
 
         if ($entity instanceof BuilderEntity) {
             $availableFields = [];
@@ -3544,8 +3550,34 @@ class ProgramBuilderService
                 }
                 $availableFields[$field->getCode()] = $dataType;
             }
-            if ($groupField !== '' && !isset($availableFields[$groupField])) {
+            foreach ((array) ($config['groups'] ?? []) as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $itemField = $this->safeCode((string) ($item['field'] ?? ''));
+                if ($itemField === '' || !isset($availableFields[$itemField])) {
+                    continue;
+                }
+                $groups[] = [
+                    'field' => $itemField,
+                    'label' => trim((string) ($item['label'] ?? '')),
+                    'showSubtotal' => ($item['showSubtotal'] ?? true) !== false,
+                    'pageBreakBefore' => ($item['pageBreakBefore'] ?? false) === true,
+                ];
+                if (count($groups) >= 3) {
+                    break;
+                }
+            }
+            if (!$groups && $groupField !== '' && !isset($availableFields[$groupField])) {
                 $groupField = '';
+            }
+            if (!$groups && $groupField !== '' && isset($availableFields[$groupField])) {
+                $groups[] = [
+                    'field' => $groupField,
+                    'label' => '',
+                    'showSubtotal' => true,
+                    'pageBreakBefore' => false,
+                ];
             }
             if ($totalField !== '' && (!isset($availableFields[$totalField]) || !in_array($availableFields[$totalField], ['integer', 'decimal', 'number', 'currency'], true))) {
                 $totalField = '';
@@ -3553,6 +3585,13 @@ class ProgramBuilderService
             if ($sortField !== '' && !isset($availableFields[$sortField])) {
                 $sortField = '';
             }
+        } elseif ($groupField !== '') {
+            $groups[] = [
+                'field' => $groupField,
+                'label' => '',
+                'showSubtotal' => true,
+                'pageBreakBefore' => false,
+            ];
         }
 
         return [
@@ -3560,7 +3599,8 @@ class ProgramBuilderService
             'analyticsScreenId' => $analyticsScreenId,
             'analyticsDatasetId' => $analyticsDatasetId,
             'documentKind' => $documentKind,
-            'groupField' => $groupField,
+            'groupField' => $groups[0]['field'] ?? $groupField,
+            'groups' => $groups,
             'totalField' => $totalField,
             'sortField' => $sortField,
             'sortDir' => $sortDir,
@@ -3570,9 +3610,34 @@ class ProgramBuilderService
             'outputs' => [
                 'html' => ($outputs['html'] ?? true) !== false,
                 'print' => ($outputs['print'] ?? true) !== false,
+                'pdf' => ($outputs['pdf'] ?? ($outputs['pdfBrowser'] ?? true)) !== false,
                 'pdfBrowser' => ($outputs['pdfBrowser'] ?? true) !== false,
                 'excel' => ($outputs['excel'] ?? true) !== false,
                 'csv' => ($outputs['csv'] ?? true) !== false,
+            ],
+        ];
+    }
+
+    private function normalizeSpecialDocumentBuilderConfig(mixed $value, ?BuilderEntity $entity): array
+    {
+        $config = is_array($value) ? $value : [];
+        $sourceType = strtolower(trim((string) ($config['sourceType'] ?? 'operational')));
+        if (!in_array($sourceType, ['operational', 'analytic'], true)) {
+            $sourceType = 'operational';
+        }
+
+        return [
+            'sourceType' => $sourceType,
+            'documentKind' => strtolower(trim((string) ($config['documentKind'] ?? 'fiscal_document'))) ?: 'fiscal_document',
+            'renderEngine' => 'native_stub',
+            'analyticsScreenId' => trim((string) ($config['analyticsScreenId'] ?? '')),
+            'analyticsDatasetId' => $this->safeCode((string) ($config['analyticsDatasetId'] ?? '')),
+            'title' => trim((string) ($config['title'] ?? '')),
+            'subtitle' => trim((string) ($config['subtitle'] ?? '')),
+            'notes' => trim((string) ($config['notes'] ?? '')),
+            'outputs' => [
+                'html' => ($config['outputs']['html'] ?? true) !== false,
+                'pdf' => ($config['outputs']['pdf'] ?? true) !== false,
             ],
         ];
     }
@@ -3710,6 +3775,7 @@ class ProgramBuilderService
             'custom' => $this->generateCustomDefinition($config),
             'analytics' => $this->generateAnalyticsDefinition($config),
             'report' => $this->generateReportDefinition($config),
+            'special_document' => $this->generateSpecialDocumentDefinition($config),
             default => $this->generateCrudDefinition($config),
         };
 
@@ -3773,6 +3839,7 @@ class ProgramBuilderService
             'dataModel' => $definition['dataModel'] ?? [],
             'analytics' => $definition['analytics'] ?? [],
             'report' => $definition['report'] ?? [],
+            'specialDocument' => $definition['specialDocument'] ?? [],
         ];
 
         return hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
@@ -3864,6 +3931,9 @@ class ProgramBuilderService
         unset($formField);
 
         $permissionPrefix = $config['permissionPrefix'];
+
+        $groups = array_values(array_filter((array) ($reportConfig['groups'] ?? []), 'is_array'));
+        $hasGroups = $groups || $groupField !== '';
 
         return [
             'schemaVersion' => '1.0',
@@ -4353,12 +4423,13 @@ class ProgramBuilderService
                     'title' => $config['programTitle'],
                     'subtitle' => $config['subtitle'] ?? 'Relatorio nativo',
                     'groupField' => $groupField !== '' ? $groupField : null,
+                    'groups' => $groups,
                     'footerText' => $reportConfig['footerText'] ?? '',
                     'blocks' => array_values(array_filter([
                         ['id' => 'header', 'type' => 'header', 'title' => 'Cabecalho'],
                         ['id' => 'summary', 'type' => 'summary', 'title' => 'Resumo'],
                         ['id' => 'table', 'type' => 'table', 'title' => 'Detalhamento'],
-                        $groupField !== '' ? ['id' => 'group', 'type' => 'group', 'title' => 'Agrupamento'] : null,
+                        $hasGroups ? ['id' => 'group', 'type' => 'group', 'title' => 'Agrupamento'] : null,
                         ['id' => 'totals', 'type' => 'totals', 'title' => 'Totais'],
                         ['id' => 'footer', 'type' => 'footer', 'title' => 'Rodape'],
                     ])),
@@ -4366,9 +4437,78 @@ class ProgramBuilderService
                 'outputs' => [
                     'html' => ($reportConfig['outputs']['html'] ?? true) !== false,
                     'print' => ($reportConfig['outputs']['print'] ?? true) !== false,
+                    'pdf' => ($reportConfig['outputs']['pdf'] ?? ($reportConfig['outputs']['pdfBrowser'] ?? true)) !== false,
                     'pdfBrowser' => ($reportConfig['outputs']['pdfBrowser'] ?? true) !== false,
                     'excel' => ($reportConfig['outputs']['excel'] ?? true) !== false,
                     'csv' => ($reportConfig['outputs']['csv'] ?? true) !== false,
+                ],
+            ],
+        ];
+    }
+
+    private function generateSpecialDocumentDefinition(array $config): array
+    {
+        $special = is_array($config['specialDocumentConfig'] ?? null) ? $config['specialDocumentConfig'] : [];
+        $permissionPrefix = $config['permissionPrefix'];
+        $readPermission = $permissionPrefix !== '' ? $permissionPrefix . '.read' : true;
+        $sourceType = strtolower((string) ($special['sourceType'] ?? 'operational')) === 'analytic' ? 'analytic' : 'operational';
+
+        return [
+            'schemaVersion' => '1.0',
+            'pageType' => 'special_document',
+            'screenId' => $config['screenId'],
+            'program' => [
+                'id' => $config['programCode'],
+                'module' => $config['module'] ?? 'documentos',
+                'entity' => $config['builderEntityCode'] ?: null,
+                'title' => $config['programTitle'],
+                'version' => $config['version'],
+                'subtitle' => $config['subtitle'] ?? 'Documento especial',
+                'icon' => $config['icon'] ?? 'file',
+                'permission' => $readPermission,
+            ],
+            'permissions' => [
+                'read' => $readPermission,
+                'export' => $readPermission,
+            ],
+            'dataSource' => [
+                'api' => $this->specialDocumentApiMap(),
+            ],
+            'runtime' => [
+                'entityCode' => $config['builderEntityCode'],
+                'programId' => $config['programCode'],
+                'mode' => 'special_document',
+                'messages' => [
+                    'enabled' => false,
+                ],
+            ],
+            'specialDocument' => [
+                'version' => '1.0',
+                'classification' => [
+                    'documentProfile' => 'special',
+                    'documentKind' => (string) ($special['documentKind'] ?? 'fiscal_document'),
+                ],
+                'renderEngine' => 'native_stub',
+                'endpoints' => $this->specialDocumentApiMap(),
+                'source' => $sourceType === 'analytic'
+                    ? [
+                        'type' => 'analytic',
+                        'analyticsScreenId' => (string) ($special['analyticsScreenId'] ?? ''),
+                        'analyticsDatasetId' => (string) ($special['analyticsDatasetId'] ?? ''),
+                    ]
+                    : [
+                        'type' => 'operational',
+                        'entityCode' => $config['builderEntityCode'],
+                    ],
+                'parameters' => [],
+                'layout' => [
+                    'title' => $special['title'] ?: $config['programTitle'],
+                    'subtitle' => $special['subtitle'] ?: ($config['subtitle'] ?? 'Documento especial'),
+                    'notes' => $special['notes'] ?? '',
+                ],
+                'outputs' => [
+                    'html' => ($special['outputs']['html'] ?? true) !== false,
+                    'pdf' => ($special['outputs']['pdf'] ?? true) !== false,
                 ],
             ],
         ];
@@ -4477,6 +4617,10 @@ class ProgramBuilderService
         }
         if ($version->getPageType() === 'report') {
             $this->upsertReportRuntimeEndpoints($version);
+            return;
+        }
+        if ($version->getPageType() === 'special_document') {
+            $this->upsertSpecialDocumentRuntimeEndpoints($version);
             return;
         }
 
@@ -4614,6 +4758,37 @@ class ProgramBuilderService
         $this->disableUnusedCrudGeneratedEndpoints($version->getScreenId(), $activeEndpointIds);
     }
 
+    private function upsertSpecialDocumentRuntimeEndpoints(BuilderProgramVersion $version): void
+    {
+        $handlers = [
+            'specialDocuments.schema' => 'specialDocuments.schema',
+            'specialDocuments.render' => 'specialDocuments.render',
+            'specialDocuments.export' => 'specialDocuments.export',
+        ];
+
+        $activeEndpointIds = [];
+        foreach ($handlers as $endpointId => $handler) {
+            $endpoint = $this->endpoints->findOneBy([
+                'screenId' => $version->getScreenId(),
+                'endpointId' => $endpointId,
+            ]) ?? new RuntimeEndpoint();
+
+            $endpoint
+                ->setScreenId($version->getScreenId())
+                ->setEndpointId($endpointId)
+                ->setHandler($handler)
+                ->setEnabled(true)
+                ->setPermission($this->endpointPermission($version, $endpointId, $handler))
+                ->setConfig($this->endpointConfig($version, $endpointId, $handler));
+
+            $this->entityManager->persist($endpoint);
+            $this->integrity->signEndpoint($endpoint, ['source' => 'syncRuntimeEndpoints']);
+            $activeEndpointIds[] = $endpointId;
+        }
+
+        $this->disableUnusedCrudGeneratedEndpoints($version->getScreenId(), $activeEndpointIds);
+    }
+
     private function disableRuntimeEndpointsForScreen(string $screenId): void
     {
         foreach ($this->endpoints->findBy(['screenId' => $screenId]) as $endpoint) {
@@ -4663,6 +4838,9 @@ class ProgramBuilderService
             'reports.schema',
             'reports.run',
             'reports.export',
+            'specialDocuments.schema',
+            'specialDocuments.render',
+            'specialDocuments.export',
         ];
 
         foreach ($this->endpoints->findBy(['screenId' => $screenId]) as $endpoint) {
@@ -4697,7 +4875,7 @@ class ProgramBuilderService
             'create' => $prefix . '.create',
             'update' => $prefix . '.edit',
             'delete' => $prefix . '.delete',
-            'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status', 'reports.schema', 'reports.run', 'reports.export' => $prefix . '.read',
+            'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status', 'reports.schema', 'reports.run', 'reports.export', 'specialDocuments.schema', 'specialDocuments.render', 'specialDocuments.export' => $prefix . '.read',
             default => null,
         };
     }
@@ -4745,6 +4923,26 @@ class ProgramBuilderService
         }
 
         if (str_starts_with($handler, 'reports.')) {
+            return [
+                'entityCode' => $version->getBuilderEntityCode(),
+                'operation' => $handler,
+                'actionId' => $endpointId,
+                'programId' => $version->getProgramCode(),
+                'permissionPrefix' => $version->getPermissionPrefix(),
+                'traceability' => [
+                    'programCode' => $version->getProgramCode(),
+                    'programVersion' => $version->getVersion(),
+                    'builderProgramVersionId' => $version->getId(),
+                    'builderEntityVersionId' => $this->latestBuilderEntityVersionId($version->getBuilderEntityCode()),
+                    'screenDefinitionVersion' => $version->getVersion(),
+                    'schemaFingerprint' => $this->programSchemaFingerprint($version, $version->getGeneratedDefinition()),
+                    'customizationKind' => $version->getProgramOrigin(),
+                    'subscriberId' => $version->getSubscriberId(),
+                ],
+            ];
+        }
+
+        if (str_starts_with($handler, 'specialDocuments.')) {
             return [
                 'entityCode' => $version->getBuilderEntityCode(),
                 'operation' => $handler,
@@ -4826,6 +5024,15 @@ class ProgramBuilderService
             'schema' => ['endpointId' => 'reports.schema', 'method' => 'POST'],
             'run' => ['endpointId' => 'reports.run', 'method' => 'POST'],
             'export' => ['endpointId' => 'reports.export', 'method' => 'POST'],
+        ];
+    }
+
+    private function specialDocumentApiMap(): array
+    {
+        return [
+            'schema' => ['endpointId' => 'specialDocuments.schema', 'method' => 'POST'],
+            'render' => ['endpointId' => 'specialDocuments.render', 'method' => 'POST'],
+            'export' => ['endpointId' => 'specialDocuments.export', 'method' => 'POST'],
         ];
     }
 

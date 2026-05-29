@@ -247,6 +247,32 @@
       }
     },
     {
+      id: "special-document-base",
+      engine: "special-document",
+      category: "Documentos especiais",
+      title: "Documento especial base",
+      summary: "Contrato separado de reports para documentos rigidos, com renderer interno fechado e ponto futuro para engine dedicada.",
+      code: {
+        pageType: "special_document",
+        screenId: "documentos.especiais-base",
+        program: {
+          title: "Documento especial base",
+          subtitle: "Trilha separada para DANFE, boleto e layouts rigidos"
+        },
+        specialDocument: {
+          classification: {
+            documentProfile: "special",
+            documentKind: "danfe"
+          },
+          renderEngine: "native_stub",
+          outputs: {
+            html: true,
+            pdf: true
+          }
+        }
+      }
+    },
+    {
       id: "processamento-parametros",
       engine: "process",
       category: "Processamento",
@@ -2098,7 +2124,53 @@
 
   function buildReportDefinition(id) {
     const example = get(id);
-    const source = global.ReportDemoEmbedded && (id === "report-analitico" ? global.ReportDemoEmbedded.analyticDefinition : global.ReportDemoEmbedded.operationalDefinition) || {};
+    const source = id === "special-document-base"
+      ? {
+        schemaVersion: "1.0",
+        pageType: "special_document",
+        screenId: "documentos.especiais-base",
+        program: {
+          id: "documento-especial-base",
+          screenId: "documentos.especiais-base",
+          module: "documentos",
+          title: "Documento especial base",
+          subtitle: "Trilha separada para layouts rigidos",
+          version: "1.0.0"
+        },
+        dataSource: {
+          api: {
+            schema: { endpointId: "specialDocuments.schema", method: "POST" },
+            render: { endpointId: "specialDocuments.render", method: "POST" },
+            export: { endpointId: "specialDocuments.export", method: "POST" }
+          }
+        },
+        specialDocument: {
+          classification: {
+            documentProfile: "special",
+            documentKind: "danfe"
+          },
+          renderEngine: "native_stub",
+          endpoints: {
+            schema: { endpointId: "specialDocuments.schema", method: "POST" },
+            render: { endpointId: "specialDocuments.render", method: "POST" },
+            export: { endpointId: "specialDocuments.export", method: "POST" }
+          },
+          source: {
+            type: "operational",
+            entityCode: "cliente"
+          },
+          layout: {
+            title: "Documento especial base",
+            subtitle: "Trilha separada para layouts rigidos",
+            notes: "Sem layout livre na v1."
+          },
+          outputs: {
+            html: true,
+            pdf: true
+          }
+        }
+      }
+      : (global.ReportDemoEmbedded && (id === "report-analitico" ? global.ReportDemoEmbedded.analyticDefinition : global.ReportDemoEmbedded.operationalDefinition) || {});
     const definition = clone(source);
     if (example && example.code) {
       deepMerge(definition, example.code);

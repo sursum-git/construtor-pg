@@ -71,6 +71,10 @@
         if (reportEngine && reportEngine.currentResult) {
           reportEngine.renderResult();
         }
+        const specialDocumentEngine = global.currentSpecialDocumentExampleEngine;
+        if (specialDocumentEngine && specialDocumentEngine.currentResult) {
+          specialDocumentEngine.renderResult();
+        }
       }
     });
     const widget = tabs.data("kendoTabStrip");
@@ -97,6 +101,9 @@
     }
     if (example.engine === "report") {
       return initializeReportEngine(example, catalog, state, root);
+    }
+    if (example.engine === "special-document") {
+      return initializeSpecialDocumentEngine(example, catalog, state, root);
     }
     return initializeCrudEngine(example, catalog, state, root);
   }
@@ -218,6 +225,28 @@
     });
   }
 
+  function initializeSpecialDocumentEngine(example, catalog, state, root) {
+    $(root).removeClass("home-app-root").addClass("crud-app-shell");
+    const artifacts = buildReportRuntimeArtifacts(example, catalog, state);
+    const httpClient = new global.DemoMockHttpClient({
+      storageSuffix: "examples-" + example.id
+    });
+    const engine = new global.SpecialDocumentEngine({
+      root: "#example-render-root",
+      definition: artifacts.definition,
+      config: artifacts.config,
+      httpClient
+    });
+
+    return engine.init().then(function(instance) {
+      global.currentSpecialDocumentExampleEngine = instance;
+      return instance;
+    }).catch(function(error) {
+      console.error("Falha ao renderizar exemplo de documento especial.", error);
+      throw error;
+    });
+  }
+
   function destroyCurrentEngine(root) {
     const engine = global.currentCrudExampleEngine;
     if (engine && engine.gridRenderer && typeof engine.gridRenderer.destroy === "function") {
@@ -231,6 +260,9 @@
       destroyProcessExampleEngine();
       destroyAnalyticsExampleEngine();
       destroyReportExampleEngine();
+      if (global.currentSpecialDocumentExampleEngine && typeof global.currentSpecialDocumentExampleEngine.destroy === "function") {
+        global.currentSpecialDocumentExampleEngine.destroy();
+      }
       global.kendo.destroy($(root));
     }
     $(root).empty();
@@ -239,6 +271,7 @@
     global.currentProcessExampleEngine = null;
     global.currentAnalyticsExampleEngine = null;
     global.currentReportExampleEngine = null;
+    global.currentSpecialDocumentExampleEngine = null;
   }
 
   function destroyHomeExampleEngine() {

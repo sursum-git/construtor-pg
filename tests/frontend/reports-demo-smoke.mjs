@@ -20,6 +20,7 @@ page.on("console", (message) => {
 await page.goto(operationalUrl);
 await page.waitForSelector(".report-table tbody tr");
 const operationalRows = await page.locator(".report-table tbody tr").count();
+const operationalPdfButtons = await page.locator(".report-toolbar-actions .k-button:has-text('PDF')").count();
 
 await page.evaluate(async () => {
   const engine = window.currentReportExampleEngine;
@@ -47,6 +48,9 @@ if (errors.length) {
 }
 if (operationalRows < 1) {
   throw new Error("Relatorio operacional nao renderizou linhas.");
+}
+if (operationalPdfButtons < 1) {
+  throw new Error("Relatorio operacional nao exibiu acao PDF.");
 }
 if (analyticGroups < 1) {
   throw new Error("Relatorio analitico nao renderizou grupos.");

@@ -107,6 +107,7 @@
         outputs: {
           html: true,
           print: true,
+          pdf: true,
           pdfBrowser: true,
           excel: true,
           csv: true
@@ -235,6 +236,12 @@
           icon: "print",
           click: () => global.print()
         }).data("kendoButton").element.text("Imprimir");
+      }
+      if ((this.definition.report.outputs || {}).pdf === true || (this.definition.report.outputs || {}).pdfBrowser === true) {
+        $("<button type=\"button\"></button>").appendTo(actions).kendoButton({
+          icon: "file-pdf",
+          click: () => this.exportReport("pdf")
+        }).data("kendoButton").element.text("PDF");
       }
 
       const exportActions = $("<div class=\"report-export-actions\"></div>").appendTo(actions);
@@ -374,8 +381,12 @@
 
     exportReport(format) {
       return this.runtimeRequest("export", this.buildPayload({ format: format })).then((response) => {
-        const name = String(response.fileName || ("relatorio." + (format === "excel" ? "csv" : format))).trim();
-        const contentType = String(response.contentType || "text/csv;charset=utf-8").trim();
+        const extension = format === "excel" ? "xlsx" : format;
+        const fallbackType = format === "excel"
+          ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          : (format === "pdf" ? "application/pdf" : "text/csv;charset=utf-8");
+        const name = String(response.fileName || ("relatorio." + extension)).trim();
+        const contentType = String(response.contentType || fallbackType).trim();
         const contentBase64 = String(response.contentBase64 || "").trim();
         if (!contentBase64) {
           throw global.CrudUtils.makeError("REPORT_EXPORT_EMPTY", "O runtime nao devolveu conteudo para exportacao.");
@@ -457,13 +468,21 @@
     renderGroups(groups, columns) {
       const section = $("<section></section>").appendTo(this.outputHost);
       $("<h2></h2>").text("Grupos").appendTo(section);
-      groups.forEach((group) => {
-        const host = $("<article class=\"report-group\"></article>").appendTo(section);
+      this.renderGroupNodes(groups, columns, section, 1);
+    }
+
+    renderGroupNodes(groups, columns, parent, level) {
+      global.CrudUtils.ensureArray(groups).forEach((group) => {
+        const host = $("<article class=\"report-group\"></article>").appendTo(parent).attr("data-level", String(level || 1));
         const header = $("<div class=\"report-group-header\"></div>").appendTo(host);
         $("<strong></strong>").text(group.label || group.key || "Grupo").appendTo(header);
         $("<span></span>").text("Linhas: " + Number(group.rowCount || global.CrudUtils.ensureArray(group.rows).length || 0)).appendTo(header);
-        this.renderTable(columns, group.rows || [], host, "");
-        if (group.totals && Object.keys(group.totals).length) {
+        if (Array.isArray(group.children) && group.children.length) {
+          this.renderGroupNodes(group.children, columns, host, (level || 1) + 1);
+        } else {
+          this.renderTable(columns, group.rows || [], host, "");
+        }
+        if (group.showSubtotal !== false && group.totals && Object.keys(group.totals).length) {
           this.renderTotals(group.totals, columns, host);
         }
       });

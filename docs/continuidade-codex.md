@@ -218,6 +218,23 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - importacao de `public.condition` gerando entidade e rascunho CRUD;
   - validacao UI do painel de importacao com screenshot em `tmp/program-builder-import-ui.png`.
 - o construtor agora tambem aceita `pageType=custom`:
+## Reports e documentos especiais
+
+- a camada `reports` agora aceita:
+  - `reports.export` com `csv`, `excel` e `pdf`;
+  - `report.outputs.pdf`, mantendo `pdfBrowser` como legado temporario;
+  - `report.layout.groups[]` com ate 3 niveis;
+  - renderizacao recursiva de grupos no `ReportEngine`.
+- a trilha separada de documentos especiais agora existe:
+  - `pageType=special_document`;
+  - schema `public/metadata/schemas/special-document-definition-v1.schema.json`;
+  - runtime fechado `specialDocuments.schema|render|export`;
+  - engine frontend `src/special-document-engine/SpecialDocumentEngine.js`;
+  - seed local do `screenId=documentos.especiais-base`.
+- o `Program Builder` agora expõe dois caminhos:
+  - `Relatorios`;
+  - `Documento especial`.
+- documentos especiais continuam fora de `reports`; o builder bloqueia `danfe`, `dacte`, `boleto`, `label/etiqueta` na trilha de relatorio.
   - programa manual sem entidade base;
   - `custom.mode = iframe | htmlUrl`;
   - `custom.entryUrl` relativo ao proprio sistema;

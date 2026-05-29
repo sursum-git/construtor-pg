@@ -3207,6 +3207,7 @@
         { value: "crud", text: "CRUD" },
         { value: "analytics", text: "Analytics / BI" },
         { value: "report", text: "Relatorios" },
+        { value: "special_document", text: "Documento especial" },
         { value: "custom", text: "Custom" }
       ],
       dataTextField: "text",
@@ -3405,8 +3406,29 @@
     }, this);
     this.reportLimitInput = $("<input type=\"number\" min=\"1\" class=\"program-builder-mini-input\">").appendTo(this.appendField(reportSplitA, "Limite"));
 
+    const reportGroupsHeader = $("<div class=\"program-builder-fields-header\"></div>").appendTo(reportForm);
+    $("<span></span>").text("Agrupamentos").appendTo(reportGroupsHeader);
+    const reportGroupsWrap = $("<div class=\"program-builder-form\"></div>").appendTo(reportForm);
+    this.reportGroupRows = [];
+    for (let reportGroupIndex = 1; reportGroupIndex <= 3; reportGroupIndex += 1) {
+      const row = {};
+      const split = $("<div class=\"program-builder-split\"></div>").appendTo(reportGroupsWrap);
+      row.fieldSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(split, "Agrupamento " + reportGroupIndex));
+      row.labelInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(split, "Rotulo " + reportGroupIndex));
+      const flagsField = this.appendField(split, "Opcoes " + reportGroupIndex);
+      const flags = $("<div class=\"program-builder-flags\"></div>").appendTo(flagsField);
+      row.showSubtotalInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(flags));
+      $("<span></span>").text("Subtotal").appendTo(row.showSubtotalInput.parent());
+      row.pageBreakBeforeInput = $("<input type=\"checkbox\">").appendTo($("<label></label>").appendTo(flags));
+      $("<span></span>").text("Quebra antes").appendTo(row.pageBreakBeforeInput.parent());
+      row.showSubtotalInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+      row.pageBreakBeforeInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+      row.fieldSelect.on("change", this.schedulePreview.bind(this));
+      row.labelInput.on("input change", this.schedulePreview.bind(this));
+      this.reportGroupRows.push(row);
+    }
+
     const reportSplitB = $("<div class=\"program-builder-split\"></div>").appendTo(reportForm);
-    this.reportGroupFieldSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(reportSplitB, "Agrupar por"));
     this.reportTotalFieldSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(reportSplitB, "Totalizar campo"));
     this.reportAnalyticsScreenIdInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(reportSplitB, "ScreenId analytics"));
     this.reportAnalyticsDatasetIdInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(reportSplitB, "Dataset analytics"));
@@ -3428,7 +3450,7 @@
     this.reportOutputPrintInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(reportOutputFlags));
     $("<span></span>").text("Impressao").appendTo(this.reportOutputPrintInput.parent());
     this.reportOutputPdfInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(reportOutputFlags));
-    $("<span></span>").text("PDF navegador").appendTo(this.reportOutputPdfInput.parent());
+    $("<span></span>").text("PDF").appendTo(this.reportOutputPdfInput.parent());
     this.reportOutputExcelInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(reportOutputFlags));
     $("<span></span>").text("Excel").appendTo(this.reportOutputExcelInput.parent());
     this.reportOutputCsvInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(reportOutputFlags));
@@ -3440,6 +3462,37 @@
     this.reportOutputCsvInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
     this.reportProgramHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(reportForm);
     this.reportProgramHint.text("Documentos especiais continuam fora de `reports` e devem usar trilha separada.");
+
+    this.specialDocumentProgramPanel = $("<section class=\"program-builder-subpanel\"></section>").appendTo(form);
+    $("<div class=\"program-builder-versions-header\"><h3>Configuracao do documento especial</h3><p>Trilha separada para layouts rigidos. Esta etapa usa renderer interno fechado `native_stub`.</p></div>").appendTo(this.specialDocumentProgramPanel);
+    const specialForm = $("<div class=\"program-builder-form\"></div>").appendTo(this.specialDocumentProgramPanel);
+    const specialSplitA = $("<div class=\"program-builder-split\"></div>").appendTo(specialForm);
+    this.specialDocumentSourceTypeSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(specialSplitA, "Fonte"));
+    [{ value: "operational", text: "Operacional" }, { value: "analytic", text: "Analytics" }].forEach(function(item) {
+      $("<option></option>").attr("value", item.value).text(item.text).appendTo(this.specialDocumentSourceTypeSelect);
+    }, this);
+    this.specialDocumentKindSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(specialSplitA, "Tipo"));
+    [{ value: "danfe", text: "DANFE" }, { value: "dacte", text: "DACTE" }, { value: "boleto", text: "Boleto" }, { value: "label", text: "Etiqueta" }, { value: "fiscal_document", text: "Documento fiscal" }].forEach(function(item) {
+      $("<option></option>").attr("value", item.value).text(item.text).appendTo(this.specialDocumentKindSelect);
+    }, this);
+    this.specialDocumentRenderEngineInput = $("<input type=\"text\" class=\"program-builder-mini-input\" readonly>").val("native_stub").appendTo(this.appendField(specialSplitA, "Render engine"));
+    const specialSplitB = $("<div class=\"program-builder-split\"></div>").appendTo(specialForm);
+    this.specialDocumentAnalyticsScreenIdInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(specialSplitB, "ScreenId analytics"));
+    this.specialDocumentAnalyticsDatasetIdInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(specialSplitB, "Dataset analytics"));
+    this.specialDocumentTitleInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(specialSplitB, "Titulo"));
+    const specialSplitC = $("<div class=\"program-builder-split\"></div>").appendTo(specialForm);
+    this.specialDocumentSubtitleInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(specialSplitC, "Subtitulo"));
+    this.specialDocumentNotesInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(specialSplitC, "Observacoes"));
+    const specialOutputsField = this.appendField(specialForm, "Saidas");
+    const specialOutputFlags = $("<div class=\"program-builder-flags\"></div>").appendTo(specialOutputsField);
+    this.specialDocumentOutputHtmlInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(specialOutputFlags));
+    $("<span></span>").text("HTML").appendTo(this.specialDocumentOutputHtmlInput.parent());
+    this.specialDocumentOutputPdfInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(specialOutputFlags));
+    $("<span></span>").text("PDF").appendTo(this.specialDocumentOutputPdfInput.parent());
+    this.specialDocumentOutputHtmlInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    this.specialDocumentOutputPdfInput.kendoCheckBox({ change: this.schedulePreview.bind(this) });
+    this.specialDocumentProgramHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(specialForm);
+    this.specialDocumentProgramHint.text("Use esta trilha para DANFE, boleto, etiquetas e documentos rigidos. O builder nao libera layout livre.");
 
     this.programWriteFlagsField = this.appendField(form, "Permissoes de escrita", this.programFieldTechnicalProperties("writeFlags"));
     const flags = $("<div class=\"program-builder-flags\"></div>").appendTo(this.programWriteFlagsField);
@@ -3508,6 +3561,7 @@
       sourceType: "operational",
       documentKind: "management",
       groupField: "",
+      groups: [],
       totalField: "",
       sortField: "",
       sortDir: "asc",
@@ -3519,9 +3573,27 @@
       outputs: {
         html: true,
         print: true,
+        pdf: true,
         pdfBrowser: true,
         excel: true,
         csv: true
+      }
+    };
+  };
+
+  ProgramBuilder.prototype.defaultSpecialDocumentConfig = function() {
+    return {
+      sourceType: "operational",
+      documentKind: "fiscal_document",
+      renderEngine: "native_stub",
+      analyticsScreenId: "",
+      analyticsDatasetId: "",
+      title: "",
+      subtitle: "",
+      notes: "",
+      outputs: {
+        html: true,
+        pdf: true
       }
     };
   };
@@ -3710,7 +3782,9 @@
         select.val("");
       }
     };
-    applyOptions(this.reportGroupFieldSelect, fieldItems, true);
+    (this.reportGroupRows || []).forEach(function(row) {
+      applyOptions(row.fieldSelect, fieldItems, true);
+    });
     applyOptions(this.reportSortFieldSelect, fieldItems, true);
     applyOptions(this.reportTotalFieldSelect, numericItems, true);
   };
@@ -3732,9 +3806,12 @@
     if (this.builderEntitySelect) {
       this.builderEntitySelect.enable(!isReport || !isAnalytic);
     }
-    if (this.reportGroupFieldSelect) {
-      this.reportGroupFieldSelect.prop("disabled", isAnalytic);
-    }
+    (this.reportGroupRows || []).forEach(function(row) {
+      row.fieldSelect.prop("disabled", isAnalytic);
+      row.labelInput.prop("disabled", isAnalytic);
+      row.showSubtotalInput.prop("disabled", isAnalytic);
+      row.pageBreakBeforeInput.prop("disabled", isAnalytic);
+    });
     if (this.reportTotalFieldSelect) {
       this.reportTotalFieldSelect.prop("disabled", isAnalytic);
     }
@@ -3751,6 +3828,28 @@
       this.reportProgramHint.text(isAnalytic
         ? "Fonte analytics usa dataset interno ja publicado. Nesta opcao a entidade base nao e obrigatoria."
         : "Documentos especiais continuam fora de `reports` e devem usar trilha separada.");
+    }
+  };
+
+  ProgramBuilder.prototype.syncSpecialDocumentProgramPanelState = function() {
+    if (!this.specialDocumentProgramPanel) {
+      return;
+    }
+    const isSpecialDocument = String(this.pageTypeSelect && this.pageTypeSelect.value ? this.pageTypeSelect.value() || "crud" : "crud") === "special_document";
+    const sourceType = String(this.specialDocumentSourceTypeSelect && this.specialDocumentSourceTypeSelect.val ? this.specialDocumentSourceTypeSelect.val() || "operational" : "operational");
+    const isAnalytic = sourceType === "analytic";
+    this.specialDocumentProgramPanel.toggle(isSpecialDocument);
+    if (this.builderEntityField) {
+      this.builderEntityField.toggle(!isSpecialDocument || !isAnalytic);
+    }
+    if (this.builderEntitySelect) {
+      this.builderEntitySelect.enable(!isSpecialDocument || !isAnalytic);
+    }
+    if (this.specialDocumentAnalyticsScreenIdInput) {
+      this.specialDocumentAnalyticsScreenIdInput.prop("disabled", !isAnalytic);
+    }
+    if (this.specialDocumentAnalyticsDatasetIdInput) {
+      this.specialDocumentAnalyticsDatasetIdInput.prop("disabled", !isAnalytic);
     }
   };
 
@@ -3881,10 +3980,21 @@
   };
 
   ProgramBuilder.prototype.collectReportConfig = function() {
+    const groups = (this.reportGroupRows || []).map(function(row) {
+      return {
+        field: String(row.fieldSelect.val() || ""),
+        label: String(row.labelInput.val() || ""),
+        showSubtotal: row.showSubtotalInput.is(":checked"),
+        pageBreakBefore: row.pageBreakBeforeInput.is(":checked")
+      };
+    }).filter(function(item) {
+      return !!item.field;
+    });
     return {
       sourceType: String(this.reportSourceTypeSelect.val() || "operational"),
       documentKind: String(this.reportDocumentKindSelect.val() || "management"),
-      groupField: String(this.reportGroupFieldSelect.val() || ""),
+      groupField: groups[0] && groups[0].field || "",
+      groups: groups,
       totalField: String(this.reportTotalFieldSelect.val() || ""),
       sortField: String(this.reportSortFieldSelect.val() || ""),
       sortDir: String(this.reportSortDirSelect.val() || "asc"),
@@ -3894,9 +4004,27 @@
       outputs: {
         html: this.reportOutputHtmlInput.is(":checked"),
         print: this.reportOutputPrintInput.is(":checked"),
+        pdf: this.reportOutputPdfInput.is(":checked"),
         pdfBrowser: this.reportOutputPdfInput.is(":checked"),
         excel: this.reportOutputExcelInput.is(":checked"),
         csv: this.reportOutputCsvInput.is(":checked")
+      }
+    };
+  };
+
+  ProgramBuilder.prototype.collectSpecialDocumentConfig = function() {
+    return {
+      sourceType: String(this.specialDocumentSourceTypeSelect.val() || "operational"),
+      documentKind: String(this.specialDocumentKindSelect.val() || "fiscal_document"),
+      renderEngine: "native_stub",
+      analyticsScreenId: String(this.specialDocumentAnalyticsScreenIdInput.val() || ""),
+      analyticsDatasetId: String(this.specialDocumentAnalyticsDatasetIdInput.val() || ""),
+      title: String(this.specialDocumentTitleInput.val() || ""),
+      subtitle: String(this.specialDocumentSubtitleInput.val() || ""),
+      notes: String(this.specialDocumentNotesInput.val() || ""),
+      outputs: {
+        html: this.specialDocumentOutputHtmlInput.is(":checked"),
+        pdf: this.specialDocumentOutputPdfInput.is(":checked")
       }
     };
   };
@@ -3939,7 +4067,13 @@
     this.reportDocumentKindSelect.val(value.documentKind || "management");
     this.reportLimitInput.val(value.limit || 200);
     this.refreshReportConfigOptions();
-    this.reportGroupFieldSelect.val(value.groupField || "");
+    (this.reportGroupRows || []).forEach(function(row, index) {
+      const item = Array.isArray(value.groups) ? value.groups[index] : null;
+      row.fieldSelect.val(item && item.field || (index === 0 ? value.groupField || "" : ""));
+      row.labelInput.val(item && item.label || "");
+      row.showSubtotalInput.prop("checked", !item || item.showSubtotal !== false);
+      row.pageBreakBeforeInput.prop("checked", !!(item && item.pageBreakBefore));
+    });
     this.reportTotalFieldSelect.val(value.totalField || "");
     this.reportSortFieldSelect.val(value.sortField || "");
     this.reportSortDirSelect.val(value.sortDir || "asc");
@@ -3947,10 +4081,28 @@
     this.reportAnalyticsDatasetIdInput.val(value.analyticsDatasetId || "");
     this.reportOutputHtmlInput.prop("checked", outputs.html !== false);
     this.reportOutputPrintInput.prop("checked", outputs.print !== false);
-    this.reportOutputPdfInput.prop("checked", outputs.pdfBrowser !== false);
+    this.reportOutputPdfInput.prop("checked", outputs.pdf !== false && outputs.pdfBrowser !== false);
     this.reportOutputExcelInput.prop("checked", outputs.excel !== false);
     this.reportOutputCsvInput.prop("checked", outputs.csv !== false);
     this.syncReportProgramPanelState();
+  };
+
+  ProgramBuilder.prototype.populateSpecialDocumentProgramConfig = function(config) {
+    const value = Object.assign({}, this.defaultSpecialDocumentConfig(), config || {});
+    const outputs = Object.assign({}, this.defaultSpecialDocumentConfig().outputs, value.outputs || {});
+    if (!this.specialDocumentProgramPanel) {
+      return;
+    }
+    this.specialDocumentSourceTypeSelect.val(value.sourceType || "operational");
+    this.specialDocumentKindSelect.val(value.documentKind || "fiscal_document");
+    this.specialDocumentAnalyticsScreenIdInput.val(value.analyticsScreenId || "");
+    this.specialDocumentAnalyticsDatasetIdInput.val(value.analyticsDatasetId || "");
+    this.specialDocumentTitleInput.val(value.title || "");
+    this.specialDocumentSubtitleInput.val(value.subtitle || "");
+    this.specialDocumentNotesInput.val(value.notes || "");
+    this.specialDocumentOutputHtmlInput.prop("checked", outputs.html !== false);
+    this.specialDocumentOutputPdfInput.prop("checked", outputs.pdf !== false);
+    this.syncSpecialDocumentProgramPanelState();
   };
 
   ProgramBuilder.prototype.attachLivePreview = function() {
@@ -3986,7 +4138,7 @@
         widget.bind("change", self.schedulePreview.bind(self));
       }
     });
-    [this.reportSourceTypeSelect, this.reportDocumentKindSelect, this.reportGroupFieldSelect, this.reportTotalFieldSelect, this.reportSortFieldSelect, this.reportSortDirSelect].forEach(function(input) {
+    [this.reportSourceTypeSelect, this.reportDocumentKindSelect, this.reportTotalFieldSelect, this.reportSortFieldSelect, this.reportSortDirSelect, this.specialDocumentSourceTypeSelect, this.specialDocumentKindSelect].forEach(function(input) {
       if (!input || typeof input.on !== "function") {
         return;
       }
@@ -3995,12 +4147,17 @@
         self.schedulePreview();
       });
     });
-    [this.reportLimitInput, this.reportAnalyticsScreenIdInput, this.reportAnalyticsDatasetIdInput].forEach(function(input) {
+    [this.reportLimitInput, this.reportAnalyticsScreenIdInput, this.reportAnalyticsDatasetIdInput, this.specialDocumentAnalyticsScreenIdInput, this.specialDocumentAnalyticsDatasetIdInput, this.specialDocumentTitleInput, this.specialDocumentSubtitleInput, this.specialDocumentNotesInput].forEach(function(input) {
       if (!input || typeof input.on !== "function") {
         return;
       }
       input.on("input", self.schedulePreview.bind(self));
       input.on("change", self.schedulePreview.bind(self));
+    });
+    (this.reportGroupRows || []).forEach(function(row) {
+      row.fieldSelect.on("change", self.schedulePreview.bind(self));
+      row.labelInput.on("input", self.schedulePreview.bind(self));
+      row.labelInput.on("change", self.schedulePreview.bind(self));
     });
     [this.customEntryUrlInput, this.customFrameTitleInput].forEach(function(widget) {
       const input = widget && (widget.input || widget.element);
@@ -4053,8 +4210,10 @@
     const isCrud = pageType === "crud";
     const isAnalytics = pageType === "analytics";
     const isReport = pageType === "report";
+    const isSpecialDocument = pageType === "special_document";
     const reportSourceType = String(this.reportSourceTypeSelect && this.reportSourceTypeSelect.val ? this.reportSourceTypeSelect.val() || "operational" : "operational");
-    const usesEntity = isCrud || isAnalytics || (isReport && reportSourceType !== "analytic");
+    const specialSourceType = String(this.specialDocumentSourceTypeSelect && this.specialDocumentSourceTypeSelect.val ? this.specialDocumentSourceTypeSelect.val() || "operational" : "operational");
+    const usesEntity = isCrud || isAnalytics || (isReport && reportSourceType !== "analytic") || (isSpecialDocument && specialSourceType !== "analytic");
     const entity = usesEntity ? this.findEntitySummary(String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "")) : null;
     const apiEntity = !!(entity && entity.entityType === "api");
     const sameLoadedApi = isCrud && apiEntity && this.state.currentEntityCode === String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "");
@@ -4077,6 +4236,9 @@
     if (this.reportProgramPanel) {
       this.reportProgramPanel.toggle(isReport);
     }
+    if (this.specialDocumentProgramPanel) {
+      this.specialDocumentProgramPanel.toggle(isSpecialDocument);
+    }
     if (this.builderEntitySelect) {
       this.builderEntitySelect.enable(usesEntity);
     }
@@ -4094,8 +4256,14 @@
     if (isReport && reportSourceType === "analytic" && !String(this.reportAnalyticsScreenIdInput && this.reportAnalyticsScreenIdInput.val ? this.reportAnalyticsScreenIdInput.val() || "" : "").trim()) {
       this.previewFooter.text("Informe o screenId e o dataset da fonte analytics para publicar um relatorio analitico.");
     }
+    if (isSpecialDocument && specialSourceType === "analytic" && !String(this.specialDocumentAnalyticsScreenIdInput && this.specialDocumentAnalyticsScreenIdInput.val ? this.specialDocumentAnalyticsScreenIdInput.val() || "" : "").trim()) {
+      this.previewFooter.text("Informe o screenId e o dataset da fonte analytics para publicar um documento especial analitico.");
+    }
     if (isReport) {
       this.syncReportProgramPanelState();
+    }
+    if (isSpecialDocument) {
+      this.syncSpecialDocumentProgramPanelState();
     }
     if (readOnlyApi) {
       this.allowCreateInput.prop("checked", false).prop("disabled", true);
@@ -6463,6 +6631,7 @@
     const query = report.query || {};
     const source = report.source || {};
     const blocks = Array.isArray(report.layout && report.layout.blocks) ? report.layout.blocks : [];
+    const groups = Array.isArray(report.layout && report.layout.groups) ? report.layout.groups : [];
     const fields = Array.isArray(query.fields) ? query.fields : [];
     const parameters = Array.isArray(query.parameters) ? query.parameters : [];
     const badges = $("<div class=\"program-builder-analytics-badges\"></div>").appendTo(host);
@@ -6470,6 +6639,7 @@
       "Fonte: " + String(source.type || "operational"),
       "Blocos: " + blocks.length,
       "Campos: " + fields.length,
+      "Grupos: " + (groups.length || (report.layout && report.layout.groupField ? 1 : 0)),
       "Tela: " + String(definition.screenId || "")
     ].forEach(function(text) {
       $("<span class=\"k-badge k-badge-solid k-badge-solid-base k-rounded-md\"></span>").text(text).appendTo(badges);
@@ -6497,7 +6667,7 @@
     $("<h4></h4>").text("Estrutura").appendTo(structureCard);
     $("<p></p>").text("Tipo documental: " + String(report.classification && report.classification.documentKind || "management")).appendTo(structureCard);
     $("<p></p>").text("Parametros: " + parameters.length + " | ordenacao: " + (Array.isArray(query.sort) ? query.sort.length : 0)).appendTo(structureCard);
-    $("<p></p>").text("Agrupamento: " + String(report.layout && report.layout.groupField || "Nao usar")).appendTo(structureCard);
+    $("<p></p>").text("Agrupamentos: " + (groups.length ? groups.map(function(item) { return item.field; }).join(", ") : String(report.layout && report.layout.groupField || "Nao usar"))).appendTo(structureCard);
     $("<p></p>").text("Saidas: " + this.reportEnabledOutputs(report.outputs || {}).join(", ")).appendTo(structureCard);
 
     const sourceCard = $("<article class=\"program-builder-analytics-dataset-card\"></article>").appendTo(summaryGrid);
@@ -8432,6 +8602,7 @@
     this.changeSummaryTextArea.value(version.changeSummary || "");
     this.populateAnalyticsProgramConfig(version.builderConfig && version.builderConfig.analyticsConfig);
     this.populateReportProgramConfig(version.builderConfig && version.builderConfig.reportConfig);
+    this.populateSpecialDocumentProgramConfig(version.builderConfig && version.builderConfig.specialDocumentConfig);
     this.ensureEntityDetail(version.builderEntityCode || "");
     this.syncProgramTypeState();
     this.renderDefinition(version.generatedDefinition || {});
@@ -8478,6 +8649,7 @@
     this.changeSummaryTextArea.value("");
     this.populateAnalyticsProgramConfig(null);
     this.populateReportProgramConfig(null);
+    this.populateSpecialDocumentProgramConfig(null);
     this.state.analyticsValidator = {
       signature: "",
       datasetId: "",
@@ -8566,7 +8738,10 @@
     const current = this.state.currentVersion || {};
     const editableCurrent = current.status === "draft";
     const pageType = String(this.pageTypeSelect.value() || "crud");
-    const usesEntity = pageType === "crud" || pageType === "analytics" || pageType === "report";
+    const usesEntity = pageType === "crud"
+      || pageType === "analytics"
+      || (pageType === "report" && String(this.reportSourceTypeSelect && this.reportSourceTypeSelect.val ? this.reportSourceTypeSelect.val() || "operational" : "operational") !== "analytic")
+      || (pageType === "special_document" && String(this.specialDocumentSourceTypeSelect && this.specialDocumentSourceTypeSelect.val ? this.specialDocumentSourceTypeSelect.val() || "operational" : "operational") !== "analytic");
     return {
       id: editableCurrent ? (current.id || null) : null,
       programCode: this.programCodeInput.value(),
@@ -8595,6 +8770,7 @@
       allowDelete: pageType === "crud" && this.allowDeleteInput.is(":checked"),
       analyticsConfig: pageType === "analytics" ? this.collectAnalyticsConfig() : null,
       reportConfig: pageType === "report" ? this.collectReportConfig() : null,
+      specialDocumentConfig: pageType === "special_document" ? this.collectSpecialDocumentConfig() : null,
       customMode: pageType === "custom" ? String(this.customModeSelect.value() || "iframe") : "",
       customEntryUrl: pageType === "custom" ? this.customEntryUrlInput.value() : "",
       customFrameTitle: pageType === "custom" ? this.customFrameTitleInput.value() : "",
@@ -8609,7 +8785,7 @@
     this.state.versions = [];
     this.versionsGrid.dataSource.data([]);
     this.resetProgramForm();
-    if (String(this.pageTypeSelect.value() || "crud") === "crud" || String(this.pageTypeSelect.value() || "crud") === "analytics" || String(this.pageTypeSelect.value() || "crud") === "report") {
+    if (["crud", "analytics", "report", "special_document"].indexOf(String(this.pageTypeSelect.value() || "crud")) >= 0) {
       this.builderEntitySelect.value(this.state.currentEntityCode || "");
       this.handleProgramEntityChange(true);
     }
@@ -8633,7 +8809,10 @@
 
   ProgramBuilder.prototype.requestPreview = function(notifyOnSuccess) {
     const payload = this.collectProgramPayload();
-    const usesEntity = payload.pageType === "crud" || payload.pageType === "analytics" || payload.pageType === "report";
+    const usesEntity = payload.pageType === "crud"
+      || payload.pageType === "analytics"
+      || (payload.pageType === "report" && String(payload.reportConfig && payload.reportConfig.sourceType || "operational") !== "analytic")
+      || (payload.pageType === "special_document" && String(payload.specialDocumentConfig && payload.specialDocumentConfig.sourceType || "operational") !== "analytic");
     const hasRequiredCrud = usesEntity
       ? (!!payload.programCode && !!payload.programTitle && !!payload.builderEntityCode && !!payload.screenId && !!payload.version)
       : (!!payload.programCode && !!payload.programTitle && !!payload.screenId && !!payload.version && !!payload.customEntryUrl);
@@ -8754,17 +8933,44 @@
           title: payload.programTitle,
           subtitle: payload.subtitle,
           groupField: reportConfig.groupField || null,
+          groups: reportConfig.groups || [],
           footerText: "",
           blocks: [
             { id: "header", type: "header" },
             { id: "summary", type: "summary" },
             { id: "table", type: "table" },
-            reportConfig.groupField ? { id: "group", type: "group" } : null,
+            (reportConfig.groupField || (reportConfig.groups || []).length) ? { id: "group", type: "group" } : null,
             { id: "totals", type: "totals" },
             { id: "footer", type: "footer" }
           ].filter(Boolean)
         },
         outputs: reportConfig.outputs
+      };
+    } else if (payload.pageType === "special_document") {
+      const specialDocumentConfig = Object.assign({}, this.defaultSpecialDocumentConfig(), payload.specialDocumentConfig || {});
+      if (specialDocumentConfig.sourceType !== "analytic") {
+        preview.runtime.entityCode = payload.builderEntityCode;
+      }
+      preview.specialDocument = {
+        classification: {
+          documentProfile: "special",
+          documentKind: specialDocumentConfig.documentKind || "fiscal_document"
+        },
+        renderEngine: "native_stub",
+        source: specialDocumentConfig.sourceType === "analytic" ? {
+          type: "analytic",
+          analyticsScreenId: specialDocumentConfig.analyticsScreenId || "",
+          analyticsDatasetId: specialDocumentConfig.analyticsDatasetId || ""
+        } : {
+          type: "operational",
+          entityCode: payload.builderEntityCode
+        },
+        layout: {
+          title: specialDocumentConfig.title || payload.programTitle,
+          subtitle: specialDocumentConfig.subtitle || payload.subtitle,
+          notes: specialDocumentConfig.notes || ""
+        },
+        outputs: specialDocumentConfig.outputs
       };
     } else {
       preview.custom = {
@@ -8781,7 +8987,7 @@
     this.updatePreviewMeta({
       status: this.state.currentVersion && this.state.currentVersion.status || "draft",
       version: payload.version,
-      builderEntityCode: payload.pageType === "crud" || payload.pageType === "analytics" || payload.pageType === "report" ? payload.builderEntityCode : "",
+      builderEntityCode: payload.pageType === "crud" || payload.pageType === "analytics" || payload.pageType === "report" || payload.pageType === "special_document" ? payload.builderEntityCode : "",
       screenId: payload.screenId
     });
     this.previewFooter.text("Resumo local. O JSON completo aparece quando os campos obrigatorios permitem gerar preview no backend.");
