@@ -296,7 +296,7 @@ class RuntimeRegulatedDocumentService
             'checkedAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
         ];
 
-        $record['state'] = $verified ? 'verified' : (string) ($record['state'] ?? 'failed');
+        $record['state'] = $verified ? 'verified' : 'failed';
         $record['verification'] = $verification;
         $record['updatedAt'] = new \DateTimeImmutable();
         $record['verifiedAt'] = $verified ? new \DateTimeImmutable() : ($record['verifiedAt'] ?? null);

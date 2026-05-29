@@ -222,6 +222,10 @@
       category: "Relatorios",
       title: "Relatorio operacional",
       summary: "Relatorio nativo com filtros, detalhamento tabular, totais e exportacao CSV/Excel.",
+      maturity: "operacional",
+      documentFamily: "reports",
+      auditCapable: true,
+      productionUrl: "production/app.html?screenId=relatorios.clientes-operacional",
       code: {
         pageType: "report",
         screenId: "relatorios.clientes-operacional",
@@ -237,6 +241,10 @@
       category: "Relatorios",
       title: "Relatorio analitico",
       summary: "Relatorio gerencial em cima de dataset analytics, com agrupamento por UF e totais por medida.",
+      maturity: "operacional",
+      documentFamily: "reports",
+      auditCapable: true,
+      productionUrl: "production/app.html?screenId=relatorios.clientes-analitico",
       code: {
         pageType: "report",
         screenId: "relatorios.clientes-analitico",
@@ -251,6 +259,10 @@
       category: "Relatorios",
       title: "Conferencia de autenticidade",
       summary: "Pagina publica para conferir o hash gravado opcionalmente nas emissoes de relatorios.",
+      maturity: "operacional",
+      documentFamily: "reports",
+      auditCapable: false,
+      productionUrl: "production/report-authenticity.html",
       page: pagePath + "report-authenticity.html"
     },
     {
@@ -259,6 +271,10 @@
       category: "Documentos especiais",
       title: "Documento especial base",
       summary: "Contrato separado de reports para documentos rigidos, com renderer interno fechado e ponto futuro para engine dedicada.",
+      maturity: "interno controlado",
+      documentFamily: "special_document",
+      auditCapable: false,
+      productionUrl: "production/app.html?screenId=documentos.especiais-base",
       code: {
         pageType: "special_document",
         screenId: "documentos.especiais-base",
@@ -314,6 +330,9 @@
       category: "Documentos especiais",
       title: "Documento especial boleto",
       summary: "Exemplo visual fechado de boleto na trilha special_document, sem template livre.",
+      maturity: "interno controlado",
+      documentFamily: "special_document",
+      auditCapable: false,
       code: {
         pageType: "special_document",
         screenId: "documentos.especiais-boleto",
@@ -366,6 +385,9 @@
       category: "Documentos especiais",
       title: "Documento especial etiqueta",
       summary: "Exemplo visual fechado de etiquetas na trilha special_document.",
+      maturity: "interno controlado",
+      documentFamily: "special_document",
+      auditCapable: false,
       code: {
         pageType: "special_document",
         screenId: "documentos.especiais-etiqueta",
@@ -411,6 +433,10 @@
       category: "Documentos regulados",
       title: "Documento regulado fiscal base",
       summary: "Base interna para trilha regulada com preparo, emissao, hash, artefato e conferencia posterior.",
+      maturity: "quase homologado",
+      documentFamily: "regulated_document",
+      auditCapable: true,
+      productionUrl: "production/app.html?screenId=documentos.regulados-fiscal-base",
       code: {
         pageType: "regulated_document",
         screenId: "documentos.regulados-fiscal-base",
@@ -465,6 +491,10 @@
       category: "Documentos regulados",
       title: "Documento regulado bancario base",
       summary: "Base interna para trilha bancaria regulada, sem homologacao bancaria final nesta etapa.",
+      maturity: "quase homologado",
+      documentFamily: "regulated_document",
+      auditCapable: true,
+      productionUrl: "production/app.html?screenId=documentos.regulados-bancario-base",
       code: {
         pageType: "regulated_document",
         screenId: "documentos.regulados-bancario-base",
@@ -518,6 +548,10 @@
       category: "Documentos regulados",
       title: "Documento regulado logistico base",
       summary: "Base interna para trilha logistica regulada, com artefato e conferencia desacoplados de reports.",
+      maturity: "quase homologado",
+      documentFamily: "regulated_document",
+      auditCapable: true,
+      productionUrl: "production/app.html?screenId=documentos.regulados-logistico-base",
       code: {
         pageType: "regulated_document",
         screenId: "documentos.regulados-logistico-base",
@@ -571,6 +605,10 @@
       category: "Documentos regulados",
       title: "Conferencia de documento regulado",
       summary: "Pagina publica para conferir hash e disponibilidade do artefato emitido na trilha regulada.",
+      maturity: "quase homologado",
+      documentFamily: "regulated_document",
+      auditCapable: false,
+      productionUrl: "production/regulated-document-authenticity.html",
       page: pagePath + "regulated-document-authenticity.html"
     },
     {
@@ -578,7 +616,22 @@
       category: "Documentos regulados",
       title: "Administracao de documentos regulados",
       summary: "Tela administrativa para listar emissoes, ver status, hash, eventos e baixar artefatos.",
+      maturity: "quase homologado",
+      documentFamily: "regulated_document",
+      auditCapable: true,
+      productionUrl: "production/app.html?screenId=admin.documentos-regulados",
       page: pagePath + "admin-regulated-document.html"
+    },
+    {
+      id: "admin-document-operations",
+      category: "Documentos regulados",
+      title: "Operacao documental",
+      summary: "Visao unica das trilhas documentais com filtros por familia, maturidade e auditoria.",
+      maturity: "operacional",
+      documentFamily: "document_operations",
+      auditCapable: false,
+      productionUrl: "production/admin/document-operations.html",
+      page: pagePath + "admin-document-operations.html"
     },
     {
       id: "manual-documentos",
@@ -2376,7 +2429,11 @@
         page: example.page || pagePath + example.id + ".html",
         engine: example.engine,
         loadByScreenId: example.loadByScreenId,
-        screenId: example.screenId
+        screenId: example.screenId,
+        maturity: example.maturity || "",
+        documentFamily: example.documentFamily || "",
+        auditCapable: example.auditCapable === true,
+        productionUrl: example.productionUrl || ""
       };
     });
   }

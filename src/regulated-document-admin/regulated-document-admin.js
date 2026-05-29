@@ -55,6 +55,7 @@
     this.createButton(toolbar, "Aplicar filtros", "filter", this.handleApplyFilters.bind(this));
     this.createButton(toolbar, "Limpar filtros", "reset", this.handleResetFilters.bind(this));
     this.createButton(toolbar, "Exportar JSON", "download", this.handleExportJson.bind(this));
+    this.createButton(toolbar, "Exportar CSV", "file-csv", this.handleExportCsv.bind(this));
     this.createButton(toolbar, "Atualizar", "reload", this.loadEntries.bind(this));
     this.createButton(toolbar, "Conferir issue", "search", this.handleVerifyIssue.bind(this));
     this.createButton(toolbar, "Baixar artefato", "download", this.handleDownloadArtifact.bind(this));
@@ -160,6 +161,10 @@
     this.appendBadge(badges, "Verificados: " + String(observability.verified || 0));
     this.appendBadge(badges, "Falhos: " + String(observability.failed || 0));
     this.appendBadge(badges, "Trilha concreta: " + String(roadmap.primaryTrack || "fiscal"));
+    const kpis = global.jQuery("<div class=\"manual-meta\"></div>").appendTo(this.observabilityBody);
+    this.appendBadge(kpis, "Emitidos: " + String(observability.byState && observability.byState.issued || 0));
+    this.appendBadge(kpis, "Renderizados: " + String(observability.byState && observability.byState.rendered || 0));
+    this.appendBadge(kpis, "Preparados: " + String(observability.byState && observability.byState.prepared || 0));
     const text = global.jQuery("<p class=\"manual-summary\"></p>").appendTo(this.observabilityBody);
     text.text("A primeira trilha concreta priorizada nesta frente e fiscal. Banking e logistics continuam apoiados pela base geral do modulo regulado.");
     if (observability.newestUpdatedAt || observability.oldestUpdatedAt) {
@@ -170,6 +175,11 @@
       if (observability.oldestUpdatedAt) {
         this.appendBadge(detail, "Mais antigo: " + String(observability.oldestUpdatedAt));
       }
+    }
+    if (Array.isArray(observability.recentIssues) && observability.recentIssues.length) {
+      const recentTitle = global.jQuery("<h3></h3>").text("Ultimas emissoes").css({ marginTop: "12px", marginBottom: "8px" }).appendTo(this.observabilityBody);
+      const list = global.jQuery("<div class=\"program-builder-json-preview\"></div>").appendTo(this.observabilityBody);
+      list.text(JSON.stringify(observability.recentIssues, null, 2));
     }
   };
 
@@ -323,6 +333,18 @@
 
   RegulatedDocumentAdmin.prototype.handleExportJson = function() {
     this.downloadFile("regulated-document-audit.json", "application/json", JSON.stringify(this.entries, null, 2));
+  };
+
+  RegulatedDocumentAdmin.prototype.handleExportCsv = function() {
+    const header = ["issueId", "track", "documentType", "state", "screenId", "tenantId", "userId", "updatedAt", "hash"];
+    const lines = [header.join(";")];
+    this.entries.forEach(function(entry) {
+      lines.push(header.map(function(field) {
+        const value = entry && entry[field] != null ? String(entry[field]) : "";
+        return '"' + value.replace(/"/g, '""') + '"';
+      }).join(";"));
+    });
+    this.downloadFile("regulated-document-audit.csv", "text/csv;charset=utf-8", lines.join("\n"));
   };
 
   RegulatedDocumentAdmin.prototype.handleDownloadArtifact = function() {

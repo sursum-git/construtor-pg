@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Operacao documental</title>
+  <link rel="stylesheet" href="../../kendo/styles/default-urban.css">
+  <link rel="stylesheet" href="../../src/styles/crud-engine.css">
+  <link rel="stylesheet" href="../../src/styles/program-builder.css">
+  <link rel="stylesheet" href="../../src/styles/examples-guide.css">
+</head>
+<body>
+  <main id="document-operations-root" class="program-builder-root"></main>
+  <script src="../../vendor/jquery/jquery-4.0.0.min.js"></script>
+  <script src="../../kendo/js/kendo.all.min.js"></script>
+  <script src="../../kendo/kendo-license.js"></script>
+  <script src="../../kendo/js/cultures/kendo.culture.pt-BR.min.js"></script>
+  <script src="../../kendo/js/messages/kendo.messages.pt-BR.min.js"></script>
+  <script src="../../src/bootstrap/kendo-ptbr.js"></script>
+  <script src="../../src/examples/examples-catalog.js"></script>
+  <script src="../../src/document-operations/document-operations.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const page = new window.DocumentOperationsPage({
+        root: "#document-operations-root"
+      });
+      page.init();
+    });
+  </script>
+</body>
+</html>

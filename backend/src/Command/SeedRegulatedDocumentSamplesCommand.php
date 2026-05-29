@@ -29,31 +29,53 @@ class SeedRegulatedDocumentSamplesCommand extends Command
         }
 
         $samples = [
-            ['screenId' => 'documentos.regulados-fiscal-base', 'parameters' => ['status' => 'ATIVO', 'uf' => 'CE'], 'format' => 'pdf'],
-            ['screenId' => 'documentos.regulados-bancario-base', 'parameters' => ['status' => 'ATIVO', 'uf' => 'SP'], 'format' => 'html'],
-            ['screenId' => 'documentos.regulados-logistico-base', 'parameters' => ['status' => 'ATIVO'], 'format' => 'pdf'],
+            ['screenId' => 'documentos.regulados-fiscal-base', 'parameters' => ['status' => 'ATIVO', 'uf' => 'CE'], 'format' => 'pdf', 'targetState' => 'verified'],
+            ['screenId' => 'documentos.regulados-bancario-base', 'parameters' => ['status' => 'ATIVO', 'uf' => 'SP'], 'format' => 'html', 'targetState' => 'issued'],
+            ['screenId' => 'documentos.regulados-logistico-base', 'parameters' => [], 'format' => 'pdf', 'targetState' => 'failed'],
         ];
 
         $rows = [];
         foreach ($samples as $sample) {
+            if ($sample['targetState'] === 'failed') {
+                $issued = $this->documents->issue($sample['screenId'], [
+                    'parameters' => $sample['parameters'],
+                    'format' => $sample['format'],
+                ]);
+                $failed = $this->documents->verify($sample['screenId'], [
+                    'issueId' => $issued['issueId'],
+                    'hash' => 'sha256:' . str_repeat('0', 64),
+                ]);
+                $rows[] = [
+                    $sample['screenId'],
+                    (string) $issued['issueId'],
+                    (string) $issued['format'],
+                    (string) $failed['state'],
+                ];
+                continue;
+            }
+
             $issued = $this->documents->issue($sample['screenId'], [
                 'parameters' => $sample['parameters'],
                 'format' => $sample['format'],
             ]);
-            $verified = $this->documents->verify($sample['screenId'], [
-                'issueId' => $issued['issueId'],
-                'hash' => $issued['hash'],
-            ]);
+            $state = 'issued';
+            if ($sample['targetState'] === 'verified') {
+                $verified = $this->documents->verify($sample['screenId'], [
+                    'issueId' => $issued['issueId'],
+                    'hash' => $issued['hash'],
+                ]);
+                $state = $verified['ok'] ? 'verified' : 'failed';
+            }
             $rows[] = [
                 $sample['screenId'],
                 (string) $issued['issueId'],
                 (string) $issued['format'],
-                $verified['ok'] ? 'verificado' : 'falha',
+                $state,
             ];
         }
 
-        $io->table(['ScreenId', 'IssueId', 'Formato', 'Conferencia'], $rows);
-        $io->success('Emissoes reais de exemplo criadas no modulo regulado.');
+        $io->table(['ScreenId', 'IssueId', 'Formato', 'Estado'], $rows);
+        $io->success('Emissoes reais de exemplo criadas no modulo regulado com estados variados.');
 
         return Command::SUCCESS;
     }

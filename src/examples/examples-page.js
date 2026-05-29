@@ -36,6 +36,38 @@
     setText("example-category", example.category);
     setText("example-title", example.title);
     setText("example-summary", example.summary);
+    renderPageMeta(example);
+  }
+
+  function renderPageMeta(example) {
+    const header = document.querySelector(".example-page-header > div");
+    if (!header) {
+      return;
+    }
+    const existing = document.getElementById("example-page-meta");
+    if (existing) {
+      existing.remove();
+    }
+    const values = [];
+    if (example.maturity) {
+      values.push(example.maturity);
+    }
+    if (example.documentFamily) {
+      values.push(example.documentFamily);
+    }
+    if (!values.length) {
+      return;
+    }
+    const container = document.createElement("div");
+    container.id = "example-page-meta";
+    container.className = "example-page-meta";
+    values.forEach(function(value) {
+      const badge = document.createElement("span");
+      badge.className = "example-page-badge";
+      badge.textContent = value;
+      container.appendChild(badge);
+    });
+    header.appendChild(container);
   }
 
   function renderCode(code) {

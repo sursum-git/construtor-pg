@@ -110,6 +110,7 @@ Permissoes dedicadas da frente:
 
 - `production/app.html?screenId=admin.documentos-regulados`
 - `production/admin/regulated-document-admin.html`
+- `production/admin/document-operations.html`
 
 ### Conferencia publica
 
@@ -158,3 +159,9 @@ php backend/bin/console app:regulated-document:cleanup --apply
 - sem HTML livre;
 - sem JavaScript vindo do metadado;
 - sem renderer externo nesta fase.
+
+## Referencias rapidas
+
+- Runbook curto: `docs/runbook-modulo-regulado.md`
+- Indice documental local: `examples/pages/manual-documentos.html`
+- Painel local de operacao documental: `examples/pages/admin-document-operations.html`

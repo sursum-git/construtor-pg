@@ -2120,8 +2120,49 @@
           },
           references: {
             permissions: ["regulated_document.admin.read", "regulated_document.admin.artifact"],
-            relatedPrograms: ["Documento regulado base", "Auditoria de relatorios", "Auditoria analytics"],
-            notes: ["Exemplo local: ../../examples/pages/admin-regulated-document.html", "Produção: ../../production/app.html?screenId=admin.documentos-regulados", "Entrada custom local/producao: ../../production/admin/regulated-document-admin.html", "Manual operacional: ../../docs/manual-modulo-regulado.md", "Comandos operacionais: `php backend/bin/console app:regulated-document:setup`, `php backend/bin/console app:regulated-document:seed-samples`, `php backend/bin/console app:regulated-document:bootstrap-demo`, `php backend/bin/console app:regulated-document:cleanup --apply`"]
+            relatedPrograms: ["Documento regulado base", "Auditoria de relatorios", "Auditoria analytics", "Operacao documental"],
+            notes: ["Exemplo local: ../../examples/pages/admin-regulated-document.html", "Produção: ../../production/app.html?screenId=admin.documentos-regulados", "Entrada custom local/producao: ../../production/admin/regulated-document-admin.html", "Manual operacional: ../../docs/manual-modulo-regulado.md", "Runbook curto: ../../docs/runbook-modulo-regulado.md", "Comandos operacionais: `php backend/bin/console app:regulated-document:setup`, `php backend/bin/console app:regulated-document:seed-samples`, `php backend/bin/console app:regulated-document:bootstrap-demo`, `php backend/bin/console app:regulated-document:cleanup --apply`"]
+          }
+        },
+        "admin-document-operations": {
+          title: "Operacao documental",
+          module: "Administracao",
+          type: "Painel navegavel",
+          route: "../../examples/pages/admin-document-operations.html",
+          screenId: "",
+          summary: "Visao unica das trilhas documentais com filtro por familia, maturidade e auditoria, servindo como ponto de entrada para reports, special_document e regulated_document.",
+          functional: {
+            objective: "Dar um ponto unico de triagem para as superfícies documentais do produto.",
+            scope: [
+              "Filtro por familia documental.",
+              "Filtro por maturidade da trilha.",
+              "Filtro por presenca de auditoria.",
+              "Atalhos para exemplo local e producao."
+            ],
+            outputs: [
+              "Mapa operacional unico para navegar entre relatorios, documentos especiais e documentos regulados."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Catalogo de exemplos atualizado.",
+              "Entradas de producao publicadas quando o operador for abrir a rota real."
+            ],
+            steps: [
+              "Abrir o painel de operacao documental.",
+              "Filtrar por familia, maturidade ou auditoria.",
+              "Abrir a trilha desejada em exemplo ou producao.",
+              "Usar a matriz de decisao quando houver duvida entre as camadas."
+            ],
+            cautions: [
+              "A pagina e navegacional; ela nao substitui a tela administrativa do modulo regulado.",
+              "Documentos homologados continuam fora do escopo das tres trilhas atuais."
+            ]
+          },
+          references: {
+            permissions: ["admin.read"],
+            relatedPrograms: ["Relatorio operacional", "Documento especial base", "Documento regulado base", "Auditoria de documentos regulados"],
+            notes: ["Exemplo local: ../../examples/pages/admin-document-operations.html", "Producao: ../../production/admin/document-operations.html", "Indice documental: ../../examples/pages/manual-documentos.html"]
           }
         },
         "program-builder": {
@@ -2293,6 +2334,7 @@
           { id: "admin-analytics-audit", text: "Auditoria analytics" },
           { id: "admin-report-audit", text: "Auditoria de relatorios" },
           { id: "admin-regulated-document", text: "Auditoria de documentos regulados" },
+          { id: "admin-document-operations", text: "Operacao documental" },
           { id: "admin-logs-transacoes", text: "Logs de transacoes" }
         ]},
         { text: "Construcao", expanded: true, items: [{ id: "program-builder", text: "Program Builder" }] }
