@@ -14,8 +14,10 @@
     <h2 style="margin:0 0 8px;font-size:16px;color:var(--crud-title);">Observacoes operacionais</h2>
     <ul style="margin:0;padding-left:18px;">
       <li>Esta tela consulta o storage separado do modulo regulado configurado por <code>REGULATED_DOCUMENT_DATABASE_URL</code>.</li>
-      <li>Para preparar a estrutura do banco separado, usar <code>php backend/bin/console app:regulated-document:init</code>.</li>
+      <li>Para preparar a estrutura do banco separado, usar <code>php backend/bin/console app:regulated-document:setup</code>.</li>
+      <li>Para aplicar retencao/expurgo, usar <code>php backend/bin/console app:regulated-document:cleanup --apply</code>.</li>
       <li>A trilha continua separada de <code>reports</code> e de <code>special_document</code>.</li>
+      <li>Primeira trilha concreta priorizada nesta frente: <code>fiscal</code>.</li>
     </ul>
   </section>
   <main id="regulated-document-admin-root" class="program-builder-root"></main>

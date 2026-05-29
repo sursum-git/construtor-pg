@@ -29,6 +29,15 @@ class RuntimeRegulatedDocumentAdminService
             'enabled' => $enabled,
             'filterOptions' => $options,
             'summary' => $this->buildSummary($recent['items'] ?? [], (int) ($recent['total'] ?? 0)),
+            'observability' => $enabled ? $this->store->collectObservabilitySummary() : [],
+            'roadmap' => [
+                'primaryTrack' => 'fiscal',
+                'trackStatus' => [
+                    'fiscal' => 'primeira_trilha_concreta',
+                    'banking' => 'base_geral',
+                    'logistics' => 'base_geral',
+                ],
+            ],
         ];
     }
 

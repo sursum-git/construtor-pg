@@ -2189,6 +2189,33 @@
           loaded: items.length,
           byState: byState,
           byTrack: byTrack
+        },
+        observability: {
+          total: items.length,
+          withHash: items.filter(function(item) { return !!String(item.hash || "").trim(); }).length,
+          withArtifact: items.filter(function(item) { return !!(item.artifact && item.artifact.contentBase64); }).length,
+          withCanonicalPayload: items.filter(function(item) { return !!item.canonicalPayload; }).length,
+          verified: items.filter(function(item) { return String(item.state || "") === "verified"; }).length,
+          failed: items.filter(function(item) { return String(item.state || "") === "failed"; }).length,
+          newestUpdatedAt: items[0] && items[0].updatedAt || null,
+          oldestUpdatedAt: items.length ? items[items.length - 1].updatedAt || null : null,
+          recentIssues: items.slice(0, 5).map(function(item) {
+            return {
+              issueId: item.issueId,
+              track: item.track,
+              documentType: item.documentType,
+              state: item.state,
+              updatedAt: item.updatedAt
+            };
+          })
+        },
+        roadmap: {
+          primaryTrack: "fiscal",
+          trackStatus: {
+            fiscal: "primeira_trilha_concreta",
+            banking: "base_geral",
+            logistics: "base_geral"
+          }
         }
       };
     }

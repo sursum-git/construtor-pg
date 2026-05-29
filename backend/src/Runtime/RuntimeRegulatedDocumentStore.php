@@ -330,6 +330,179 @@ class RuntimeRegulatedDocumentStore
         }, $rows);
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function collectObservabilitySummary(int $recentLimit = 20): array
+    {
+        if (!$this->isEnabled()) {
+            return [
+                'total' => 0,
+                'withHash' => 0,
+                'withArtifact' => 0,
+                'withCanonicalPayload' => 0,
+                'verified' => 0,
+                'failed' => 0,
+                'byState' => [],
+                'byTrack' => [],
+                'newestUpdatedAt' => null,
+                'oldestUpdatedAt' => null,
+                'recentIssues' => [],
+            ];
+        }
+
+        $this->initializeSchema();
+        $items = $this->query(['limit' => max(1, min(100, $recentLimit))])['items'];
+        $rows = $this->connection()->createQueryBuilder()
+            ->select('state', 'track', 'hash', 'artifact_json', 'canonical_payload_json', 'updated_at')
+            ->from(self::RECORD_TABLE)
+            ->executeQuery()
+            ->fetchAllAssociative();
+
+        $summary = [
+            'total' => count($rows),
+            'withHash' => 0,
+            'withArtifact' => 0,
+            'withCanonicalPayload' => 0,
+            'verified' => 0,
+            'failed' => 0,
+            'byState' => [],
+            'byTrack' => [],
+            'newestUpdatedAt' => null,
+            'oldestUpdatedAt' => null,
+            'recentIssues' => array_map(static fn (array $item): array => [
+                'issueId' => (string) ($item['issueId'] ?? ''),
+                'track' => (string) ($item['track'] ?? ''),
+                'documentType' => (string) ($item['documentType'] ?? ''),
+                'state' => (string) ($item['state'] ?? ''),
+                'updatedAt' => $item['updatedAt'] ?? null,
+            ], $items),
+        ];
+
+        foreach ($rows as $row) {
+            $state = (string) ($row['state'] ?? '');
+            $track = (string) ($row['track'] ?? '');
+            if ($state !== '') {
+                $summary['byState'][$state] = (int) ($summary['byState'][$state] ?? 0) + 1;
+            }
+            if ($track !== '') {
+                $summary['byTrack'][$track] = (int) ($summary['byTrack'][$track] ?? 0) + 1;
+            }
+            if (trim((string) ($row['hash'] ?? '')) !== '') {
+                ++$summary['withHash'];
+            }
+            $artifact = is_array($row['artifact_json'] ?? null) ? $row['artifact_json'] : $this->decodeJson($row['artifact_json'] ?? null);
+            if (!empty($artifact['contentBase64'])) {
+                ++$summary['withArtifact'];
+            }
+            $canonical = is_array($row['canonical_payload_json'] ?? null) ? $row['canonical_payload_json'] : $this->decodeJson($row['canonical_payload_json'] ?? null);
+            if ($canonical !== []) {
+                ++$summary['withCanonicalPayload'];
+            }
+            if ($state === 'verified') {
+                ++$summary['verified'];
+            }
+            if ($state === 'failed') {
+                ++$summary['failed'];
+            }
+            $updatedAt = $this->formatDateTime($row['updated_at'] ?? null);
+            if ($updatedAt !== null && ($summary['newestUpdatedAt'] === null || $updatedAt > $summary['newestUpdatedAt'])) {
+                $summary['newestUpdatedAt'] = $updatedAt;
+            }
+            if ($updatedAt !== null && ($summary['oldestUpdatedAt'] === null || $updatedAt < $summary['oldestUpdatedAt'])) {
+                $summary['oldestUpdatedAt'] = $updatedAt;
+            }
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function cleanupExpiredData(bool $apply = false, ?\DateTimeImmutable $now = null): array
+    {
+        if (!$this->isEnabled()) {
+            return [
+                'enabled' => false,
+                'recordsScanned' => 0,
+                'payloadsCleared' => 0,
+                'artifactsCleared' => 0,
+                'eventsDeleted' => 0,
+                'affectedIssueIds' => [],
+            ];
+        }
+
+        $this->initializeSchema();
+        $now ??= new \DateTimeImmutable();
+        $items = $this->query(['limit' => 3000])['items'];
+        $connection = $this->connection();
+
+        $payloadsCleared = 0;
+        $artifactsCleared = 0;
+        $eventsDeleted = 0;
+        $affectedIssueIds = [];
+
+        foreach ($items as $item) {
+            $metadata = is_array($item['metadata'] ?? null) ? $item['metadata'] : [];
+            $retention = is_array($metadata['retention'] ?? null) ? $metadata['retention'] : [];
+            $storeDays = max(1, min(3650, (int) ($retention['storeDays'] ?? 365)));
+            $keepPayload = ($retention['keepPayload'] ?? true) !== false;
+            $keepArtifact = ($retention['keepArtifact'] ?? true) !== false;
+            $updatedAt = new \DateTimeImmutable((string) ($item['updatedAt'] ?? $item['createdAt'] ?? $now->format(DATE_ATOM)));
+            $cutoff = $updatedAt->modify('+' . $storeDays . ' days');
+            $shouldExpire = $now >= $cutoff;
+            $recordChanged = false;
+            $record = $item;
+
+            if (!$keepPayload || $shouldExpire) {
+                if (!empty($record['canonicalPayload'])) {
+                    ++$payloadsCleared;
+                    $record['canonicalPayload'] = null;
+                    $recordChanged = true;
+                }
+            }
+            if (!$keepArtifact || $shouldExpire) {
+                $artifact = is_array($record['artifact'] ?? null) ? $record['artifact'] : [];
+                if (!empty($artifact['contentBase64'])) {
+                    ++$artifactsCleared;
+                    $record['artifact'] = [
+                        'stored' => false,
+                        'format' => (string) ($artifact['format'] ?? ''),
+                        'fileName' => (string) ($artifact['fileName'] ?? ''),
+                        'contentType' => (string) ($artifact['contentType'] ?? 'application/octet-stream'),
+                    ];
+                    $recordChanged = true;
+                }
+            }
+            if ($recordChanged) {
+                $record['updatedAt'] = $now;
+                $affectedIssueIds[] = (string) ($record['issueId'] ?? '');
+                if ($apply) {
+                    $this->saveRecord($record);
+                }
+            }
+            if ($shouldExpire) {
+                $eventCount = count($this->fetchEvents((string) ($item['issueId'] ?? '')));
+                if ($eventCount > 0) {
+                    $eventsDeleted += $eventCount;
+                    if ($apply) {
+                        $connection->delete(self::EVENT_TABLE, ['issue_id' => (string) ($item['issueId'] ?? '')]);
+                    }
+                }
+            }
+        }
+
+        return [
+            'enabled' => true,
+            'recordsScanned' => count($items),
+            'payloadsCleared' => $payloadsCleared,
+            'artifactsCleared' => $artifactsCleared,
+            'eventsDeleted' => $eventsDeleted,
+            'affectedIssueIds' => array_values(array_unique(array_filter($affectedIssueIds))),
+        ];
+    }
+
     private function connection(): Connection
     {
         if (!$this->connection instanceof Connection) {

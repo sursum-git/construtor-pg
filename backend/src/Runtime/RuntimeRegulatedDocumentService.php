@@ -93,6 +93,8 @@ class RuntimeRegulatedDocumentService
             'metadata' => [
                 'sourceType' => (string) (($document['source']['type'] ?? 'operational')),
                 'programTitle' => (string) ($definition['program']['title'] ?? 'Documento regulado'),
+                'retention' => is_array($document['retention'] ?? null) ? $document['retention'] : [],
+                'concreteTrack' => (string) ($document['track'] ?? 'fiscal') === 'fiscal' ? 'primary' : 'base_only',
             ],
             'errorMessage' => $state === 'failed' ? $this->firstBlockingMessage($validation) : null,
             'createdAt' => new \DateTimeImmutable(),
@@ -160,6 +162,8 @@ class RuntimeRegulatedDocumentService
                 'rowCount' => (int) ($preview['table']['rowCount'] ?? 0),
                 'sectionCount' => count((array) ($preview['sections'] ?? [])),
             ],
+            'retention' => is_array($document['retention'] ?? null) ? $document['retention'] : [],
+            'concreteTrack' => (string) ($document['track'] ?? 'fiscal') === 'fiscal' ? 'primary' : 'base_only',
         ]);
         $record['updatedAt'] = new \DateTimeImmutable();
         $this->store->saveRecord($record);
@@ -236,6 +240,8 @@ class RuntimeRegulatedDocumentService
             'sourceType' => (string) (($document['source']['type'] ?? 'operational')),
             'programTitle' => (string) ($definition['program']['title'] ?? 'Documento regulado'),
             'artifactStored' => $storeArtifact,
+            'retention' => is_array($document['retention'] ?? null) ? $document['retention'] : [],
+            'concreteTrack' => (string) ($document['track'] ?? 'fiscal') === 'fiscal' ? 'primary' : 'base_only',
         ]);
         $record['updatedAt'] = new \DateTimeImmutable();
         $record['issuedAt'] = new \DateTimeImmutable();

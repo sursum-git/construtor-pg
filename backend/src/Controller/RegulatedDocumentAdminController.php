@@ -62,7 +62,7 @@ class RegulatedDocumentAdminController extends AbstractController
     {
         try {
             $this->sessions->ensureActive();
-            $this->ensureReadPermission();
+            $this->ensureArtifactPermission();
 
             return $this->json($this->documents->artifact(trim((string) $request->query->get('issueId'))));
         } catch (\Throwable $error) {
@@ -72,7 +72,16 @@ class RegulatedDocumentAdminController extends AbstractController
 
     private function ensureReadPermission(): void
     {
-        if ($this->permissions->hasPermission('admin.read')) {
+        if ($this->permissions->hasAnyPermission(['regulated_document.admin.read', 'admin.read'])) {
+            return;
+        }
+
+        throw new RuntimeHttpException('RUNTIME_ACCESS_DENIED', 'Acesso negado.', 403);
+    }
+
+    private function ensureArtifactPermission(): void
+    {
+        if ($this->permissions->hasAnyPermission(['regulated_document.admin.artifact', 'regulated_document.admin.read', 'admin.read'])) {
             return;
         }
 

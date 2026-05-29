@@ -38,6 +38,8 @@
 
     this.summaryCard = this.createCard(shell, "Resumo");
     this.summaryBody = this.summaryCard.body;
+    this.observabilityCard = this.createCard(shell, "Observabilidade");
+    this.observabilityBody = this.observabilityCard.body;
 
     const toolbar = global.jQuery("<div class=\"program-builder-toolbar\"></div>").appendTo(this.summaryBody);
     this.tenantInput = this.createSelectField(toolbar, "Tenant");
@@ -118,6 +120,35 @@
     Object.keys(summary.byState || {}).slice(0, 4).forEach(function(key) {
       this.appendBadge(badges, key + ": " + String(summary.byState[key]));
     }, this);
+    this.renderObservability();
+  };
+
+  RegulatedDocumentAdmin.prototype.renderObservability = function() {
+    this.observabilityBody.empty();
+    if (this.bootstrapData.enabled === false) {
+      global.jQuery("<p class=\"manual-summary\"></p>").text("Observabilidade indisponivel enquanto o storage regulado estiver desabilitado.").appendTo(this.observabilityBody);
+      return;
+    }
+    const observability = this.bootstrapData.observability || {};
+    const roadmap = this.bootstrapData.roadmap || {};
+    const badges = global.jQuery("<div class=\"manual-meta\"></div>").appendTo(this.observabilityBody);
+    this.appendBadge(badges, "Com hash: " + String(observability.withHash || 0));
+    this.appendBadge(badges, "Com artefato: " + String(observability.withArtifact || 0));
+    this.appendBadge(badges, "Com payload: " + String(observability.withCanonicalPayload || 0));
+    this.appendBadge(badges, "Verificados: " + String(observability.verified || 0));
+    this.appendBadge(badges, "Falhos: " + String(observability.failed || 0));
+    this.appendBadge(badges, "Trilha concreta: " + String(roadmap.primaryTrack || "fiscal"));
+    const text = global.jQuery("<p class=\"manual-summary\"></p>").appendTo(this.observabilityBody);
+    text.text("A primeira trilha concreta priorizada nesta frente e fiscal. Banking e logistics continuam apoiados pela base geral do modulo regulado.");
+    if (observability.newestUpdatedAt || observability.oldestUpdatedAt) {
+      const detail = global.jQuery("<div class=\"manual-meta\"></div>").appendTo(this.observabilityBody);
+      if (observability.newestUpdatedAt) {
+        this.appendBadge(detail, "Mais recente: " + String(observability.newestUpdatedAt));
+      }
+      if (observability.oldestUpdatedAt) {
+        this.appendBadge(detail, "Mais antigo: " + String(observability.oldestUpdatedAt));
+      }
+    }
   };
 
   RegulatedDocumentAdmin.prototype.renderFilters = function() {

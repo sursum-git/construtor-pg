@@ -143,6 +143,11 @@ Hoje o repositorio ja suporta:
 - `regulated_document` com pipeline proprio, storage separado, hash, artefato e conferencia;
 - bloqueio explicito de `danfe`, `dacte`, `boleto`, `label/etiqueta` na trilha de `reports`.
 
+Prioridade concreta atual do modulo regulado:
+
+- a primeira trilha concreta a aprofundar e `fiscal`;
+- `banking` e `logistics` continuam na base geral ate existir demanda real para virar trilha concreta completa.
+
 O que ainda nao se deve prometer como entregue apenas com a camada atual:
 
 - DANFE fiscal homologado;

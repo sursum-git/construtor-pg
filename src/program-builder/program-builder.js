@@ -3516,7 +3516,7 @@
     this.specialDocumentProgramHint.text("Use esta trilha para DANFE, boleto, etiquetas e documentos rigidos. O builder nao libera layout livre.");
 
     this.regulatedDocumentProgramPanel = $("<section class=\"program-builder-subpanel\"></section>").appendTo(form);
-    $("<div class=\"program-builder-versions-header\"><h3>Configuracao do documento regulado</h3><p>Base interna para documentos de alto rigor, com hash, artefato, retencao e conferencia separados de reports.</p></div>").appendTo(this.regulatedDocumentProgramPanel);
+    $("<div class=\"program-builder-versions-header\"><h3>Configuracao do documento regulado</h3><p>Base interna para documentos de alto rigor, com hash, artefato, retencao e conferencia separados de reports. Primeira trilha concreta priorizada: fiscal.</p></div>").appendTo(this.regulatedDocumentProgramPanel);
     const regulatedForm = $("<div class=\"program-builder-form\"></div>").appendTo(this.regulatedDocumentProgramPanel);
     const regulatedSplitA = $("<div class=\"program-builder-split\"></div>").appendTo(regulatedForm);
     this.regulatedDocumentTrackSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(regulatedSplitA, "Trilha"));

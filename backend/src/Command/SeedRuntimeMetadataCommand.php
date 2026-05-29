@@ -615,6 +615,11 @@ class SeedRuntimeMetadataCommand extends Command
                 'subtitle' => 'Consulta administrativa do modulo regulado em banco separado',
                 'version' => '1.0.0',
                 'screenId' => 'admin.documentos-regulados',
+                'permission' => 'regulated_document.admin.read',
+            ],
+            'permissions' => [
+                'read' => 'regulated_document.admin.read',
+                'artifact' => 'regulated_document.admin.artifact',
             ],
             'custom' => [
                 'mode' => 'iframe',
@@ -661,6 +666,11 @@ class SeedRuntimeMetadataCommand extends Command
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-analytics-auditoria', 'Auditoria analytics', 'Consulta das trilhas da camada BI em banco separado', 'admin.analytics-auditoria');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-relatorios-auditoria', 'Auditoria de relatorios', 'Consulta das emissoes de relatorios gravadas no banco separado', 'admin.relatorios-auditoria');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-documentos-regulados', 'Documentos regulados', 'Consulta do modulo regulado em banco separado', 'admin.documentos-regulados');
+        foreach (($homeDefinition['programs'] ?? []) as $index => $program) {
+            if (($program['id'] ?? '') === 'admin-documentos-regulados') {
+                $homeDefinition['programs'][$index]['permission'] = 'regulated_document.admin.read';
+            }
+        }
         if ($this->central->isCentralControl()) {
             $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-assinante-ambientes', 'Provisionamento de assinantes', 'Criacao do assinante, SaaS e pacote on-premise', 'admin.assinante-ambientes');
             $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-atualizacoes', 'Atualizacoes do sistema', 'Releases, anuencia e aplicacao de atualizacoes', 'admin.atualizacoes');
