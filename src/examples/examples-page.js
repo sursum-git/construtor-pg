@@ -63,6 +63,10 @@
           processEngine.resultGrid.resize();
           processEngine.resultGrid.refresh();
         }
+        const analyticsEngine = global.currentAnalyticsExampleEngine;
+        if (analyticsEngine && analyticsEngine.currentResult) {
+          analyticsEngine.renderResult();
+        }
       }
     });
     const widget = tabs.data("kendoTabStrip");
@@ -83,6 +87,9 @@
     }
     if (example.engine === "process") {
       return initializeProcessEngine(example, catalog, state, root);
+    }
+    if (example.engine === "analytics") {
+      return initializeAnalyticsEngine(example, catalog, state, root);
     }
     return initializeCrudEngine(example, catalog, state, root);
   }
@@ -160,6 +167,28 @@
     });
   }
 
+  function initializeAnalyticsEngine(example, catalog, state, root) {
+    $(root).removeClass("home-app-root").addClass("crud-app-shell");
+    const artifacts = buildAnalyticsRuntimeArtifacts(example, catalog, state);
+    const httpClient = new global.DemoMockHttpClient({
+      storageSuffix: "examples-" + example.id
+    });
+    const engine = new global.AnalyticsEngine({
+      root: "#example-render-root",
+      definition: artifacts.definition,
+      config: artifacts.config,
+      httpClient
+    });
+
+    return engine.init().then(function(instance) {
+      global.currentAnalyticsExampleEngine = instance;
+      return instance;
+    }).catch(function(error) {
+      console.error("Falha ao renderizar exemplo de analytics.", error);
+      throw error;
+    });
+  }
+
   function destroyCurrentEngine(root) {
     const engine = global.currentCrudExampleEngine;
     if (engine && engine.gridRenderer && typeof engine.gridRenderer.destroy === "function") {
@@ -171,12 +200,14 @@
     if (global.kendo) {
       destroyHomeExampleEngine();
       destroyProcessExampleEngine();
+      destroyAnalyticsExampleEngine();
       global.kendo.destroy($(root));
     }
     $(root).empty();
     global.currentCrudExampleEngine = null;
     global.currentHomeExampleEngine = null;
     global.currentProcessExampleEngine = null;
+    global.currentAnalyticsExampleEngine = null;
   }
 
   function destroyHomeExampleEngine() {
@@ -193,6 +224,13 @@
 
   function destroyProcessExampleEngine() {
     const engine = global.currentProcessExampleEngine;
+    if (engine && typeof engine.destroy === "function") {
+      engine.destroy();
+    }
+  }
+
+  function destroyAnalyticsExampleEngine() {
+    const engine = global.currentAnalyticsExampleEngine;
     if (engine && typeof engine.destroy === "function") {
       engine.destroy();
     }
@@ -238,6 +276,22 @@
 
   function buildProcessRuntimeArtifacts(example, catalog, state) {
     const definition = catalog.buildProcessDefinition(example.id);
+    const config = catalog.buildConfig(example.id, { assetPrefix: EXAMPLE_ASSET_PREFIX });
+    const patch = diffValue(state.originalPatch, state.currentPatch) || {};
+    const configPatch = patch[CONFIG_ROOT_KEY];
+
+    if (configPatch) {
+      deepMerge(config, configPatch);
+      normalizeConfigAssets(config);
+      delete patch[CONFIG_ROOT_KEY];
+    }
+
+    deepMerge(definition, patch);
+    return { definition, config };
+  }
+
+  function buildAnalyticsRuntimeArtifacts(example, catalog, state) {
+    const definition = catalog.buildAnalyticsDefinition(example.id);
     const config = catalog.buildConfig(example.id, { assetPrefix: EXAMPLE_ASSET_PREFIX });
     const patch = diffValue(state.originalPatch, state.currentPatch) || {};
     const configPatch = patch[CONFIG_ROOT_KEY];

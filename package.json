@@ -11,6 +11,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:technical-properties": "node tests/frontend/technical-properties-smoke.mjs",
     "test:program-builder-technical": "node tests/frontend/program-builder-technical-smoke.mjs",
+    "test:program-builder-analytics": "node tests/frontend/program-builder-analytics-validator-smoke.mjs",
     "test:admin-integracoes": "node tests/frontend/admin-integracoes-smoke.mjs",
     "test:program-builder-governance": "node tests/frontend/program-builder-governance-smoke.mjs",
     "test:admin-program-governance": "node tests/frontend/admin-program-governance-smoke.mjs",
@@ -24,6 +25,7 @@
     "test:admin-system-update-subscriber-log": "node tests/frontend/admin-system-update-subscriber-log-smoke.mjs",
     "test:home-notifications": "node tests/frontend/home-notifications-smoke.mjs",
     "test:login-demo": "node tests/frontend/login-demo-smoke.mjs",
+    "test:analytics-demo": "node tests/frontend/analytics-demo-smoke.mjs",
     "test:privacy-request": "node tests/frontend/privacy-request-smoke.mjs",
     "test:context-resume-full": "node tests/frontend/context-resume-full-e2e.mjs"
   },

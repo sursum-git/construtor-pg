@@ -3,16 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Exemplo Home Engine</title>
+  <title>Exemplo Analytics</title>
   <link id="kendo-theme-link" rel="stylesheet" href="../../kendo/styles/default-urban.css">
   <link rel="stylesheet" href="../../src/styles/crud-engine.css">
-  <link rel="stylesheet" href="../../src/styles/home-engine.css">
-  <link rel="stylesheet" href="../../src/styles/process-engine.css">
-  <link rel="stylesheet" href="../../src/styles/custom-page.css">
   <link rel="stylesheet" href="../../src/styles/analytics-engine.css">
   <link rel="stylesheet" href="../../src/styles/examples-guide.css">
 </head>
-<body data-example-id="home-engine">
+<body data-example-id="analytics-bi">
   <main class="example-page-shell">
     <header class="example-page-header">
       <div>
@@ -22,8 +19,7 @@
       </div>
       <nav class="example-page-actions" aria-label="Navegacao do exemplo">
         <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../exemplos.html">Indice</a>
-        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-primary" href="../../home.html">Demo Home</a>
-        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../index.html">Demo principal</a>
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../home.html">Home Engine</a>
       </nav>
     </header>
     <section class="example-page-main">
@@ -34,13 +30,13 @@
         </ul>
         <div>
           <div class="example-render-frame">
-            <p class="example-tab-note">Renderizacao real usando o HomeEngine, appbar global, menu lateral e endpoints mockados.</p>
-            <main id="example-render-root" class="example-render-root home-app-root"></main>
+            <p class="example-tab-note">Renderizacao real usando o AnalyticsEngine e endpoints runtime mockados.</p>
+            <main id="example-render-root" class="example-render-root crud-app-shell"></main>
           </div>
         </div>
         <div>
           <div class="example-code-panel">
-            <p class="example-tab-note">Trecho de configuracao aplicado sobre o JSON base da pagina inicial.</p>
+            <p class="example-tab-note">Trecho de configuracao aplicado sobre o JSON base de analytics.</p>
             <pre><code id="example-code"></code></pre>
           </div>
         </div>
@@ -57,22 +53,7 @@
   <script src="../../src/page-engine/PageDefinitionNormalizer.js"></script>
   <script src="../../src/crud-engine/CrudHttpClient.js"></script>
   <script src="../../src/crud-engine/CrudConfigLoader.js"></script>
-  <script src="../../src/crud-engine/CrudDefinitionLoader.js"></script>
-  <script src="../../src/crud-engine/CrudDefinitionValidator.js"></script>
-  <script src="../../src/crud-engine/CrudLayoutManager.js"></script>
-  <script src="../../src/crud-engine/CrudToolbarRenderer.js"></script>
-  <script src="../../src/crud-engine/CrudFilterRenderer.js"></script>
-  <script src="../../src/crud-engine/CrudKendoGridRenderer.js"></script>
-  <script src="../../src/crud-engine/CrudKendoFormRenderer.js"></script>
-  <script src="../../src/crud-engine/CrudEngine.js"></script>
-  <script src="../../src/process-engine/ProcessDefinitionLoader.js"></script>
-  <script src="../../src/process-engine/ProcessDefinitionValidator.js"></script>
-  <script src="../../src/process-engine/ProcessEngine.js"></script>
-  <script src="../../src/custom-page/CustomPageEngine.js"></script>
   <script src="../../src/analytics-engine/AnalyticsEngine.js"></script>
-  <script src="../../src/home-engine/HomeDefinitionLoader.js"></script>
-  <script src="../../src/home-engine/HomeDefinitionValidator.js"></script>
-  <script src="../../src/home-engine/HomeEngine.js"></script>
   <script src="../../src/demo/DemoMockHttpClient.js"></script>
   <script src="../../src/demo/demo-embedded-data.js"></script>
   <script src="../../src/demo/process-embedded-data.js"></script>

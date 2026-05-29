@@ -136,6 +136,7 @@
               items: [
                 { programId: "painel", title: "Painel" },
                 { programId: "clientes-crud", title: "Clientes", favorite: true },
+                { programId: "analytics-clientes", title: "BI de Clientes" },
                 { programId: "processamento-clientes", title: "Processamento" }
               ]
             },
@@ -155,6 +156,7 @@
         programs: [
           { id: "painel", type: "html", title: "Painel inicial" },
           { id: "clientes-crud", type: "crud", title: "Clientes", openUrl: "index.html", definitionUrl: "examples/clientes.crud.json" },
+          { id: "analytics-clientes", type: "analytics", title: "BI de Clientes", screenId: "analytics.clientes" },
           { id: "processamento-clientes", type: "process", title: "Processamento de Clientes", definitionUrl: "examples/processamento-relatorio.process.json" },
           { id: "clientes-iframe", type: "iframe", title: "Clientes via iframe", version: "1.0.0", url: "index.html" },
           {
@@ -181,6 +183,37 @@
           { id: "troca-assinante", type: "html", title: "Troca de assinante", html: "<section><h2>Troca de assinante</h2></section>" },
           { id: "meus-jobs", type: "crud", title: "Meus Jobs", screenId: "runtime.jobs.mine" }
         ]
+      }
+    },
+    {
+      id: "analytics-bi",
+      engine: "analytics",
+      category: "Analytics",
+      title: "Consultas avancadas e BI",
+      summary: "Renderiza dataset interno por metadados fechados com filtros, Kendo Grid, Chart, Pivot e Dashboard.",
+      code: {
+        pageType: "analytics",
+        screenId: "analytics.clientes",
+        program: {
+          title: "BI de Clientes",
+          subtitle: "Indicadores por UF e status usando fonte interna cadastrada"
+        },
+        analytics: {
+          datasets: [
+            {
+              id: "clientes-uf-status",
+              title: "Clientes por UF e status",
+              executionMode: "auto",
+              limit: 1000
+            }
+          ],
+          views: [
+            { id: "grid", type: "grid", title: "Grid", datasetId: "clientes-uf-status" },
+            { id: "chart", type: "chart", title: "Grafico", datasetId: "clientes-uf-status", categoryField: "uf", valueField: "valor_total_sum", seriesType: "column" },
+            { id: "pivot", type: "pivot", title: "Pivot", datasetId: "clientes-uf-status" },
+            { id: "dashboard", type: "dashboard", title: "Dashboard", datasetId: "clientes-uf-status" }
+          ]
+        }
       }
     },
     {
@@ -2004,6 +2037,19 @@
     return definition;
   }
 
+  function buildAnalyticsDefinition(id) {
+    const example = get(id);
+    const source = global.AnalyticsDemoEmbedded && global.AnalyticsDemoEmbedded.clientesDefinition || {};
+    const definition = clone(source);
+    if (example && example.code) {
+      deepMerge(definition, example.code);
+    }
+    if (example && typeof example.applyAnalytics === "function") {
+      example.applyAnalytics(definition, source);
+    }
+    return definition;
+  }
+
   function buildConfig(id, options) {
     const example = get(id);
     const config = clone(global.CrudDemoEmbedded && global.CrudDemoEmbedded.config || {});
@@ -2190,6 +2236,7 @@
     buildDefinition,
     buildHomeDefinition,
     buildProcessDefinition,
+    buildAnalyticsDefinition,
     buildConfig,
     getCode,
     getPropertyOptions

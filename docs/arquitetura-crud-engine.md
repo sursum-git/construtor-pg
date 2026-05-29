@@ -1374,3 +1374,30 @@ A sessao impersonada guarda `sessionProperties.impersonation` e `permissionSnaps
 - IP, user-agent, inicio e validade.
 
 Durante a simulacao, o usuario alvo e o usuario efetivo para permissoes e execucao. A auditoria preserva o administrador original: `runtime_transaction.requestContext` recebe o bloco `impersonation` e `runtime_transaction_log.metadata` recebe automaticamente `impersonation`, `effectiveUserId`, `originalUserId` e `impersonationReason`.
+
+## Auditoria de consultas analytics
+
+A camada `analytics` agora tambem pode gravar trilha de consulta em banco separado, sem misturar com o banco principal do runtime.
+
+Configuracao:
+
+- `ANALYTICS_AUDIT_ENABLED=1`
+- `ANALYTICS_AUDIT_DATABASE_URL=...`
+- `ANALYTICS_AUDIT_MAX_ROWS=200`
+- `ANALYTICS_AUDIT_STRICT=0`
+
+Com isso, cada `analytics.query.run` e `analytics.materialize` pode registrar:
+
+- `tenantId`, `userId`, `sessionId`
+- `screenId`, `datasetId`, `viewId`
+- filtros, parametros e ordenacao
+- `executionMode`, origem do resultado (`live`, `cache_hit`, `materialize`, `error`)
+- colunas devolvidas
+- recorte das linhas consultadas, limitado por `ANALYTICS_AUDIT_MAX_ROWS`
+- total retornado e erro quando existir
+
+Operacao:
+
+- comando `php bin/console app:analytics:audit:init` cria a tabela `runtime_analytics_audit_entry` no banco configurado;
+- por padrao, falha na escrita da auditoria nao derruba a consulta;
+- se precisar endurecer isso, usar `ANALYTICS_AUDIT_STRICT=1`.

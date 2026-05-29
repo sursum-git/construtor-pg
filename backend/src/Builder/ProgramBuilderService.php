@@ -3343,8 +3343,8 @@ class ProgramBuilderService
         if ($programCode === '' || $programTitle === '' || $moduleCode === '' || $screenId === '') {
             throw new RuntimeHttpException('PROGRAM_BUILDER_REQUIRED_FIELDS', 'Informe codigo, titulo, modulo e screenId.', 422);
         }
-        if (!in_array($pageType, ['crud', 'custom'], true)) {
-            throw new RuntimeHttpException('PROGRAM_BUILDER_PAGE_TYPE_NOT_SUPPORTED', 'Nesta etapa o construtor visual suporta programas CRUD e custom.', 422, [
+        if (!in_array($pageType, ['crud', 'custom', 'analytics'], true)) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_PAGE_TYPE_NOT_SUPPORTED', 'Nesta etapa o construtor visual suporta programas CRUD, analytics e custom.', 422, [
                 'pageType' => $pageType,
             ]);
         }
@@ -3412,9 +3412,9 @@ class ProgramBuilderService
         }
 
         $entity = $overrideEntity;
-        if ($pageType === 'crud') {
+        if (in_array($pageType, ['crud', 'analytics'], true)) {
             if ($builderEntityCode === '') {
-                throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_REQUIRED', 'Informe a entidade base para programas CRUD.', 422);
+                throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_REQUIRED', 'Informe a entidade base para o programa.', 422);
             }
             if ($entity === null) {
                 $entity = $this->entities->findOneBy(['code' => $builderEntityCode]);
@@ -3424,8 +3424,14 @@ class ProgramBuilderService
                     'builderEntityCode' => $builderEntityCode,
                 ]);
             }
-            if (!in_array($entity->getEntityType(), ['persistence', 'api'], true)) {
-                throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_TYPE_NOT_SUPPORTED', 'Nesta etapa o gerador de programa suporta apenas entidades persistentes.', 422, [
+            if ($pageType === 'analytics' && $entity->getEntityType() !== 'persistence') {
+                throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_TYPE_NOT_SUPPORTED', 'Analytics v1 aceita apenas entidades persistence.', 422, [
+                    'builderEntityCode' => $builderEntityCode,
+                    'entityType' => $entity->getEntityType(),
+                ]);
+            }
+            if ($pageType === 'crud' && !in_array($entity->getEntityType(), ['persistence', 'api'], true)) {
+                throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_TYPE_NOT_SUPPORTED', 'Nesta etapa o gerador de programa suporta apenas entidades persistence e api.', 422, [
                     'builderEntityCode' => $builderEntityCode,
                     'entityType' => $entity->getEntityType(),
                 ]);
@@ -3488,6 +3494,7 @@ class ProgramBuilderService
             'upgradeFrozen' => $upgradeFrozen,
             'frozenReason' => $frozenReason,
             'publicationPolicy' => $publicationPolicy,
+            'analyticsConfig' => $pageType === 'analytics' && $entity instanceof BuilderEntity ? $this->normalizeAnalyticsBuilderConfig($payload['analyticsConfig'] ?? null, $entity) : null,
             'customMode' => $pageType === 'custom' ? $customMode : null,
             'customEntryUrl' => $pageType === 'custom' ? $customEntryUrl : null,
             'customFrameTitle' => $pageType === 'custom' ? ($customFrameTitle !== '' ? $customFrameTitle : $programTitle) : null,
@@ -3496,11 +3503,128 @@ class ProgramBuilderService
         ];
     }
 
+    private function normalizeAnalyticsBuilderConfig(mixed $value, BuilderEntity $entity): array
+    {
+        $config = is_array($value) ? $value : [];
+        $executionMode = strtolower(trim((string) ($config['executionMode'] ?? 'live')));
+        if (!in_array($executionMode, ['live', 'cached', 'auto'], true)) {
+            $executionMode = 'live';
+        }
+        $limit = $this->normalizePositiveInt($config['limit'] ?? null) ?? 1000;
+        $limit = max(1, min(5000, $limit));
+        $cacheTtlSeconds = $this->normalizePositiveInt($config['cacheTtlSeconds'] ?? null) ?? 900;
+
+        $fieldMap = [];
+        $measureMap = [];
+        foreach ($entity->getFields() as $field) {
+            $code = $field->getCode();
+            $options = $field->getOptions();
+            if (($options['virtual'] ?? false) === true) {
+                continue;
+            }
+            $dataType = $this->normalizeFieldType($field->getDataType());
+            if ($dataType === 'json') {
+                continue;
+            }
+            $fieldMap[$code] = true;
+            if (in_array($dataType, ['integer', 'decimal', 'number', 'currency'], true)) {
+                $measureMap[$code . '_sum'] = true;
+            }
+            $measureMap[$code . '_count'] = true;
+        }
+
+        $defaultSortField = $this->safeCode((string) ($config['defaultSortField'] ?? ''));
+        if ($defaultSortField !== '' && !isset($fieldMap[$defaultSortField])) {
+            $defaultSortField = '';
+        }
+        $defaultSortDir = strtolower(trim((string) ($config['defaultSortDir'] ?? 'asc')));
+        if (!in_array($defaultSortDir, ['asc', 'desc'], true)) {
+            $defaultSortDir = 'asc';
+        }
+
+        $chartSeriesType = strtolower(trim((string) ($config['chartSeriesType'] ?? 'column')));
+        if (!in_array($chartSeriesType, ['column', 'bar', 'line', 'area'], true)) {
+            $chartSeriesType = 'column';
+        }
+        $chartCategoryField = $this->safeCode((string) ($config['chartCategoryField'] ?? ''));
+        if ($chartCategoryField !== '' && !isset($fieldMap[$chartCategoryField])) {
+            $chartCategoryField = '';
+        }
+        $chartValueField = $this->safeCode((string) ($config['chartValueField'] ?? ''));
+        if ($chartValueField !== '' && !isset($measureMap[$chartValueField])) {
+            $chartValueField = '';
+        }
+
+        $views = is_array($config['views'] ?? null) ? $config['views'] : [];
+        $normalizedViews = [
+            'grid' => ($views['grid'] ?? true) !== false,
+            'chart' => ($views['chart'] ?? true) !== false,
+            'pivot' => ($views['pivot'] ?? true) !== false,
+            'kpi' => ($views['kpi'] ?? false) === true,
+            'dashboard' => ($views['dashboard'] ?? true) !== false,
+        ];
+
+        $joins = [];
+        foreach ((array) ($config['joins'] ?? []) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $id = $this->safeCode((string) ($item['id'] ?? ''));
+            $localField = $this->safeCode((string) ($item['localField'] ?? ''));
+            $entityCode = $this->safeCode((string) ($item['entityCode'] ?? ''));
+            $foreignField = $this->safeCode((string) ($item['foreignField'] ?? ''));
+            $type = strtolower(trim((string) ($item['type'] ?? 'left')));
+            if ($id === '' || $localField === '' || $entityCode === '' || $foreignField === '') {
+                continue;
+            }
+            if (!isset($fieldMap[$localField])) {
+                continue;
+            }
+            $targetEntity = $this->entities->findOneBy(['code' => $entityCode]);
+            if (!$targetEntity || $targetEntity->getEntityType() !== 'persistence') {
+                continue;
+            }
+            $targetFieldExists = false;
+            foreach ($targetEntity->getFields() as $targetField) {
+                if ($targetField->getCode() === $foreignField) {
+                    $targetFieldExists = true;
+                    break;
+                }
+            }
+            if (!$targetFieldExists) {
+                continue;
+            }
+            $joins[] = [
+                'id' => $id,
+                'source' => 'base',
+                'localField' => $localField,
+                'entityCode' => $entityCode,
+                'foreignField' => $foreignField,
+                'type' => $type === 'inner' ? 'inner' : 'left',
+            ];
+        }
+
+        return [
+            'executionMode' => $executionMode,
+            'limit' => $limit,
+            'cacheTtlSeconds' => max(0, $cacheTtlSeconds),
+            'defaultSortField' => $defaultSortField,
+            'defaultSortDir' => $defaultSortDir,
+            'chartSeriesType' => $chartSeriesType,
+            'chartCategoryField' => $chartCategoryField,
+            'chartValueField' => $chartValueField,
+            'views' => $normalizedViews,
+            'joins' => $joins,
+        ];
+    }
+
     private function generateProgramDefinition(array $config): array
     {
-        $definition = $config['pageType'] === 'custom'
-            ? $this->generateCustomDefinition($config)
-            : $this->generateCrudDefinition($config);
+        $definition = match ($config['pageType']) {
+            'custom' => $this->generateCustomDefinition($config),
+            'analytics' => $this->generateAnalyticsDefinition($config),
+            default => $this->generateCrudDefinition($config),
+        };
 
         $definition['program'] = is_array($definition['program'] ?? null) ? $definition['program'] : [];
         $definition['program']['programOrigin'] = $config['programOrigin'];
@@ -3560,6 +3684,7 @@ class ProgramBuilderService
             'pageType' => $version->getPageType(),
             'permissions' => $definition['permissions'] ?? [],
             'dataModel' => $definition['dataModel'] ?? [],
+            'analytics' => $definition['analytics'] ?? [],
         ];
 
         return hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
@@ -3799,6 +3924,225 @@ class ProgramBuilderService
         ];
     }
 
+    private function generateAnalyticsDefinition(array $config): array
+    {
+        $entity = $config['_entity'];
+        $datasetId = 'principal';
+        $analyticsConfig = is_array($config['analyticsConfig'] ?? null) ? $config['analyticsConfig'] : [];
+        $fields = [];
+        $dimensions = [];
+        $measures = [];
+        $parameters = [];
+        $position = 0;
+
+        foreach ($entity->getFields() as $field) {
+            $code = $field->getCode();
+            $options = $field->getOptions();
+            $analytics = is_array($options['analytics'] ?? null) ? $options['analytics'] : [];
+            if (($analytics['hidden'] ?? false) === true || ($options['virtual'] ?? false) === true) {
+                continue;
+            }
+            $dataType = $this->normalizeFieldType($field->getDataType());
+            if ($dataType === 'json') {
+                continue;
+            }
+            $item = [
+                'id' => $code,
+                'field' => $code,
+                'label' => $field->getLabel(),
+                'type' => $dataType,
+                'format' => $analytics['format'] ?? null,
+                'technicalProperties' => $this->programFieldTechnicalProperties($entity, $field, $dataType, $options),
+            ];
+            $fields[] = array_filter($item, static fn ($value): bool => $value !== null);
+
+            $isNumeric = in_array($dataType, ['integer', 'decimal', 'number', 'currency'], true);
+            if (($analytics['dimension'] ?? null) === true || (!$isNumeric && count($dimensions) < 6)) {
+                $dimensions[] = [
+                    'id' => $code,
+                    'field' => $code,
+                    'label' => $field->getLabel(),
+                    'type' => $dataType,
+                    'format' => $analytics['format'] ?? null,
+                ];
+            }
+            if (($analytics['measure'] ?? null) === true || $isNumeric) {
+                $aggregate = strtolower((string) ($analytics['defaultAggregate'] ?? ($isNumeric ? 'sum' : 'count')));
+                if (!in_array($aggregate, ['count', 'sum', 'avg', 'min', 'max', 'distinct_count'], true)) {
+                    $aggregate = $isNumeric ? 'sum' : 'count';
+                }
+                $measures[] = [
+                    'id' => $code . '_' . $aggregate,
+                    'field' => $code,
+                    'label' => $aggregate === 'count' ? 'Qtde. ' . $field->getLabel() : 'Total de ' . $field->getLabel(),
+                    'aggregate' => $aggregate,
+                    'format' => $analytics['format'] ?? ($dataType === 'currency' ? 'c2' : null),
+                ];
+            }
+            if ($position < 5 && !in_array($dataType, ['text'], true)) {
+                $parameters[] = [
+                    'id' => $code,
+                    'field' => $code,
+                    'label' => $field->getLabel(),
+                    'type' => in_array($dataType, ['boolean', 'enum', 'integer', 'date', 'datetime'], true) ? $dataType : 'text',
+                    'operator' => in_array($dataType, ['boolean', 'enum', 'integer'], true) ? 'eq' : 'contains',
+                ];
+            }
+            ++$position;
+        }
+
+        if (!$dimensions && $fields) {
+            $first = $fields[0];
+            $dimensions[] = [
+                'id' => (string) $first['id'],
+                'field' => (string) $first['field'],
+                'label' => (string) $first['label'],
+                'type' => (string) $first['type'],
+            ];
+        }
+        if (!$measures) {
+            $measures[] = [
+                'id' => 'total_registros',
+                'label' => 'Registros',
+                'aggregate' => 'count',
+            ];
+        }
+
+        $defaultSort = [];
+        $configuredSortField = $this->safeCode((string) ($analyticsConfig['defaultSortField'] ?? ''));
+        if ($configuredSortField !== '') {
+            $defaultSort[] = [
+                'field' => $configuredSortField,
+                'dir' => strtolower((string) ($analyticsConfig['defaultSortDir'] ?? 'asc')) === 'desc' ? 'desc' : 'asc',
+            ];
+        } elseif ($dimensions) {
+            $defaultSort[] = ['field' => $dimensions[0]['id'], 'dir' => 'asc'];
+        }
+
+        $chartCategoryField = $this->safeCode((string) ($analyticsConfig['chartCategoryField'] ?? ''));
+        if ($chartCategoryField === '' && $dimensions) {
+            $chartCategoryField = (string) ($dimensions[0]['id'] ?? '');
+        }
+        $chartValueField = $this->safeCode((string) ($analyticsConfig['chartValueField'] ?? ''));
+        if ($chartValueField === '' && $measures) {
+            $chartValueField = (string) ($measures[0]['id'] ?? '');
+        }
+        $viewFlags = is_array($analyticsConfig['views'] ?? null) ? $analyticsConfig['views'] : [];
+
+        $permissionPrefix = $config['permissionPrefix'];
+        $readPermission = $permissionPrefix !== '' ? $permissionPrefix . '.read' : true;
+
+        $views = [];
+        if (($viewFlags['grid'] ?? true) !== false) {
+            $views[] = [
+                'id' => 'grid',
+                'type' => 'grid',
+                'title' => 'Detalhamento',
+                'datasetId' => $datasetId,
+            ];
+        }
+        if (($viewFlags['chart'] ?? true) !== false) {
+            $views[] = [
+                'id' => 'chart',
+                'type' => 'chart',
+                'title' => 'Grafico',
+                'datasetId' => $datasetId,
+                'categoryField' => $chartCategoryField !== '' ? $chartCategoryField : null,
+                'valueField' => $chartValueField !== '' ? $chartValueField : null,
+                'seriesType' => (string) ($analyticsConfig['chartSeriesType'] ?? 'column'),
+            ];
+        }
+        if (($viewFlags['pivot'] ?? true) !== false) {
+            $views[] = [
+                'id' => 'pivot',
+                'type' => 'pivot',
+                'title' => 'Pivot',
+                'datasetId' => $datasetId,
+            ];
+        }
+        if (($viewFlags['kpi'] ?? false) === true) {
+            $views[] = [
+                'id' => 'kpi',
+                'type' => 'kpi',
+                'title' => 'Indicador',
+                'datasetId' => $datasetId,
+                'valueField' => $chartValueField !== '' ? $chartValueField : ($measures[0]['id'] ?? null),
+                'format' => $measures[0]['format'] ?? null,
+            ];
+        }
+        if (($viewFlags['dashboard'] ?? true) !== false) {
+            $dashboardTiles = [];
+            $dashboardTiles[] = ['id' => 'kpi-total', 'type' => 'kpi', 'title' => $measures[0]['label'] ?? 'Indicador', 'valueField' => $chartValueField !== '' ? $chartValueField : ($measures[0]['id'] ?? null), 'format' => $measures[0]['format'] ?? null];
+            if (($viewFlags['chart'] ?? true) !== false) {
+                $dashboardTiles[] = ['id' => 'chart-main', 'type' => 'chart', 'title' => 'Distribuicao', 'categoryField' => $chartCategoryField !== '' ? $chartCategoryField : null, 'valueField' => $chartValueField !== '' ? $chartValueField : ($measures[0]['id'] ?? null), 'seriesType' => (string) ($analyticsConfig['chartSeriesType'] ?? 'column')];
+            }
+            $views[] = [
+                'id' => 'dashboard',
+                'type' => 'dashboard',
+                'title' => 'Dashboard',
+                'datasetId' => $datasetId,
+                'tiles' => $dashboardTiles,
+            ];
+        }
+
+        return [
+            'schemaVersion' => '1.0',
+            'pageType' => 'analytics',
+            'screenId' => $config['screenId'],
+            'program' => [
+                'id' => $config['programCode'],
+                'module' => $config['module'] ?? 'analytics',
+                'entity' => $config['builderEntityCode'],
+                'title' => $config['programTitle'],
+                'version' => $config['version'],
+                'subtitle' => $config['subtitle'] ?? 'Consulta avancada e BI',
+                'icon' => $config['icon'] ?? 'chart-line',
+                'permission' => $readPermission,
+            ],
+            'permissions' => [
+                'read' => $readPermission,
+                'materialize' => $readPermission,
+            ],
+            'dataSource' => [
+                'api' => $this->analyticsApiMap(),
+            ],
+            'runtime' => [
+                'entityCode' => $config['builderEntityCode'],
+                'programId' => $config['programCode'],
+                'mode' => 'analytics',
+                'messages' => [
+                    'enabled' => false,
+                ],
+            ],
+            'analytics' => [
+                'version' => '1.0',
+                'endpoints' => $this->analyticsApiMap(),
+                'datasets' => [
+                    [
+                        'id' => $datasetId,
+                        'title' => $config['programTitle'],
+                        'source' => [
+                            'type' => 'entity',
+                            'entityCode' => $config['builderEntityCode'],
+                        ],
+                        'joins' => array_values(array_filter((array) ($analyticsConfig['joins'] ?? []), 'is_array')),
+                        'fields' => $fields,
+                        'dimensions' => $dimensions,
+                        'measures' => $measures,
+                        'parameters' => $parameters,
+                        'defaultSort' => $defaultSort,
+                        'limit' => max(1, (int) ($analyticsConfig['limit'] ?? 1000)),
+                        'executionMode' => (string) ($analyticsConfig['executionMode'] ?? 'live'),
+                        'cache' => [
+                            'ttlSeconds' => max(0, (int) ($analyticsConfig['cacheTtlSeconds'] ?? 900)),
+                        ],
+                    ],
+                ],
+                'views' => $views,
+            ],
+        ];
+    }
+
     /**
      * @return array<int, array<string, string>>
      */
@@ -3891,12 +4235,17 @@ class ProgramBuilderService
 
     private function syncRuntimeEndpoints(BuilderProgramVersion $version): void
     {
-        if ($version->getPageType() !== 'crud') {
-            $this->disableRuntimeEndpointsForScreen($version->getScreenId());
+        if ($version->getPageType() === 'crud') {
+            $this->upsertCrudRuntimeEndpoints($version);
             return;
         }
 
-        $this->upsertCrudRuntimeEndpoints($version);
+        if ($version->getPageType() === 'analytics') {
+            $this->upsertAnalyticsRuntimeEndpoints($version);
+            return;
+        }
+
+        $this->disableRuntimeEndpointsForScreen($version->getScreenId());
     }
 
     private function upsertCrudRuntimeEndpoints(BuilderProgramVersion $version): void
@@ -3967,6 +4316,38 @@ class ProgramBuilderService
         $this->disableUnusedCrudGeneratedEndpoints($version->getScreenId(), $activeEndpointIds);
     }
 
+    private function upsertAnalyticsRuntimeEndpoints(BuilderProgramVersion $version): void
+    {
+        $handlers = [
+            'analytics.schema' => 'analytics.schema',
+            'analytics.query.run' => 'analytics.query.run',
+            'analytics.materialize' => 'analytics.materialize',
+            'analytics.cache.status' => 'analytics.cache.status',
+        ];
+
+        $activeEndpointIds = [];
+        foreach ($handlers as $endpointId => $handler) {
+            $endpoint = $this->endpoints->findOneBy([
+                'screenId' => $version->getScreenId(),
+                'endpointId' => $endpointId,
+            ]) ?? new RuntimeEndpoint();
+
+            $endpoint
+                ->setScreenId($version->getScreenId())
+                ->setEndpointId($endpointId)
+                ->setHandler($handler)
+                ->setEnabled(true)
+                ->setPermission($this->endpointPermission($version, $endpointId, $handler))
+                ->setConfig($this->endpointConfig($version, $endpointId, $handler));
+
+            $this->entityManager->persist($endpoint);
+            $this->integrity->signEndpoint($endpoint, ['source' => 'syncRuntimeEndpoints']);
+            $activeEndpointIds[] = $endpointId;
+        }
+
+        $this->disableUnusedCrudGeneratedEndpoints($version->getScreenId(), $activeEndpointIds);
+    }
+
     private function disableRuntimeEndpointsForScreen(string $screenId): void
     {
         foreach ($this->endpoints->findBy(['screenId' => $screenId]) as $endpoint) {
@@ -4009,6 +4390,10 @@ class ProgramBuilderService
             'runtime.lock.release',
             'runtime.messages.poll',
             'runtime.messages.ack',
+            'analytics.schema',
+            'analytics.query.run',
+            'analytics.materialize',
+            'analytics.cache.status',
         ];
 
         foreach ($this->endpoints->findBy(['screenId' => $screenId]) as $endpoint) {
@@ -4043,6 +4428,7 @@ class ProgramBuilderService
             'create' => $prefix . '.create',
             'update' => $prefix . '.edit',
             'delete' => $prefix . '.delete',
+            'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status' => $prefix . '.read',
             default => null,
         };
     }
@@ -4053,6 +4439,26 @@ class ProgramBuilderService
             return [
                 'entityCode' => $version->getBuilderEntityCode(),
                 'operation' => $endpointId,
+                'actionId' => $endpointId,
+                'programId' => $version->getProgramCode(),
+                'permissionPrefix' => $version->getPermissionPrefix(),
+                'traceability' => [
+                    'programCode' => $version->getProgramCode(),
+                    'programVersion' => $version->getVersion(),
+                    'builderProgramVersionId' => $version->getId(),
+                    'builderEntityVersionId' => $this->latestBuilderEntityVersionId($version->getBuilderEntityCode()),
+                    'screenDefinitionVersion' => $version->getVersion(),
+                    'schemaFingerprint' => $this->programSchemaFingerprint($version, $version->getGeneratedDefinition()),
+                    'customizationKind' => $version->getProgramOrigin(),
+                    'subscriberId' => $version->getSubscriberId(),
+                ],
+            ];
+        }
+
+        if (str_starts_with($handler, 'analytics.')) {
+            return [
+                'entityCode' => $version->getBuilderEntityCode(),
+                'operation' => $handler,
                 'actionId' => $endpointId,
                 'programId' => $version->getProgramCode(),
                 'permissionPrefix' => $version->getPermissionPrefix(),
@@ -4113,6 +4519,16 @@ class ProgramBuilderService
         }
 
         return $api + $systemEndpoints;
+    }
+
+    private function analyticsApiMap(): array
+    {
+        return [
+            'schema' => ['endpointId' => 'analytics.schema', 'method' => 'POST'],
+            'run' => ['endpointId' => 'analytics.query.run', 'method' => 'POST'],
+            'materialize' => ['endpointId' => 'analytics.materialize', 'method' => 'POST'],
+            'cacheStatus' => ['endpointId' => 'analytics.cache.status', 'method' => 'POST'],
+        ];
     }
 
     private function toolbar(array $config): array

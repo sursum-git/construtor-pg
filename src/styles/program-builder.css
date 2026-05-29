@@ -972,6 +972,82 @@
   background: #f3fbf5;
 }
 
+.program-builder-analytics-validator {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.program-builder-analytics-validator-header h3,
+.program-builder-analytics-runner h4,
+.program-builder-analytics-runtime-block h5,
+.program-builder-analytics-dataset-card h4 {
+  margin: 0;
+}
+
+.program-builder-analytics-validator-header p,
+.program-builder-analytics-dataset-card p,
+.program-builder-analytics-runtime-meta {
+  margin: 0;
+  color: #667085;
+  font-size: 13px;
+}
+
+.program-builder-analytics-badges,
+.program-builder-analytics-diagnostics,
+.program-builder-analytics-results {
+  display: grid;
+  gap: 10px;
+}
+
+.program-builder-analytics-dataset-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.program-builder-analytics-dataset-card,
+.program-builder-analytics-runner,
+.program-builder-analytics-runtime-block {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #d9dee7;
+  background: #f8fafc;
+}
+
+.program-builder-analytics-runner-controls,
+.program-builder-analytics-parameters-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.program-builder-analytics-sample-table-wrap {
+  overflow: auto;
+  border: 1px solid #d9dee7;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.program-builder-analytics-sample-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.program-builder-analytics-sample-table th,
+.program-builder-analytics-sample-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.program-builder-analytics-sample-table th {
+  background: #f8fafc;
+  color: #344054;
+}
+
 .program-builder-versions-header {
   padding: 16px 16px 0;
 }

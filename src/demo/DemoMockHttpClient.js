@@ -617,11 +617,17 @@
       if (normalized === "processamento.relatorio-clientes.producao") {
         return this.buildProductionProcessDefinition(normalized);
       }
+      if (normalized === "analytics.clientes.producao") {
+        return this.buildAnalyticsClientesDefinition(normalized);
+      }
       if (normalized === "processamento.relatorio-clientes") {
         const definition = global.CrudDemoEmbedded && global.CrudDemoEmbedded.processamentoRelatorioDefinition;
         if (definition) {
           return global.CrudUtils.clone(definition);
         }
+      }
+      if (normalized === "analytics.clientes") {
+        return this.buildAnalyticsClientesDefinition(normalized);
       }
       if (normalized === "assistente.codificacao.produto-pdm") {
         const definition = global.CrudDemoEmbedded && global.CrudDemoEmbedded.codificacaoAssistentePdmDefinition;
@@ -774,6 +780,7 @@
             moduleId: "operacional",
             items: [
               { programId: "clientes-crud", title: "Clientes" },
+              { programId: "analytics-clientes", title: "BI de Clientes" },
               { programId: "processamento-clientes", title: "Processamento" },
               { programId: "meus-jobs", title: "Meus Jobs" },
               { programId: "troca-assinante", title: "Troca de assinante" }
@@ -799,6 +806,15 @@
           icon: "building",
           permission: "home.read",
           screenId: "sistema.troca-assinante"
+        },
+        {
+          id: "analytics-clientes",
+          title: "BI de Clientes",
+          subtitle: "Analytics seguro carregado por screenId",
+          type: "analytics",
+          icon: "chart-column",
+          permission: "clientes.read",
+          screenId: "analytics.clientes.producao"
         },
         {
           id: "processamento-clientes",
@@ -842,6 +858,29 @@
         process: { endpointId: "process", method: "POST" },
         status: { endpointId: "status", method: "POST" }
       };
+      return definition;
+    }
+
+    buildAnalyticsClientesDefinition(screenId) {
+      const source = global.AnalyticsDemoEmbedded && global.AnalyticsDemoEmbedded.clientesDefinition || {};
+      const definition = global.CrudUtils.clone(source);
+      definition.screenId = screenId;
+      definition.program = Object.assign({}, definition.program || {}, {
+        screenId,
+        title: screenId.indexOf(".producao") >= 0 ? "BI de Clientes - Producao segura" : "BI de Clientes",
+        subtitle: "Consulta analytics carregada por screenId e endpoints resolvidos por endpointId."
+      });
+      const api = {
+        schema: { endpointId: "analytics.schema", method: "POST" },
+        run: { endpointId: "analytics.query.run", method: "POST" },
+        materialize: { endpointId: "analytics.materialize", method: "POST" },
+        cacheStatus: { endpointId: "analytics.cache.status", method: "POST" }
+      };
+      definition.dataSource = definition.dataSource || {};
+      definition.dataSource.api = api;
+      definition.api = api;
+      definition.analytics = definition.analytics || {};
+      definition.analytics.endpoints = api;
       return definition;
     }
 
@@ -1060,6 +1099,9 @@
           return this.getClientProcessStatus(data || {});
         }
       }
+      if (normalizedScreenId === "analytics.clientes" || normalizedScreenId === "analytics.clientes.producao") {
+        return this.routeAnalyticsClientesEndpoint(normalizedScreenId, endpointId, data || {});
+      }
       if (this.isSessionRevoked()) {
         throw global.CrudUtils.makeError("SESSION_REVOKED", "Sua sessao foi encerrada.", {
           reason: "Sessao encerrada no mock."
@@ -1142,6 +1184,94 @@
         default:
           throw global.CrudUtils.makeError("RUNTIME_ENDPOINT_NOT_FOUND", "Endpoint runtime mock nao encontrado.", { screenId, endpointId });
       }
+    }
+
+    routeAnalyticsClientesEndpoint(screenId, endpointId, data) {
+      if (endpointId === "analytics.schema") {
+        return this.buildAnalyticsClientesDefinition(screenId);
+      }
+      if (endpointId === "analytics.query.run") {
+        return this.runAnalyticsClientes(data || {});
+      }
+      if (endpointId === "analytics.materialize") {
+        return {
+          ok: true,
+          queued: true,
+          runtimePendingRef: "analytics-demo-" + Date.now(),
+          message: "Atualizacao de cache BI agendada."
+        };
+      }
+      if (endpointId === "analytics.cache.status") {
+        return {
+          status: "miss",
+          datasetId: data && data.datasetId || "clientes-uf-status",
+          fingerprint: "demo"
+        };
+      }
+      throw global.CrudUtils.makeError("RUNTIME_ENDPOINT_NOT_FOUND", "Endpoint analytics mock nao encontrado.", { screenId, endpointId });
+    }
+
+    runAnalyticsClientes(data) {
+      const parameters = data && data.parameters || {};
+      let rows = global.CrudUtils.clone(this.records || []);
+      const status = String(parameters.status || "").trim();
+      const uf = String(parameters.uf || "").trim().toUpperCase();
+      if (status) {
+        rows = rows.filter(function(row) {
+          return String(row.status || "") === status;
+        });
+      }
+      if (uf) {
+        rows = rows.filter(function(row) {
+          return String(row.uf || "").toUpperCase() === uf;
+        });
+      }
+
+      const grouped = {};
+      rows.forEach(function(row) {
+        const key = String(row.uf || "") + "|" + String(row.status || "");
+        if (!grouped[key]) {
+          grouped[key] = {
+            uf: row.uf || "",
+            status: row.status || "",
+            clientes: 0,
+            valor_total_sum: 0,
+            qtde_pedidos_sum: 0
+          };
+        }
+        grouped[key].clientes += 1;
+        grouped[key].valor_total_sum += Number(row.valor_total || 0);
+        grouped[key].qtde_pedidos_sum += Number(row.qtde_pedidos || 0);
+      });
+
+      const dataRows = Object.keys(grouped).map(function(key) {
+        return grouped[key];
+      }).sort(function(left, right) {
+        return String(left.uf || "").localeCompare(String(right.uf || "")) || String(left.status || "").localeCompare(String(right.status || ""));
+      });
+
+      return {
+        data: dataRows,
+        total: dataRows.length,
+        datasetId: data && data.datasetId || "clientes-uf-status",
+        generatedAt: new Date().toISOString(),
+        columns: [
+          { field: "uf", id: "uf", title: "UF", label: "UF", type: "string", role: "dimension" },
+          { field: "status", id: "status", title: "Status", label: "Status", type: "string", role: "dimension" },
+          { field: "clientes", id: "clientes", title: "Clientes", label: "Clientes", type: "integer", role: "measure", aggregate: "count" },
+          { field: "valor_total_sum", id: "valor_total_sum", title: "Valor total", label: "Valor total", type: "currency", role: "measure", aggregate: "sum" },
+          { field: "qtde_pedidos_sum", id: "qtde_pedidos_sum", title: "Pedidos", label: "Pedidos", type: "integer", role: "measure", aggregate: "sum" }
+        ],
+        _runtime: {
+          analytics: {
+            executionMode: "auto",
+            aggregated: true
+          },
+          analyticsCache: {
+            status: "miss_live"
+          }
+        }
+      };
     }
 
     routeRuntimeJobsEndpoint(screenId, endpointId, data) {

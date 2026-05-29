@@ -23,6 +23,7 @@
       currentVersion: null,
       currentProgramCode: "",
       currentEntityCode: "",
+      entityDetailCache: {},
       originalEntityTableName: "",
       preview: null,
       databaseTables: [],
@@ -34,6 +35,15 @@
       aiSessionMeta: null,
       aiDraftInspection: null,
       aiHistory: [],
+      analyticsValidator: {
+        signature: "",
+        datasetId: "",
+        parameterValues: {},
+        sampleResult: null,
+        sampleError: "",
+        cacheStatus: null,
+        cacheError: ""
+      },
       navigatorSelection: null,
       propertySelection: null,
       validation: { entityIssues: [], programIssues: [], fieldIssues: {}, ruleIssues: {}, uniqueKeyIssues: {} },
@@ -49,6 +59,16 @@
   }
 
   global.ProgramBuilder = ProgramBuilder;
+
+  ProgramBuilder.ANALYTICS_AGGREGATES = [
+    { value: "", text: "Automatico" },
+    { value: "count", text: "count" },
+    { value: "sum", text: "sum" },
+    { value: "avg", text: "avg" },
+    { value: "min", text: "min" },
+    { value: "max", text: "max" },
+    { value: "distinct_count", text: "distinct_count" }
+  ];
 
   ProgramBuilder.prototype.t = function(key, fallback, params) {
     if (global.ProgramBuilderLiterals && typeof global.ProgramBuilderLiterals.t === "function") {
@@ -281,6 +301,7 @@
     $("<h2></h2>").text("Diagnostico").appendTo(this.diagnosticsPanel);
     $("<p class=\"program-builder-diagnostics-intro\"></p>").text("Pendencias rapidas da entidade e do programa corrente.").appendTo(this.diagnosticsPanel);
     this.diagnosticsElement = $("<div class=\"program-builder-diagnostics-list\"></div>").appendTo(this.diagnosticsPanel);
+    this.analyticsDiagnosticsElement = $("<section class=\"program-builder-analytics-validator\"></section>").appendTo(this.diagnosticsPanel);
 
     this.renderModulesForm();
     this.renderModulesGrid();
@@ -357,7 +378,7 @@
       subtitle: this.buildTechnicalProperties("Programa", "Subtitulo", "Texto complementar opcional exibido no shell."),
       icon: this.buildTechnicalProperties("Programa", "Icone", "Nome do icone Kendo/Lucide usado na Home e em listas."),
       permissionPrefix: this.buildTechnicalProperties("Programa", "Prefixo de permissao", "Base para derivar permissoes de leitura e escrita do runtime."),
-      pageType: this.buildTechnicalProperties("Programa", "Tipo de pagina", "Define se a publicacao gera CRUD padrao ou entrada custom registrada."),
+      pageType: this.buildTechnicalProperties("Programa", "Tipo de pagina", "Define se a publicacao gera CRUD padrao, analytics/BI ou entrada custom registrada."),
       programOrigin: this.buildTechnicalProperties("Programa", "Origem do programa", "Classifica se a versao pertence ao padrao do produto, overlay por assinante ou programa especifico do cliente.", [
         { section: "Governanca", label: "Valores", value: "standard | customer_overlay | customer_custom", critical: true }
       ]),
@@ -3183,6 +3204,7 @@
     this.pageTypeSelect = $("<input>").appendTo(pageTypeField).kendoDropDownList({
       dataSource: [
         { value: "crud", text: "CRUD" },
+        { value: "analytics", text: "Analytics / BI" },
         { value: "custom", text: "Custom" }
       ],
       dataTextField: "text",
@@ -3268,6 +3290,76 @@
     this.customProgramHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(customForm);
     this.customProgramHint.text("Use caminhos relativos do proprio sistema, por exemplo `production/custom/minha-tela.html`.");
 
+    this.analyticsProgramPanel = $("<section class=\"program-builder-subpanel\"></section>").appendTo(form);
+    $("<div class=\"program-builder-versions-header\"><h3>Configuracao analytics</h3><p>Define modo de execucao, joins declarativos, ordenacao e views geradas para a camada BI.</p></div>").appendTo(this.analyticsProgramPanel);
+    const analyticsForm = $("<div class=\"program-builder-form\"></div>").appendTo(this.analyticsProgramPanel);
+
+    const analyticsSplitA = $("<div class=\"program-builder-split\"></div>").appendTo(analyticsForm);
+    const executionModeField = this.appendField(analyticsSplitA, "Execucao");
+    this.analyticsExecutionModeSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(executionModeField);
+    [
+      { value: "live", text: "Ao vivo" },
+      { value: "cached", text: "Cache materializado" },
+      { value: "auto", text: "Auto" }
+    ].forEach(function(item) {
+      $("<option></option>").attr("value", item.value).text(item.text).appendTo(this.analyticsExecutionModeSelect);
+    }, this);
+    this.analyticsLimitInput = $("<input type=\"number\" min=\"1\" class=\"program-builder-mini-input\">").appendTo(this.appendField(analyticsSplitA, "Limite"));
+    this.analyticsCacheTtlInput = $("<input type=\"number\" min=\"0\" class=\"program-builder-mini-input\">").appendTo(this.appendField(analyticsSplitA, "TTL cache (s)"));
+
+    const analyticsSplitB = $("<div class=\"program-builder-split\"></div>").appendTo(analyticsForm);
+    this.analyticsSortFieldSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(analyticsSplitB, "Ordenar por"));
+    this.analyticsSortDirSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(analyticsSplitB, "Direcao"));
+    [
+      { value: "asc", text: "Asc" },
+      { value: "desc", text: "Desc" }
+    ].forEach(function(item) {
+      $("<option></option>").attr("value", item.value).text(item.text).appendTo(this.analyticsSortDirSelect);
+    }, this);
+    this.analyticsChartSeriesTypeSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(analyticsSplitB, "Serie do grafico"));
+    [
+      { value: "column", text: "Column" },
+      { value: "bar", text: "Bar" },
+      { value: "line", text: "Line" },
+      { value: "area", text: "Area" }
+    ].forEach(function(item) {
+      $("<option></option>").attr("value", item.value).text(item.text).appendTo(this.analyticsChartSeriesTypeSelect);
+    }, this);
+
+    const analyticsSplitC = $("<div class=\"program-builder-split\"></div>").appendTo(analyticsForm);
+    this.analyticsChartCategoryFieldSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(analyticsSplitC, "Categoria do grafico"));
+    this.analyticsChartValueFieldSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(this.appendField(analyticsSplitC, "Valor do grafico"));
+
+    const analyticsViewsField = this.appendField(analyticsForm, "Views geradas");
+    const analyticsViewsFlags = $("<div class=\"program-builder-flags\"></div>").appendTo(analyticsViewsField);
+    this.analyticsViewGridInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(analyticsViewsFlags));
+    $("<span></span>").text("Grid").appendTo(this.analyticsViewGridInput.parent());
+    this.analyticsViewChartInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(analyticsViewsFlags));
+    $("<span></span>").text("Grafico").appendTo(this.analyticsViewChartInput.parent());
+    this.analyticsViewPivotInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(analyticsViewsFlags));
+    $("<span></span>").text("Pivot").appendTo(this.analyticsViewPivotInput.parent());
+    this.analyticsViewKpiInput = $("<input type=\"checkbox\">").appendTo($("<label></label>").appendTo(analyticsViewsFlags));
+    $("<span></span>").text("KPI").appendTo(this.analyticsViewKpiInput.parent());
+    this.analyticsViewDashboardInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(analyticsViewsFlags));
+    $("<span></span>").text("Dashboard").appendTo(this.analyticsViewDashboardInput.parent());
+    this.analyticsViewGridInput.kendoCheckBox();
+    this.analyticsViewChartInput.kendoCheckBox();
+    this.analyticsViewPivotInput.kendoCheckBox();
+    this.analyticsViewKpiInput.kendoCheckBox();
+    this.analyticsViewDashboardInput.kendoCheckBox();
+
+    const joinsHeader = $("<div class=\"program-builder-fields-header\"></div>").appendTo(analyticsForm);
+    $("<span></span>").text("Joins declarativos").appendTo(joinsHeader);
+    $("<button type=\"button\"></button>").text("Adicionar join").appendTo(joinsHeader).kendoButton({
+      icon: "plus",
+      click: this.handleAddAnalyticsJoinRow.bind(this)
+    });
+    this.analyticsJoinTable = $("<table class=\"program-builder-fields-table program-builder-analytics-joins-table\"></table>").appendTo(analyticsForm);
+    $("<thead><tr><th>Alias</th><th>Campo local</th><th>Entidade alvo</th><th>Campo alvo</th><th>Tipo</th><th></th></tr></thead>").appendTo(this.analyticsJoinTable);
+    this.analyticsJoinTableBody = $("<tbody></tbody>").appendTo(this.analyticsJoinTable);
+    this.analyticsProgramHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(analyticsForm);
+    this.analyticsProgramHint.text("Os joins usam metadados fechados do builder. Prefira relacionamentos FK ja cadastrados na modelagem.");
+
     this.programWriteFlagsField = this.appendField(form, "Permissoes de escrita", this.programFieldTechnicalProperties("writeFlags"));
     const flags = $("<div class=\"program-builder-flags\"></div>").appendTo(this.programWriteFlagsField);
     this.allowCreateInput = $("<input type=\"checkbox\" checked>").appendTo($("<label></label>").appendTo(flags));
@@ -3299,6 +3391,299 @@
   ProgramBuilder.prototype.createTextField = function(parent, label, technicalProperties) {
     const wrapper = this.appendField(parent, label, technicalProperties);
     return $("<input>").appendTo(wrapper).kendoTextBox().data("kendoTextBox");
+  };
+
+  ProgramBuilder.prototype.defaultAnalyticsConfig = function() {
+    return {
+      executionMode: "live",
+      limit: 1000,
+      cacheTtlSeconds: 900,
+      defaultSortField: "",
+      defaultSortDir: "asc",
+      chartSeriesType: "column",
+      chartCategoryField: "",
+      chartValueField: "",
+      views: {
+        grid: true,
+        chart: true,
+        pivot: true,
+        kpi: false,
+        dashboard: true
+      },
+      joins: []
+    };
+  };
+
+  ProgramBuilder.prototype.currentProgramEntityFields = function() {
+    const entityCode = String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "");
+    if (!entityCode) {
+      return [];
+    }
+    if (this.state.currentEntityCode === entityCode) {
+      return this.collectEntityPayload().fields || [];
+    }
+    const cached = this.state.entityDetailCache && this.state.entityDetailCache[entityCode];
+    if (cached && Array.isArray(cached.fields)) {
+      return cached.fields;
+    }
+    return [];
+  };
+
+  ProgramBuilder.prototype.analyticsFieldOptionItems = function() {
+    return this.currentProgramEntityFields().filter(function(field) {
+      return field && field.virtualField !== true && String(field.dataType || "").toLowerCase() !== "json";
+    }).map(function(field) {
+      return {
+        value: String(field.code || ""),
+        text: String(field.label || field.code || "") + " (" + String(field.code || "") + ")"
+      };
+    });
+  };
+
+  ProgramBuilder.prototype.analyticsMeasureOptionItems = function() {
+    return this.currentProgramEntityFields().filter(function(field) {
+      const type = String(field && field.dataType || "").toLowerCase();
+      return ["integer", "decimal", "number"].indexOf(type) >= 0;
+    }).map(function(field) {
+      return {
+        value: String(field.code || "") + "_sum",
+        text: String(field.label || field.code || "") + " (sum)"
+      };
+    });
+  };
+
+  ProgramBuilder.prototype.findTargetEntityForeignFieldOptions = function(entityCode) {
+    const cached = entityCode && this.state.entityDetailCache && this.state.entityDetailCache[entityCode];
+    const fields = cached && Array.isArray(cached.fields) ? cached.fields : [];
+    return fields.filter(function(field) {
+      return field && field.virtualField !== true && String(field.dataType || "").toLowerCase() !== "json";
+    }).map(function(field) {
+      return {
+        value: String(field.code || ""),
+        text: String(field.label || field.code || "") + " (" + String(field.code || "") + ")",
+        primaryKey: field.primaryKey === true
+      };
+    });
+  };
+
+  ProgramBuilder.prototype.ensureEntityDetail = function(entityCode) {
+    const code = String(entityCode || "").trim();
+    if (!code) {
+      return Promise.resolve(null);
+    }
+    if (this.state.currentEntityCode === code) {
+      return Promise.resolve({ fields: this.collectEntityPayload().fields || [] });
+    }
+    if (this.state.entityDetailCache[code]) {
+      return Promise.resolve(this.state.entityDetailCache[code]);
+    }
+    return this.http.request({
+      url: "/api/admin/program-builder/entities/" + encodeURIComponent(code),
+      method: "GET"
+    }).then(function(payload) {
+      const entity = payload && payload.entity ? payload.entity : null;
+      if (entity) {
+        this.state.entityDetailCache[code] = entity;
+      }
+      return entity;
+    }.bind(this)).catch(function() {
+      return null;
+    });
+  };
+
+  ProgramBuilder.prototype.refreshAnalyticsConfigOptions = function() {
+    if (!this.analyticsProgramPanel) {
+      return;
+    }
+    const fieldItems = this.analyticsFieldOptionItems();
+    const measureItems = this.analyticsMeasureOptionItems();
+    const applyOptions = function(select, items, includeEmpty) {
+      if (!select || !select.length) {
+        return;
+      }
+      const current = String(select.val() || "");
+      select.empty();
+      if (includeEmpty !== false) {
+        $("<option></option>").attr("value", "").text("Automatico").appendTo(select);
+      }
+      items.forEach(function(item) {
+        $("<option></option>").attr("value", item.value).text(item.text).appendTo(select);
+      });
+      select.val(current);
+      if (String(select.val() || "") !== current) {
+        select.val("");
+      }
+    };
+    applyOptions(this.analyticsSortFieldSelect, fieldItems, true);
+    applyOptions(this.analyticsChartCategoryFieldSelect, fieldItems, true);
+    applyOptions(this.analyticsChartValueFieldSelect, measureItems, true);
+
+    if (this.analyticsJoinTableBody) {
+      this.analyticsJoinTableBody.children("tr").each(function(_, row) {
+        const localSelect = $(row).find(".program-builder-analytics-join-local");
+        applyOptions(localSelect, fieldItems, false);
+      });
+    }
+  };
+
+  ProgramBuilder.prototype.syncAnalyticsProgramPanelState = function() {
+    if (!this.analyticsProgramPanel) {
+      return;
+    }
+    const isAnalytics = String(this.pageTypeSelect && this.pageTypeSelect.value ? this.pageTypeSelect.value() || "crud" : "crud") === "analytics";
+    this.analyticsProgramPanel.toggle(isAnalytics);
+    if (!isAnalytics) {
+      return;
+    }
+    this.refreshAnalyticsConfigOptions();
+    const cachedMode = String(this.analyticsExecutionModeSelect.val() || "live");
+    const cacheEnabled = cachedMode === "cached" || cachedMode === "auto";
+    this.analyticsCacheTtlInput.prop("disabled", !cacheEnabled);
+    if (!cacheEnabled && !String(this.analyticsCacheTtlInput.val() || "").trim()) {
+      this.analyticsCacheTtlInput.val("900");
+    }
+  };
+
+  ProgramBuilder.prototype.addAnalyticsJoinRow = function(config) {
+    if (!this.analyticsJoinTableBody) {
+      return;
+    }
+    const item = config || {};
+    const row = $("<tr></tr>").appendTo(this.analyticsJoinTableBody);
+    $("<td><input type=\"text\" class=\"program-builder-mini-input program-builder-analytics-join-id\"></td>").appendTo(row).find("input").val(item.id || "");
+    const localCell = $("<td></td>").appendTo(row);
+    const localSelect = $("<select class=\"program-builder-mini-select program-builder-analytics-join-local\"></select>").appendTo(localCell);
+    const targetCell = $("<td></td>").appendTo(row);
+    const targetSelect = $("<select class=\"program-builder-mini-select program-builder-analytics-join-target\"></select>").appendTo(targetCell);
+    $("<option></option>").attr("value", "").text("Selecione").appendTo(targetSelect);
+    this.state.entities.filter(function(entity) {
+      return entity && entity.entityType === "persistence";
+    }).forEach(function(entity) {
+      $("<option></option>").attr("value", entity.code).text(entity.code + " - " + entity.name).appendTo(targetSelect);
+    });
+    const foreignCell = $("<td></td>").appendTo(row);
+    const foreignSelect = $("<select class=\"program-builder-mini-select program-builder-analytics-join-foreign\"></select>").appendTo(foreignCell);
+    const typeCell = $("<td></td>").appendTo(row);
+    const typeSelect = $("<select class=\"program-builder-mini-select program-builder-analytics-join-type\"></select>").appendTo(typeCell);
+    [
+      { value: "left", text: "Left" },
+      { value: "inner", text: "Inner" }
+    ].forEach(function(option) {
+      $("<option></option>").attr("value", option.value).text(option.text).appendTo(typeSelect);
+    });
+    $("<td class=\"program-builder-check-cell\"><button type=\"button\" class=\"program-builder-remove-row\">Remover</button></td>").appendTo(row)
+      .find("button").kendoButton({ icon: "trash", click: function() { row.remove(); this.schedulePreview(); }.bind(this) });
+
+    const refreshForeign = function() {
+      const targetCode = String(targetSelect.val() || "");
+      const current = String(foreignSelect.val() || "");
+      foreignSelect.empty();
+      $("<option></option>").attr("value", "").text("Selecione").appendTo(foreignSelect);
+      this.ensureEntityDetail(targetCode).then(function(entity) {
+        const items = this.findTargetEntityForeignFieldOptions(targetCode);
+        items.forEach(function(option) {
+          $("<option></option>").attr("value", option.value).text(option.text).appendTo(foreignSelect);
+        });
+        foreignSelect.val(current || (items.find(function(option) { return option.primaryKey; }) || {}).value || "");
+      }.bind(this));
+    }.bind(this);
+
+    targetSelect.on("change", function() {
+      refreshForeign();
+      this.schedulePreview();
+    }.bind(this));
+    localSelect.on("change", this.schedulePreview.bind(this));
+    foreignSelect.on("change", this.schedulePreview.bind(this));
+    typeSelect.on("change", this.schedulePreview.bind(this));
+    row.find(".program-builder-analytics-join-id").on("input change", this.schedulePreview.bind(this));
+
+    this.refreshAnalyticsConfigOptions();
+    localSelect.val(item.localField || "");
+    targetSelect.val(item.entityCode || "");
+    typeSelect.val(item.type || "left");
+    refreshForeign();
+    if (item.foreignField) {
+      global.setTimeout(function() {
+        foreignSelect.val(item.foreignField || "");
+      }, 0);
+    }
+  };
+
+  ProgramBuilder.prototype.handleAddAnalyticsJoinRow = function() {
+    this.addAnalyticsJoinRow({
+      id: "join" + (this.analyticsJoinTableBody.children("tr").length + 1),
+      type: "left"
+    });
+  };
+
+  ProgramBuilder.prototype.collectAnalyticsJoinRows = function() {
+    if (!this.analyticsJoinTableBody) {
+      return [];
+    }
+    return this.analyticsJoinTableBody.children("tr").map(function(_, row) {
+      const $row = $(row);
+      const id = String($row.find(".program-builder-analytics-join-id").val() || "").trim();
+      const localField = String($row.find(".program-builder-analytics-join-local").val() || "").trim();
+      const entityCode = String($row.find(".program-builder-analytics-join-target").val() || "").trim();
+      const foreignField = String($row.find(".program-builder-analytics-join-foreign").val() || "").trim();
+      const type = String($row.find(".program-builder-analytics-join-type").val() || "left").trim();
+      if (!id || !localField || !entityCode || !foreignField) {
+        return null;
+      }
+      return {
+        id: id,
+        source: "base",
+        localField: localField,
+        entityCode: entityCode,
+        foreignField: foreignField,
+        type: type === "inner" ? "inner" : "left"
+      };
+    }).get().filter(Boolean);
+  };
+
+  ProgramBuilder.prototype.collectAnalyticsConfig = function() {
+    return {
+      executionMode: String(this.analyticsExecutionModeSelect.val() || "live"),
+      limit: Number(this.analyticsLimitInput.val() || 1000),
+      cacheTtlSeconds: Number(this.analyticsCacheTtlInput.val() || 900),
+      defaultSortField: String(this.analyticsSortFieldSelect.val() || ""),
+      defaultSortDir: String(this.analyticsSortDirSelect.val() || "asc"),
+      chartSeriesType: String(this.analyticsChartSeriesTypeSelect.val() || "column"),
+      chartCategoryField: String(this.analyticsChartCategoryFieldSelect.val() || ""),
+      chartValueField: String(this.analyticsChartValueFieldSelect.val() || ""),
+      views: {
+        grid: this.analyticsViewGridInput.is(":checked"),
+        chart: this.analyticsViewChartInput.is(":checked"),
+        pivot: this.analyticsViewPivotInput.is(":checked"),
+        kpi: this.analyticsViewKpiInput.is(":checked"),
+        dashboard: this.analyticsViewDashboardInput.is(":checked")
+      },
+      joins: this.collectAnalyticsJoinRows()
+    };
+  };
+
+  ProgramBuilder.prototype.populateAnalyticsProgramConfig = function(config) {
+    const value = Object.assign({}, this.defaultAnalyticsConfig(), config || {});
+    const views = Object.assign({}, this.defaultAnalyticsConfig().views, value.views || {});
+    this.analyticsExecutionModeSelect.val(value.executionMode || "live");
+    this.analyticsLimitInput.val(value.limit || 1000);
+    this.analyticsCacheTtlInput.val(value.cacheTtlSeconds || 900);
+    this.refreshAnalyticsConfigOptions();
+    this.analyticsSortFieldSelect.val(value.defaultSortField || "");
+    this.analyticsSortDirSelect.val(value.defaultSortDir || "asc");
+    this.analyticsChartSeriesTypeSelect.val(value.chartSeriesType || "column");
+    this.analyticsChartCategoryFieldSelect.val(value.chartCategoryField || "");
+    this.analyticsChartValueFieldSelect.val(value.chartValueField || "");
+    this.analyticsViewGridInput.prop("checked", views.grid !== false);
+    this.analyticsViewChartInput.prop("checked", views.chart !== false);
+    this.analyticsViewPivotInput.prop("checked", views.pivot !== false);
+    this.analyticsViewKpiInput.prop("checked", views.kpi === true);
+    this.analyticsViewDashboardInput.prop("checked", views.dashboard !== false);
+    this.analyticsJoinTableBody.empty();
+    (Array.isArray(value.joins) ? value.joins : []).forEach(function(join) {
+      this.addAnalyticsJoinRow(join);
+    }, this);
+    this.syncAnalyticsProgramPanelState();
   };
 
   ProgramBuilder.prototype.attachLivePreview = function() {
@@ -3383,29 +3768,37 @@
   ProgramBuilder.prototype.syncProgramTypeState = function() {
     const pageType = String(this.pageTypeSelect && this.pageTypeSelect.value ? this.pageTypeSelect.value() || "crud" : "crud");
     const isCrud = pageType === "crud";
-    const entity = isCrud ? this.findEntitySummary(String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "")) : null;
+    const isAnalytics = pageType === "analytics";
+    const usesEntity = isCrud || isAnalytics;
+    const entity = usesEntity ? this.findEntitySummary(String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "")) : null;
     const apiEntity = !!(entity && entity.entityType === "api");
-    const sameLoadedApi = apiEntity && this.state.currentEntityCode === String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "");
+    const sameLoadedApi = isCrud && apiEntity && this.state.currentEntityCode === String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "");
     const readOnlyApi = apiEntity && sameLoadedApi
       ? !String(this.apiCatalogCreateOperationSelect.value() || "").trim() && !String(this.apiCatalogUpdateOperationSelect.value() || "").trim() && !String(this.apiCatalogDeleteOperationSelect.value() || "").trim()
       : false;
 
     if (this.builderEntityField) {
-      this.builderEntityField.toggle(isCrud);
+      this.builderEntityField.toggle(usesEntity);
     }
     if (this.programWriteFlagsField) {
       this.programWriteFlagsField.toggle(isCrud);
     }
     if (this.customProgramPanel) {
-      this.customProgramPanel.toggle(!isCrud);
+      this.customProgramPanel.toggle(pageType === "custom");
+    }
+    if (this.analyticsProgramPanel) {
+      this.analyticsProgramPanel.toggle(isAnalytics);
     }
     if (this.builderEntitySelect) {
-      this.builderEntitySelect.enable(isCrud);
+      this.builderEntitySelect.enable(usesEntity);
     }
     if (!isCrud) {
       this.allowCreateInput.prop("checked", false);
       this.allowUpdateInput.prop("checked", false);
       this.allowDeleteInput.prop("checked", false);
+    }
+    if (isAnalytics && entity && entity.entityType && entity.entityType !== "persistence") {
+      this.previewFooter.text("Analytics v1 aceita somente entidades persistence como fonte interna.");
     }
     if (readOnlyApi) {
       this.allowCreateInput.prop("checked", false).prop("disabled", true);
@@ -3420,6 +3813,7 @@
       this.allowUpdateInput.prop("disabled", !isCrud);
       this.allowDeleteInput.prop("disabled", !isCrud);
     }
+    this.syncAnalyticsProgramPanelState();
     this.schedulePreview();
   };
 
@@ -3913,18 +4307,22 @@
     this.appendPropertyText(panel, "Ambientes", () => this.publicationPolicyInput.value(), (value) => this.publicationPolicyInput.value(value), "text", this.programFieldTechnicalProperties("publicationPolicy"));
     this.appendPropertySelect(panel, "Tipo", [
       { value: "crud", text: "CRUD" },
+      { value: "analytics", text: "Analytics / BI" },
       { value: "custom", text: "Custom" }
     ], () => this.pageTypeSelect.value(), (value) => { this.pageTypeSelect.value(value); this.syncProgramTypeState(); }, this.programFieldTechnicalProperties("pageType"));
     this.appendPropertySelect(panel, "Modulo", this.state.modules.map(function(item) {
       return { value: item.code, text: item.code + " - " + item.name };
     }), () => this.moduleInput.value(), (value) => this.moduleInput.value(value), this.programFieldTechnicalProperties("programModule"));
-    if (String(this.pageTypeSelect.value() || "crud") === "crud") {
+    const pageType = String(this.pageTypeSelect.value() || "crud");
+    if (pageType === "crud" || pageType === "analytics") {
       this.appendPropertySelect(panel, "Entidade base", this.state.entities.map(function(item) {
         return { value: item.code, text: item.code + " - " + item.name };
       }), () => this.builderEntitySelect.value(), (value) => { this.builderEntitySelect.value(value); this.handleProgramEntityChange(false); }, this.programFieldTechnicalProperties("baseEntity"));
-      this.appendPropertyCheckbox(panel, "Permite incluir", () => this.allowCreateInput.is(":checked"), (checked) => this.allowCreateInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Programa", "Permite incluir", "Habilita a acao create no CRUD quando o runtime possui endpoint compativel."));
-      this.appendPropertyCheckbox(panel, "Permite alterar", () => this.allowUpdateInput.is(":checked"), (checked) => this.allowUpdateInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Programa", "Permite alterar", "Habilita a acao update no CRUD quando o runtime possui endpoint compativel."));
-      this.appendPropertyCheckbox(panel, "Permite excluir", () => this.allowDeleteInput.is(":checked"), (checked) => this.allowDeleteInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Programa", "Permite excluir", "Habilita a acao delete no CRUD quando o runtime possui endpoint compativel."));
+      if (pageType === "crud") {
+        this.appendPropertyCheckbox(panel, "Permite incluir", () => this.allowCreateInput.is(":checked"), (checked) => this.allowCreateInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Programa", "Permite incluir", "Habilita a acao create no CRUD quando o runtime possui endpoint compativel."));
+        this.appendPropertyCheckbox(panel, "Permite alterar", () => this.allowUpdateInput.is(":checked"), (checked) => this.allowUpdateInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Programa", "Permite alterar", "Habilita a acao update no CRUD quando o runtime possui endpoint compativel."));
+        this.appendPropertyCheckbox(panel, "Permite excluir", () => this.allowDeleteInput.is(":checked"), (checked) => this.allowDeleteInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Programa", "Permite excluir", "Habilita a acao delete no CRUD quando o runtime possui endpoint compativel."));
+      }
       return;
     }
     this.appendPropertySelect(panel, "Modo custom", [
@@ -3955,6 +4353,11 @@
     this.appendPropertyCheckbox(panel, "Nao editavel", () => pair.details.find(".program-builder-field-readonly").is(":checked"), (checked) => pair.details.find(".program-builder-field-readonly").prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Campo", "Nao editavel", "Desliga escrita do campo no runtime gerado.", [{ section: "Runtime", label: "Impacto", value: "Campo somente leitura.", critical: true }]));
     this.appendPropertyText(panel, "FK tabela", () => pair.details.find(".program-builder-field-fk-table").val(), (value) => pair.details.find(".program-builder-field-fk-table").val(value), "text", this.buildTechnicalProperties("Campo", "FK tabela", "Tabela ou entidade de referencia da chave estrangeira."));
     this.appendPropertyText(panel, "FK coluna", () => pair.details.find(".program-builder-field-fk-column").val(), (value) => pair.details.find(".program-builder-field-fk-column").val(value), "text", this.buildTechnicalProperties("Campo", "FK coluna", "Campo de referencia usado pela chave estrangeira."));
+    this.appendPropertyCheckbox(panel, "Analytics oculto", () => pair.details.find(".program-builder-field-analytics-hidden").is(":checked"), (checked) => pair.details.find(".program-builder-field-analytics-hidden").prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Analytics", "Oculto", "Remove o campo dos datasets analytics gerados pelo builder."));
+    this.appendPropertyCheckbox(panel, "Dimensao", () => pair.details.find(".program-builder-field-analytics-dimension").is(":checked"), (checked) => pair.details.find(".program-builder-field-analytics-dimension").prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Analytics", "Dimensao", "Usa o campo como dimensao em agrupamentos, graficos e pivot."));
+    this.appendPropertyCheckbox(panel, "Medida", () => pair.details.find(".program-builder-field-analytics-measure").is(":checked"), (checked) => pair.details.find(".program-builder-field-analytics-measure").prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Analytics", "Medida", "Usa o campo como medida agregada."));
+    this.appendPropertySelect(panel, "Agregado", ProgramBuilder.ANALYTICS_AGGREGATES, () => pair.details.find(".program-builder-field-analytics-aggregate").val(), (value) => pair.details.find(".program-builder-field-analytics-aggregate").val(value), this.buildTechnicalProperties("Analytics", "Agregado padrao", "Agregacao usada quando o campo vira medida."));
+    this.appendPropertyText(panel, "Formato", () => pair.details.find(".program-builder-field-analytics-format").val(), (value) => pair.details.find(".program-builder-field-analytics-format").val(value), "text", this.buildTechnicalProperties("Analytics", "Formato", "Formato Kendo usado em grids, graficos e KPIs."));
   };
 
   ProgramBuilder.prototype.renderRuleProperties = function(index) {
@@ -4614,7 +5017,7 @@
     if (!item.screenId) {
       count += 1;
     }
-    if ((!item.pageType || item.pageType === "crud" || item.programType === "crud") && !item.builderEntityCode) {
+    if ((!item.pageType || item.pageType === "crud" || item.pageType === "analytics" || item.programType === "crud" || item.programType === "analytics") && !item.builderEntityCode) {
       count += 1;
     }
     return count;
@@ -4787,7 +5190,7 @@
       if (!String(programPayload.screenId || "").trim()) {
         validation.programIssues.push("Screen ID obrigatorio.");
       }
-      if (String(programPayload.pageType || "crud") === "crud" && !String(programPayload.builderEntityCode || "").trim()) {
+      if ((String(programPayload.pageType || "crud") === "crud" || String(programPayload.pageType || "crud") === "analytics") && !String(programPayload.builderEntityCode || "").trim()) {
         validation.programIssues.push("Entidade base obrigatoria.");
       }
       if (String(programPayload.pageType || "crud") === "custom" && !String(programPayload.customEntryUrl || "").trim()) {
@@ -5061,6 +5464,7 @@
         .append($("<strong></strong>").text("Sem pendencias relevantes."))
         .append($("<span></span>").text("A configuracao corrente ja atende os pontos basicos."))
         .appendTo(this.diagnosticsElement);
+      this.renderAnalyticsValidator();
       return;
     }
     diagnostics.forEach(function(item) {
@@ -5077,6 +5481,7 @@
         });
       }
     }, this);
+    this.renderAnalyticsValidator();
   };
 
   ProgramBuilder.prototype.collectDiagnostics = function() {
@@ -5208,6 +5613,130 @@
     }
   };
 
+  ProgramBuilder.prototype.renderAnalyticsValidator = function() {
+    if (!this.analyticsDiagnosticsElement) {
+      return;
+    }
+    const host = this.analyticsDiagnosticsElement;
+    host.empty();
+
+    if (String(this.pageTypeSelect && this.pageTypeSelect.value ? this.pageTypeSelect.value() || "crud" : "crud") !== "analytics") {
+      return;
+    }
+
+    $("<div class=\"program-builder-analytics-validator-header\"></div>")
+      .append($("<h3></h3>").text("Validador analytics"))
+      .append($("<p></p>").text("Resume datasets e tenta validar amostra e cache pelo runtime seguro."))
+      .appendTo(host);
+
+    const definition = this.currentPreviewDefinition();
+    if (!definition || !definition.analytics) {
+      $("<div class=\"program-builder-diagnostic-item is-info\"></div>")
+        .append($("<strong></strong>").text("Preview pendente"))
+        .append($("<span></span>").text("Gere o preview para revisar datasets, views e filtros analytics."))
+        .appendTo(host);
+      return;
+    }
+
+    const analytics = definition.analytics || {};
+    const datasets = Array.isArray(analytics.datasets) ? analytics.datasets : [];
+    const views = Array.isArray(analytics.views) ? analytics.views : [];
+    const badges = $("<div class=\"program-builder-analytics-badges\"></div>").appendTo(host);
+    [
+      "Datasets: " + datasets.length,
+      "Views: " + views.length,
+      "Tela: " + (definition.screenId || "")
+    ].forEach(function(text) {
+      $("<span class=\"k-badge k-badge-solid k-badge-solid-base k-rounded-md\"></span>").text(text).appendTo(badges);
+    });
+
+    const diagnostics = this.collectAnalyticsDefinitionDiagnostics(definition);
+    const diagnosticsList = $("<div class=\"program-builder-analytics-diagnostics\"></div>").appendTo(host);
+    if (!diagnostics.length) {
+      $("<div class=\"program-builder-diagnostic-item is-ok\"></div>")
+        .append($("<strong></strong>").text("Estrutura analytics coerente"))
+        .append($("<span></span>").text("Datasets e views passaram nas validacoes locais do builder."))
+        .appendTo(diagnosticsList);
+    } else {
+      diagnostics.forEach(function(item) {
+        $("<div class=\"program-builder-diagnostic-item\"></div>")
+          .addClass("is-" + item.level)
+          .append($("<strong></strong>").text(item.title))
+          .append($("<span></span>").text(item.message))
+          .appendTo(diagnosticsList);
+      });
+    }
+
+    const datasetGrid = $("<div class=\"program-builder-analytics-dataset-grid\"></div>").appendTo(host);
+    datasets.forEach(function(dataset) {
+      const datasetViews = views.filter(function(view) {
+        return String(view.datasetId || "") === String(dataset.id || "");
+      });
+      const card = $("<article class=\"program-builder-analytics-dataset-card\"></article>").appendTo(datasetGrid);
+      $("<h4></h4>").text(dataset.title || dataset.id || "Dataset").appendTo(card);
+      $("<p></p>").text("ID: " + String(dataset.id || "")).appendTo(card);
+      $("<p></p>").text("Fonte: " + String(dataset.source && dataset.source.entityCode || "")).appendTo(card);
+      $("<p></p>").text("Modo: " + String(dataset.executionMode || "live") + " | limite: " + String(dataset.limit || 0)).appendTo(card);
+      $("<p></p>").text("Campos: " + this.analyticsSpecCount(dataset.fields) + " | dimensoes: " + this.analyticsSpecCount(dataset.dimensions) + " | medidas: " + this.analyticsSpecCount(dataset.measures)).appendTo(card);
+      $("<p></p>").text("Parametros: " + this.analyticsSpecCount(dataset.parameters) + " | views: " + datasetViews.length).appendTo(card);
+    }, this);
+
+    this.ensureAnalyticsValidatorState(definition);
+    const state = this.state.analyticsValidator || {};
+    const selectedDataset = datasets.find(function(dataset) {
+      return String(dataset.id || "") === String(state.datasetId || "");
+    }) || datasets[0] || null;
+
+    if (!selectedDataset) {
+      $("<div class=\"program-builder-diagnostic-item is-error\"></div>")
+        .append($("<strong></strong>").text("Sem dataset valido"))
+        .append($("<span></span>").text("A definicao analytics precisa de ao menos um dataset para validar runtime e cache."))
+        .appendTo(host);
+      return;
+    }
+
+    const runner = $("<section class=\"program-builder-analytics-runner\"></section>").appendTo(host);
+    $("<h4></h4>").text("Validacao runtime").appendTo(runner);
+    $("<p class=\"program-builder-diagnostics-intro\"></p>").text("Usa `analytics.query.run` e `analytics.cache.status` com o `screenId` atual.").appendTo(runner);
+
+    const controls = $("<div class=\"program-builder-analytics-runner-controls\"></div>").appendTo(runner);
+    const datasetField = $("<label class=\"program-builder-field\"></label>").appendTo(controls);
+    $("<span></span>").text("Dataset").appendTo(datasetField);
+    const datasetSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(datasetField);
+    datasets.forEach(function(dataset) {
+      $("<option></option>").attr("value", dataset.id || "").text(dataset.title || dataset.id || "Dataset").appendTo(datasetSelect);
+    });
+    datasetSelect.val(String(selectedDataset.id || ""));
+    datasetSelect.on("change", function() {
+      this.state.analyticsValidator.datasetId = String($(this).val() || "");
+      this.state.analyticsValidator.sampleResult = null;
+      this.state.analyticsValidator.sampleError = "";
+      this.state.analyticsValidator.cacheStatus = null;
+      this.state.analyticsValidator.cacheError = "";
+      this.renderDiagnostics();
+    }.bind(this));
+
+    const actions = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(runner);
+    $("<button type=\"button\"></button>").text("Executar amostra").appendTo(actions).kendoButton({
+      icon: "play",
+      click: this.handleRunAnalyticsSample.bind(this)
+    });
+    $("<button type=\"button\"></button>").text("Status do cache").appendTo(actions).kendoButton({
+      icon: "database",
+      click: this.handleCheckAnalyticsCache.bind(this)
+    });
+    $("<button type=\"button\"></button>").text("Materializar cache").appendTo(actions).kendoButton({
+      icon: "reload",
+      click: this.handleMaterializeAnalyticsCache.bind(this)
+    });
+
+    const parametersHost = $("<div class=\"program-builder-analytics-parameters\"></div>").appendTo(runner);
+    this.renderAnalyticsParameterInputs(parametersHost, selectedDataset);
+
+    const resultHost = $("<div class=\"program-builder-analytics-results\"></div>").appendTo(runner);
+    this.renderAnalyticsRuntimeFeedback(resultHost, state, selectedDataset);
+  };
+
   ProgramBuilder.prototype.countCurrentForeignKeys = function() {
     let count = 0;
     if (!this.fieldsTableBody) {
@@ -5222,6 +5751,335 @@
       }
     });
     return count;
+  };
+
+  ProgramBuilder.prototype.currentPreviewDefinition = function() {
+    const preview = this.state.preview && this.state.preview.generatedDefinition ? this.state.preview.generatedDefinition : null;
+    if (preview && typeof preview === "object") {
+      return preview;
+    }
+    if (this.previewElement && typeof this.previewElement.text === "function") {
+      try {
+        const parsed = JSON.parse(String(this.previewElement.text() || "{}"));
+        return parsed && typeof parsed === "object" ? parsed : null;
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  };
+
+  ProgramBuilder.prototype.analyticsSpecCount = function(items) {
+    return Array.isArray(items) ? items.filter(function(item) { return !!item; }).length : 0;
+  };
+
+  ProgramBuilder.prototype.collectAnalyticsDefinitionDiagnostics = function(definition) {
+    const diagnostics = [];
+    const analytics = definition && definition.analytics || {};
+    const datasets = Array.isArray(analytics.datasets) ? analytics.datasets : [];
+    const views = Array.isArray(analytics.views) ? analytics.views : [];
+    const entity = this.findEntityByCode(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() : "");
+
+    if (!entity) {
+      diagnostics.push({ level: "error", title: "Entidade base nao encontrada", message: "Selecione uma entidade valida para gerar a camada analytics." });
+    } else if (String(entity.entityType || "") !== "persistence") {
+      diagnostics.push({ level: "error", title: "Fonte invalida para v1", message: "Analytics v1 aceita somente entidade `persistence` como fonte interna." });
+    }
+
+    if (!datasets.length) {
+      diagnostics.push({ level: "error", title: "Sem datasets", message: "A definicao gerada precisa declarar ao menos um dataset." });
+    }
+
+    datasets.forEach(function(dataset) {
+      const datasetId = String(dataset.id || "");
+      const source = dataset.source && dataset.source.entityCode || "";
+      const measures = Array.isArray(dataset.measures) ? dataset.measures : [];
+      const dimensions = Array.isArray(dataset.dimensions) ? dataset.dimensions : [];
+      const fields = Array.isArray(dataset.fields) ? dataset.fields : [];
+      const executionMode = String(dataset.executionMode || "live");
+      if (!datasetId) {
+        diagnostics.push({ level: "error", title: "Dataset sem ID", message: "Todo dataset analytics precisa de `id` tecnico." });
+      }
+      if (!source) {
+        diagnostics.push({ level: "error", title: "Fonte ausente", message: "O dataset `" + (datasetId || "sem-id") + "` precisa informar `source.entityCode`." });
+      }
+      if (!fields.length && !measures.length && !dimensions.length) {
+        diagnostics.push({ level: "error", title: "Dataset vazio", message: "O dataset `" + (datasetId || "sem-id") + "` nao possui campos, dimensoes ou medidas utilizaveis." });
+      }
+      if (!dimensions.length) {
+        diagnostics.push({ level: "warn", title: "Sem dimensoes", message: "O dataset `" + (datasetId || "sem-id") + "` nao possui dimensoes; pivot e chart podem ficar pobres." });
+      }
+      if ((executionMode === "cached" || executionMode === "auto") && !(dataset.cache && Number(dataset.cache.ttlSeconds || 0) > 0)) {
+        diagnostics.push({ level: "warn", title: "Cache sem expiracao", message: "O dataset `" + (datasetId || "sem-id") + "` usa cache/auto sem `ttlSeconds` configurado." });
+      }
+      measures.forEach(function(measure) {
+        const aggregate = String(measure && (measure.aggregate || measure.defaultAggregate) || "count").toLowerCase();
+        if (ProgramBuilder.ANALYTICS_AGGREGATES.every(function(item) { return item.value !== aggregate; }) || !aggregate) {
+          diagnostics.push({ level: "error", title: "Agregado invalido", message: "A medida `" + String(measure && (measure.label || measure.id || measure.field) || "sem-id") + "` usa agregacao nao suportada." });
+        }
+      });
+      if (!views.some(function(view) { return String(view.datasetId || "") === datasetId; })) {
+        diagnostics.push({ level: "warn", title: "Dataset sem view", message: "O dataset `" + (datasetId || "sem-id") + "` nao esta ligado a nenhuma view." });
+      }
+    });
+
+    views.forEach(function(view) {
+      if (!datasets.some(function(dataset) { return String(dataset.id || "") === String(view.datasetId || ""); })) {
+        diagnostics.push({ level: "error", title: "View sem dataset", message: "A view `" + String(view.title || view.id || view.type || "sem-id") + "` aponta para dataset inexistente." });
+      }
+    });
+
+    return diagnostics;
+  };
+
+  ProgramBuilder.prototype.ensureAnalyticsValidatorState = function(definition) {
+    const analytics = definition && definition.analytics || {};
+    const datasets = Array.isArray(analytics.datasets) ? analytics.datasets : [];
+    const signature = JSON.stringify({
+      screenId: definition && definition.screenId || "",
+      datasets: datasets.map(function(dataset) {
+        return {
+          id: dataset.id || "",
+          parameters: Array.isArray(dataset.parameters) ? dataset.parameters.map(function(item) { return item.id || item.field || ""; }) : []
+        };
+      })
+    });
+    if (this.state.analyticsValidator.signature === signature) {
+      return;
+    }
+    this.state.analyticsValidator = {
+      signature: signature,
+      datasetId: datasets[0] && String(datasets[0].id || "") || "",
+      parameterValues: {},
+      sampleResult: null,
+      sampleError: "",
+      cacheStatus: null,
+      cacheError: ""
+    };
+  };
+
+  ProgramBuilder.prototype.analyticsValidatorDataset = function() {
+    const definition = this.currentPreviewDefinition();
+    const datasets = Array.isArray(definition && definition.analytics && definition.analytics.datasets) ? definition.analytics.datasets : [];
+    const datasetId = String(this.state.analyticsValidator && this.state.analyticsValidator.datasetId || "");
+    return datasets.find(function(dataset) {
+      return String(dataset.id || "") === datasetId;
+    }) || datasets[0] || null;
+  };
+
+  ProgramBuilder.prototype.renderAnalyticsParameterInputs = function(container, dataset) {
+    const state = this.state.analyticsValidator || {};
+    const parameters = Array.isArray(dataset && dataset.parameters) ? dataset.parameters : [];
+    if (!parameters.length) {
+      $("<p class=\"program-builder-empty\"></p>").text("Nenhum parametro configurado para este dataset.").appendTo(container);
+      return;
+    }
+    const grid = $("<div class=\"program-builder-analytics-parameters-grid\"></div>").appendTo(container);
+    parameters.forEach(function(parameter) {
+      const id = String(parameter.id || parameter.field || "");
+      const field = $("<label class=\"program-builder-field\"></label>").appendTo(grid);
+      $("<span></span>").text(parameter.label || id).appendTo(field);
+      let input;
+      if (Array.isArray(parameter.options) && parameter.options.length) {
+        input = $("<select class=\"program-builder-mini-select\"></select>").appendTo(field);
+        $("<option></option>").attr("value", "").text("Todos").appendTo(input);
+        parameter.options.forEach(function(option) {
+          $("<option></option>").attr("value", option.value).text(option.text || option.value).appendTo(input);
+        });
+      } else {
+        input = $("<input>").attr("type", this.analyticsParameterInputType(parameter)).addClass("program-builder-mini-input").appendTo(field);
+      }
+      input.val(state.parameterValues && state.parameterValues[id] != null ? state.parameterValues[id] : (parameter.defaultValue != null ? parameter.defaultValue : ""));
+      input.on("input change", function(event) {
+        this.state.analyticsValidator.parameterValues[id] = $(event.currentTarget).val();
+      }.bind(this));
+    }, this);
+  };
+
+  ProgramBuilder.prototype.analyticsParameterInputType = function(parameter) {
+    const type = String(parameter && parameter.type || "text");
+    if (type === "integer" || type === "decimal" || type === "number" || type === "currency") {
+      return "number";
+    }
+    if (type === "date" || type === "datetime") {
+      return "date";
+    }
+    return "text";
+  };
+
+  ProgramBuilder.prototype.analyticsRuntimeRequest = function(endpointKey, payload) {
+    const definition = this.currentPreviewDefinition();
+    const screenId = String(definition && (definition.screenId || definition.program && definition.program.screenId) || this.screenIdInput.value() || "").trim();
+    const endpoints = definition && definition.analytics && definition.analytics.endpoints || {};
+    const endpoint = endpoints[endpointKey];
+    const fallbackEndpointId = {
+      run: "analytics.query.run",
+      cacheStatus: "analytics.cache.status",
+      materialize: "analytics.materialize"
+    }[endpointKey] || endpointKey;
+    const policy = global.CrudUtils.normalizeSecurityPolicy({}, { securityMode: "production" });
+    const resolved = global.CrudUtils.resolveEndpointForPolicy(endpoint, fallbackEndpointId, screenId, policy);
+    if (!resolved || !resolved.url) {
+      return Promise.reject(global.CrudUtils.makeError("ANALYTICS_RUNTIME_ENDPOINT_UNRESOLVED", "Nao foi possivel resolver o endpoint runtime analytics."));
+    }
+    return this.http.request({
+      url: resolved.url,
+      method: String(resolved.method || "POST").toUpperCase(),
+      data: payload || {}
+    });
+  };
+
+  ProgramBuilder.prototype.analyticsValidatorPayload = function(dataset) {
+    const state = this.state.analyticsValidator || {};
+    const parameters = {};
+    const configured = state.parameterValues || {};
+    (Array.isArray(dataset && dataset.parameters) ? dataset.parameters : []).forEach(function(parameter) {
+      const id = String(parameter.id || parameter.field || "");
+      const value = configured[id];
+      if (value != null && String(value).trim() !== "") {
+        parameters[id] = value;
+      }
+    });
+    return {
+      datasetId: dataset && dataset.id || "",
+      take: 20,
+      parameters: parameters
+    };
+  };
+
+  ProgramBuilder.prototype.handleRunAnalyticsSample = function() {
+    const dataset = this.analyticsValidatorDataset();
+    if (!dataset) {
+      global.CrudUtils.showMessage("Nenhum dataset analytics disponivel para validar.", "warning");
+      return;
+    }
+    const payload = this.analyticsValidatorPayload(dataset);
+    this.state.analyticsValidator.sampleError = "";
+    return this.analyticsRuntimeRequest("run", payload).then(function(response) {
+      this.state.analyticsValidator.sampleResult = response || null;
+      this.renderDiagnostics();
+      global.CrudUtils.showMessage("Amostra analytics carregada.", "success");
+      return response;
+    }.bind(this)).catch(function(error) {
+      const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel executar a amostra analytics.");
+      this.state.analyticsValidator.sampleResult = null;
+      this.state.analyticsValidator.sampleError = normalized.message || "Falha na amostra analytics.";
+      this.renderDiagnostics();
+      global.CrudUtils.showMessage(this.state.analyticsValidator.sampleError, "error");
+      return null;
+    }.bind(this));
+  };
+
+  ProgramBuilder.prototype.handleCheckAnalyticsCache = function() {
+    const dataset = this.analyticsValidatorDataset();
+    if (!dataset) {
+      global.CrudUtils.showMessage("Nenhum dataset analytics disponivel para consultar cache.", "warning");
+      return;
+    }
+    const payload = this.analyticsValidatorPayload(dataset);
+    this.state.analyticsValidator.cacheError = "";
+    return this.analyticsRuntimeRequest("cacheStatus", payload).then(function(response) {
+      this.state.analyticsValidator.cacheStatus = response || null;
+      this.renderDiagnostics();
+      global.CrudUtils.showMessage("Status do cache analytics atualizado.", "info");
+      return response;
+    }.bind(this)).catch(function(error) {
+      const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel consultar o cache analytics.");
+      this.state.analyticsValidator.cacheStatus = null;
+      this.state.analyticsValidator.cacheError = normalized.message || "Falha ao consultar cache.";
+      this.renderDiagnostics();
+      global.CrudUtils.showMessage(this.state.analyticsValidator.cacheError, "error");
+      return null;
+    }.bind(this));
+  };
+
+  ProgramBuilder.prototype.handleMaterializeAnalyticsCache = function() {
+    const dataset = this.analyticsValidatorDataset();
+    if (!dataset) {
+      global.CrudUtils.showMessage("Nenhum dataset analytics disponivel para materializar.", "warning");
+      return;
+    }
+    const payload = this.analyticsValidatorPayload(dataset);
+    payload.sync = true;
+    return this.analyticsRuntimeRequest("materialize", payload).then(function(response) {
+      this.state.analyticsValidator.cacheError = "";
+      return this.analyticsRuntimeRequest("cacheStatus", this.analyticsValidatorPayload(dataset)).then(function(cacheResponse) {
+        this.state.analyticsValidator.cacheStatus = cacheResponse || response || null;
+        this.renderDiagnostics();
+        global.CrudUtils.showMessage("Cache analytics materializado.", "success");
+        return response;
+      }.bind(this));
+    }.bind(this)).catch(function(error) {
+      const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel materializar o cache analytics.");
+      this.state.analyticsValidator.cacheError = normalized.message || "Falha na materializacao.";
+      this.renderDiagnostics();
+      global.CrudUtils.showMessage(this.state.analyticsValidator.cacheError, "error");
+      return null;
+    }.bind(this));
+  };
+
+  ProgramBuilder.prototype.renderAnalyticsRuntimeFeedback = function(container, state, dataset) {
+    const cacheHost = $("<div class=\"program-builder-analytics-runtime-block\"></div>").appendTo(container);
+    $("<h5></h5>").text("Cache").appendTo(cacheHost);
+    if (state.cacheError) {
+      $("<div class=\"program-builder-diagnostic-item is-error\"></div>")
+        .append($("<strong></strong>").text("Falha ao consultar cache"))
+        .append($("<span></span>").text(state.cacheError))
+        .appendTo(cacheHost);
+    } else if (state.cacheStatus) {
+      $("<div class=\"program-builder-analytics-runtime-meta\"></div>")
+        .text("Status: " + String(state.cacheStatus.status || "desconhecido") + " | expirado: " + (state.cacheStatus.expired ? "sim" : "nao") + " | linhas: " + String(state.cacheStatus.rowCount || 0))
+        .appendTo(cacheHost);
+      if (state.cacheStatus.refreshedAt || state.cacheStatus.expiresAt) {
+        $("<div class=\"program-builder-analytics-runtime-meta\"></div>")
+          .text("Atualizado: " + String(state.cacheStatus.refreshedAt || "-") + " | expira: " + String(state.cacheStatus.expiresAt || "-"))
+          .appendTo(cacheHost);
+      }
+      if (state.cacheStatus.lastError) {
+        $("<div class=\"program-builder-diagnostic-item is-warn\"></div>")
+          .append($("<strong></strong>").text("Ultimo erro do cache"))
+          .append($("<span></span>").text(String(state.cacheStatus.lastError || "")))
+          .appendTo(cacheHost);
+      }
+    } else {
+      $("<p class=\"program-builder-empty\"></p>").text("Consulte o status do cache para este dataset.").appendTo(cacheHost);
+    }
+
+    const sampleHost = $("<div class=\"program-builder-analytics-runtime-block\"></div>").appendTo(container);
+    $("<h5></h5>").text("Amostra").appendTo(sampleHost);
+    if (state.sampleError) {
+      $("<div class=\"program-builder-diagnostic-item is-error\"></div>")
+        .append($("<strong></strong>").text("Falha na amostra"))
+        .append($("<span></span>").text(state.sampleError))
+        .appendTo(sampleHost);
+      return;
+    }
+    if (!state.sampleResult) {
+      $("<p class=\"program-builder-empty\"></p>").text("Execute uma amostra do dataset `" + String(dataset && dataset.id || "") + "` para revisar linhas e colunas retornadas pelo runtime.").appendTo(sampleHost);
+      return;
+    }
+    const columns = Array.isArray(state.sampleResult.columns) ? state.sampleResult.columns : [];
+    const rows = Array.isArray(state.sampleResult.data) ? state.sampleResult.data : [];
+    $("<div class=\"program-builder-analytics-runtime-meta\"></div>")
+      .text("Linhas: " + String(state.sampleResult.total || rows.length || 0) + " | colunas: " + columns.length)
+      .appendTo(sampleHost);
+    if (!rows.length || !columns.length) {
+      $("<p class=\"program-builder-empty\"></p>").text("O runtime respondeu sem linhas para os parametros atuais.").appendTo(sampleHost);
+      return;
+    }
+    const table = $("<div class=\"program-builder-analytics-sample-table-wrap\"><table class=\"program-builder-analytics-sample-table\"></table></div>").appendTo(sampleHost).find("table");
+    const header = $("<tr></tr>").appendTo($("<thead></thead>").appendTo(table));
+    columns.forEach(function(column) {
+      $("<th></th>").text(column.title || column.label || column.field || column.id || "").appendTo(header);
+    });
+    const body = $("<tbody></tbody>").appendTo(table);
+    rows.slice(0, 10).forEach(function(row) {
+      const tr = $("<tr></tr>").appendTo(body);
+      columns.forEach(function(column) {
+        const key = column.field || column.id;
+        $("<td></td>").text(row[key] == null ? "" : String(row[key])).appendTo(tr);
+      });
+    });
   };
 
   ProgramBuilder.prototype.countCurrentRules = function() {
@@ -5330,6 +6188,9 @@
 
   ProgramBuilder.prototype.populateEntityForm = function(entity, versions) {
     const item = entity || {};
+    if (item.code) {
+      this.state.entityDetailCache[item.code] = global.CrudUtils.clone(item);
+    }
     this.state.historySourceEntity = null;
     this.state.currentEntityCode = item.code || "";
     this.state.originalEntityTableName = item.tableName || "";
@@ -5623,6 +6484,7 @@
 
   ProgramBuilder.prototype.addFieldRow = function(field) {
     const item = field || {};
+    const analyticsOptions = this.normalizeAnalyticsFieldOptions(item.options && item.options.analytics);
     const index = this.fieldsTableBody.find("tr").filter(function() {
       return !$(this).hasClass("program-builder-field-details-row");
     }).length;
@@ -5734,6 +6596,25 @@
     const apiShowFilterField = this.appendField(detailsGrid, "Exibir no filtro");
     $("<input type=\"checkbox\" class=\"program-builder-field-api-show-filter\">").appendTo(apiShowFilterField).prop("checked", item.apiShowInFilter === true);
 
+    const analyticsHiddenField = this.appendField(detailsGrid, "Analytics oculto");
+    $("<input type=\"checkbox\" class=\"program-builder-field-analytics-hidden\">").appendTo(analyticsHiddenField).prop("checked", analyticsOptions.hidden === true);
+
+    const analyticsDimensionField = this.appendField(detailsGrid, "Dimensao");
+    $("<input type=\"checkbox\" class=\"program-builder-field-analytics-dimension\">").appendTo(analyticsDimensionField).prop("checked", analyticsOptions.dimension === true);
+
+    const analyticsMeasureField = this.appendField(detailsGrid, "Medida");
+    $("<input type=\"checkbox\" class=\"program-builder-field-analytics-measure\">").appendTo(analyticsMeasureField).prop("checked", analyticsOptions.measure === true);
+
+    const analyticsAggregateField = this.appendField(detailsGrid, "Agregado");
+    const analyticsAggregateSelect = $("<select class=\"program-builder-mini-select program-builder-field-analytics-aggregate\"></select>").appendTo(analyticsAggregateField);
+    ProgramBuilder.ANALYTICS_AGGREGATES.forEach(function(option) {
+      $("<option></option>").attr("value", option.value).text(option.text).appendTo(analyticsAggregateSelect);
+    });
+    analyticsAggregateSelect.val(analyticsOptions.defaultAggregate || "");
+
+    const analyticsFormatField = this.appendField(detailsGrid, "Formato analytics");
+    $("<input type=\"text\" class=\"program-builder-mini-input program-builder-field-analytics-format\">").appendTo(analyticsFormatField).val(analyticsOptions.format || "");
+
     const virtualField = this.appendField(detailsGrid, "Virtual");
     $("<input type=\"checkbox\" class=\"program-builder-field-virtual\">").appendTo(virtualField).prop("checked", item.virtualField === true);
 
@@ -5813,6 +6694,9 @@
     detailsRow.find(".program-builder-field-api-show-grid").kendoCheckBox();
     detailsRow.find(".program-builder-field-api-show-form").kendoCheckBox();
     detailsRow.find(".program-builder-field-api-show-filter").kendoCheckBox();
+    detailsRow.find(".program-builder-field-analytics-hidden").kendoCheckBox();
+    detailsRow.find(".program-builder-field-analytics-dimension").kendoCheckBox();
+    detailsRow.find(".program-builder-field-analytics-measure").kendoCheckBox();
     detailsRow.find(".program-builder-field-virtual").kendoCheckBox();
     detailsRow.find(".program-builder-field-include-version").kendoCheckBox();
     detailsRow.find(".program-builder-field-custom-code-sequence-enabled").kendoCheckBox();
@@ -6217,6 +7101,10 @@
     }).each(function(index, row) {
       const $row = $(row);
       const $details = $row.next(".program-builder-field-details-row");
+      const fieldOptions = this.mergeFieldAnalyticsOptions(
+        this.parseOptions($details.find(".program-builder-field-options").val(), index),
+        $details
+      );
       fields.push({
         id: Number($row.attr("data-field-id") || 0),
         code: $row.find(".program-builder-field-code").val(),
@@ -6261,7 +7149,7 @@
         customCodePromptFields: this.parseCustomCodePromptFields($details.find(".program-builder-field-custom-code-prompt-fields").val(), index),
         required: $row.find(".program-builder-field-required").is(":checked"),
         primaryKey: $row.find(".program-builder-field-pk").is(":checked"),
-        options: this.parseOptions($details.find(".program-builder-field-options").val(), index)
+        options: fieldOptions
       });
     }.bind(this));
 
@@ -6663,7 +7551,8 @@
   };
 
   ProgramBuilder.prototype.handleProgramEntityChange = function(prefillOnlyWhenEmpty) {
-    if (String(this.pageTypeSelect.value() || "crud") !== "crud") {
+    const pageType = String(this.pageTypeSelect.value() || "crud");
+    if (pageType !== "crud" && pageType !== "analytics") {
       this.schedulePreview();
       return;
     }
@@ -6674,7 +7563,9 @@
     }
 
     const entity = this.findEntitySummary(entityCode);
-    if (entity && entity.entityType === "api") {
+    if (pageType === "analytics" && entity && entity.entityType !== "persistence") {
+      this.previewFooter.text("Analytics v1 aceita somente entidades persistence como fonte interna.");
+    } else if (entity && entity.entityType === "api") {
       if (this.state.currentEntityCode === entityCode) {
         this.syncProgramWriteFlagsForApi();
       }
@@ -6689,13 +7580,28 @@
         this.programTitleInput.value(entity.name || entityCode);
       }
       if (!String(this.screenIdInput.value() || "").trim()) {
-        this.screenIdInput.value("cadastros." + entityCode);
+        this.screenIdInput.value(pageType === "analytics" ? "analytics." + entityCode : "cadastros." + entityCode);
       }
       if (!String(this.permissionPrefixInput.value() || "").trim()) {
-        this.permissionPrefixInput.value("cadastros." + entityCode);
+        this.permissionPrefixInput.value(pageType === "analytics" ? "analytics." + entityCode : "cadastros." + entityCode);
       }
     }
-    this.schedulePreview();
+    this.ensureEntityDetail(entityCode).then(function() {
+      if (pageType === "analytics" && this.analyticsProgramPanel) {
+        this.refreshAnalyticsConfigOptions();
+        if (!String(this.analyticsSortFieldSelect.val() || "").trim()) {
+          this.analyticsSortFieldSelect.val(this.analyticsFieldOptionItems()[0] && this.analyticsFieldOptionItems()[0].value || "");
+        }
+        if (!String(this.analyticsChartCategoryFieldSelect.val() || "").trim()) {
+          this.analyticsChartCategoryFieldSelect.val(this.analyticsFieldOptionItems()[0] && this.analyticsFieldOptionItems()[0].value || "");
+        }
+        if (!String(this.analyticsChartValueFieldSelect.val() || "").trim()) {
+          this.analyticsChartValueFieldSelect.val(this.analyticsMeasureOptionItems()[0] && this.analyticsMeasureOptionItems()[0].value || "");
+        }
+        this.syncAnalyticsProgramPanelState();
+      }
+      this.schedulePreview();
+    }.bind(this));
   };
 
   ProgramBuilder.prototype.handleProgramModuleChange = function() {
@@ -6855,6 +7761,8 @@
     this.allowUpdateInput.prop("checked", version.allowUpdate !== false);
     this.allowDeleteInput.prop("checked", version.allowDelete === true);
     this.changeSummaryTextArea.value(version.changeSummary || "");
+    this.populateAnalyticsProgramConfig(version.builderConfig && version.builderConfig.analyticsConfig);
+    this.ensureEntityDetail(version.builderEntityCode || "");
     this.syncProgramTypeState();
     this.renderDefinition(version.generatedDefinition || {});
     this.updatePreviewMeta(version);
@@ -6898,6 +7806,16 @@
     this.allowUpdateInput.prop("checked", true);
     this.allowDeleteInput.prop("checked", false);
     this.changeSummaryTextArea.value("");
+    this.populateAnalyticsProgramConfig(null);
+    this.state.analyticsValidator = {
+      signature: "",
+      datasetId: "",
+      parameterValues: {},
+      sampleResult: null,
+      sampleError: "",
+      cacheStatus: null,
+      cacheError: ""
+    };
     this.syncProgramTypeState();
     this.state.preview = null;
     this.renderDefinition({});
@@ -6977,6 +7895,7 @@
     const current = this.state.currentVersion || {};
     const editableCurrent = current.status === "draft";
     const pageType = String(this.pageTypeSelect.value() || "crud");
+    const usesEntity = pageType === "crud" || pageType === "analytics";
     return {
       id: editableCurrent ? (current.id || null) : null,
       programCode: this.programCodeInput.value(),
@@ -6984,7 +7903,7 @@
       module: String(this.moduleInput.value() || ""),
       screenId: this.screenIdInput.value(),
       pageType: pageType,
-      builderEntityCode: pageType === "crud" ? this.builderEntitySelect.value() : "",
+      builderEntityCode: usesEntity ? this.builderEntitySelect.value() : "",
       version: this.versionInput.value(),
       subtitle: this.subtitleInput.value(),
       icon: this.iconInput.value(),
@@ -7003,6 +7922,7 @@
       allowCreate: pageType === "crud" && this.allowCreateInput.is(":checked"),
       allowUpdate: pageType === "crud" && this.allowUpdateInput.is(":checked"),
       allowDelete: pageType === "crud" && this.allowDeleteInput.is(":checked"),
+      analyticsConfig: pageType === "analytics" ? this.collectAnalyticsConfig() : null,
       customMode: pageType === "custom" ? String(this.customModeSelect.value() || "iframe") : "",
       customEntryUrl: pageType === "custom" ? this.customEntryUrlInput.value() : "",
       customFrameTitle: pageType === "custom" ? this.customFrameTitleInput.value() : "",
@@ -7017,7 +7937,7 @@
     this.state.versions = [];
     this.versionsGrid.dataSource.data([]);
     this.resetProgramForm();
-    if (String(this.pageTypeSelect.value() || "crud") === "crud") {
+    if (String(this.pageTypeSelect.value() || "crud") === "crud" || String(this.pageTypeSelect.value() || "crud") === "analytics") {
       this.builderEntitySelect.value(this.state.currentEntityCode || "");
       this.handleProgramEntityChange(true);
     }
@@ -7041,7 +7961,8 @@
 
   ProgramBuilder.prototype.requestPreview = function(notifyOnSuccess) {
     const payload = this.collectProgramPayload();
-    const hasRequiredCrud = payload.pageType === "crud"
+    const usesEntity = payload.pageType === "crud" || payload.pageType === "analytics";
+    const hasRequiredCrud = usesEntity
       ? (!!payload.programCode && !!payload.programTitle && !!payload.builderEntityCode && !!payload.screenId && !!payload.version)
       : (!!payload.programCode && !!payload.programTitle && !!payload.screenId && !!payload.version && !!payload.customEntryUrl);
     if (!hasRequiredCrud) {
@@ -7059,7 +7980,7 @@
       this.updatePreviewMeta({
         status: this.state.currentVersion && this.state.currentVersion.status || "draft",
         version: payload.version,
-        builderEntityCode: payload.pageType === "crud" ? payload.builderEntityCode : "",
+        builderEntityCode: usesEntity ? payload.builderEntityCode : "",
         screenId: payload.screenId
       });
       this.previewFooter.text("Preview gerado pelo backend a partir dos metadados atuais da entidade.");
@@ -7100,6 +8021,30 @@
     };
     if (payload.pageType === "crud") {
       preview.runtime.entityCode = payload.builderEntityCode;
+    } else if (payload.pageType === "analytics") {
+      const analyticsConfig = Object.assign({}, this.defaultAnalyticsConfig(), payload.analyticsConfig || {});
+      preview.runtime.entityCode = payload.builderEntityCode;
+      preview.analytics = {
+        datasets: [
+          {
+            id: "principal",
+            title: payload.programTitle,
+            source: { type: "entity", entityCode: payload.builderEntityCode },
+            executionMode: analyticsConfig.executionMode || "live",
+            limit: analyticsConfig.limit || 1000,
+            joins: analyticsConfig.joins || [],
+            defaultSort: analyticsConfig.defaultSortField ? [{ field: analyticsConfig.defaultSortField, dir: analyticsConfig.defaultSortDir || "asc" }] : [],
+            cache: { ttlSeconds: analyticsConfig.cacheTtlSeconds || 900 }
+          }
+        ],
+        views: [
+          analyticsConfig.views && analyticsConfig.views.grid !== false ? { id: "grid", type: "grid", datasetId: "principal" } : null,
+          analyticsConfig.views && analyticsConfig.views.chart !== false ? { id: "chart", type: "chart", datasetId: "principal", categoryField: analyticsConfig.chartCategoryField || null, valueField: analyticsConfig.chartValueField || null, seriesType: analyticsConfig.chartSeriesType || "column" } : null,
+          analyticsConfig.views && analyticsConfig.views.pivot !== false ? { id: "pivot", type: "pivot", datasetId: "principal" } : null,
+          analyticsConfig.views && analyticsConfig.views.kpi === true ? { id: "kpi", type: "kpi", datasetId: "principal", valueField: analyticsConfig.chartValueField || null } : null,
+          analyticsConfig.views && analyticsConfig.views.dashboard !== false ? { id: "dashboard", type: "dashboard", datasetId: "principal" } : null
+        ].filter(Boolean)
+      };
     } else {
       preview.custom = {
         mode: payload.customMode,
@@ -7107,11 +8052,15 @@
         frameTitle: payload.customFrameTitle || payload.programTitle
       };
     }
+    this.state.preview = {
+      generatedDefinition: preview,
+      localOnly: true
+    };
     this.renderDefinition(preview);
     this.updatePreviewMeta({
       status: this.state.currentVersion && this.state.currentVersion.status || "draft",
       version: payload.version,
-      builderEntityCode: payload.pageType === "crud" ? payload.builderEntityCode : "",
+      builderEntityCode: payload.pageType === "crud" || payload.pageType === "analytics" ? payload.builderEntityCode : "",
       screenId: payload.screenId
     });
     this.previewFooter.text("Resumo local. O JSON completo aparece quando os campos obrigatorios permitem gerar preview no backend.");
@@ -7247,6 +8196,7 @@
 
   ProgramBuilder.prototype.renderDefinition = function(definition) {
     this.previewElement.text(JSON.stringify(definition || {}, null, 2));
+    this.renderDiagnostics();
   };
 
   ProgramBuilder.prototype.updatePreviewMeta = function(item) {
@@ -8200,7 +9150,56 @@
     delete cleaned.versionReference;
     delete cleaned.versionSnapshot;
     delete cleaned.customCode;
+    delete cleaned.analytics;
     return this.stringifyOptions(cleaned);
+  };
+
+  ProgramBuilder.prototype.normalizeAnalyticsFieldOptions = function(options) {
+    const config = options && typeof options === "object" && !Array.isArray(options) ? options : {};
+    const aggregate = String(config.defaultAggregate || "").trim().toLowerCase();
+    const allowedAggregates = ProgramBuilder.ANALYTICS_AGGREGATES.map(function(item) {
+      return item.value;
+    });
+    return {
+      hidden: config.hidden === true,
+      dimension: config.dimension === true,
+      measure: config.measure === true,
+      defaultAggregate: allowedAggregates.indexOf(aggregate) >= 0 ? aggregate : "",
+      format: String(config.format || "").trim()
+    };
+  };
+
+  ProgramBuilder.prototype.collectFieldAnalyticsOptions = function(details) {
+    const config = {};
+    const aggregate = String(details.find(".program-builder-field-analytics-aggregate").val() || "").trim().toLowerCase();
+    const format = String(details.find(".program-builder-field-analytics-format").val() || "").trim();
+    if (details.find(".program-builder-field-analytics-hidden").is(":checked")) {
+      config.hidden = true;
+    }
+    if (details.find(".program-builder-field-analytics-dimension").is(":checked")) {
+      config.dimension = true;
+    }
+    if (details.find(".program-builder-field-analytics-measure").is(":checked")) {
+      config.measure = true;
+    }
+    if (aggregate && ProgramBuilder.ANALYTICS_AGGREGATES.some(function(item) { return item.value === aggregate; })) {
+      config.defaultAggregate = aggregate;
+    }
+    if (format) {
+      config.format = format;
+    }
+    return config;
+  };
+
+  ProgramBuilder.prototype.mergeFieldAnalyticsOptions = function(options, details) {
+    const merged = Object.assign({}, options || {});
+    const analytics = this.collectFieldAnalyticsOptions(details);
+    if (Object.keys(analytics).length) {
+      merged.analytics = analytics;
+    } else {
+      delete merged.analytics;
+    }
+    return merged;
   };
 
   ProgramBuilder.prototype.stringifyCustomCodePromptFields = function(items) {
@@ -8479,6 +9478,7 @@
     const apiShowGrid = detailsRow.find(".program-builder-field-api-show-grid");
     const apiShowForm = detailsRow.find(".program-builder-field-api-show-form");
     const apiShowFilter = detailsRow.find(".program-builder-field-api-show-filter");
+    const analyticsControls = detailsRow.find(".program-builder-field-analytics-hidden, .program-builder-field-analytics-dimension, .program-builder-field-analytics-measure, .program-builder-field-analytics-aggregate, .program-builder-field-analytics-format");
 
     const lengthEnabled = ["string", "email", "enum", "dropdown", "custom_code"].indexOf(type) >= 0;
     lengthInput.prop("disabled", virtualField || !lengthEnabled);
@@ -8548,6 +9548,7 @@
     apiShowGrid.prop("disabled", !apiEntity);
     apiShowForm.prop("disabled", !apiEntity);
     apiShowFilter.prop("disabled", !apiEntity);
+    analyticsControls.prop("disabled", apiEntity || virtualField || type === "json");
 
     columnInput.prop("disabled", apiEntity || virtualField);
     requiredInput.prop("disabled", primaryKey || virtualField);

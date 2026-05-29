@@ -34,10 +34,31 @@ class RuntimeMetadataSanitizer
         if ($pageType === 'process') {
             $definition = $this->sanitizeProcessDefinition($definition, $screenId);
         }
+        if ($pageType === 'analytics') {
+            $definition = $this->sanitizeAnalyticsDefinition($definition, $screenId);
+        }
 
         if ($pageType === 'home') {
             $definition = $this->sanitizeHomeDefinition($definition, $screenId);
         }
+
+        return $definition;
+    }
+
+    private function sanitizeAnalyticsDefinition(array $definition, string $screenId): array
+    {
+        $definition['screenId'] = $screenId;
+        $definition['program']['screenId'] = $screenId;
+        $api = $definition['dataSource']['api'] ?? $definition['api'] ?? [];
+        $api = $this->sanitizeEndpointMap(is_array($api) ? $api : []);
+        $definition['api'] = $api;
+        $definition['dataSource']['api'] = $api;
+
+        if (!empty($definition['analytics']['endpoints']) && is_array($definition['analytics']['endpoints'])) {
+            $definition['analytics']['endpoints'] = $this->sanitizeEndpointMap($definition['analytics']['endpoints']);
+        }
+
+        unset($definition['definition'], $definition['definitionUrl'], $definition['openUrl'], $definition['url'], $definition['html'], $definition['htmlUrl']);
 
         return $definition;
     }
@@ -218,7 +239,7 @@ class RuntimeMetadataSanitizer
 
     private function sanitizeHomeRuntimeProgram(array $program): ?array
     {
-        if (!in_array((string) ($program['type'] ?? 'iframe'), ['crud', 'process'], true)) {
+        if (!in_array((string) ($program['type'] ?? 'iframe'), ['crud', 'process', 'analytics'], true)) {
             return null;
         }
 

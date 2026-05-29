@@ -1,0 +1,102 @@
+{
+  "$schema": "../public/metadata/schemas/analytics-definition-v1.schema.json",
+  "schemaVersion": "1.0",
+  "pageType": "analytics",
+  "screenId": "analytics.clientes",
+  "program": {
+    "id": "analytics-clientes",
+    "module": "analytics",
+    "title": "BI de Clientes",
+    "version": "1.0.0",
+    "subtitle": "Indicadores por UF e status usando fonte interna cadastrada"
+  },
+  "permissions": {
+    "read": true,
+    "materialize": true
+  },
+  "dataSource": {
+    "api": {
+      "schema": { "endpointId": "analytics.schema", "method": "POST" },
+      "run": { "endpointId": "analytics.query.run", "method": "POST" },
+      "materialize": { "endpointId": "analytics.materialize", "method": "POST" },
+      "cacheStatus": { "endpointId": "analytics.cache.status", "method": "POST" }
+    }
+  },
+  "analytics": {
+    "version": "1.0",
+    "endpoints": {
+      "schema": { "endpointId": "analytics.schema", "method": "POST" },
+      "run": { "endpointId": "analytics.query.run", "method": "POST" },
+      "materialize": { "endpointId": "analytics.materialize", "method": "POST" },
+      "cacheStatus": { "endpointId": "analytics.cache.status", "method": "POST" }
+    },
+    "datasets": [
+      {
+        "id": "clientes-uf-status",
+        "title": "Clientes por UF e status",
+        "source": {
+          "type": "entity",
+          "entityCode": "cliente"
+        },
+        "fields": [
+          { "id": "uf", "field": "uf", "label": "UF", "type": "string" },
+          { "id": "status", "field": "status", "label": "Status", "type": "enum" },
+          { "id": "valor_total", "field": "valor_total", "label": "Valor total", "type": "currency", "format": "c2" },
+          { "id": "qtde_pedidos", "field": "qtde_pedidos", "label": "Pedidos", "type": "integer" }
+        ],
+        "dimensions": [
+          { "id": "uf", "field": "uf", "label": "UF", "type": "string" },
+          { "id": "status", "field": "status", "label": "Status", "type": "enum" }
+        ],
+        "measures": [
+          { "id": "clientes", "label": "Clientes", "aggregate": "count" },
+          { "id": "valor_total_sum", "field": "valor_total", "label": "Valor total", "aggregate": "sum", "format": "c2" },
+          { "id": "qtde_pedidos_sum", "field": "qtde_pedidos", "label": "Pedidos", "aggregate": "sum", "format": "n0" }
+        ],
+        "parameters": [
+          {
+            "id": "status",
+            "field": "status",
+            "label": "Status",
+            "type": "enum",
+            "operator": "eq",
+            "options": [
+              { "value": "ATIVO", "text": "Ativo" },
+              { "value": "INATIVO", "text": "Inativo" }
+            ]
+          },
+          { "id": "uf", "field": "uf", "label": "UF", "type": "text", "operator": "eq" }
+        ],
+        "defaultSort": [{ "field": "uf", "dir": "asc" }],
+        "limit": 1000,
+        "executionMode": "auto",
+        "cache": { "ttlSeconds": 900 }
+      }
+    ],
+    "views": [
+      { "id": "grid", "type": "grid", "title": "Grid", "datasetId": "clientes-uf-status" },
+      {
+        "id": "chart",
+        "type": "chart",
+        "title": "Grafico",
+        "datasetId": "clientes-uf-status",
+        "categoryField": "uf",
+        "valueField": "valor_total_sum",
+        "seriesType": "column",
+        "valueFormat": "c2"
+      },
+      { "id": "pivot", "type": "pivot", "title": "Pivot", "datasetId": "clientes-uf-status" },
+      {
+        "id": "dashboard",
+        "type": "dashboard",
+        "title": "Dashboard",
+        "datasetId": "clientes-uf-status",
+        "tiles": [
+          { "id": "clientes", "type": "kpi", "title": "Clientes", "valueField": "clientes", "format": "n0" },
+          { "id": "valor", "type": "kpi", "title": "Valor total", "valueField": "valor_total_sum", "format": "c2" },
+          { "id": "grafico", "type": "chart", "title": "Valor por UF", "categoryField": "uf", "valueField": "valor_total_sum", "seriesType": "column", "valueFormat": "c2" }
+        ]
+      }
+    ]
+  }
+}

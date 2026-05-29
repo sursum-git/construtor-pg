@@ -84,6 +84,17 @@
         httpClient: options.httpClient
       }).init();
     }
+    if (pageType === "analytics") {
+      return new global.AnalyticsEngine({
+        root: options.root,
+        screenId: options.screenId,
+        definition: definition,
+        config: options.config,
+        hideThemeSwitch: options.hideThemeSwitch,
+        hideHeader: options.hideHeader,
+        httpClient: options.httpClient
+      }).init();
+    }
     return Promise.reject(global.CrudUtils.makeError("UNSUPPORTED_PAGE_TYPE", "Tipo de pagina nao suportado na entrada de producao.", {
       pageType: pageType
     }));

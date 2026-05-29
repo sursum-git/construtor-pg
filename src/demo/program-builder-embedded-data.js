@@ -110,6 +110,48 @@
           options: {
             unique: true
           }
+        },
+        {
+          code: "uf",
+          label: "UF",
+          dataType: "string",
+          columnName: "uf",
+          length: 2,
+          required: false,
+          options: {
+            analytics: {
+              dimension: true
+            }
+          }
+        },
+        {
+          code: "status",
+          label: "Status",
+          dataType: "string",
+          columnName: "status",
+          length: 20,
+          required: false,
+          options: {
+            analytics: {
+              dimension: true
+            }
+          }
+        },
+        {
+          code: "limite_credito",
+          label: "Limite de credito",
+          dataType: "decimal",
+          columnName: "limite_credito",
+          required: false,
+          precision: 14,
+          scale: 2,
+          options: {
+            analytics: {
+              measure: true,
+              defaultAggregate: "sum",
+              format: "c2"
+            }
+          }
         }
       ],
       rules: [

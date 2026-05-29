@@ -283,6 +283,10 @@
                 "favorite": true
               },
               {
+                "programId": "analytics-clientes",
+                "title": "BI de Clientes"
+              },
+              {
                 "programId": "processamento-clientes",
                 "title": "Processamento"
               }
@@ -385,7 +389,7 @@
           "type": "html",
           "icon": "home",
           "permission": "home.read",
-          "html": "<section class=\"home-dashboard\"><div class=\"home-dashboard-hero\"><h2>Pagina inicial por JSON</h2><p>Este conteudo foi definido no JSON da home e injetado pelo HomeEngine apos sanitizacao. O motor nao executa scripts nem eventos vindos do JSON.</p></div><div class=\"home-dashboard-grid\"><article class=\"home-dashboard-card\"><span class=\"home-dashboard-number\">4</span><h3>Modos fechados</h3><p>iframe, crud, process e custom.</p></article><article class=\"home-dashboard-card\"><span class=\"home-dashboard-number\">1</span><h3>Appbar global</h3><p>Cabecalho unico para programas.</p></article><article class=\"home-dashboard-card\"><span class=\"home-dashboard-number\">JSON</span><h3>Backend decide</h3><p>O frontend apenas renderiza opcoes permitidas.</p></article></div></section>"
+          "html": "<section class=\"home-dashboard\"><div class=\"home-dashboard-hero\"><h2>Pagina inicial por JSON</h2><p>Este conteudo foi definido no JSON da home e injetado pelo HomeEngine apos sanitizacao. O motor nao executa scripts nem eventos vindos do JSON.</p></div><div class=\"home-dashboard-grid\"><article class=\"home-dashboard-card\"><span class=\"home-dashboard-number\">5</span><h3>Modos fechados</h3><p>iframe, crud, process, analytics e custom.</p></article><article class=\"home-dashboard-card\"><span class=\"home-dashboard-number\">1</span><h3>Appbar global</h3><p>Cabecalho unico para programas.</p></article><article class=\"home-dashboard-card\"><span class=\"home-dashboard-number\">JSON</span><h3>Backend decide</h3><p>O frontend apenas renderiza opcoes permitidas.</p></article></div></section>"
         },
         {
           "id": "clientes-crud",
@@ -406,6 +410,15 @@
           "permission": "processamento.read",
           "openUrl": "examples/pages/processamento-parametros.html",
           "definitionUrl": "examples/processamento-relatorio.process.json"
+        },
+        {
+          "id": "analytics-clientes",
+          "title": "BI de Clientes",
+          "subtitle": "AnalyticsEngine instanciado dentro da home",
+          "type": "analytics",
+          "icon": "chart-column",
+          "permission": "clientes.read",
+          "screenId": "analytics.clientes"
         },
         {
           "id": "clientes-iframe",

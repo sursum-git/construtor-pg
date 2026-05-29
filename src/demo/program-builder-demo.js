@@ -126,8 +126,14 @@
       });
     }
     if (url === "/api/admin/program-builder/preview" && method === "POST") {
+      if (String(data.pageType || "crud") === "analytics") {
+        return Promise.resolve({
+          generatedDefinition: buildAnalyticsPreview(data),
+          diagnostics: []
+        });
+      }
       return Promise.resolve({
-        definition: {
+        generatedDefinition: {
           screenId: "cadastros.clientes",
           pageType: "crud",
           dataModel: { fields: {} },
@@ -136,8 +142,180 @@
         diagnostics: []
       });
     }
+    if (/^\/api\/runtime\/screens\/[^/]+\/endpoints\/analytics\.query\.run$/.test(url) && method === "POST") {
+      return Promise.resolve(runAnalyticsDataset(data));
+    }
+    if (/^\/api\/runtime\/screens\/[^/]+\/endpoints\/analytics\.cache\.status$/.test(url) && method === "POST") {
+      return Promise.resolve({
+        status: "ready",
+        screenId: String((data && data.screenId) || "analytics.clientes"),
+        datasetId: String(data && data.datasetId || "principal"),
+        viewId: "",
+        fingerprint: "demo-fingerprint",
+        rowCount: 3,
+        refreshedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
+        expired: false,
+        lastError: null
+      });
+    }
+    if (/^\/api\/runtime\/screens\/[^/]+\/endpoints\/analytics\.materialize$/.test(url) && method === "POST") {
+      const result = runAnalyticsDataset(data);
+      return Promise.resolve({
+        ok: true,
+        screenId: "analytics.clientes",
+        datasetId: String(data && data.datasetId || "principal"),
+        viewId: "",
+        fingerprint: "demo-fingerprint",
+        rowCount: Array.isArray(result.data) ? result.data.length : 0,
+        expiresAt: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      });
+    }
     return Promise.resolve({});
   };
+
+  function buildAnalyticsPreview(data) {
+    const analyticsConfig = Object.assign({
+      executionMode: "live",
+      limit: 1000,
+      cacheTtlSeconds: 900,
+      defaultSortField: "",
+      defaultSortDir: "asc",
+      chartSeriesType: "column",
+      chartCategoryField: "",
+      chartValueField: "",
+      views: {
+        grid: true,
+        chart: true,
+        pivot: true,
+        kpi: false,
+        dashboard: true
+      },
+      joins: []
+    }, data && data.analyticsConfig || {});
+    const screenId = String(data && data.screenId || "analytics.clientes").trim() || "analytics.clientes";
+    const title = String(data && data.programTitle || "Clientes por UF").trim() || "Clientes por UF";
+    const version = String(data && data.version || "1.0.0").trim() || "1.0.0";
+    const entityCode = String(data && data.builderEntityCode || "cliente").trim() || "cliente";
+    const views = [];
+    if (analyticsConfig.views.grid !== false) {
+      views.push({ id: "grid", type: "grid", title: "Grid", datasetId: "principal" });
+    }
+    if (analyticsConfig.views.chart !== false) {
+      views.push({ id: "chart", type: "chart", title: "Grafico", datasetId: "principal", categoryField: analyticsConfig.chartCategoryField || "uf", valueField: analyticsConfig.chartValueField || "limite_credito_sum", valueFormat: "c2", seriesType: analyticsConfig.chartSeriesType || "column" });
+    }
+    if (analyticsConfig.views.pivot !== false) {
+      views.push({ id: "pivot", type: "pivot", title: "Pivot", datasetId: "principal" });
+    }
+    if (analyticsConfig.views.kpi === true) {
+      views.push({ id: "kpi", type: "kpi", title: "Indicador", datasetId: "principal", valueField: analyticsConfig.chartValueField || "limite_credito_sum", format: "c2" });
+    }
+    if (analyticsConfig.views.dashboard !== false) {
+      views.push({ id: "dashboard", type: "dashboard", title: "Dashboard", datasetId: "principal" });
+    }
+    return {
+      screenId: screenId,
+      pageType: "analytics",
+      program: {
+        id: String(data && data.programCode || "cd1001").trim() || "cd1001",
+        title: title,
+        module: String(data && data.module || "cadastros").trim() || "cadastros",
+        version: version,
+        subtitle: "Preview local analytics do construtor",
+        icon: "chart-line",
+        screenId: screenId
+      },
+      permissions: {
+        read: true,
+        materialize: true
+      },
+      runtime: {
+        entityCode: entityCode,
+        programId: String(data && data.programCode || "cd1001").trim() || "cd1001",
+        mode: "analytics"
+      },
+      dataSource: {
+        api: {
+          schema: { endpointId: "analytics.schema" },
+          run: { endpointId: "analytics.query.run" },
+          materialize: { endpointId: "analytics.materialize" },
+          cacheStatus: { endpointId: "analytics.cache.status" }
+        }
+      },
+      analytics: {
+        version: "1.0",
+        endpoints: {
+          schema: { endpointId: "analytics.schema" },
+          run: { endpointId: "analytics.query.run" },
+          materialize: { endpointId: "analytics.materialize" },
+          cacheStatus: { endpointId: "analytics.cache.status" }
+        },
+        datasets: [
+          {
+            id: "principal",
+            title: title,
+            source: { type: "entity", entityCode: entityCode },
+            joins: Array.isArray(analyticsConfig.joins) ? analyticsConfig.joins : [],
+            fields: [
+              { id: "uf", field: "uf", label: "UF", type: "string" },
+              { id: "status", field: "status", label: "Status", type: "string" },
+              { id: "limite_credito_sum", field: "limite_credito", label: "Limite de credito", type: "decimal", format: "c2" }
+            ],
+            dimensions: [
+              { id: "uf", field: "uf", label: "UF", type: "string" },
+              { id: "status", field: "status", label: "Status", type: "string" }
+            ],
+            measures: [
+              { id: "limite_credito_sum", field: "limite_credito", label: "Limite de credito", aggregate: "sum", format: "c2" },
+              { id: "total_clientes", field: "id", label: "Clientes", aggregate: "count", format: "n0" }
+            ],
+            parameters: [
+              { id: "status", field: "status", label: "Status", type: "text" },
+              { id: "uf", field: "uf", label: "UF", type: "text" }
+            ],
+            defaultSort: analyticsConfig.defaultSortField ? [{ field: analyticsConfig.defaultSortField, dir: analyticsConfig.defaultSortDir || "asc" }] : [{ field: "uf", dir: "asc" }],
+            limit: analyticsConfig.limit || 1000,
+            executionMode: analyticsConfig.executionMode || "auto",
+            cache: { ttlSeconds: analyticsConfig.cacheTtlSeconds || 900 }
+          }
+        ],
+        views: views
+      }
+    };
+  }
+
+  function runAnalyticsDataset(data) {
+    const parameters = data && data.parameters || {};
+    const statusFilter = String(parameters.status || "").trim().toLowerCase();
+    const ufFilter = String(parameters.uf || "").trim().toLowerCase();
+    const rows = [
+      { uf: "CE", status: "Ativo", limite_credito_sum: 7000, total_clientes: 1 },
+      { uf: "RJ", status: "Inativo", limite_credito_sum: 4200, total_clientes: 1 },
+      { uf: "SP", status: "Ativo", limite_credito_sum: 12000, total_clientes: 2 }
+    ].filter(function(item) {
+      const matchesStatus = !statusFilter || String(item.status || "").toLowerCase().indexOf(statusFilter) >= 0;
+      const matchesUf = !ufFilter || String(item.uf || "").toLowerCase().indexOf(ufFilter) >= 0;
+      return matchesStatus && matchesUf;
+    });
+
+    return {
+      data: rows,
+      total: rows.length,
+      datasetId: String(data && data.datasetId || "principal"),
+      generatedAt: new Date().toISOString(),
+      columns: [
+        { field: "uf", id: "uf", title: "UF", label: "UF", type: "string", role: "dimension" },
+        { field: "status", id: "status", title: "Status", label: "Status", type: "string", role: "dimension" },
+        { field: "limite_credito_sum", id: "limite_credito_sum", title: "Limite de credito", label: "Limite de credito", type: "decimal", role: "measure", aggregate: "sum", format: "c2" },
+        { field: "total_clientes", id: "total_clientes", title: "Clientes", label: "Clientes", type: "integer", role: "measure", aggregate: "count", format: "n0" }
+      ],
+      _runtime: {
+        analyticsCache: {
+          status: "ready"
+        }
+      }
+    };
+  }
 
   function buildDdlInspection(data) {
     const ddl = String(data && data.ddl || "");

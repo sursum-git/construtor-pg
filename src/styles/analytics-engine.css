@@ -1,0 +1,201 @@
+.analytics-shell {
+  width: 100%;
+  min-height: 100%;
+}
+
+.analytics-screen {
+  display: grid;
+  gap: 14px;
+  width: 100%;
+  color: var(--crud-text);
+}
+
+.analytics-header,
+.analytics-toolbar,
+.analytics-parameters-panel,
+.analytics-views-panel {
+  border: 1px solid var(--crud-border);
+  border-radius: 6px;
+  background: var(--crud-surface);
+  box-shadow: 0 1px 2px var(--crud-shadow);
+}
+
+.analytics-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+}
+
+.analytics-kicker,
+.analytics-subtitle,
+.analytics-muted,
+.analytics-status {
+  margin: 0;
+  color: var(--crud-muted);
+}
+
+.analytics-kicker {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.analytics-header h1,
+.analytics-parameters-panel h2 {
+  margin: 0;
+  color: var(--crud-title);
+}
+
+.analytics-version {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--crud-border);
+  border-radius: 6px;
+  color: var(--crud-muted);
+  font-size: 12px;
+}
+
+.analytics-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.analytics-dataset-field,
+.analytics-field {
+  display: grid;
+  gap: 6px;
+}
+
+.analytics-dataset-field span,
+.analytics-field span {
+  color: var(--crud-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.analytics-dataset-field .k-picker,
+.analytics-dataset-field .k-dropdownlist {
+  min-width: 260px;
+}
+
+.analytics-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.analytics-parameters-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.analytics-parameters-panel h2 {
+  font-size: 15px;
+}
+
+.analytics-parameters-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.analytics-field .k-input,
+.analytics-field .k-picker,
+.analytics-field .k-dropdownlist,
+.analytics-field input {
+  width: 100%;
+}
+
+.analytics-views-panel {
+  overflow: hidden;
+}
+
+.analytics-tabs > .k-content,
+.analytics-view {
+  min-height: 460px;
+}
+
+.analytics-view {
+  padding: 12px;
+}
+
+.analytics-grid,
+.analytics-chart,
+.analytics-pivot {
+  min-height: 420px;
+}
+
+.analytics-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.analytics-dashboard-tile,
+.analytics-kpi {
+  display: grid;
+  gap: 8px;
+  min-height: 140px;
+  padding: 12px;
+  border: 1px solid var(--crud-border);
+  border-radius: 6px;
+  background: var(--crud-message-bg);
+}
+
+.analytics-dashboard-tile h3 {
+  margin: 0;
+  color: var(--crud-title);
+  font-size: 14px;
+}
+
+.analytics-kpi {
+  align-content: center;
+}
+
+.analytics-kpi span {
+  color: var(--crud-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.analytics-kpi strong {
+  color: var(--crud-title);
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.analytics-tilelayout {
+  min-height: 460px;
+}
+
+.analytics-tile-body {
+  min-height: 160px;
+  padding: 8px;
+}
+
+.analytics-tile-body .analytics-chart {
+  min-height: 170px;
+}
+
+@media (max-width: 720px) {
+  .analytics-header,
+  .analytics-toolbar {
+    display: grid;
+  }
+
+  .analytics-dataset-field .k-picker,
+  .analytics-dataset-field .k-dropdownlist {
+    min-width: 0;
+    width: 100%;
+  }
+}

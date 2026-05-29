@@ -830,6 +830,11 @@ Implementado ate agora, em nivel demo/frontend:
 - Recuperacao de senha usa `/api/auth/password/request-reset` e `/api/auth/password/reset`, com tokens hash em `auth_password_reset_token`; no ambiente dev o token pode retornar na resposta e o `MAILER_DSN=null://null` apenas prepara/loga o envio.
 - Modulo simples de parametros com `system_parameter`, `system_parameter_value`, `system_option_list`, `system_option` e resolver tipado; seed cria `subscriber.enabled=false`.
 - Worker da fila: `php bin\console messenger:consume async -vv`.
+- Auditoria separada de analytics:
+  - envs `ANALYTICS_AUDIT_ENABLED`, `ANALYTICS_AUDIT_DATABASE_URL`, `ANALYTICS_AUDIT_MAX_ROWS`, `ANALYTICS_AUDIT_STRICT`;
+  - comando `php bin\console app:analytics:audit:init`;
+  - tabela alvo `runtime_analytics_audit_entry` no banco configurado em `ANALYTICS_AUDIT_DATABASE_URL`;
+  - grava filtros, parametros, ordenacao, colunas e recorte das linhas consultadas no runtime analytics.
 - O servidor estatico `node scripts/serve-static.js` agora tambem pode encaminhar `/api/*` para `CRUD_ENGINE_API_PROXY`, facilitando validar `program-builder.html` contra backend real.
 - Se o construtor responder `PROGRAM_BUILDER_STORAGE_NOT_READY`, aplicar as migrations `Version20260509093000`, `Version20260510113000`, `Version20260510143000`, `Version20260510170000`, `Version20260510190000` e `Version20260510200000` antes de testar a interface.
 - O rollback estrutural da entidade depende do snapshot salvo em `builder_entity_version`; ele cobre metadados, rename de tabela, rename de coluna, defaults e constraints gerenciadas pelo construtor.
