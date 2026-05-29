@@ -581,6 +581,13 @@
       page: pagePath + "admin-regulated-document.html"
     },
     {
+      id: "manual-documentos",
+      category: "Documentacao",
+      title: "Indice de documentos",
+      summary: "Mapa rapido das trilhas de reports, special_document e regulated_document, com links para exemplos, auditorias e conferencia.",
+      page: pagePath + "manual-documentos.html"
+    },
+    {
       id: "processamento-parametros",
       engine: "process",
       category: "Processamento",

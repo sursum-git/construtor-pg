@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Manual de documentos</title>
+  <link id="kendo-theme-link" rel="stylesheet" href="../../kendo/styles/default-urban.css">
+  <link rel="stylesheet" href="../../src/styles/crud-engine.css">
+  <link rel="stylesheet" href="../../src/styles/examples-guide.css">
+  <style>
+    .documents-guide-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .documents-guide-card {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+      border: 1px solid var(--crud-border);
+      border-radius: 6px;
+      background: var(--crud-surface);
+      box-shadow: 0 1px 2px var(--crud-shadow);
+    }
+
+    .documents-guide-card h2,
+    .documents-guide-card h3,
+    .documents-guide-card p {
+      margin: 0;
+    }
+
+    .documents-guide-card ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .documents-guide-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .documents-guide-badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 2px 10px;
+      border: 1px solid var(--crud-accent-border);
+      border-radius: 999px;
+      background: var(--crud-accent-soft);
+      color: var(--crud-accent);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .documents-guide-links {
+      display: grid;
+      gap: 8px;
+    }
+
+    .documents-guide-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    @media (max-width: 1100px) {
+      .documents-guide-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="example-page-shell">
+    <header class="example-page-header">
+      <div>
+        <p class="example-kicker">Documentacao</p>
+        <h1>Indice de documentos</h1>
+        <p>Resumo pratico das trilhas de relatorios, documentos especiais e documentos regulados.</p>
+      </div>
+      <nav class="example-page-actions" aria-label="Navegacao do exemplo">
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../exemplos.html">Indice</a>
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../examples/pages/manual-programas.html">Manual por programa</a>
+      </nav>
+    </header>
+
+    <section class="documents-guide-grid">
+      <article class="documents-guide-card">
+        <div class="documents-guide-badges">
+          <span class="documents-guide-badge">Operacional</span>
+          <span class="documents-guide-badge">Consulta formatada</span>
+        </div>
+        <div>
+          <h2>Reports</h2>
+          <p>Para relatorios operacionais e analiticos com filtros, agrupamentos, totais, impressao e exportacao.</p>
+        </div>
+        <ul>
+          <li>Camada nativa de relatorios.</li>
+          <li>Boa para pedido de compra, extratos, estoque e gerencial.</li>
+          <li>Nao e a trilha certa para documentos legais rigidos.</li>
+        </ul>
+        <div class="documents-guide-links">
+          <a href="report-operacional.html">Relatorio operacional</a>
+          <a href="report-analitico.html">Relatorio analitico</a>
+          <a href="admin-report-audit.html">Auditoria de relatorios</a>
+          <a href="report-authenticity.html">Conferencia de autenticidade</a>
+        </div>
+      </article>
+
+      <article class="documents-guide-card">
+        <div class="documents-guide-badges">
+          <span class="documents-guide-badge">Interno controlado</span>
+          <span class="documents-guide-badge">Renderer fechado</span>
+        </div>
+        <div>
+          <h2>Special Document</h2>
+          <p>Para documentos internos com visual mais fechado que relatorio, sem prometer homologacao formal.</p>
+        </div>
+        <ul>
+          <li>Contrato separado de reports.</li>
+          <li>Bom para espelhos internos, etiquetas simples e modelos visuais fechados.</li>
+          <li>Continua sem template livre e sem engine externa.</li>
+        </ul>
+        <div class="documents-guide-links">
+          <a href="special-document-base.html">Documento especial base</a>
+          <a href="special-document-boleto.html">Documento especial boleto</a>
+          <a href="special-document-label.html">Documento especial etiqueta</a>
+        </div>
+      </article>
+
+      <article class="documents-guide-card">
+        <div class="documents-guide-badges">
+          <span class="documents-guide-badge">Quase homologado</span>
+          <span class="documents-guide-badge">Pipeline proprio</span>
+        </div>
+        <div>
+          <h2>Regulated Document</h2>
+          <p>Para documentos de alto rigor com preparo, emissao, hash, artefato, verificacao e storage separado.</p>
+        </div>
+        <ul>
+          <li>Primeira trilha concreta priorizada: fiscal.</li>
+          <li>Banking e logistics seguem na base geral.</li>
+          <li>Nao substitui engine fiscal ou bancaria homologada nesta fase.</li>
+        </ul>
+        <div class="documents-guide-links">
+          <a href="regulated-document-fiscal-base.html">Documento regulado fiscal</a>
+          <a href="regulated-document-banking-base.html">Documento regulado bancario</a>
+          <a href="regulated-document-logistics-base.html">Documento regulado logistico</a>
+          <a href="admin-regulated-document.html">Administracao de documentos regulados</a>
+          <a href="regulated-document-authenticity.html">Conferencia de documento regulado</a>
+        </div>
+      </article>
+    </section>
+
+    <section class="documents-guide-card" style="margin-top: 16px;">
+      <div>
+        <h3>Comandos operacionais do modulo regulado</h3>
+      </div>
+      <div class="documents-guide-actions">
+        <span class="documents-guide-badge"><code>app:regulated-document:setup</code></span>
+        <span class="documents-guide-badge"><code>app:regulated-document:seed-samples</code></span>
+        <span class="documents-guide-badge"><code>app:regulated-document:bootstrap-demo</code></span>
+        <span class="documents-guide-badge"><code>app:regulated-document:cleanup --apply</code></span>
+      </div>
+      <p>Detalhamento operacional completo em <a href="../../docs/manual-modulo-regulado.md">docs/manual-modulo-regulado.md</a>.</p>
+    </section>
+  </main>
+</body>
+</html>

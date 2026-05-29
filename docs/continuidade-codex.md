@@ -251,9 +251,12 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - runtime `regulatedDocuments.schema|prepare|render|issue|verify|artifact`;
   - storage separado inicializado por `php backend/bin/console app:regulated-document:init`;
   - setup operacional simplificado por `php backend/bin/console app:regulated-document:setup`;
+  - bootstrap documental unico por `php backend/bin/console app:regulated-document:bootstrap-demo`;
   - retencao/expurgo por `php backend/bin/console app:regulated-document:cleanup --apply`;
   - pagina publica `production/regulated-document-authenticity.html`;
   - tela administrativa `production/admin/regulated-document-admin.html`;
+  - manual operacional dedicado em `docs/manual-modulo-regulado.md`;
+  - indice visual local em `examples/pages/manual-documentos.html`;
   - seed local de `documentos.regulados-fiscal-base`, `documentos.regulados-bancario-base`, `documentos.regulados-logistico-base` e `admin.documentos-regulados`.
 - `regulated_document` nao substitui `reports` nem `special_document`; ele isola preparo, emissao, hash, artefato e conferencia para documentos quase homologados.
 - permissao administrativa dedicada:
