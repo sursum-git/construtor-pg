@@ -154,6 +154,15 @@ class SeedRuntimeMetadataCommand extends Command
         'specialDocuments.export' => 'specialDocuments.export',
     ];
 
+    private const REGULATED_DOCUMENT_ENDPOINTS = [
+        'regulatedDocuments.schema' => 'regulatedDocuments.schema',
+        'regulatedDocuments.prepare' => 'regulatedDocuments.prepare',
+        'regulatedDocuments.render' => 'regulatedDocuments.render',
+        'regulatedDocuments.issue' => 'regulatedDocuments.issue',
+        'regulatedDocuments.verify' => 'regulatedDocuments.verify',
+        'regulatedDocuments.artifact' => 'regulatedDocuments.artifact',
+    ];
+
     private const CUSTOM_CODE_PDM_ENDPOINTS = [
         'process' => 'process.customCode.pdm',
     ];
@@ -244,6 +253,102 @@ class SeedRuntimeMetadataCommand extends Command
                 ],
             ],
         ];
+        $regulatedFiscalDefinition = [
+            'schemaVersion' => '1.0',
+            'pageType' => 'regulated_document',
+            'screenId' => 'documentos.regulados-fiscal-base',
+            'program' => [
+                'id' => 'documento-regulado-fiscal-base',
+                'title' => 'Documento regulado fiscal base',
+                'subtitle' => 'Base geral para documentos fiscais de alto rigor',
+                'version' => '1.0.0',
+                'screenId' => 'documentos.regulados-fiscal-base',
+            ],
+            'permissions' => [
+                'read' => true,
+                'issue' => true,
+                'verify' => true,
+                'artifact' => true,
+            ],
+            'dataSource' => [
+                'api' => [
+                    'schema' => ['endpointId' => 'regulatedDocuments.schema', 'method' => 'POST'],
+                    'prepare' => ['endpointId' => 'regulatedDocuments.prepare', 'method' => 'POST'],
+                    'render' => ['endpointId' => 'regulatedDocuments.render', 'method' => 'POST'],
+                    'issue' => ['endpointId' => 'regulatedDocuments.issue', 'method' => 'POST'],
+                    'verify' => ['endpointId' => 'regulatedDocuments.verify', 'method' => 'POST'],
+                    'artifact' => ['endpointId' => 'regulatedDocuments.artifact', 'method' => 'POST'],
+                ],
+            ],
+            'regulatedDocument' => [
+                'track' => 'fiscal',
+                'documentType' => 'invoice_control',
+                'complianceProfile' => 'near_homologated',
+                'renderEngine' => 'internal',
+                'endpoints' => [
+                    'schema' => ['endpointId' => 'regulatedDocuments.schema', 'method' => 'POST'],
+                    'prepare' => ['endpointId' => 'regulatedDocuments.prepare', 'method' => 'POST'],
+                    'render' => ['endpointId' => 'regulatedDocuments.render', 'method' => 'POST'],
+                    'issue' => ['endpointId' => 'regulatedDocuments.issue', 'method' => 'POST'],
+                    'verify' => ['endpointId' => 'regulatedDocuments.verify', 'method' => 'POST'],
+                    'artifact' => ['endpointId' => 'regulatedDocuments.artifact', 'method' => 'POST'],
+                ],
+                'source' => [
+                    'type' => 'operational',
+                    'entityCode' => 'cliente',
+                ],
+                'parameters' => [
+                    ['id' => 'status', 'field' => 'status', 'label' => 'Status', 'type' => 'enum', 'operator' => 'eq', 'required' => false],
+                    ['id' => 'uf', 'field' => 'uf', 'label' => 'UF', 'type' => 'text', 'operator' => 'contains', 'required' => false],
+                ],
+                'outputs' => [
+                    'html' => true,
+                    'pdf' => true,
+                ],
+                'artifactPolicy' => [
+                    'storeCanonicalPayload' => true,
+                    'storeArtifact' => true,
+                    'defaultFormat' => 'pdf',
+                ],
+                'verification' => [
+                    'enabled' => true,
+                    'algorithm' => 'sha256',
+                    'publicPath' => 'regulated-document-authenticity.html',
+                    'label' => 'Codigo de conferencia',
+                ],
+                'retention' => [
+                    'keepPayload' => true,
+                    'keepArtifact' => true,
+                    'storeDays' => 365,
+                ],
+                'layout' => [
+                    'title' => 'Documento regulado fiscal base',
+                    'subtitle' => 'Base geral sem homologacao final',
+                    'notes' => 'Sem template livre e sem prometer emissao fiscal oficial nesta etapa.',
+                ],
+            ],
+        ];
+        $regulatedBankingDefinition = $regulatedFiscalDefinition;
+        $regulatedBankingDefinition['screenId'] = 'documentos.regulados-bancario-base';
+        $regulatedBankingDefinition['program']['id'] = 'documento-regulado-bancario-base';
+        $regulatedBankingDefinition['program']['title'] = 'Documento regulado bancario base';
+        $regulatedBankingDefinition['program']['subtitle'] = 'Base geral para trilha bancaria';
+        $regulatedBankingDefinition['program']['screenId'] = 'documentos.regulados-bancario-base';
+        $regulatedBankingDefinition['regulatedDocument']['track'] = 'banking';
+        $regulatedBankingDefinition['regulatedDocument']['documentType'] = 'collection_control';
+        $regulatedBankingDefinition['regulatedDocument']['layout']['title'] = 'Documento regulado bancario base';
+        $regulatedBankingDefinition['regulatedDocument']['layout']['subtitle'] = 'Base geral para cobranca de alto rigor';
+
+        $regulatedLogisticsDefinition = $regulatedFiscalDefinition;
+        $regulatedLogisticsDefinition['screenId'] = 'documentos.regulados-logistico-base';
+        $regulatedLogisticsDefinition['program']['id'] = 'documento-regulado-logistico-base';
+        $regulatedLogisticsDefinition['program']['title'] = 'Documento regulado logistico base';
+        $regulatedLogisticsDefinition['program']['subtitle'] = 'Base geral para trilha logistica';
+        $regulatedLogisticsDefinition['program']['screenId'] = 'documentos.regulados-logistico-base';
+        $regulatedLogisticsDefinition['regulatedDocument']['track'] = 'logistics';
+        $regulatedLogisticsDefinition['regulatedDocument']['documentType'] = 'shipping_control';
+        $regulatedLogisticsDefinition['regulatedDocument']['layout']['title'] = 'Documento regulado logistico base';
+        $regulatedLogisticsDefinition['regulatedDocument']['layout']['subtitle'] = 'Base geral para impressao logistica de alto rigor';
         $customCodePdmDefinition = $this->readJson($projectRoot . '/examples/codificacao-assistente-pdm.process.json');
         $importExportAdminDefinition = [
             'pageType' => 'custom',
@@ -501,6 +606,22 @@ class SeedRuntimeMetadataCommand extends Command
                 'frameTitle' => 'Auditoria de relatorios',
             ],
         ];
+        $regulatedDocumentAdminDefinition = [
+            'pageType' => 'custom',
+            'screenId' => 'admin.documentos-regulados',
+            'program' => [
+                'id' => 'admin-documentos-regulados',
+                'title' => 'Documentos regulados',
+                'subtitle' => 'Consulta administrativa do modulo regulado em banco separado',
+                'version' => '1.0.0',
+                'screenId' => 'admin.documentos-regulados',
+            ],
+            'custom' => [
+                'mode' => 'iframe',
+                'entryUrl' => 'admin/regulated-document-admin.html',
+                'frameTitle' => 'Documentos regulados',
+            ],
+        ];
 
         $clientesDefinition['screenId'] = 'cadastros.clientes';
         $clientesDefinition['program']['screenId'] = 'cadastros.clientes';
@@ -516,6 +637,10 @@ class SeedRuntimeMetadataCommand extends Command
         $reportAnalyticDefinition['program']['screenId'] = 'relatorios.clientes-analitico';
         $specialDocumentDefinition['screenId'] = 'documentos.especiais-base';
         $specialDocumentDefinition['program']['screenId'] = 'documentos.especiais-base';
+        $regulatedFiscalDefinition['screenId'] = 'documentos.regulados-fiscal-base';
+        $regulatedFiscalDefinition['program']['screenId'] = 'documentos.regulados-fiscal-base';
+        $regulatedBankingDefinition['program']['screenId'] = 'documentos.regulados-bancario-base';
+        $regulatedLogisticsDefinition['program']['screenId'] = 'documentos.regulados-logistico-base';
         $customCodePdmDefinition['screenId'] = 'assistente.codificacao.produto-pdm';
         $customCodePdmDefinition['program']['screenId'] = 'assistente.codificacao.produto-pdm';
         $homeDefinition['screenId'] = 'home';
@@ -535,6 +660,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-overlay-versoes-operacao', 'Versoes de overlay', 'Operacao focada em versoes de overlay', 'admin.programa-overlay-versoes-operacao');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-analytics-auditoria', 'Auditoria analytics', 'Consulta das trilhas da camada BI em banco separado', 'admin.analytics-auditoria');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-relatorios-auditoria', 'Auditoria de relatorios', 'Consulta das emissoes de relatorios gravadas no banco separado', 'admin.relatorios-auditoria');
+        $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-documentos-regulados', 'Documentos regulados', 'Consulta do modulo regulado em banco separado', 'admin.documentos-regulados');
         if ($this->central->isCentralControl()) {
             $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-assinante-ambientes', 'Provisionamento de assinantes', 'Criacao do assinante, SaaS e pacote on-premise', 'admin.assinante-ambientes');
             $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-atualizacoes', 'Atualizacoes do sistema', 'Releases, anuencia e aplicacao de atualizacoes', 'admin.atualizacoes');
@@ -572,6 +698,10 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertProgram('relatorio-clientes-operacional', 'Relatorio operacional de clientes', 'relatorios', 'report', 'relatorios.clientes-operacional');
         $this->upsertProgram('relatorio-clientes-analitico', 'Relatorio analitico por UF', 'relatorios', 'report', 'relatorios.clientes-analitico');
         $this->upsertProgram('documento-especial-base', 'Documento especial base', 'relatorios', 'special_document', 'documentos.especiais-base');
+        $this->upsertProgram('documento-regulado-fiscal-base', 'Documento regulado fiscal base', 'documentos', 'regulated_document', 'documentos.regulados-fiscal-base');
+        $this->upsertProgram('documento-regulado-bancario-base', 'Documento regulado bancario base', 'documentos', 'regulated_document', 'documentos.regulados-bancario-base');
+        $this->upsertProgram('documento-regulado-logistico-base', 'Documento regulado logistico base', 'documentos', 'regulated_document', 'documentos.regulados-logistico-base');
+        $this->upsertProgram('admin-documentos-regulados', 'Documentos regulados', 'administracao', 'custom', 'admin.documentos-regulados');
         $this->upsertProgram('home', 'Home', 'global', 'home', 'home');
         foreach ($adminScreens as $screen) {
             $this->upsertProgram((string) $screen['programId'], (string) $screen['title'], 'administracao', 'crud', (string) $screen['screenId']);
@@ -595,6 +725,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertScreen('admin.programa-overlay-versoes-operacao', 'custom', $programOverlayVersionsAdminDefinition);
         $this->upsertScreen('admin.analytics-auditoria', 'custom', $analyticsAuditAdminDefinition);
         $this->upsertScreen('admin.relatorios-auditoria', 'custom', $reportAuditAdminDefinition);
+        $this->upsertScreen('admin.documentos-regulados', 'custom', $regulatedDocumentAdminDefinition);
         $this->upsertScreen('admin.assinante-ambientes', 'custom', $subscriberProvisioningAdminDefinition);
         $this->upsertScreen('admin.atualizacoes', 'custom', $systemUpdatesAdminDefinition);
         $this->upsertScreen('admin.atualizacoes-assinantes', 'custom', $systemUpdateSubscriberLogAdminDefinition);
@@ -604,6 +735,9 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertScreen('relatorios.clientes-operacional', 'report', $reportOperationalDefinition);
         $this->upsertScreen('relatorios.clientes-analitico', 'report', $reportAnalyticDefinition);
         $this->upsertScreen('documentos.especiais-base', 'special_document', $specialDocumentDefinition);
+        $this->upsertScreen('documentos.regulados-fiscal-base', 'regulated_document', $regulatedFiscalDefinition);
+        $this->upsertScreen('documentos.regulados-bancario-base', 'regulated_document', $regulatedBankingDefinition);
+        $this->upsertScreen('documentos.regulados-logistico-base', 'regulated_document', $regulatedLogisticsDefinition);
         $this->upsertScreen('assistente.codificacao.produto-pdm', 'process', $customCodePdmDefinition);
         foreach ($adminScreens as $screen) {
             $this->upsertScreen((string) $screen['screenId'], 'crud', $screen['definition']);
@@ -616,6 +750,9 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertEndpoints('relatorios.clientes-operacional', self::REPORT_ENDPOINTS);
         $this->upsertEndpoints('relatorios.clientes-analitico', self::REPORT_ENDPOINTS);
         $this->upsertEndpoints('documentos.especiais-base', self::SPECIAL_DOCUMENT_ENDPOINTS);
+        $this->upsertEndpoints('documentos.regulados-fiscal-base', self::REGULATED_DOCUMENT_ENDPOINTS);
+        $this->upsertEndpoints('documentos.regulados-bancario-base', self::REGULATED_DOCUMENT_ENDPOINTS);
+        $this->upsertEndpoints('documentos.regulados-logistico-base', self::REGULATED_DOCUMENT_ENDPOINTS);
         $this->upsertEndpoints('assistente.codificacao.produto-pdm', self::CUSTOM_CODE_PDM_ENDPOINTS);
         foreach ($adminScreens as $screen) {
             $this->upsertEndpoints((string) $screen['screenId'], $this->adminEndpointHandlers($screen));

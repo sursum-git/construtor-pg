@@ -54,5 +54,11 @@ services:
             $maxRows: '%env(int:ANALYTICS_AUDIT_MAX_ROWS)%'
             $strict: '%env(bool:ANALYTICS_AUDIT_STRICT)%'
 
+    App\Runtime\RuntimeRegulatedDocumentStore:
+        arguments:
+            $databaseUrl: '%env(default::REGULATED_DOCUMENT_DATABASE_URL)%'
+            $enabled: '%env(bool:REGULATED_DOCUMENT_ENABLED)%'
+            $strict: '%env(bool:REGULATED_DOCUMENT_STRICT)%'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

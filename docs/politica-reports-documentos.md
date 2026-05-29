@@ -6,6 +6,7 @@ Este documento define onde cada tipo de saida deve ser implementado no produto.
 
 - use `reports` quando o problema for consulta formatada, leitura, impressao e exportacao;
 - use `special_document` quando o problema for um documento interno com visual mais fechado;
+- use `regulated_document` quando o problema exigir trilha separada de preparo, emissao, hash, artefato e conferencia, sem ainda prometer homologacao final;
 - use engine externa ou modulo especializado quando houver exigencia legal, homologacao ou layout rigido de alto controle.
 
 ## O que entra em `reports`
@@ -50,6 +51,25 @@ Criticos de aceite para `special_document`:
 - sem JavaScript vindo do JSON;
 - sem prometer conformidade fiscal, bancaria ou grafica industrial.
 
+## O que entra em `regulated_document`
+
+Entram aqui documentos que ja precisam de pipeline proprio, storage separado e conferencia posterior, mas ainda sem amarrar a primeira engine homologada final:
+
+- base fiscal interna com payload canonico e artefato emitido;
+- base bancaria interna com trilha de hash e retencao;
+- base logistica controlada com emissao, artefato e auditoria forte;
+- qualquer documento quase homologado que precise separar preparo, renderizacao, emissao e conferencia.
+
+Criticos de aceite para `regulated_document`:
+
+- `pageType` proprio;
+- schema fechado;
+- `prepare`, `render`, `issue`, `verify` e `artifact`;
+- storage separado da auditoria simples;
+- hash e artefato opcionais por politica do documento;
+- pagina administrativa e pagina de conferencia;
+- sem template livre, sem HTML livre e sem JavaScript vindo do metadado.
+
 ## O que exige engine externa ou modulo especializado
 
 Nao deve entrar em `reports` nem ser tratado como resolvido apenas por `special_document` quando existir:
@@ -86,6 +106,7 @@ Nesses casos, o correto e usar:
 | Etiqueta padronizada | `special_document` | Desde que use renderer controlado |
 | Boleto interno nao homologado | `special_document` | Sem prometer conformidade bancaria |
 | Espelho visual de DANFE | `special_document` | Apenas uso interno, nao fiscal oficial |
+| Documento fiscal/bancario/logistico com hash, artefato e conferencia separados | `regulated_document` | Base quase homologada, ainda sem engine final oficial |
 | DANFE oficial | engine externa/modulo fiscal | Exige conformidade legal |
 | Boleto homologado | engine externa/modulo bancario | Exige homologacao e regras bancarias |
 | Etiqueta industrial rigida | engine dedicada | Pode exigir coordenadas fisicas precisas |
@@ -96,6 +117,7 @@ Nesses casos, o correto e usar:
 
 - `reports` nao deve virar designer universal;
 - `special_document` nao deve prometer conformidade fiscal ou bancaria sem engine propria;
+- `regulated_document` e a trilha correta quando o documento ja exige pipeline proprio e storage separado, mas ainda nao chegou na engine homologada final;
 - quando houver duvida, preferir manter o caso em `reports` apenas se ele continuar sendo consulta formatada;
 - se o caso comecar a exigir formulario oficial, homologacao, coordenada absoluta ou renderer especializado, tirar da camada `reports`.
 
@@ -107,7 +129,9 @@ Antes de criar uma tela nova, responder estas perguntas:
    - se sim, com alta chance e `reports`.
 2. O usuario precisa de um documento interno com visual mais fechado?
    - se sim, avaliar `special_document`.
-3. Existe obrigacao legal, fiscal, bancaria ou de impressao rigida?
+3. O usuario precisa de preparo, emissao, hash, artefato e conferencia separados, mas ainda sem exigir engine homologada final?
+   - se sim, avaliar `regulated_document`.
+4. Existe obrigacao legal, fiscal, bancaria ou de impressao rigida?
    - se sim, a trilha correta e modulo especializado ou engine externa.
 
 ## Estado atual do projeto
@@ -116,6 +140,7 @@ Hoje o repositorio ja suporta:
 
 - `reports` nativo para operacionais e analiticos;
 - `special_document` com renderer controlado para perfis fechados;
+- `regulated_document` com pipeline proprio, storage separado, hash, artefato e conferencia;
 - bloqueio explicito de `danfe`, `dacte`, `boleto`, `label/etiqueta` na trilha de `reports`.
 
 O que ainda nao se deve prometer como entregue apenas com a camada atual:

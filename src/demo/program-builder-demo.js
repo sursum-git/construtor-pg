@@ -144,6 +144,12 @@
           diagnostics: []
         });
       }
+      if (String(data.pageType || "crud") === "regulated_document") {
+        return Promise.resolve({
+          generatedDefinition: buildRegulatedDocumentPreview(data),
+          diagnostics: []
+        });
+      }
       return Promise.resolve({
         generatedDefinition: {
           screenId: "cadastros.clientes",
@@ -525,6 +531,82 @@
           notes: config.notes || ""
         },
         outputs: config.outputs || { html: true, pdf: true }
+      }
+    };
+  }
+
+  function buildRegulatedDocumentPreview(data) {
+    const config = Object.assign({
+      track: "fiscal",
+      documentType: "fiscal_base",
+      sourceType: "operational",
+      analyticsScreenId: "",
+      analyticsDatasetId: "",
+      title: "",
+      subtitle: "",
+      notes: "",
+      outputs: { html: true, pdf: true },
+      artifactPolicy: { storeCanonicalPayload: true, storeArtifact: true, defaultFormat: "pdf" },
+      verification: { enabled: true, publicPath: "regulated-document-authenticity.html", label: "Codigo de conferencia" },
+      retention: { keepPayload: true, keepArtifact: true, storeDays: 365 }
+    }, data && data.regulatedDocumentConfig || {});
+    const screenId = String(data && data.screenId || "documentos.regulados-fiscal-base").trim() || "documentos.regulados-fiscal-base";
+    return {
+      screenId: screenId,
+      pageType: "regulated_document",
+      program: {
+        id: String(data && data.programCode || "dc2001").trim() || "dc2001",
+        title: String(data && data.programTitle || "Documento regulado").trim() || "Documento regulado",
+        module: String(data && data.module || "documentos").trim() || "documentos",
+        version: String(data && data.version || "1.0.0").trim() || "1.0.0",
+        subtitle: config.subtitle || "Preview local de documento regulado",
+        icon: "file",
+        screenId: screenId
+      },
+      dataSource: {
+        api: {
+          schema: { endpointId: "regulatedDocuments.schema", method: "POST" },
+          prepare: { endpointId: "regulatedDocuments.prepare", method: "POST" },
+          render: { endpointId: "regulatedDocuments.render", method: "POST" },
+          issue: { endpointId: "regulatedDocuments.issue", method: "POST" },
+          verify: { endpointId: "regulatedDocuments.verify", method: "POST" },
+          artifact: { endpointId: "regulatedDocuments.artifact", method: "POST" }
+        }
+      },
+      regulatedDocument: {
+        track: config.track || "fiscal",
+        documentType: config.documentType || "regulated_document",
+        complianceProfile: "near_homologated",
+        renderEngine: "internal",
+        endpoints: {
+          schema: { endpointId: "regulatedDocuments.schema", method: "POST" },
+          prepare: { endpointId: "regulatedDocuments.prepare", method: "POST" },
+          render: { endpointId: "regulatedDocuments.render", method: "POST" },
+          issue: { endpointId: "regulatedDocuments.issue", method: "POST" },
+          verify: { endpointId: "regulatedDocuments.verify", method: "POST" },
+          artifact: { endpointId: "regulatedDocuments.artifact", method: "POST" }
+        },
+        source: config.sourceType === "analytic" ? {
+          type: "analytic",
+          analyticsScreenId: String(config.analyticsScreenId || "analytics.clientes"),
+          analyticsDatasetId: String(config.analyticsDatasetId || "clientes-uf-status")
+        } : {
+          type: "operational",
+          entityCode: String(data && data.builderEntityCode || "cliente")
+        },
+        parameters: [
+          { id: "status", field: "status", label: "Status", type: "enum", operator: "eq", required: true, options: [{ value: "ATIVO", text: "Ativo" }, { value: "INATIVO", text: "Inativo" }] },
+          { id: "uf", field: "uf", label: "UF", type: "text", operator: "eq" }
+        ],
+        outputs: config.outputs || { html: true, pdf: true },
+        artifactPolicy: config.artifactPolicy || { storeCanonicalPayload: true, storeArtifact: true, defaultFormat: "pdf" },
+        verification: config.verification || { enabled: true, publicPath: "regulated-document-authenticity.html", label: "Codigo de conferencia" },
+        retention: config.retention || { keepPayload: true, keepArtifact: true, storeDays: 365 },
+        layout: {
+          title: config.title || String(data && data.programTitle || "Documento regulado"),
+          subtitle: config.subtitle || "Preview local de documento regulado",
+          notes: config.notes || ""
+        }
       }
     };
   }

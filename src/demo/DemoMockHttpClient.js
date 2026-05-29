@@ -44,6 +44,10 @@
         revokedSessions: []
       };
       this.processJobs = this.loadJson(this.processJobsStorageKey) || [];
+      this.regulatedDocumentsStorageKey = "crud-demo-regulated-documents-v1" + storageSuffix;
+      this.regulatedDocumentEventsStorageKey = "crud-demo-regulated-document-events-v1" + storageSuffix;
+      this.regulatedDocuments = this.loadJson(this.regulatedDocumentsStorageKey) || [];
+      this.regulatedDocumentEvents = this.loadJson(this.regulatedDocumentEventsStorageKey) || [];
       this.userId = settings.userId || this.resolveRuntimeUserId();
       this.sessionId = settings.sessionId || this.resolveRuntimeSessionId();
       this.tenantId = settings.tenantId || this.resolveRuntimeTenantId();
@@ -305,6 +309,11 @@
       this.saveJson(this.processJobsStorageKey, this.processJobs);
     }
 
+    persistRegulatedDocuments() {
+      this.saveJson(this.regulatedDocumentsStorageKey, this.regulatedDocuments);
+      this.saveJson(this.regulatedDocumentEventsStorageKey, this.regulatedDocumentEvents);
+    }
+
     resolveRuntimeUserId() {
       const params = new URLSearchParams(global.location && global.location.search || "");
       const queryUser = params.get("runtimeUserId") || params.get("demoUserId");
@@ -405,6 +414,18 @@
     route(method, url, data) {
       if (url === "/api/public/report-authenticity/verify" && method === "GET") {
         return this.verifyReportAuthenticity(String(data && data.hash || ""));
+      }
+      if (url === "/api/public/regulated-document/verify" && method === "GET") {
+        return this.verifyRegulatedDocumentAuthenticity(String(data && data.hash || ""));
+      }
+      if (url === "/api/admin/regulated-document/bootstrap" && method === "GET") {
+        return this.bootstrapRegulatedDocumentAdmin();
+      }
+      if (url === "/api/admin/regulated-document/entries" && method === "GET") {
+        return this.listRegulatedDocumentEntries(data || {});
+      }
+      if (url === "/api/admin/regulated-document/artifact" && method === "GET") {
+        return this.getRegulatedDocumentArtifact(String(data && data.issueId || ""));
       }
       const screenMatch = String(url || "").match(/^\/api\/runtime\/screens\/([^/?]+)$/);
       if (screenMatch && method === "GET") {
@@ -640,6 +661,9 @@
       }
       if (["documentos.especiais-base", "documentos.especiais-base.producao", "documentos.especiais-boleto", "documentos.especiais-etiqueta"].indexOf(normalized) >= 0) {
         return this.buildSpecialDocumentDefinition(normalized);
+      }
+      if (["documentos.regulados-fiscal-base", "documentos.regulados-fiscal-base.producao", "documentos.regulados-bancario-base", "documentos.regulados-logistico-base", "documentos.especiais-base-regulado"].indexOf(normalized) >= 0) {
+        return this.buildRegulatedDocumentDefinition(normalized);
       }
       if (normalized === "assistente.codificacao.produto-pdm") {
         const definition = global.CrudDemoEmbedded && global.CrudDemoEmbedded.codificacaoAssistentePdmDefinition;
@@ -971,6 +995,104 @@
       };
     }
 
+    buildRegulatedDocumentDefinition(screenId) {
+      const normalized = String(screenId || "");
+      const track = normalized.indexOf("bancario") >= 0 ? "banking" : normalized.indexOf("logistico") >= 0 ? "logistics" : "fiscal";
+      const documentType = track === "banking" ? "banking_base" : track === "logistics" ? "logistics_base" : "fiscal_base";
+      const title = track === "banking" ? "Documento regulado bancario base" : track === "logistics" ? "Documento regulado logistico base" : "Documento regulado fiscal base";
+      const source = track === "logistics"
+        ? { type: "analytic", analyticsScreenId: "analytics.clientes", analyticsDatasetId: "clientes-uf-status" }
+        : { type: "operational", entityCode: "cliente" };
+      return {
+        schemaVersion: "1.0",
+        pageType: "regulated_document",
+        screenId: normalized,
+        program: {
+          id: "documento-regulado-base",
+          title: title,
+          subtitle: "Trilha separada para documentos de alto rigor",
+          version: "1.0.0",
+          screenId: normalized
+        },
+        dataSource: {
+          api: {
+            schema: { endpointId: "regulatedDocuments.schema", method: "POST" },
+            prepare: { endpointId: "regulatedDocuments.prepare", method: "POST" },
+            render: { endpointId: "regulatedDocuments.render", method: "POST" },
+            issue: { endpointId: "regulatedDocuments.issue", method: "POST" },
+            verify: { endpointId: "regulatedDocuments.verify", method: "POST" },
+            artifact: { endpointId: "regulatedDocuments.artifact", method: "POST" }
+          }
+        },
+        regulatedDocument: {
+          track: track,
+          documentType: documentType,
+          complianceProfile: "near_homologated",
+          renderEngine: "internal",
+          endpoints: {
+            schema: { endpointId: "regulatedDocuments.schema", method: "POST" },
+            prepare: { endpointId: "regulatedDocuments.prepare", method: "POST" },
+            render: { endpointId: "regulatedDocuments.render", method: "POST" },
+            issue: { endpointId: "regulatedDocuments.issue", method: "POST" },
+            verify: { endpointId: "regulatedDocuments.verify", method: "POST" },
+            artifact: { endpointId: "regulatedDocuments.artifact", method: "POST" }
+          },
+          source: source,
+          parameters: [
+            { id: "status", field: "status", label: "Status", type: "enum", operator: "eq", required: true, options: [{ value: "ATIVO", text: "Ativo" }, { value: "INATIVO", text: "Inativo" }] },
+            { id: "uf", field: "uf", label: "UF", type: "text", operator: "eq" }
+          ],
+          outputs: {
+            html: true,
+            pdf: true
+          },
+          artifactPolicy: {
+            storeCanonicalPayload: true,
+            storeArtifact: true,
+            defaultFormat: "pdf"
+          },
+          verification: {
+            enabled: true,
+            algorithm: "sha256",
+            publicPath: "regulated-document-authenticity.html",
+            label: "Codigo de conferencia"
+          },
+          retention: {
+            keepPayload: true,
+            keepArtifact: true,
+            storeDays: 365
+          },
+          layout: {
+            title: title,
+            subtitle: "Base interna quase homologada",
+            notes: "Sem template livre, sem prometer homologacao final nesta etapa."
+          }
+        }
+      };
+    }
+
+    routeRegulatedDocumentEndpoint(screenId, endpointId, data) {
+      if (endpointId === "regulatedDocuments.schema") {
+        return this.buildRegulatedDocumentDefinition(screenId);
+      }
+      if (endpointId === "regulatedDocuments.prepare") {
+        return this.prepareRegulatedDocument(screenId, data || {});
+      }
+      if (endpointId === "regulatedDocuments.render") {
+        return this.renderRegulatedDocument(screenId, data || {});
+      }
+      if (endpointId === "regulatedDocuments.issue") {
+        return this.issueRegulatedDocument(screenId, data || {});
+      }
+      if (endpointId === "regulatedDocuments.verify") {
+        return this.verifyRegulatedDocument(data || {});
+      }
+      if (endpointId === "regulatedDocuments.artifact") {
+        return this.getRegulatedDocumentArtifact(String(data && data.issueId || ""));
+      }
+      throw global.CrudUtils.makeError("RUNTIME_ENDPOINT_NOT_FOUND", "Endpoint de documento regulado mock nao encontrado.", { screenId, endpointId });
+    }
+
     buildRuntimeJobsDefinition(screenId) {
       const mine = screenId === "runtime.jobs.mine";
       const statusOptions = [
@@ -1194,6 +1316,9 @@
       }
       if (["documentos.especiais-base", "documentos.especiais-base.producao", "documentos.especiais-boleto", "documentos.especiais-etiqueta"].indexOf(normalizedScreenId) >= 0) {
         return this.routeSpecialDocumentEndpoint(normalizedScreenId, endpointId, data || {});
+      }
+      if (["documentos.regulados-fiscal-base", "documentos.regulados-fiscal-base.producao", "documentos.regulados-bancario-base", "documentos.regulados-logistico-base", "documentos.especiais-base-regulado"].indexOf(normalizedScreenId) >= 0) {
+        return this.routeRegulatedDocumentEndpoint(normalizedScreenId, endpointId, data || {});
       }
       if (this.isSessionRevoked()) {
         throw global.CrudUtils.makeError("SESSION_REVOKED", "Sua sessao foi encerrada.", {
@@ -1839,6 +1964,468 @@
           contentType: match && match.authenticity && match.authenticity.storage && match.authenticity.storage.storeExportArtifact ? "application/pdf" : ""
         }
       };
+    }
+
+    prepareRegulatedDocument(screenId, data) {
+      const definition = this.buildRegulatedDocumentDefinition(screenId);
+      const documentConfig = definition.regulatedDocument || {};
+      const issueId = String(data && data.issueId || "").trim() || ("rdoc-demo-" + Date.now());
+      const parameters = global.CrudUtils.clone(data && data.parameters || {});
+      const validation = [];
+      global.CrudUtils.ensureArray(documentConfig.parameters).forEach(function(parameter) {
+        const key = String(parameter.id || parameter.field || "");
+        if (parameter.required === true && !String(parameters[key] == null ? "" : parameters[key]).trim()) {
+          validation.push({
+            level: "error",
+            code: "PARAMETER_REQUIRED",
+            message: "Parametro obrigatorio nao informado: " + key + ".",
+            blocking: true
+          });
+        }
+      });
+      const result = this.buildRegulatedDocumentResult(screenId, parameters);
+      const canonicalPayload = {
+        screenId: screenId,
+        track: documentConfig.track || "fiscal",
+        documentType: documentConfig.documentType || "regulated_document",
+        parameters: parameters,
+        columns: result.table.columns,
+        rows: result.table.rows,
+        totals: result.totals
+      };
+      const record = {
+        issueId: issueId,
+        screenId: screenId,
+        documentId: definition.program && definition.program.id || "documento-regulado-base",
+        track: documentConfig.track || "fiscal",
+        documentType: documentConfig.documentType || "regulated_document",
+        complianceProfile: documentConfig.complianceProfile || "near_homologated",
+        state: validation.some(function(item) { return item.blocking === true; }) ? "failed" : "prepared",
+        hash: "",
+        format: "",
+        parameters: parameters,
+        canonicalPayload: documentConfig.artifactPolicy && documentConfig.artifactPolicy.storeCanonicalPayload === false ? null : canonicalPayload,
+        artifact: null,
+        validation: validation,
+        verification: {
+          enabled: !(documentConfig.verification && documentConfig.verification.enabled === false),
+          algorithm: documentConfig.verification && documentConfig.verification.algorithm || "sha256",
+          label: documentConfig.verification && documentConfig.verification.label || "Codigo de conferencia",
+          publicPath: documentConfig.verification && documentConfig.verification.publicPath || "regulated-document-authenticity.html"
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      this.upsertRegulatedDocumentRecord(record);
+      this.appendRegulatedDocumentEvent(issueId, "prepare", { state: record.state, validationCount: validation.length });
+      return {
+        ok: record.state !== "failed",
+        issueId: issueId,
+        state: record.state,
+        track: record.track,
+        documentType: record.documentType,
+        complianceProfile: record.complianceProfile,
+        validation: validation,
+        parameters: parameters,
+        canonicalPayload: global.CrudUtils.clone(canonicalPayload),
+        artifactPolicy: global.CrudUtils.clone(documentConfig.artifactPolicy || {}),
+        verification: global.CrudUtils.clone(record.verification),
+        message: record.state === "failed" ? "Preparacao falhou nas validacoes estruturais." : "Payload canonico preparado para emissao."
+      };
+    }
+
+    renderRegulatedDocument(screenId, data) {
+      const prepared = this.resolvePreparedRegulatedDocument(screenId, data || {});
+      if (prepared.state === "failed") {
+        throw global.CrudUtils.makeError("REGULATED_DOCUMENT_PREPARE_FAILED", "O documento regulado possui validacoes bloqueantes.");
+      }
+      const result = this.buildRegulatedDocumentResult(screenId, prepared.parameters || {});
+      prepared.state = "rendered";
+      prepared.updatedAt = new Date().toISOString();
+      this.upsertRegulatedDocumentRecord(prepared);
+      this.appendRegulatedDocumentEvent(prepared.issueId, "render", { state: "rendered" });
+      return {
+        ok: true,
+        issueId: prepared.issueId,
+        state: "rendered",
+        track: prepared.track,
+        documentType: prepared.documentType,
+        title: result.title,
+        subtitle: result.subtitle,
+        documentId: prepared.documentId,
+        summary: result.summary,
+        headerFields: result.headerFields,
+        parameterFields: result.parameterFields,
+        table: result.table,
+        totals: result.totals,
+        sections: result.sections,
+        canonicalPayload: global.CrudUtils.clone(prepared.canonicalPayload || {}),
+        validation: global.CrudUtils.clone(prepared.validation || [])
+      };
+    }
+
+    issueRegulatedDocument(screenId, data) {
+      const preview = this.renderRegulatedDocument(screenId, data || {});
+      const record = this.findRegulatedDocumentByIssueId(preview.issueId);
+      const format = String(data && data.format || "pdf").toLowerCase() === "html" ? "html" : "pdf";
+      const hash = "sha256:" + this.hashString(JSON.stringify(record && record.canonicalPayload || {}));
+      const artifact = this.buildRegulatedDocumentArtifact(preview, format);
+      record.state = "issued";
+      record.hash = hash;
+      record.format = format;
+      record.artifact = artifact;
+      record.updatedAt = new Date().toISOString();
+      this.upsertRegulatedDocumentRecord(record);
+      this.appendRegulatedDocumentEvent(record.issueId, "issue", { state: "issued", format: format, hash: hash });
+      return {
+        ok: true,
+        issueId: record.issueId,
+        state: "issued",
+        hash: hash,
+        format: format,
+        artifactStored: !!(artifact && artifact.contentBase64),
+        artifact: global.CrudUtils.clone(artifact),
+        verificationUrl: (record.verification && record.verification.publicPath || "regulated-document-authenticity.html") + "?hash=" + encodeURIComponent(hash),
+        message: "Documento regulado emitido em trilha separada."
+      };
+    }
+
+    verifyRegulatedDocument(data) {
+      const issueId = String(data && data.issueId || "").trim();
+      const hash = String(data && data.hash || "").trim();
+      const record = issueId ? this.findRegulatedDocumentByIssueId(issueId) : this.findRegulatedDocumentByHash(hash);
+      if (!record) {
+        throw global.CrudUtils.makeError("REGULATED_DOCUMENT_NOT_FOUND", "Documento regulado nao encontrado para conferencia.");
+      }
+      const expectedHash = "sha256:" + this.hashString(JSON.stringify(record.canonicalPayload || {}));
+      const recordedHash = String(record.hash || "");
+      const providedMatches = !hash || recordedHash === hash;
+      const verified = providedMatches && expectedHash === recordedHash;
+      const verification = {
+        verified: verified,
+        expectedHash: expectedHash,
+        recordedHash: recordedHash,
+        providedHash: hash || null,
+        providedHashMatches: providedMatches,
+        artifactStored: !!(record.artifact && record.artifact.contentBase64),
+        checkedAt: new Date().toISOString()
+      };
+      record.state = verified ? "verified" : "failed";
+      record.verificationResult = verification;
+      record.updatedAt = new Date().toISOString();
+      this.upsertRegulatedDocumentRecord(record);
+      this.appendRegulatedDocumentEvent(record.issueId, "verify", verification);
+      return {
+        ok: verified,
+        issueId: record.issueId,
+        state: record.state,
+        hash: record.hash || "",
+        verification: verification,
+        message: verified ? "Documento regulado conferido com sucesso." : "Nao foi possivel confirmar a integridade do documento regulado."
+      };
+    }
+
+    verifyRegulatedDocumentAuthenticity(hash) {
+      const normalized = String(hash || "").trim();
+      if (!normalized) {
+        throw global.CrudUtils.makeError("REGULATED_DOCUMENT_HASH_REQUIRED", "Informe o hash de conferencia.");
+      }
+      const record = this.findRegulatedDocumentByHash(normalized);
+      if (!record) {
+        return {
+          enabled: true,
+          found: false,
+          hash: normalized,
+          message: "Nenhum documento regulado foi encontrado para este hash."
+        };
+      }
+      const verification = this.verifyRegulatedDocument({ issueId: record.issueId, hash: normalized });
+      return {
+        enabled: true,
+        found: true,
+        hash: normalized,
+        message: verification.ok ? "Documento regulado localizado." : verification.message,
+        document: {
+          issueId: record.issueId,
+          screenId: record.screenId,
+          documentId: record.documentId,
+          track: record.track,
+          documentType: record.documentType,
+          complianceProfile: record.complianceProfile || "near_homologated",
+          state: verification.state,
+          format: record.format || "",
+          generatedAt: record.issuedAt || record.updatedAt || "",
+          tenantId: record.tenantId || ""
+        },
+        verification: global.CrudUtils.clone(verification.verification || {}),
+        artifact: {
+          stored: !!(record.artifact && record.artifact.contentBase64),
+          format: record.artifact && record.artifact.format || "",
+          fileName: record.artifact && record.artifact.fileName || "",
+          contentType: record.artifact && record.artifact.contentType || ""
+        }
+      };
+    }
+
+    bootstrapRegulatedDocumentAdmin() {
+      const items = this.queryRegulatedDocumentEntries({ limit: 30 });
+      const byState = {};
+      const byTrack = {};
+      items.forEach(function(item) {
+        const state = String(item.state || "");
+        const track = String(item.track || "");
+        if (state) {
+          byState[state] = (byState[state] || 0) + 1;
+        }
+        if (track) {
+          byTrack[track] = (byTrack[track] || 0) + 1;
+        }
+      });
+      return {
+        enabled: true,
+        filterOptions: this.collectRegulatedDocumentFilterOptions(),
+        summary: {
+          total: items.length,
+          loaded: items.length,
+          byState: byState,
+          byTrack: byTrack
+        }
+      };
+    }
+
+    listRegulatedDocumentEntries(filters) {
+      const items = this.queryRegulatedDocumentEntries(filters || {});
+      const byState = {};
+      const byTrack = {};
+      items.forEach(function(item) {
+        const state = String(item.state || "");
+        const track = String(item.track || "");
+        if (state) {
+          byState[state] = (byState[state] || 0) + 1;
+        }
+        if (track) {
+          byTrack[track] = (byTrack[track] || 0) + 1;
+        }
+      });
+      return {
+        enabled: true,
+        total: items.length,
+        items: items,
+        summary: {
+          total: items.length,
+          loaded: items.length,
+          byState: byState,
+          byTrack: byTrack
+        }
+      };
+    }
+
+    getRegulatedDocumentArtifact(issueId) {
+      const record = this.findRegulatedDocumentByIssueId(issueId);
+      if (!record || !record.artifact || !record.artifact.contentBase64) {
+        throw global.CrudUtils.makeError("REGULATED_DOCUMENT_ARTIFACT_NOT_AVAILABLE", "Artefato nao esta disponivel para este issueId.");
+      }
+      return global.CrudUtils.clone(record.artifact);
+    }
+
+    buildRegulatedDocumentResult(screenId, parameters) {
+      const definition = this.buildRegulatedDocumentDefinition(screenId);
+      const documentConfig = definition.regulatedDocument || {};
+      if (documentConfig.source && documentConfig.source.type === "analytic") {
+        const analytics = this.runAnalyticsClientes({
+          datasetId: documentConfig.source.analyticsDatasetId || "clientes-uf-status",
+          parameters: parameters || {}
+        });
+        const rows = global.CrudUtils.ensureArray(analytics.data || []);
+        return {
+          title: definition.program.title,
+          subtitle: definition.program.subtitle,
+          summary: [
+            { label: "Track", value: documentConfig.track || "logistics" },
+            { label: "Fonte", value: "Analytics" },
+            { label: "Linhas", value: rows.length },
+            { label: "Compliance", value: documentConfig.complianceProfile || "near_homologated" }
+          ],
+          headerFields: [
+            { label: "Documento", value: definition.program.title },
+            { label: "Tipo", value: documentConfig.documentType || "regulated_document" },
+            { label: "Track", value: documentConfig.track || "logistics" }
+          ],
+          parameterFields: Object.keys(parameters || {}).map(function(key) { return { label: key, value: parameters[key] }; }),
+          table: {
+            columns: global.CrudUtils.clone(analytics.columns || []),
+            rows: rows,
+            rowCount: rows.length
+          },
+          totals: {
+            clientes: rows.reduce(function(sum, item) { return sum + Number(item.clientes || item.total_clientes || 0); }, 0),
+            valor_total_sum: rows.reduce(function(sum, item) { return sum + Number(item.valor_total_sum || 0); }, 0)
+          },
+          sections: [
+            { title: "Escopo", lines: ["Base geral para trilha regulada.", "Fonte analytics controlada por metadado fechado."] },
+            { title: "Retencao", lines: ["Payload e artefato podem ser guardados separadamente.", "Conferencia posterior por hash."] }
+          ]
+        };
+      }
+      const statusFilter = String(parameters && parameters.status || "").trim().toUpperCase();
+      const ufFilter = String(parameters && parameters.uf || "").trim().toUpperCase();
+      const rows = global.CrudUtils.clone(this.records || []).filter(function(item) {
+        const matchStatus = !statusFilter || String(item.status || "").toUpperCase() === statusFilter;
+        const matchUf = !ufFilter || String(item.uf || "").toUpperCase() === ufFilter;
+        return matchStatus && matchUf;
+      }).slice(0, 6).map(function(item) {
+        return {
+          nome: item.nome,
+          uf: item.uf,
+          status: item.status,
+          valor_total: Number(item.valor_total || 0),
+          qtde_pedidos: Number(item.qtde_pedidos || 0)
+        };
+      });
+      return {
+        title: definition.program.title,
+        subtitle: definition.program.subtitle,
+        summary: [
+          { label: "Track", value: documentConfig.track || "fiscal" },
+          { label: "Fonte", value: "Operacional" },
+          { label: "Linhas", value: rows.length },
+          { label: "Compliance", value: documentConfig.complianceProfile || "near_homologated" }
+        ],
+        headerFields: [
+          { label: "Documento", value: definition.program.title },
+          { label: "Tipo", value: documentConfig.documentType || "regulated_document" },
+          { label: "Track", value: documentConfig.track || "fiscal" }
+        ],
+        parameterFields: Object.keys(parameters || {}).map(function(key) { return { label: key, value: parameters[key] }; }),
+        table: {
+          columns: [
+            { field: "nome", title: "Nome", label: "Nome" },
+            { field: "uf", title: "UF", label: "UF" },
+            { field: "status", title: "Status", label: "Status" },
+            { field: "valor_total", title: "Valor total", label: "Valor total", align: "right" },
+            { field: "qtde_pedidos", title: "Pedidos", label: "Pedidos", align: "right" }
+          ],
+          rows: rows,
+          rowCount: rows.length
+        },
+        totals: {
+          valor_total: rows.reduce(function(sum, item) { return sum + Number(item.valor_total || 0); }, 0),
+          qtde_pedidos: rows.reduce(function(sum, item) { return sum + Number(item.qtde_pedidos || 0); }, 0)
+        },
+        sections: [
+          { title: "Escopo", lines: ["Base geral para trilha regulada.", "Sem template livre e sem promessa de homologacao final nesta etapa."] },
+          { title: "Retencao", lines: ["Payload canonico e artefato podem ser persistidos.", "Conferencia posterior por hash publico."] }
+        ]
+      };
+    }
+
+    buildRegulatedDocumentArtifact(preview, format) {
+      const content = format === "html"
+        ? "<!doctype html><html><body><h1>" + String(preview.title || "Documento regulado") + "</h1><p>" + String(preview.subtitle || "") + "</p></body></html>"
+        : "%PDF-1.4\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF";
+      return {
+        ok: true,
+        issueId: preview.issueId,
+        format: format,
+        fileName: (preview.documentId || "documento-regulado") + "." + (format === "html" ? "html" : "pdf"),
+        contentType: format === "html" ? "text/html;charset=utf-8" : "application/pdf",
+        contentBase64: global.btoa(unescape(encodeURIComponent(content)))
+      };
+    }
+
+    resolvePreparedRegulatedDocument(screenId, data) {
+      const issueId = String(data && data.issueId || "").trim();
+      if (issueId) {
+        const existing = this.findRegulatedDocumentByIssueId(issueId);
+        if (existing) {
+          return existing;
+        }
+      }
+      this.prepareRegulatedDocument(screenId, data || {});
+      return this.regulatedDocuments[this.regulatedDocuments.length - 1];
+    }
+
+    collectRegulatedDocumentFilterOptions() {
+      const items = this.regulatedDocuments || [];
+      return {
+        screenIds: this.uniqueSorted(items.map(function(item) { return item.screenId; })),
+        trackOptions: this.uniqueSorted(items.map(function(item) { return item.track; })),
+        documentTypes: this.uniqueSorted(items.map(function(item) { return item.documentType; })),
+        states: this.uniqueSorted(items.map(function(item) { return item.state; }))
+      };
+    }
+
+    queryRegulatedDocumentEntries(filters) {
+      const state = String(filters.state || "").trim().toLowerCase();
+      const track = String(filters.track || "").trim().toLowerCase();
+      const screenId = String(filters.screenId || "").trim().toLowerCase();
+      const issueId = String(filters.issueId || "").trim().toLowerCase();
+      return (this.regulatedDocuments || []).filter(function(item) {
+        return (!state || String(item.state || "").toLowerCase() === state)
+          && (!track || String(item.track || "").toLowerCase() === track)
+          && (!screenId || String(item.screenId || "").toLowerCase().indexOf(screenId) >= 0)
+          && (!issueId || String(item.issueId || "").toLowerCase().indexOf(issueId) >= 0);
+      }).map(function(item) {
+        return {
+          issueId: item.issueId,
+          screenId: item.screenId,
+          documentId: item.documentId,
+          track: item.track,
+          documentType: item.documentType,
+          state: item.state,
+          hash: item.hash || "",
+          format: item.format || "",
+          artifactStored: !!(item.artifact && item.artifact.contentBase64),
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+          validation: global.CrudUtils.clone(item.validation || []),
+          verification: global.CrudUtils.clone(item.verificationResult || {}),
+          parameters: global.CrudUtils.clone(item.parameters || {}),
+          events: (this.regulatedDocumentEvents || []).filter(function(event) { return event.issueId === item.issueId; })
+        };
+      }, this).sort(function(left, right) {
+        return String(right.createdAt || "").localeCompare(String(left.createdAt || ""));
+      });
+    }
+
+    upsertRegulatedDocumentRecord(record) {
+      const next = global.CrudUtils.clone(record || {});
+      const index = (this.regulatedDocuments || []).findIndex(function(item) {
+        return String(item.issueId || "") === String(next.issueId || "");
+      });
+      if (index >= 0) {
+        this.regulatedDocuments[index] = next;
+      } else {
+        this.regulatedDocuments.push(next);
+      }
+      this.persistRegulatedDocuments();
+      return next;
+    }
+
+    appendRegulatedDocumentEvent(issueId, type, payload) {
+      this.regulatedDocumentEvents.push({
+        issueId: issueId,
+        type: type,
+        payload: global.CrudUtils.clone(payload || {}),
+        createdAt: new Date().toISOString()
+      });
+      this.persistRegulatedDocuments();
+    }
+
+    findRegulatedDocumentByIssueId(issueId) {
+      return (this.regulatedDocuments || []).find(function(item) {
+        return String(item.issueId || "") === String(issueId || "");
+      }) || null;
+    }
+
+    findRegulatedDocumentByHash(hash) {
+      return (this.regulatedDocuments || []).find(function(item) {
+        return String(item.hash || "") === String(hash || "");
+      }) || null;
+    }
+
+    uniqueSorted(items) {
+      return Array.from(new Set(global.CrudUtils.ensureArray(items).filter(Boolean))).sort();
     }
 
     hashString(value) {

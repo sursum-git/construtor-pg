@@ -43,6 +43,9 @@ class RuntimeMetadataSanitizer
         if ($pageType === 'special_document') {
             $definition = $this->sanitizeSpecialDocumentDefinition($definition, $screenId);
         }
+        if ($pageType === 'regulated_document') {
+            $definition = $this->sanitizeRegulatedDocumentDefinition($definition, $screenId);
+        }
 
         if ($pageType === 'home') {
             $definition = $this->sanitizeHomeDefinition($definition, $screenId);
@@ -98,6 +101,24 @@ class RuntimeMetadataSanitizer
 
         if (!empty($definition['specialDocument']['endpoints']) && is_array($definition['specialDocument']['endpoints'])) {
             $definition['specialDocument']['endpoints'] = $this->sanitizeEndpointMap($definition['specialDocument']['endpoints']);
+        }
+
+        unset($definition['definition'], $definition['definitionUrl'], $definition['openUrl'], $definition['url'], $definition['html'], $definition['htmlUrl']);
+
+        return $definition;
+    }
+
+    private function sanitizeRegulatedDocumentDefinition(array $definition, string $screenId): array
+    {
+        $definition['screenId'] = $screenId;
+        $definition['program']['screenId'] = $screenId;
+        $api = $definition['dataSource']['api'] ?? $definition['api'] ?? [];
+        $api = $this->sanitizeEndpointMap(is_array($api) ? $api : []);
+        $definition['api'] = $api;
+        $definition['dataSource']['api'] = $api;
+
+        if (!empty($definition['regulatedDocument']['endpoints']) && is_array($definition['regulatedDocument']['endpoints'])) {
+            $definition['regulatedDocument']['endpoints'] = $this->sanitizeEndpointMap($definition['regulatedDocument']['endpoints']);
         }
 
         unset($definition['definition'], $definition['definitionUrl'], $definition['openUrl'], $definition['url'], $definition['html'], $definition['htmlUrl']);

@@ -874,6 +874,7 @@ O produto agora separa explicitamente tres trilhas:
 
 - `reports`: consultas formatadas, impressao e exportacao;
 - `special_document`: documentos internos com visual mais fechado;
+- `regulated_document`: documentos de alto rigor com pipeline proprio de preparo, emissao, hash, artefato e conferencia;
 - engine externa ou modulo especializado: documentos oficiais, homologados ou de layout rigido.
 
 Na camada `reports`, tambem existe opcionalmente `report.authenticity.enabled`, que grava um hash `sha256` da emissao no banco separado de auditoria e permite conferencia publica posterior por `production/report-authenticity.html`. O contrato ainda aceita `report.authenticity.storage.storeCanonicalPayload` e `storeExportArtifact` para guardar, opcionalmente, o payload canonico da emissao e o artefato exportado no mesmo banco separado.

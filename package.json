@@ -32,6 +32,10 @@
     "test:reports-demo": "node tests/frontend/reports-demo-smoke.mjs",
     "test:report-authenticity": "node tests/frontend/report-authenticity-smoke.mjs",
     "test:special-document-demo": "node tests/frontend/special-document-demo-smoke.mjs",
+    "test:regulated-document-demo": "node tests/frontend/regulated-document-demo-smoke.mjs",
+    "test:regulated-document-authenticity": "node tests/frontend/regulated-document-authenticity-smoke.mjs",
+    "test:admin-regulated-document": "node tests/frontend/admin-regulated-document-smoke.mjs",
+    "test:program-builder-regulated-document": "node tests/frontend/program-builder-regulated-document-smoke.mjs",
     "test:privacy-request": "node tests/frontend/privacy-request-smoke.mjs",
     "test:context-resume-full": "node tests/frontend/context-resume-full-e2e.mjs"
   },

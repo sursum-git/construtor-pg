@@ -406,6 +406,181 @@
       page: pagePath + "special-document-label.html"
     },
     {
+      id: "regulated-document-fiscal-base",
+      engine: "regulated-document",
+      category: "Documentos regulados",
+      title: "Documento regulado fiscal base",
+      summary: "Base interna para trilha regulada com preparo, emissao, hash, artefato e conferencia posterior.",
+      code: {
+        pageType: "regulated_document",
+        screenId: "documentos.regulados-fiscal-base",
+        program: {
+          title: "Documento regulado fiscal base",
+          subtitle: "Base quase homologada para trilhas de alto rigor"
+        },
+        regulatedDocument: {
+          track: "fiscal",
+          documentType: "fiscal_base",
+          complianceProfile: "near_homologated",
+          renderEngine: "internal",
+          source: {
+            type: "operational",
+            entityCode: "cliente"
+          },
+          parameters: [
+            { id: "status", field: "status", label: "Status", type: "enum", operator: "eq", required: true, options: [{ value: "ATIVO", text: "Ativo" }, { value: "INATIVO", text: "Inativo" }] },
+            { id: "uf", field: "uf", label: "UF", type: "text", operator: "eq" }
+          ],
+          outputs: {
+            html: true,
+            pdf: true
+          },
+          artifactPolicy: {
+            storeCanonicalPayload: true,
+            storeArtifact: true,
+            defaultFormat: "pdf"
+          },
+          verification: {
+            enabled: true,
+            algorithm: "sha256",
+            publicPath: "regulated-document-authenticity.html",
+            label: "Codigo de conferencia"
+          },
+          retention: {
+            keepPayload: true,
+            keepArtifact: true,
+            storeDays: 365
+          },
+          layout: {
+            title: "Documento regulado fiscal base",
+            subtitle: "Trilha separada para documentos de alto rigor",
+            notes: "Nao promete emissao fiscal oficial nesta etapa."
+          }
+        }
+      }
+    },
+    {
+      id: "regulated-document-banking-base",
+      engine: "regulated-document",
+      category: "Documentos regulados",
+      title: "Documento regulado bancario base",
+      summary: "Base interna para trilha bancaria regulada, sem homologacao bancaria final nesta etapa.",
+      code: {
+        pageType: "regulated_document",
+        screenId: "documentos.regulados-bancario-base",
+        program: {
+          title: "Documento regulado bancario base",
+          subtitle: "Base interna para trilha bancaria"
+        },
+        regulatedDocument: {
+          track: "banking",
+          documentType: "banking_base",
+          complianceProfile: "near_homologated",
+          renderEngine: "internal",
+          source: {
+            type: "operational",
+            entityCode: "cliente"
+          },
+          parameters: [
+            { id: "status", field: "status", label: "Status", type: "enum", operator: "eq", options: [{ value: "ATIVO", text: "Ativo" }, { value: "INATIVO", text: "Inativo" }] }
+          ],
+          outputs: {
+            html: true,
+            pdf: true
+          },
+          artifactPolicy: {
+            storeCanonicalPayload: true,
+            storeArtifact: true,
+            defaultFormat: "pdf"
+          },
+          verification: {
+            enabled: true,
+            algorithm: "sha256",
+            publicPath: "regulated-document-authenticity.html",
+            label: "Codigo de conferencia"
+          },
+          retention: {
+            keepPayload: true,
+            keepArtifact: true,
+            storeDays: 365
+          },
+          layout: {
+            title: "Documento regulado bancario base",
+            subtitle: "Base interna para trilha bancaria",
+            notes: "Nao promete boleto homologado nesta etapa."
+          }
+        }
+      }
+    },
+    {
+      id: "regulated-document-logistics-base",
+      engine: "regulated-document",
+      category: "Documentos regulados",
+      title: "Documento regulado logistico base",
+      summary: "Base interna para trilha logistica regulada, com artefato e conferencia desacoplados de reports.",
+      code: {
+        pageType: "regulated_document",
+        screenId: "documentos.regulados-logistico-base",
+        program: {
+          title: "Documento regulado logistico base",
+          subtitle: "Base interna para trilha logistica"
+        },
+        regulatedDocument: {
+          track: "logistics",
+          documentType: "logistics_base",
+          complianceProfile: "near_homologated",
+          renderEngine: "internal",
+          source: {
+            type: "analytic",
+            analyticsScreenId: "analytics.clientes",
+            analyticsDatasetId: "clientes-uf-status"
+          },
+          parameters: [
+            { id: "status", field: "status", label: "Status", type: "enum", operator: "eq", options: [{ value: "ATIVO", text: "Ativo" }, { value: "INATIVO", text: "Inativo" }] }
+          ],
+          outputs: {
+            html: true,
+            pdf: true
+          },
+          artifactPolicy: {
+            storeCanonicalPayload: true,
+            storeArtifact: true,
+            defaultFormat: "pdf"
+          },
+          verification: {
+            enabled: true,
+            algorithm: "sha256",
+            publicPath: "regulated-document-authenticity.html",
+            label: "Codigo de conferencia"
+          },
+          retention: {
+            keepPayload: true,
+            keepArtifact: true,
+            storeDays: 365
+          },
+          layout: {
+            title: "Documento regulado logistico base",
+            subtitle: "Base interna para trilha logistica",
+            notes: "Nao promete etiqueta industrial certificada nesta etapa."
+          }
+        }
+      }
+    },
+    {
+      id: "regulated-document-authenticity",
+      category: "Documentos regulados",
+      title: "Conferencia de documento regulado",
+      summary: "Pagina publica para conferir hash e disponibilidade do artefato emitido na trilha regulada.",
+      page: pagePath + "regulated-document-authenticity.html"
+    },
+    {
+      id: "admin-regulated-document",
+      category: "Documentos regulados",
+      title: "Administracao de documentos regulados",
+      summary: "Tela administrativa para listar emissoes, ver status, hash, eventos e baixar artefatos.",
+      page: pagePath + "admin-regulated-document.html"
+    },
+    {
       id: "processamento-parametros",
       engine: "process",
       category: "Processamento",
@@ -2334,6 +2509,85 @@
     return definition;
   }
 
+  function buildRegulatedDocumentDefinition(id) {
+    const example = get(id);
+    const source = {
+      schemaVersion: "1.0",
+      pageType: "regulated_document",
+      screenId: "documentos.regulados-fiscal-base",
+      program: {
+        id: "documento-regulado-base",
+        screenId: "documentos.regulados-fiscal-base",
+        module: "documentos",
+        title: "Documento regulado base",
+        subtitle: "Trilha separada para documentos de alto rigor",
+        version: "1.0.0"
+      },
+      dataSource: {
+        api: {
+          schema: { endpointId: "regulatedDocuments.schema", method: "POST" },
+          prepare: { endpointId: "regulatedDocuments.prepare", method: "POST" },
+          render: { endpointId: "regulatedDocuments.render", method: "POST" },
+          issue: { endpointId: "regulatedDocuments.issue", method: "POST" },
+          verify: { endpointId: "regulatedDocuments.verify", method: "POST" },
+          artifact: { endpointId: "regulatedDocuments.artifact", method: "POST" }
+        }
+      },
+      regulatedDocument: {
+        track: "fiscal",
+        documentType: "fiscal_base",
+        complianceProfile: "near_homologated",
+        renderEngine: "internal",
+        endpoints: {
+          schema: { endpointId: "regulatedDocuments.schema", method: "POST" },
+          prepare: { endpointId: "regulatedDocuments.prepare", method: "POST" },
+          render: { endpointId: "regulatedDocuments.render", method: "POST" },
+          issue: { endpointId: "regulatedDocuments.issue", method: "POST" },
+          verify: { endpointId: "regulatedDocuments.verify", method: "POST" },
+          artifact: { endpointId: "regulatedDocuments.artifact", method: "POST" }
+        },
+        source: {
+          type: "operational",
+          entityCode: "cliente"
+        },
+        parameters: [
+          { id: "status", field: "status", label: "Status", type: "enum", operator: "eq", options: [{ value: "ATIVO", text: "Ativo" }, { value: "INATIVO", text: "Inativo" }] },
+          { id: "uf", field: "uf", label: "UF", type: "text", operator: "eq" }
+        ],
+        outputs: {
+          html: true,
+          pdf: true
+        },
+        artifactPolicy: {
+          storeCanonicalPayload: true,
+          storeArtifact: true,
+          defaultFormat: "pdf"
+        },
+        verification: {
+          enabled: true,
+          algorithm: "sha256",
+          publicPath: "regulated-document-authenticity.html",
+          label: "Codigo de conferencia"
+        },
+        retention: {
+          keepPayload: true,
+          keepArtifact: true,
+          storeDays: 365
+        },
+        layout: {
+          title: "Documento regulado base",
+          subtitle: "Trilha separada para alto rigor",
+          notes: "Base geral interna sem layout livre."
+        }
+      }
+    };
+    const definition = clone(source);
+    if (example && example.code) {
+      deepMerge(definition, example.code);
+    }
+    return definition;
+  }
+
   function buildConfig(id, options) {
     const example = get(id);
     const config = clone(global.CrudDemoEmbedded && global.CrudDemoEmbedded.config || {});
@@ -2522,6 +2776,7 @@
     buildProcessDefinition,
     buildAnalyticsDefinition,
     buildReportDefinition,
+    buildRegulatedDocumentDefinition,
     buildConfig,
     getCode,
     getPropertyOptions

@@ -23,6 +23,7 @@ class RuntimeEndpointDispatcher
         private readonly RuntimeAnalyticsEndpointHandler $analytics,
         private readonly RuntimeReportEndpointHandler $reports,
         private readonly RuntimeSpecialDocumentEndpointHandler $specialDocuments,
+        private readonly RuntimeRegulatedDocumentEndpointHandler $regulatedDocuments,
         private readonly RuntimeJobEnqueueService $jobEnqueue,
         private readonly RuntimeExecutionContext $executionContext,
         private readonly RuntimeAsyncJobService $asyncJobs,
@@ -80,6 +81,7 @@ class RuntimeEndpointDispatcher
             'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status' => $this->analytics->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
             'reports.schema', 'reports.run', 'reports.export' => $this->reports->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
             'specialDocuments.schema', 'specialDocuments.render', 'specialDocuments.export' => $this->specialDocuments->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
+            'regulatedDocuments.schema', 'regulatedDocuments.prepare', 'regulatedDocuments.render', 'regulatedDocuments.issue', 'regulatedDocuments.verify', 'regulatedDocuments.artifact' => $this->regulatedDocuments->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
             'cliente.read' => $this->entities->handle($screenId, 'read', ['entityCode' => 'cliente', 'operation' => 'read'], $payload),
             'cliente.get' => $this->entities->handle($screenId, 'get', ['entityCode' => 'cliente', 'operation' => 'get'], $payload),
             'cliente.create' => $this->entities->handle($screenId, 'create', ['entityCode' => 'cliente', 'operation' => 'create'], $payload),
@@ -148,7 +150,7 @@ class RuntimeEndpointDispatcher
     private function enrichPayloadFromEndpoint(RuntimeEndpoint $endpoint, array $payload): array
     {
         $config = $endpoint->getConfig();
-        if (!in_array($endpoint->getHandler(), ['entity.crud', 'entity.api.readonly', 'entity.api.crud', 'entity.api.odoo.readonly', 'runtime.job.enqueue', 'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status', 'reports.schema', 'reports.run', 'reports.export', 'specialDocuments.schema', 'specialDocuments.render', 'specialDocuments.export'], true)) {
+        if (!in_array($endpoint->getHandler(), ['entity.crud', 'entity.api.readonly', 'entity.api.crud', 'entity.api.odoo.readonly', 'runtime.job.enqueue', 'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status', 'reports.schema', 'reports.run', 'reports.export', 'specialDocuments.schema', 'specialDocuments.render', 'specialDocuments.export', 'regulatedDocuments.schema', 'regulatedDocuments.prepare', 'regulatedDocuments.render', 'regulatedDocuments.issue', 'regulatedDocuments.verify', 'regulatedDocuments.artifact'], true)) {
             return $payload;
         }
 

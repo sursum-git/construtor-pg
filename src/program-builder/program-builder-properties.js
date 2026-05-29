@@ -40,6 +40,7 @@
       { value: "analytics", text: "Analytics / BI" },
       { value: "report", text: "Relatorios" },
       { value: "special_document", text: "Documento especial" },
+      { value: "regulated_document", text: "Documento regulado" },
       { value: "custom", text: "Custom" }
     ], () => this.pageTypeSelect.value(), (value) => { this.pageTypeSelect.value(value); this.syncProgramTypeState(); }, this.programFieldTechnicalProperties("pageType"));
     this.appendPropertySelect(panel, "Modulo", this.state.modules.map(function(item) {

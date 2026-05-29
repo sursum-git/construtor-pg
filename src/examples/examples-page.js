@@ -75,6 +75,10 @@
         if (specialDocumentEngine && specialDocumentEngine.currentResult) {
           specialDocumentEngine.renderResult();
         }
+        const regulatedDocumentEngine = global.currentRegulatedDocumentExampleEngine;
+        if (regulatedDocumentEngine && regulatedDocumentEngine.currentPreview) {
+          regulatedDocumentEngine.renderPreview();
+        }
       }
     });
     const widget = tabs.data("kendoTabStrip");
@@ -104,6 +108,9 @@
     }
     if (example.engine === "special-document") {
       return initializeSpecialDocumentEngine(example, catalog, state, root);
+    }
+    if (example.engine === "regulated-document") {
+      return initializeRegulatedDocumentEngine(example, catalog, state, root);
     }
     return initializeCrudEngine(example, catalog, state, root);
   }
@@ -247,6 +254,28 @@
     });
   }
 
+  function initializeRegulatedDocumentEngine(example, catalog, state, root) {
+    $(root).removeClass("home-app-root").addClass("crud-app-shell");
+    const artifacts = buildRegulatedDocumentRuntimeArtifacts(example, catalog, state);
+    const httpClient = new global.DemoMockHttpClient({
+      storageSuffix: "examples-" + example.id
+    });
+    const engine = new global.RegulatedDocumentEngine({
+      root: "#example-render-root",
+      definition: artifacts.definition,
+      config: artifacts.config,
+      httpClient
+    });
+
+    return engine.init().then(function(instance) {
+      global.currentRegulatedDocumentExampleEngine = instance;
+      return instance;
+    }).catch(function(error) {
+      console.error("Falha ao renderizar exemplo de documento regulado.", error);
+      throw error;
+    });
+  }
+
   function destroyCurrentEngine(root) {
     const engine = global.currentCrudExampleEngine;
     if (engine && engine.gridRenderer && typeof engine.gridRenderer.destroy === "function") {
@@ -263,6 +292,9 @@
       if (global.currentSpecialDocumentExampleEngine && typeof global.currentSpecialDocumentExampleEngine.destroy === "function") {
         global.currentSpecialDocumentExampleEngine.destroy();
       }
+      if (global.currentRegulatedDocumentExampleEngine && typeof global.currentRegulatedDocumentExampleEngine.destroy === "function") {
+        global.currentRegulatedDocumentExampleEngine.destroy();
+      }
       global.kendo.destroy($(root));
     }
     $(root).empty();
@@ -272,6 +304,7 @@
     global.currentAnalyticsExampleEngine = null;
     global.currentReportExampleEngine = null;
     global.currentSpecialDocumentExampleEngine = null;
+    global.currentRegulatedDocumentExampleEngine = null;
   }
 
   function destroyHomeExampleEngine() {
@@ -379,6 +412,22 @@
 
   function buildReportRuntimeArtifacts(example, catalog, state) {
     const definition = catalog.buildReportDefinition(example.id);
+    const config = catalog.buildConfig(example.id, { assetPrefix: EXAMPLE_ASSET_PREFIX });
+    const patch = diffValue(state.originalPatch, state.currentPatch) || {};
+    const configPatch = patch[CONFIG_ROOT_KEY];
+
+    if (configPatch) {
+      deepMerge(config, configPatch);
+      normalizeConfigAssets(config);
+      delete patch[CONFIG_ROOT_KEY];
+    }
+
+    deepMerge(definition, patch);
+    return { definition, config };
+  }
+
+  function buildRegulatedDocumentRuntimeArtifacts(example, catalog, state) {
+    const definition = catalog.buildRegulatedDocumentDefinition(example.id);
     const config = catalog.buildConfig(example.id, { assetPrefix: EXAMPLE_ASSET_PREFIX });
     const patch = diffValue(state.originalPatch, state.currentPatch) || {};
     const configPatch = patch[CONFIG_ROOT_KEY];

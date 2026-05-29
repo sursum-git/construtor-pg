@@ -3344,8 +3344,8 @@ class ProgramBuilderService
         if ($programCode === '' || $programTitle === '' || $moduleCode === '' || $screenId === '') {
             throw new RuntimeHttpException('PROGRAM_BUILDER_REQUIRED_FIELDS', 'Informe codigo, titulo, modulo e screenId.', 422);
         }
-        if (!in_array($pageType, ['crud', 'custom', 'analytics', 'report', 'special_document'], true)) {
-            throw new RuntimeHttpException('PROGRAM_BUILDER_PAGE_TYPE_NOT_SUPPORTED', 'Nesta etapa o construtor visual suporta programas CRUD, analytics, report, special_document e custom.', 422, [
+        if (!in_array($pageType, ['crud', 'custom', 'analytics', 'report', 'special_document', 'regulated_document'], true)) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_PAGE_TYPE_NOT_SUPPORTED', 'Nesta etapa o construtor visual suporta programas CRUD, analytics, report, special_document, regulated_document e custom.', 422, [
                 'pageType' => $pageType,
             ]);
         }
@@ -3417,6 +3417,7 @@ class ProgramBuilderService
             in_array($pageType, ['crud', 'analytics'], true)
             || ($pageType === 'report' && $reportSourceType !== 'analytic')
             || ($pageType === 'special_document' && $reportSourceType !== 'analytic')
+            || ($pageType === 'regulated_document' && $reportSourceType !== 'analytic')
         ) {
             if ($builderEntityCode === '') {
                 throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_REQUIRED', 'Informe a entidade base para o programa.', 422);
@@ -3435,8 +3436,8 @@ class ProgramBuilderService
                     'entityType' => $entity->getEntityType(),
                 ]);
             }
-            if (in_array($pageType, ['report', 'special_document'], true) && $entity->getEntityType() !== 'persistence') {
-                throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_TYPE_NOT_SUPPORTED', 'Reports e documentos especiais v1 aceitam apenas entidades persistence na fonte operacional.', 422, [
+            if (in_array($pageType, ['report', 'special_document', 'regulated_document'], true) && $entity->getEntityType() !== 'persistence') {
+                throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_TYPE_NOT_SUPPORTED', 'Reports, documentos especiais e documentos regulados v1 aceitam apenas entidades persistence na fonte operacional.', 422, [
                     'builderEntityCode' => $builderEntityCode,
                     'entityType' => $entity->getEntityType(),
                 ]);
@@ -3508,6 +3509,7 @@ class ProgramBuilderService
             'analyticsConfig' => $pageType === 'analytics' && $entity instanceof BuilderEntity ? $this->normalizeAnalyticsBuilderConfig($payload['analyticsConfig'] ?? null, $entity) : null,
             'reportConfig' => $pageType === 'report' ? $this->normalizeReportBuilderConfig($payload['reportConfig'] ?? null, $entity instanceof BuilderEntity ? $entity : null) : null,
             'specialDocumentConfig' => $pageType === 'special_document' ? $this->normalizeSpecialDocumentBuilderConfig($payload['specialDocumentConfig'] ?? null, $entity instanceof BuilderEntity ? $entity : null) : null,
+            'regulatedDocumentConfig' => $pageType === 'regulated_document' ? $this->normalizeRegulatedDocumentBuilderConfig($payload['regulatedDocumentConfig'] ?? null, $entity instanceof BuilderEntity ? $entity : null) : null,
             'customMode' => $pageType === 'custom' ? $customMode : null,
             'customEntryUrl' => $pageType === 'custom' ? $customEntryUrl : null,
             'customFrameTitle' => $pageType === 'custom' ? ($customFrameTitle !== '' ? $customFrameTitle : $programTitle) : null,
@@ -3635,6 +3637,51 @@ class ProgramBuilderService
             'title' => trim((string) ($config['title'] ?? '')),
             'subtitle' => trim((string) ($config['subtitle'] ?? '')),
             'notes' => trim((string) ($config['notes'] ?? '')),
+            'outputs' => [
+                'html' => ($config['outputs']['html'] ?? true) !== false,
+                'pdf' => ($config['outputs']['pdf'] ?? true) !== false,
+            ],
+        ];
+    }
+
+    private function normalizeRegulatedDocumentBuilderConfig(mixed $value, ?BuilderEntity $entity): array
+    {
+        $config = is_array($value) ? $value : [];
+        $sourceType = strtolower(trim((string) ($config['sourceType'] ?? 'operational')));
+        if (!in_array($sourceType, ['operational', 'analytic'], true)) {
+            $sourceType = 'operational';
+        }
+        $track = strtolower(trim((string) ($config['track'] ?? 'fiscal')));
+        if (!in_array($track, ['fiscal', 'banking', 'logistics'], true)) {
+            $track = 'fiscal';
+        }
+
+        return [
+            'track' => $track,
+            'documentType' => strtolower(trim((string) ($config['documentType'] ?? 'regulated_document'))) ?: 'regulated_document',
+            'complianceProfile' => 'near_homologated',
+            'sourceType' => $sourceType,
+            'analyticsScreenId' => trim((string) ($config['analyticsScreenId'] ?? '')),
+            'analyticsDatasetId' => $this->safeCode((string) ($config['analyticsDatasetId'] ?? '')),
+            'title' => trim((string) ($config['title'] ?? '')),
+            'subtitle' => trim((string) ($config['subtitle'] ?? '')),
+            'notes' => trim((string) ($config['notes'] ?? '')),
+            'artifactPolicy' => [
+                'storeCanonicalPayload' => ($config['artifactPolicy']['storeCanonicalPayload'] ?? true) !== false,
+                'storeArtifact' => ($config['artifactPolicy']['storeArtifact'] ?? true) !== false,
+                'defaultFormat' => strtolower(trim((string) ($config['artifactPolicy']['defaultFormat'] ?? 'pdf'))) === 'html' ? 'html' : 'pdf',
+            ],
+            'verification' => [
+                'enabled' => ($config['verification']['enabled'] ?? true) !== false,
+                'algorithm' => 'sha256',
+                'publicPath' => trim((string) ($config['verification']['publicPath'] ?? '')) ?: 'regulated-document-authenticity.html',
+                'label' => trim((string) ($config['verification']['label'] ?? '')) ?: 'Codigo de conferencia',
+            ],
+            'retention' => [
+                'keepPayload' => ($config['retention']['keepPayload'] ?? true) !== false,
+                'keepArtifact' => ($config['retention']['keepArtifact'] ?? true) !== false,
+                'storeDays' => max(1, min(3650, (int) ($config['retention']['storeDays'] ?? 365))),
+            ],
             'outputs' => [
                 'html' => ($config['outputs']['html'] ?? true) !== false,
                 'pdf' => ($config['outputs']['pdf'] ?? true) !== false,
@@ -3776,6 +3823,7 @@ class ProgramBuilderService
             'analytics' => $this->generateAnalyticsDefinition($config),
             'report' => $this->generateReportDefinition($config),
             'special_document' => $this->generateSpecialDocumentDefinition($config),
+            'regulated_document' => $this->generateRegulatedDocumentDefinition($config),
             default => $this->generateCrudDefinition($config),
         };
 
@@ -3840,6 +3888,7 @@ class ProgramBuilderService
             'analytics' => $definition['analytics'] ?? [],
             'report' => $definition['report'] ?? [],
             'specialDocument' => $definition['specialDocument'] ?? [],
+            'regulatedDocument' => $definition['regulatedDocument'] ?? [],
         ];
 
         return hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
@@ -4525,6 +4574,117 @@ class ProgramBuilderService
         ];
     }
 
+    private function generateRegulatedDocumentDefinition(array $config): array
+    {
+        $regulated = is_array($config['regulatedDocumentConfig'] ?? null) ? $config['regulatedDocumentConfig'] : [];
+        $permissionPrefix = $config['permissionPrefix'];
+        $readPermission = $permissionPrefix !== '' ? $permissionPrefix . '.read' : true;
+        $sourceType = strtolower((string) ($regulated['sourceType'] ?? 'operational')) === 'analytic' ? 'analytic' : 'operational';
+        $parameters = [];
+
+        if ($sourceType !== 'analytic' && $config['_entity'] instanceof BuilderEntity) {
+            $position = 0;
+            foreach ($config['_entity']->getFields() as $field) {
+                $options = $field->getOptions();
+                if (($options['virtual'] ?? false) === true) {
+                    continue;
+                }
+                $dataType = $this->normalizeFieldType($field->getDataType());
+                if (in_array($dataType, ['text', 'json'], true)) {
+                    continue;
+                }
+                if ($position < 5) {
+                    $parameters[] = [
+                        'id' => $field->getCode(),
+                        'field' => $field->getCode(),
+                        'label' => $field->getLabel(),
+                        'type' => in_array($dataType, ['boolean', 'enum', 'integer', 'date', 'datetime'], true) ? $dataType : 'text',
+                        'operator' => in_array($dataType, ['boolean', 'enum', 'integer'], true) ? 'eq' : 'contains',
+                        'required' => false,
+                    ];
+                }
+                ++$position;
+            }
+        }
+
+        return [
+            'schemaVersion' => '1.0',
+            'pageType' => 'regulated_document',
+            'screenId' => $config['screenId'],
+            'program' => [
+                'id' => $config['programCode'],
+                'module' => $config['module'] ?? 'documentos',
+                'entity' => $config['builderEntityCode'] ?: null,
+                'title' => $config['programTitle'],
+                'version' => $config['version'],
+                'subtitle' => $config['subtitle'] ?? 'Documento regulado',
+                'icon' => $config['icon'] ?? 'file',
+                'permission' => $readPermission,
+            ],
+            'permissions' => [
+                'read' => $readPermission,
+                'issue' => $readPermission,
+                'verify' => $readPermission,
+                'artifact' => $readPermission,
+            ],
+            'dataSource' => [
+                'api' => $this->regulatedDocumentApiMap(),
+            ],
+            'runtime' => [
+                'entityCode' => $config['builderEntityCode'],
+                'programId' => $config['programCode'],
+                'mode' => 'regulated_document',
+                'messages' => [
+                    'enabled' => false,
+                ],
+            ],
+            'regulatedDocument' => [
+                'version' => '1.0',
+                'track' => (string) ($regulated['track'] ?? 'fiscal'),
+                'documentType' => (string) ($regulated['documentType'] ?? 'regulated_document'),
+                'complianceProfile' => 'near_homologated',
+                'renderEngine' => 'internal',
+                'endpoints' => $this->regulatedDocumentApiMap(),
+                'source' => $sourceType === 'analytic'
+                    ? [
+                        'type' => 'analytic',
+                        'analyticsScreenId' => (string) ($regulated['analyticsScreenId'] ?? ''),
+                        'analyticsDatasetId' => (string) ($regulated['analyticsDatasetId'] ?? ''),
+                    ]
+                    : [
+                        'type' => 'operational',
+                        'entityCode' => $config['builderEntityCode'],
+                    ],
+                'parameters' => $parameters,
+                'outputs' => [
+                    'html' => ($regulated['outputs']['html'] ?? true) !== false,
+                    'pdf' => ($regulated['outputs']['pdf'] ?? true) !== false,
+                ],
+                'artifactPolicy' => [
+                    'storeCanonicalPayload' => ($regulated['artifactPolicy']['storeCanonicalPayload'] ?? true) !== false,
+                    'storeArtifact' => ($regulated['artifactPolicy']['storeArtifact'] ?? true) !== false,
+                    'defaultFormat' => (string) ($regulated['artifactPolicy']['defaultFormat'] ?? 'pdf'),
+                ],
+                'verification' => [
+                    'enabled' => ($regulated['verification']['enabled'] ?? true) !== false,
+                    'algorithm' => 'sha256',
+                    'publicPath' => trim((string) ($regulated['verification']['publicPath'] ?? '')) ?: 'regulated-document-authenticity.html',
+                    'label' => trim((string) ($regulated['verification']['label'] ?? '')) ?: 'Codigo de conferencia',
+                ],
+                'retention' => [
+                    'keepPayload' => ($regulated['retention']['keepPayload'] ?? true) !== false,
+                    'keepArtifact' => ($regulated['retention']['keepArtifact'] ?? true) !== false,
+                    'storeDays' => max(1, (int) ($regulated['retention']['storeDays'] ?? 365)),
+                ],
+                'layout' => [
+                    'title' => $regulated['title'] ?: $config['programTitle'],
+                    'subtitle' => $regulated['subtitle'] ?: ($config['subtitle'] ?? 'Documento regulado'),
+                    'notes' => $regulated['notes'] ?? '',
+                ],
+            ],
+        ];
+    }
+
     /**
      * @return array<int, array<string, string>>
      */
@@ -4632,6 +4792,10 @@ class ProgramBuilderService
         }
         if ($version->getPageType() === 'special_document') {
             $this->upsertSpecialDocumentRuntimeEndpoints($version);
+            return;
+        }
+        if ($version->getPageType() === 'regulated_document') {
+            $this->upsertRegulatedDocumentRuntimeEndpoints($version);
             return;
         }
 
@@ -4800,6 +4964,40 @@ class ProgramBuilderService
         $this->disableUnusedCrudGeneratedEndpoints($version->getScreenId(), $activeEndpointIds);
     }
 
+    private function upsertRegulatedDocumentRuntimeEndpoints(BuilderProgramVersion $version): void
+    {
+        $handlers = [
+            'regulatedDocuments.schema' => 'regulatedDocuments.schema',
+            'regulatedDocuments.prepare' => 'regulatedDocuments.prepare',
+            'regulatedDocuments.render' => 'regulatedDocuments.render',
+            'regulatedDocuments.issue' => 'regulatedDocuments.issue',
+            'regulatedDocuments.verify' => 'regulatedDocuments.verify',
+            'regulatedDocuments.artifact' => 'regulatedDocuments.artifact',
+        ];
+
+        $activeEndpointIds = [];
+        foreach ($handlers as $endpointId => $handler) {
+            $endpoint = $this->endpoints->findOneBy([
+                'screenId' => $version->getScreenId(),
+                'endpointId' => $endpointId,
+            ]) ?? new RuntimeEndpoint();
+
+            $endpoint
+                ->setScreenId($version->getScreenId())
+                ->setEndpointId($endpointId)
+                ->setHandler($handler)
+                ->setEnabled(true)
+                ->setPermission($this->endpointPermission($version, $endpointId, $handler))
+                ->setConfig($this->endpointConfig($version, $endpointId, $handler));
+
+            $this->entityManager->persist($endpoint);
+            $this->integrity->signEndpoint($endpoint, ['source' => 'syncRuntimeEndpoints']);
+            $activeEndpointIds[] = $endpointId;
+        }
+
+        $this->disableUnusedCrudGeneratedEndpoints($version->getScreenId(), $activeEndpointIds);
+    }
+
     private function disableRuntimeEndpointsForScreen(string $screenId): void
     {
         foreach ($this->endpoints->findBy(['screenId' => $screenId]) as $endpoint) {
@@ -4852,6 +5050,12 @@ class ProgramBuilderService
             'specialDocuments.schema',
             'specialDocuments.render',
             'specialDocuments.export',
+            'regulatedDocuments.schema',
+            'regulatedDocuments.prepare',
+            'regulatedDocuments.render',
+            'regulatedDocuments.issue',
+            'regulatedDocuments.verify',
+            'regulatedDocuments.artifact',
         ];
 
         foreach ($this->endpoints->findBy(['screenId' => $screenId]) as $endpoint) {
@@ -4886,7 +5090,7 @@ class ProgramBuilderService
             'create' => $prefix . '.create',
             'update' => $prefix . '.edit',
             'delete' => $prefix . '.delete',
-            'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status', 'reports.schema', 'reports.run', 'reports.export', 'specialDocuments.schema', 'specialDocuments.render', 'specialDocuments.export' => $prefix . '.read',
+            'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status', 'reports.schema', 'reports.run', 'reports.export', 'specialDocuments.schema', 'specialDocuments.render', 'specialDocuments.export', 'regulatedDocuments.schema', 'regulatedDocuments.prepare', 'regulatedDocuments.render', 'regulatedDocuments.issue', 'regulatedDocuments.verify', 'regulatedDocuments.artifact' => $prefix . '.read',
             default => null,
         };
     }
@@ -4954,6 +5158,26 @@ class ProgramBuilderService
         }
 
         if (str_starts_with($handler, 'specialDocuments.')) {
+            return [
+                'entityCode' => $version->getBuilderEntityCode(),
+                'operation' => $handler,
+                'actionId' => $endpointId,
+                'programId' => $version->getProgramCode(),
+                'permissionPrefix' => $version->getPermissionPrefix(),
+                'traceability' => [
+                    'programCode' => $version->getProgramCode(),
+                    'programVersion' => $version->getVersion(),
+                    'builderProgramVersionId' => $version->getId(),
+                    'builderEntityVersionId' => $this->latestBuilderEntityVersionId($version->getBuilderEntityCode()),
+                    'screenDefinitionVersion' => $version->getVersion(),
+                    'schemaFingerprint' => $this->programSchemaFingerprint($version, $version->getGeneratedDefinition()),
+                    'customizationKind' => $version->getProgramOrigin(),
+                    'subscriberId' => $version->getSubscriberId(),
+                ],
+            ];
+        }
+
+        if (str_starts_with($handler, 'regulatedDocuments.')) {
             return [
                 'entityCode' => $version->getBuilderEntityCode(),
                 'operation' => $handler,
@@ -5044,6 +5268,18 @@ class ProgramBuilderService
             'schema' => ['endpointId' => 'specialDocuments.schema', 'method' => 'POST'],
             'render' => ['endpointId' => 'specialDocuments.render', 'method' => 'POST'],
             'export' => ['endpointId' => 'specialDocuments.export', 'method' => 'POST'],
+        ];
+    }
+
+    private function regulatedDocumentApiMap(): array
+    {
+        return [
+            'schema' => ['endpointId' => 'regulatedDocuments.schema', 'method' => 'POST'],
+            'prepare' => ['endpointId' => 'regulatedDocuments.prepare', 'method' => 'POST'],
+            'render' => ['endpointId' => 'regulatedDocuments.render', 'method' => 'POST'],
+            'issue' => ['endpointId' => 'regulatedDocuments.issue', 'method' => 'POST'],
+            'verify' => ['endpointId' => 'regulatedDocuments.verify', 'method' => 'POST'],
+            'artifact' => ['endpointId' => 'regulatedDocuments.artifact', 'method' => 'POST'],
         ];
     }
 

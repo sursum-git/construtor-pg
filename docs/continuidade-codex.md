@@ -245,6 +245,15 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - `Documento especial`.
 - documentos especiais continuam fora de `reports`; o builder bloqueia `danfe`, `dacte`, `boleto`, `label/etiqueta` na trilha de relatorio.
 - a politica oficial para decidir entre `reports`, `special_document` e engine externa fica em `docs/politica-reports-documentos.md`.
+- existe agora uma terceira trilha interna para documentos de alto rigor:
+  - `pageType=regulated_document`;
+  - schema `public/metadata/schemas/regulated-document-definition-v1.schema.json`;
+  - runtime `regulatedDocuments.schema|prepare|render|issue|verify|artifact`;
+  - storage separado inicializado por `php backend/bin/console app:regulated-document:init`;
+  - pagina publica `production/regulated-document-authenticity.html`;
+  - tela administrativa `production/admin/regulated-document-admin.html`;
+  - seed local de `documentos.regulados-fiscal-base`, `documentos.regulados-bancario-base`, `documentos.regulados-logistico-base` e `admin.documentos-regulados`.
+- `regulated_document` nao substitui `reports` nem `special_document`; ele isola preparo, emissao, hash, artefato e conferencia para documentos quase homologados.
   - programa manual sem entidade base;
   - `custom.mode = iframe | htmlUrl`;
   - `custom.entryUrl` relativo ao proprio sistema;
