@@ -2,6 +2,10 @@
 
 namespace App\Runtime;
 
+use App\Printing\Delivery\DownloadArtifactDelivery;
+use App\Printing\Document\InternalRegulatedDocumentHtmlGenerator;
+use App\Printing\Document\InternalRegulatedDocumentPdfGenerator;
+use App\Printing\DTO\DocumentArtifactRequest;
 use App\Repository\ScreenDefinitionRepository;
 use Doctrine\DBAL\Connection;
 
@@ -192,19 +196,25 @@ class RuntimeRegulatedDocumentService
 
         $canonical = is_array($rendered['canonicalPayload'] ?? null) ? $rendered['canonicalPayload'] : [];
         $hash = 'sha256:' . hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        $delivery = new DownloadArtifactDelivery();
+        $safeName = $this->safeFileName((string) ($rendered['documentId'] ?? 'documento-regulado'));
         $artifact = $format === 'html'
-            ? [
-                'format' => 'html',
-                'fileName' => $this->safeFileName((string) ($rendered['documentId'] ?? 'documento-regulado')) . '.html',
-                'contentType' => 'text/html; charset=utf-8',
-                'contentBase64' => base64_encode($this->buildHtmlArtifact($rendered)),
-            ]
-            : [
-                'format' => 'pdf',
-                'fileName' => $this->safeFileName((string) ($rendered['documentId'] ?? 'documento-regulado')) . '.pdf',
-                'contentType' => 'application/pdf',
-                'contentBase64' => base64_encode($this->buildPdfArtifact($rendered)),
-            ];
+            ? $delivery->deliverPrint((new InternalRegulatedDocumentHtmlGenerator(
+                fn (DocumentArtifactRequest $request): string => $this->buildHtmlArtifact((array) ($request->context['result'] ?? []))
+            ))->generate(new DocumentArtifactRequest(
+                $safeName . '.html',
+                (string) ($rendered['title'] ?? $safeName),
+                'html',
+                ['result' => $rendered]
+            )))
+            : $delivery->deliverPrint((new InternalRegulatedDocumentPdfGenerator(
+                fn (DocumentArtifactRequest $request): string => $this->buildPdfArtifact((array) ($request->context['result'] ?? []))
+            ))->generate(new DocumentArtifactRequest(
+                $safeName . '.pdf',
+                (string) ($rendered['title'] ?? $safeName),
+                'pdf',
+                ['result' => $rendered]
+            )));
 
         $storeArtifact = ($document['artifactPolicy']['storeArtifact'] ?? true) === true;
         $record = $this->store->findByIssueId((string) $rendered['issueId']) ?? [];
@@ -258,6 +268,7 @@ class RuntimeRegulatedDocumentService
             'state' => 'issued',
             'hash' => $hash,
             'format' => $format,
+            'deliveryMode' => (string) ($artifact['deliveryMode'] ?? 'download'),
             'artifactStored' => $storeArtifact,
             'artifact' => $artifact,
             'verificationUrl' => $this->buildVerificationUrl((string) ($document['verification']['publicPath'] ?? 'regulated-document-authenticity.html'), $hash),
@@ -347,6 +358,7 @@ class RuntimeRegulatedDocumentService
             'fileName' => (string) ($artifact['fileName'] ?? ''),
             'contentType' => (string) ($artifact['contentType'] ?? 'application/octet-stream'),
             'contentBase64' => (string) ($artifact['contentBase64'] ?? ''),
+            'deliveryMode' => (string) ($artifact['deliveryMode'] ?? 'download'),
         ];
     }
 

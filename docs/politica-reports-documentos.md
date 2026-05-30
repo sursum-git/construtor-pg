@@ -154,3 +154,4 @@ O que ainda nao se deve prometer como entregue apenas com a camada atual:
 - boleto bancario homologado;
 - renderer industrial com coordenada livre;
 - designer documental livre.
+- transporte fisico real para impressoras por `TCP 9100`, `CUPS`, `QZ Tray`, `ESC/POS`, `ZPL` ou `EPL`.

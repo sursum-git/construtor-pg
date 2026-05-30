@@ -41,6 +41,7 @@ class RuntimeSpecialDocumentServiceTest extends TestCase
         $result = $service->export('documentos.especiais-base', ['format' => 'pdf']);
 
         self::assertSame('pdf', $result['format']);
+        self::assertSame('download', $result['deliveryMode']);
         self::assertStringStartsWith('%PDF', (string) base64_decode((string) $result['contentBase64']));
     }
 
@@ -51,6 +52,7 @@ class RuntimeSpecialDocumentServiceTest extends TestCase
         $result = $service->export('documentos.especiais-base', ['format' => 'html']);
 
         self::assertSame('html', $result['format']);
+        self::assertSame('download', $result['deliveryMode']);
         self::assertStringContainsString('<table>', (string) base64_decode((string) $result['contentBase64']));
     }
 
@@ -168,10 +170,7 @@ class RuntimeSpecialDocumentServiceTest extends TestCase
         $integrity = $this->createStub(StructuralIntegrityService::class);
         $customizations = $this->createStub(ProgramCustomizationResolver::class);
         $customizations->method('resolve')->willReturn(null);
-        $analytics = $this->getMockBuilder(RuntimeAnalyticsService::class)
-            ->disableOriginalConstructor()
-            ->onlyMethods(['run'])
-            ->getMock();
+        $analytics = $this->createStub(RuntimeAnalyticsService::class);
         $analytics->method('run')->willReturn([
             'data' => [
                 ['uf' => 'CE', 'clientes' => 2, 'valor_total_sum' => 300, 'qtde_pedidos_sum' => 5],

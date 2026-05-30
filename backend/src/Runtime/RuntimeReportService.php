@@ -2,6 +2,11 @@
 
 namespace App\Runtime;
 
+use App\Printing\Delivery\DownloadArtifactDelivery;
+use App\Printing\DTO\ReportRequest;
+use App\Printing\Report\InternalReportCsvGenerator;
+use App\Printing\Report\InternalReportPdfGenerator;
+use App\Printing\Report\InternalReportXlsxGenerator;
 use App\Repository\ScreenDefinitionRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
@@ -151,45 +156,46 @@ class RuntimeReportService
         $rows = is_array($result['rows'] ?? null) ? $result['rows'] : [];
         $columns = is_array($result['columns'] ?? null) ? $result['columns'] : [];
         $safeName = $this->safeFileName((string) ($result['reportId'] ?? 'relatorio'));
+        $delivery = new DownloadArtifactDelivery();
 
         if ($format === 'excel') {
-            $xlsx = $this->rowsToXlsx($result);
-            $response = [
-                'ok' => true,
-                'format' => 'excel',
-                'fileName' => $safeName . '.xlsx',
-                'contentType' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'contentBase64' => base64_encode($xlsx),
-                'authenticity' => $result['authenticity'] ?? null,
-            ];
+            $generator = new InternalReportXlsxGenerator(fn (ReportRequest $request): string => $this->rowsToXlsx((array) ($request->context['result'] ?? [])));
+            $response = $delivery->deliverReport($generator->generate(new ReportRequest(
+                $safeName . '.xlsx',
+                (string) ($result['title'] ?? $safeName),
+                'excel',
+                ['result' => $result]
+            )));
+            $response['authenticity'] = $result['authenticity'] ?? null;
             $this->recordExportArtifactAudit($definition, $report, $result, $payload, 'excel', $response, $tenantId);
 
             return $response;
         }
         if ($format === 'pdf') {
-            $pdf = $this->resultToPdf($result);
-            $response = [
-                'ok' => true,
-                'format' => 'pdf',
-                'fileName' => $safeName . '.pdf',
-                'contentType' => 'application/pdf',
-                'contentBase64' => base64_encode($pdf),
-                'authenticity' => $result['authenticity'] ?? null,
-            ];
+            $generator = new InternalReportPdfGenerator(fn (ReportRequest $request): string => $this->resultToPdf((array) ($request->context['result'] ?? [])));
+            $response = $delivery->deliverReport($generator->generate(new ReportRequest(
+                $safeName . '.pdf',
+                (string) ($result['title'] ?? $safeName),
+                'pdf',
+                ['result' => $result]
+            )));
+            $response['authenticity'] = $result['authenticity'] ?? null;
             $this->recordExportArtifactAudit($definition, $report, $result, $payload, 'pdf', $response, $tenantId);
 
             return $response;
         }
 
-        $csv = $this->rowsToCsv($columns, $rows);
-        $response = [
-            'ok' => true,
-            'format' => 'csv',
-            'fileName' => $safeName . '.csv',
-            'contentType' => 'text/csv; charset=utf-8',
-            'contentBase64' => base64_encode($csv),
-            'authenticity' => $result['authenticity'] ?? null,
-        ];
+        $generator = new InternalReportCsvGenerator(fn (ReportRequest $request): string => $this->rowsToCsv(
+            (array) ($request->context['columns'] ?? []),
+            (array) ($request->context['rows'] ?? [])
+        ));
+        $response = $delivery->deliverReport($generator->generate(new ReportRequest(
+            $safeName . '.csv',
+            (string) ($result['title'] ?? $safeName),
+            'csv',
+            ['columns' => $columns, 'rows' => $rows]
+        )));
+        $response['authenticity'] = $result['authenticity'] ?? null;
         $this->recordExportArtifactAudit($definition, $report, $result, $payload, 'csv', $response, $tenantId);
 
         return $response;

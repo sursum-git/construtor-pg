@@ -231,6 +231,11 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - PDF backend com cabecalho repetido por pagina no renderer textual fechado;
   - quando o relatorio e tabular e curto, o PDF agora usa composicao visual com titulo, cards de resumo e grade de tabela;
   - existe pagina publica de conferencia em `production/report-authenticity.html`, usando `GET /api/public/report-authenticity/verify?hash=...`.
+- a emissao/exportacao das trilhas documentais agora tambem passa por uma bridge PHP interna em `backend/src/Printing/`, separada em:
+  - geracao de artefato;
+  - entrega ao cliente;
+  - transporte para impressora real.
+- nesta fase, a bridge entrega apenas `download`; `raw_tcp_9100`, `cups`, `qz_tray`, `escpos`, `zpl` e `epl` ficam apenas previstos por contrato.
 - a trilha separada de documentos especiais agora existe:
   - `pageType=special_document`;
   - schema `public/metadata/schemas/special-document-definition-v1.schema.json`;

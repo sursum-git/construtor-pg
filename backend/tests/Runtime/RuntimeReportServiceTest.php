@@ -60,6 +60,7 @@ class RuntimeReportServiceTest extends TestCase
 
         self::assertSame('csv', $result['format']);
         self::assertSame('text/csv; charset=utf-8', $result['contentType']);
+        self::assertSame('download', $result['deliveryMode']);
         self::assertNotSame('', $result['contentBase64']);
         self::assertStringContainsString('relatorio-clientes-operacional', $result['fileName']);
         self::assertStringContainsString('"Nome"', base64_decode((string) $result['contentBase64']));
@@ -80,6 +81,7 @@ class RuntimeReportServiceTest extends TestCase
 
         self::assertSame('excel', $result['format']);
         self::assertSame('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', $result['contentType']);
+        self::assertSame('download', $result['deliveryMode']);
         self::assertStringEndsWith('.xlsx', $result['fileName']);
         $binary = base64_decode((string) $result['contentBase64']);
         self::assertStringStartsWith('PK', $binary);
@@ -106,6 +108,7 @@ class RuntimeReportServiceTest extends TestCase
 
         self::assertSame('pdf', $result['format']);
         self::assertSame('application/pdf', $result['contentType']);
+        self::assertSame('download', $result['deliveryMode']);
         self::assertStringEndsWith('.pdf', $result['fileName']);
         $binary = (string) base64_decode((string) $result['contentBase64']);
         self::assertStringStartsWith('%PDF', $binary);
@@ -225,10 +228,7 @@ class RuntimeReportServiceTest extends TestCase
         $customizations = $this->createStub(ProgramCustomizationResolver::class);
         $customizations->method('resolve')->willReturn(null);
 
-        $analytics = $this->getMockBuilder(RuntimeAnalyticsService::class)
-            ->disableOriginalConstructor()
-            ->onlyMethods(['run'])
-            ->getMock();
+        $analytics = $this->createStub(RuntimeAnalyticsService::class);
         $analytics->method('run')->willReturn([
             'data' => [],
             'columns' => [],

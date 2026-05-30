@@ -41,6 +41,7 @@ class RuntimeRegulatedDocumentServiceTest extends TestCase
         self::assertSame('issued', $issued['state']);
         self::assertStringStartsWith('sha256:', $issued['hash']);
         self::assertSame('pdf', $issued['format']);
+        self::assertSame('download', $issued['deliveryMode']);
 
         $verified = $service->verify('documentos.regulados-fiscal-base', [
             'issueId' => $prepared['issueId'],
@@ -52,6 +53,7 @@ class RuntimeRegulatedDocumentServiceTest extends TestCase
         $artifact = $service->artifact('documentos.regulados-fiscal-base', [
             'issueId' => $prepared['issueId'],
         ]);
+        self::assertSame('download', $artifact['deliveryMode']);
         self::assertSame('application/pdf', $artifact['contentType']);
         self::assertStringStartsWith('%PDF', (string) base64_decode((string) $artifact['contentBase64']));
     }
@@ -141,10 +143,7 @@ class RuntimeRegulatedDocumentServiceTest extends TestCase
         $integrity = $this->createStub(StructuralIntegrityService::class);
         $customizations = $this->createStub(ProgramCustomizationResolver::class);
         $customizations->method('resolve')->willReturn(null);
-        $analytics = $this->getMockBuilder(RuntimeAnalyticsService::class)
-            ->disableOriginalConstructor()
-            ->onlyMethods(['run'])
-            ->getMock();
+        $analytics = $this->createStub(RuntimeAnalyticsService::class);
         $analytics->method('run')->willReturn([
             'data' => [
                 ['uf' => 'CE', 'status' => 'ATIVO', 'clientes' => 2, 'valor_total_sum' => 300],

@@ -2,6 +2,10 @@
 
 namespace App\Runtime;
 
+use App\Printing\Delivery\DownloadArtifactDelivery;
+use App\Printing\Document\InternalSpecialDocumentHtmlGenerator;
+use App\Printing\Document\InternalSpecialDocumentPdfGenerator;
+use App\Printing\DTO\DocumentArtifactRequest;
 use App\Repository\ScreenDefinitionRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
@@ -144,28 +148,28 @@ class RuntimeSpecialDocumentService
                 'format' => $format,
             ]);
         }
+        $delivery = new DownloadArtifactDelivery();
+        $safeName = $this->safeFileName((string) ($result['documentId'] ?? 'documento-especial'));
 
         if ($format === 'html') {
-            $html = $this->buildHtmlDocument($result);
+            $generator = new InternalSpecialDocumentHtmlGenerator(fn (DocumentArtifactRequest $request): string => $this->buildHtmlDocument((array) ($request->context['result'] ?? [])));
 
-            return [
-                'ok' => true,
-                'format' => 'html',
-                'fileName' => $this->safeFileName((string) ($result['documentId'] ?? 'documento-especial')) . '.html',
-                'contentType' => 'text/html; charset=utf-8',
-                'contentBase64' => base64_encode($html),
-            ];
+            return $delivery->deliverPrint($generator->generate(new DocumentArtifactRequest(
+                $safeName . '.html',
+                (string) ($result['title'] ?? $safeName),
+                'html',
+                ['result' => $result]
+            )));
         }
 
-        $pdf = $this->buildDocumentPdf($result);
+        $generator = new InternalSpecialDocumentPdfGenerator(fn (DocumentArtifactRequest $request): string => $this->buildDocumentPdf((array) ($request->context['result'] ?? [])));
 
-        return [
-            'ok' => true,
-            'format' => 'pdf',
-            'fileName' => $this->safeFileName((string) ($result['documentId'] ?? 'documento-especial')) . '.pdf',
-            'contentType' => 'application/pdf',
-            'contentBase64' => base64_encode($pdf),
-        ];
+        return $delivery->deliverPrint($generator->generate(new DocumentArtifactRequest(
+            $safeName . '.pdf',
+            (string) ($result['title'] ?? $safeName),
+            'pdf',
+            ['result' => $result]
+        )));
     }
 
     /**
