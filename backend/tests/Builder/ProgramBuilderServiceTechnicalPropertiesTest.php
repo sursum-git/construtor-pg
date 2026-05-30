@@ -185,7 +185,7 @@ SQL
             $this->field('descricao', 'Produto', 'string', 2, ['analytics' => ['dimension' => true]]),
         ]);
 
-        $entities = $this->createMock(BuilderEntityRepository::class);
+        $entities = $this->createStub(BuilderEntityRepository::class);
         $entities->method('findOneBy')
             ->willReturnCallback(static function (array $criteria) use ($pedido, $pedidoItem, $cliente, $empresa, $produto): ?BuilderEntity {
                 return match ($criteria['code'] ?? null) {

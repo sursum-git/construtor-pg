@@ -4504,6 +4504,11 @@ class ProgramBuilderService
 
         $permissionPrefix = $config['permissionPrefix'];
         $readPermission = $permissionPrefix !== '' ? $permissionPrefix . '.read' : true;
+        $builderEntityCode = (string) ($config['builderEntityCode'] ?? ($entity instanceof BuilderEntity ? $entity->getCode() : ''));
+        $programCode = (string) ($config['programCode'] ?? '');
+        $programTitle = (string) ($config['programTitle'] ?? '');
+        $programVersion = (string) ($config['version'] ?? '1.0.0');
+        $screenId = (string) ($config['screenId'] ?? '');
 
         $views = [];
         if (($viewFlags['grid'] ?? true) !== false) {
@@ -4571,19 +4576,19 @@ class ProgramBuilderService
             ]
             : [
                 'type' => 'entity',
-                'entityCode' => $config['builderEntityCode'],
+                'entityCode' => $builderEntityCode,
             ];
 
         return [
             'schemaVersion' => '1.0',
             'pageType' => 'analytics',
-            'screenId' => $config['screenId'],
+            'screenId' => $screenId,
             'program' => [
-                'id' => $config['programCode'],
+                'id' => $programCode,
                 'module' => $config['module'] ?? 'analytics',
-                'entity' => $config['builderEntityCode'],
-                'title' => $config['programTitle'],
-                'version' => $config['version'],
+                'entity' => $builderEntityCode,
+                'title' => $programTitle,
+                'version' => $programVersion,
                 'subtitle' => $config['subtitle'] ?? 'Consulta avancada e BI',
                 'icon' => $config['icon'] ?? 'chart-line',
                 'permission' => $readPermission,
@@ -4596,8 +4601,8 @@ class ProgramBuilderService
                 'api' => $this->analyticsApiMap(),
             ],
             'runtime' => [
-                'entityCode' => $config['builderEntityCode'],
-                'programId' => $config['programCode'],
+                'entityCode' => $builderEntityCode,
+                'programId' => $programCode,
                 'mode' => 'analytics',
                 'messages' => [
                     'enabled' => false,
@@ -4615,7 +4620,7 @@ class ProgramBuilderService
                 'datasets' => [
                     [
                         'id' => $datasetId,
-                        'title' => $config['programTitle'],
+                        'title' => $programTitle,
                         'source' => $datasetSource,
                         'joins' => array_values(array_filter((array) ($analyticsConfig['joins'] ?? []), 'is_array')),
                         'fields' => $fields,
