@@ -56,6 +56,10 @@
         pipelineLogs: null,
         pipelineLogsError: ""
       },
+      analyticsWizard: {
+        datasetBlueprint: null,
+        wizardMeta: null
+      },
       navigatorSelection: null,
       propertySelection: null,
       validation: { entityIssues: [], programIssues: [], fieldIssues: {}, ruleIssues: {}, uniqueKeyIssues: {} },
@@ -752,6 +756,10 @@
 
     const fieldsHeader = $("<div class=\"program-builder-fields-header\"></div>").appendTo(form);
     this.appendFieldLabel(fieldsHeader, "Campos da entidade", this.entityFieldTechnicalProperties("fieldsHeader"));
+    $("<button type=\"button\"></button>").text("Wizard BI").appendTo(fieldsHeader).kendoButton({
+      icon: "chart-line",
+      click: this.handleOpenAnalyticsWizard.bind(this)
+    });
     $("<button type=\"button\"></button>").text("Sugerir nomes").appendTo(fieldsHeader).kendoButton({
       icon: "wand",
       click: this.handleSuggestFieldNames.bind(this)
@@ -3386,7 +3394,7 @@
       click: this.handleAddAnalyticsJoinRow.bind(this)
     });
     this.analyticsJoinTable = $("<table class=\"program-builder-fields-table program-builder-analytics-joins-table\"></table>").appendTo(analyticsForm);
-    $("<thead><tr><th>Alias</th><th>Campo local</th><th>Entidade alvo</th><th>Campo alvo</th><th>Tipo</th><th></th></tr></thead>").appendTo(this.analyticsJoinTable);
+    $("<thead><tr><th>Alias</th><th>Origem</th><th>Campo local</th><th>Entidade alvo</th><th>Campo alvo</th><th>Tipo</th><th></th></tr></thead>").appendTo(this.analyticsJoinTable);
     this.analyticsJoinTableBody = $("<tbody></tbody>").appendTo(this.analyticsJoinTable);
     this.analyticsProgramHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(analyticsForm);
     this.analyticsProgramHint.text("Os joins usam metadados fechados do builder. Prefira relacionamentos FK ja cadastrados na modelagem.");
@@ -3402,6 +3410,8 @@
     this.analyticsPipelineTableBody = $("<tbody></tbody>").appendTo(this.analyticsPipelineTable);
     this.analyticsPipelineHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(analyticsForm);
     this.analyticsPipelineHint.text("Working dataset serve para preview. O runtime e reports consomem sempre a versao ativa do published dataset.");
+    this.analyticsBlueprintPanel = $("<div class=\"program-builder-inline-hint program-builder-analytics-blueprint-summary\"></div>").appendTo(analyticsForm);
+    this.analyticsBlueprintPanel.text("Nenhum wizard de visao aplicado. O dataset sera derivado apenas da entidade base e dos metadados de campo.");
 
     this.reportProgramPanel = $("<section class=\"program-builder-subpanel\"></section>").appendTo(form);
     $("<div class=\"program-builder-versions-header\"><h3>Configuracao do relatorio</h3><p>Relatorios v1 usam layout controlado. DANFE, boleto, etiquetas e formularios rigidos ficam fora desta camada.</p></div>").appendTo(this.reportProgramPanel);
@@ -3653,6 +3663,8 @@
         kpi: false,
         dashboard: true
       },
+      datasetBlueprint: null,
+      wizardMeta: null,
       joins: [],
       semanticPipelines: [],
       ingestionPipelines: []
@@ -3846,8 +3858,31 @@
     if (!this.analyticsProgramPanel) {
       return;
     }
-    const fieldItems = this.analyticsFieldOptionItems();
-    const measureItems = this.analyticsMeasureOptionItems();
+    const blueprint = this.state.analyticsWizard && this.state.analyticsWizard.datasetBlueprint || null;
+    const fieldItems = this.analyticsFieldOptionItems().slice();
+    const measureItems = this.analyticsMeasureOptionItems().slice();
+    if (blueprint && Array.isArray(blueprint.dimensions)) {
+      blueprint.dimensions.forEach(function(item) {
+        if (!item || !item.id || fieldItems.some(function(existing) { return existing.value === item.id; })) {
+          return;
+        }
+        fieldItems.push({
+          value: String(item.id),
+          text: String(item.label || item.id) + " (" + String(item.id) + ")"
+        });
+      });
+    }
+    if (blueprint && Array.isArray(blueprint.measures)) {
+      blueprint.measures.forEach(function(item) {
+        if (!item || !item.id || measureItems.some(function(existing) { return existing.value === item.id; })) {
+          return;
+        }
+        measureItems.push({
+          value: String(item.id),
+          text: String(item.label || item.id) + " (" + String(item.id) + ")"
+        });
+      });
+    }
     const applyOptions = function(select, items, includeEmpty) {
       if (!select || !select.length) {
         return;
@@ -3871,10 +3906,124 @@
 
     if (this.analyticsJoinTableBody) {
       this.analyticsJoinTableBody.children("tr").each(function(_, row) {
+        const sourceSelect = $(row).find(".program-builder-analytics-join-source");
         const localSelect = $(row).find(".program-builder-analytics-join-local");
-        applyOptions(localSelect, fieldItems, false);
+        this.refreshAnalyticsJoinSourceOptions(sourceSelect);
+        this.refreshAnalyticsJoinLocalOptions(sourceSelect, localSelect);
+      }.bind(this));
+    }
+    this.renderAnalyticsBlueprintSummary();
+  };
+
+  ProgramBuilder.prototype.analyticsJoinSourceItems = function() {
+    const items = [{ value: "base", text: "Base" }];
+    if (!this.analyticsJoinTableBody) {
+      return items;
+    }
+    this.analyticsJoinTableBody.children("tr").each(function(_, row) {
+      const alias = String($(row).find(".program-builder-analytics-join-id").val() || "").trim();
+      if (!alias) {
+        return;
+      }
+      items.push({
+        value: alias,
+        text: alias
+      });
+    });
+    return items;
+  };
+
+  ProgramBuilder.prototype.refreshAnalyticsJoinSourceOptions = function(select) {
+    if (!select || !select.length) {
+      return;
+    }
+    const current = String(select.val() || "base");
+    select.empty();
+    this.analyticsJoinSourceItems().forEach(function(item) {
+      $("<option></option>").attr("value", item.value).text(item.text).appendTo(select);
+    });
+    select.val(current);
+    if (String(select.val() || "") !== current) {
+      select.val("base");
+    }
+  };
+
+  ProgramBuilder.prototype.analyticsJoinSourceEntityCode = function(sourceId) {
+    const normalized = String(sourceId || "base").trim() || "base";
+    if (normalized === "base") {
+      return String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "").trim();
+    }
+    let entityCode = "";
+    if (this.analyticsJoinTableBody) {
+      this.analyticsJoinTableBody.children("tr").each(function(_, row) {
+        if (entityCode) {
+          return;
+        }
+        const alias = String($(row).find(".program-builder-analytics-join-id").val() || "").trim();
+        if (alias !== normalized) {
+          return;
+        }
+        entityCode = String($(row).find(".program-builder-analytics-join-target").val() || "").trim();
       });
     }
+    return entityCode;
+  };
+
+  ProgramBuilder.prototype.analyticsJoinFieldOptionItemsForSource = function(sourceId) {
+    const entityCode = this.analyticsJoinSourceEntityCode(sourceId);
+    if (!entityCode) {
+      return [];
+    }
+    let fields = [];
+    if (this.state.currentEntityCode === entityCode) {
+      fields = this.collectEntityPayload().fields || [];
+    } else {
+      const cached = this.state.entityDetailCache && this.state.entityDetailCache[entityCode];
+      fields = cached && Array.isArray(cached.fields) ? cached.fields : [];
+    }
+    return fields.filter(function(field) {
+      return field && field.virtualField !== true && String(field.dataType || "").toLowerCase() !== "json";
+    }).map(function(field) {
+      return {
+        value: String(field.code || ""),
+        text: String(field.label || field.code || "") + " (" + String(field.code || "") + ")"
+      };
+    });
+  };
+
+  ProgramBuilder.prototype.refreshAnalyticsJoinLocalOptions = function(sourceSelect, localSelect) {
+    if (!localSelect || !localSelect.length) {
+      return;
+    }
+    const current = String(localSelect.val() || "");
+    const sourceId = String(sourceSelect && sourceSelect.val ? sourceSelect.val() || "base" : "base");
+    localSelect.empty();
+    $("<option></option>").attr("value", "").text("Selecione").appendTo(localSelect);
+    this.analyticsJoinFieldOptionItemsForSource(sourceId).forEach(function(item) {
+      $("<option></option>").attr("value", item.value).text(item.text).appendTo(localSelect);
+    });
+    localSelect.val(current);
+    if (String(localSelect.val() || "") !== current) {
+      localSelect.val("");
+    }
+  };
+
+  ProgramBuilder.prototype.renderAnalyticsBlueprintSummary = function() {
+    if (!this.analyticsBlueprintPanel) {
+      return;
+    }
+    const blueprint = this.state.analyticsWizard && this.state.analyticsWizard.datasetBlueprint;
+    const meta = this.state.analyticsWizard && this.state.analyticsWizard.wizardMeta;
+    if (!blueprint) {
+      this.analyticsBlueprintPanel.text("Nenhum wizard de visao aplicado. O dataset sera derivado apenas da entidade base e dos metadados de campo.");
+      return;
+    }
+    const dimensions = Array.isArray(blueprint.dimensions) ? blueprint.dimensions.length : 0;
+    const measures = Array.isArray(blueprint.measures) ? blueprint.measures.length : 0;
+    const parameters = Array.isArray(blueprint.parameters) ? blueprint.parameters.length : 0;
+    const sourceEntityCode = meta && meta.sourceEntityCode ? meta.sourceEntityCode : (this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "");
+    const sourceLabel = meta && meta.sourceLabel ? meta.sourceLabel : sourceEntityCode;
+    this.analyticsBlueprintPanel.text("Wizard aplicado para " + sourceLabel + ": " + dimensions + " dimensoes, " + measures + " medidas e " + parameters + " parametros.");
   };
 
   ProgramBuilder.prototype.syncAnalyticsProgramPanelState = function() {
@@ -4046,6 +4195,8 @@
     const item = config || {};
     const row = $("<tr></tr>").appendTo(this.analyticsJoinTableBody);
     $("<td><input type=\"text\" class=\"program-builder-mini-input program-builder-analytics-join-id\"></td>").appendTo(row).find("input").val(item.id || "");
+    const sourceCell = $("<td></td>").appendTo(row);
+    const sourceSelect = $("<select class=\"program-builder-mini-select program-builder-analytics-join-source\"></select>").appendTo(sourceCell);
     const localCell = $("<td></td>").appendTo(row);
     const localSelect = $("<select class=\"program-builder-mini-select program-builder-analytics-join-local\"></select>").appendTo(localCell);
     const targetCell = $("<td></td>").appendTo(row);
@@ -4083,6 +4234,10 @@
       }.bind(this));
     }.bind(this);
 
+    sourceSelect.on("change", function() {
+      this.refreshAnalyticsJoinLocalOptions(sourceSelect, localSelect);
+      this.schedulePreview();
+    }.bind(this));
     targetSelect.on("change", function() {
       refreshForeign();
       this.schedulePreview();
@@ -4093,6 +4248,8 @@
     row.find(".program-builder-analytics-join-id").on("input change", this.schedulePreview.bind(this));
 
     this.refreshAnalyticsConfigOptions();
+    sourceSelect.val(item.source || "base");
+    this.refreshAnalyticsJoinLocalOptions(sourceSelect, localSelect);
     localSelect.val(item.localField || "");
     targetSelect.val(item.entityCode || "");
     typeSelect.val(item.type || "left");
@@ -4118,6 +4275,7 @@
     return this.analyticsJoinTableBody.children("tr").map(function(_, row) {
       const $row = $(row);
       const id = String($row.find(".program-builder-analytics-join-id").val() || "").trim();
+      const source = String($row.find(".program-builder-analytics-join-source").val() || "base").trim() || "base";
       const localField = String($row.find(".program-builder-analytics-join-local").val() || "").trim();
       const entityCode = String($row.find(".program-builder-analytics-join-target").val() || "").trim();
       const foreignField = String($row.find(".program-builder-analytics-join-foreign").val() || "").trim();
@@ -4127,7 +4285,7 @@
       }
       return {
         id: id,
-        source: "base",
+        source: source,
         localField: localField,
         entityCode: entityCode,
         foreignField: foreignField,
@@ -4528,10 +4686,609 @@
         kpi: this.analyticsViewKpiInput.is(":checked"),
         dashboard: this.analyticsViewDashboardInput.is(":checked")
       },
+      datasetBlueprint: this.state.analyticsWizard && this.state.analyticsWizard.datasetBlueprint ? global.CrudUtils.clone(this.state.analyticsWizard.datasetBlueprint) : null,
+      wizardMeta: this.state.analyticsWizard && this.state.analyticsWizard.wizardMeta ? global.CrudUtils.clone(this.state.analyticsWizard.wizardMeta) : null,
       joins: this.collectAnalyticsJoinRows(),
       semanticPipelines: this.collectAnalyticsPipelineRows(),
       ingestionPipelines: []
     };
+  };
+
+  ProgramBuilder.prototype.handleOpenAnalyticsWizard = function() {
+    let currentEntity = null;
+    try {
+      currentEntity = this.collectEntityPayload();
+    } catch (error) {
+      this.handleError(error, "Corrija a entidade antes de abrir o wizard BI.");
+      return;
+    }
+    if (!currentEntity || String(currentEntity.entityType || "persistence") !== "persistence") {
+      global.CrudUtils.showMessage("O wizard BI atual funciona apenas para entidades persistence.", "warning");
+      return;
+    }
+    if (!String(currentEntity.code || "").trim() || !String(currentEntity.tableName || "").trim()) {
+      global.CrudUtils.showMessage("Defina codigo e tabela fisica da entidade antes de abrir o wizard BI.", "warning");
+      return;
+    }
+
+    const loading = $("<div class=\"program-builder-empty\"></div>").text("Carregando relacoes e sugestoes do wizard BI...");
+    const shell = $("<div class=\"program-builder-analytics-wizard\"></div>").append(loading);
+    const windowElement = $("<div></div>").append(shell).kendoWindow({
+      title: "Wizard de visao analytics",
+      modal: true,
+      width: 920,
+      visible: false,
+      resizable: true,
+      actions: ["Close"],
+      close: function() {
+        const widget = windowElement.data("kendoWindow");
+        if (widget) {
+          widget.destroy();
+        }
+        windowElement.remove();
+      }
+    });
+    const windowHost = windowElement.data("kendoWindow");
+    windowHost.center().open();
+
+    this.loadAnalyticsWizardContext(currentEntity).then(function(context) {
+      this.renderAnalyticsWizard(shell, windowHost, context);
+    }.bind(this)).catch(function(error) {
+      shell.empty();
+      $("<div class=\"program-builder-empty\"></div>").text(global.CrudUtils.unwrapError(error, "Nao foi possivel montar o wizard BI.").message).appendTo(shell);
+    });
+  };
+
+  ProgramBuilder.prototype.loadAnalyticsWizardContext = function(currentEntity) {
+    const persistenceSummaries = (this.state.entities || []).filter(function(entity) {
+      return entity && entity.entityType === "persistence";
+    });
+    const currentCode = String(currentEntity.code || "").trim();
+    const detailMap = {};
+    detailMap[currentCode] = global.CrudUtils.clone(currentEntity);
+    return Promise.all(persistenceSummaries.map(function(summary) {
+      const code = String(summary.code || "").trim();
+      if (!code || code === currentCode) {
+        return Promise.resolve();
+      }
+      return this.ensureEntityDetail(code).then(function(detail) {
+        if (detail) {
+          detailMap[code] = global.CrudUtils.clone(detail);
+        }
+      });
+    }, this)).then(function() {
+      const context = {
+        currentEntity: global.CrudUtils.clone(currentEntity),
+        detailMap: detailMap,
+        sourceOptions: []
+      };
+      const baseOption = {
+        id: currentCode,
+        relationKind: "base",
+        entityCode: currentCode,
+        label: String(currentEntity.name || currentCode),
+        sourceEntityCode: currentCode
+      };
+      context.sourceOptions.push(baseOption);
+      this.collectAnalyticsWizardChildSources(currentEntity, detailMap).forEach(function(item) {
+        context.sourceOptions.push(item);
+      });
+      context.sourceOptions.forEach(function(option) {
+        option.preset = this.buildAnalyticsWizardPreset(currentEntity, option, detailMap);
+      }, this);
+      return context;
+    }.bind(this));
+  };
+
+  ProgramBuilder.prototype.collectAnalyticsWizardChildSources = function(currentEntity, detailMap) {
+    const currentCode = String(currentEntity.code || "").trim();
+    const currentTable = String(currentEntity.tableName || "").trim().toLowerCase();
+    const result = [];
+    Object.keys(detailMap).forEach(function(code) {
+      if (code === currentCode) {
+        return;
+      }
+      const detail = detailMap[code];
+      if (!detail || String(detail.entityType || "persistence") !== "persistence") {
+        return;
+      }
+      const fields = Array.isArray(detail.fields) ? detail.fields : [];
+      fields.forEach(function(field) {
+        const table = String(field.foreignKeyTable || "").trim().toLowerCase();
+        if (!table || table !== currentTable) {
+          return;
+        }
+        result.push({
+          id: code + ":" + String(field.code || ""),
+          relationKind: "child",
+          entityCode: currentCode,
+          label: String(detail.name || code) + " via " + String(field.label || field.code || ""),
+          sourceEntityCode: code,
+          sourceFieldCode: String(field.code || ""),
+          sourceFieldLabel: String(field.label || field.code || ""),
+          targetFieldCode: String(field.foreignKeyColumn || "id"),
+          childEntityName: String(detail.name || code)
+        });
+      });
+    });
+    return result;
+  };
+
+  ProgramBuilder.prototype.buildAnalyticsWizardPreset = function(currentEntity, option, detailMap) {
+    const sourceEntityCode = String(option.sourceEntityCode || currentEntity.code || "").trim();
+    const sourceDetail = detailMap[sourceEntityCode] || currentEntity;
+    const currentCode = String(currentEntity.code || "").trim();
+    const currentLabel = String(currentEntity.name || currentCode);
+    const sourceLabel = option.relationKind === "child" ? String(option.childEntityName || sourceEntityCode) : String(sourceDetail.name || sourceEntityCode);
+    const joinMap = {};
+    const joins = [];
+    const candidateMap = {};
+    const measures = [];
+    const dimensions = [];
+    const parameters = [];
+    const sourceFields = Array.isArray(sourceDetail.fields) ? sourceDetail.fields : [];
+
+    const addCandidate = function(collection, key, item) {
+      if (!key || candidateMap[key]) {
+        return;
+      }
+      candidateMap[key] = true;
+      collection.push(item);
+    };
+    const addDimension = function(item) {
+      addCandidate(dimensions, item.key, item);
+    };
+    const addMeasure = function(item) {
+      addCandidate(measures, item.key, item);
+    };
+    const bestDisplayField = function(detail) {
+      const fields = Array.isArray(detail && detail.fields) ? detail.fields : [];
+      const preferredCodes = ["nome", "descricao", "razao_social", "fantasia", "titulo", "codigo", "sku", "numero"];
+      for (let i = 0; i < preferredCodes.length; i += 1) {
+        const preferred = fields.find(function(field) {
+          return String(field.code || "").toLowerCase() === preferredCodes[i];
+        });
+        if (preferred) {
+          return preferred;
+        }
+      }
+      return fields.find(function(field) {
+        const type = String(field.dataType || "").toLowerCase();
+        return field && field.virtualField !== true && ["string", "text", "date", "datetime"].indexOf(type) >= 0;
+      }) || null;
+    };
+    const isDateField = function(field) {
+      const type = String(field && field.dataType || "").toLowerCase();
+      const code = String(field && field.code || "").toLowerCase();
+      return type === "date" || type === "datetime" || code.indexOf("data") >= 0 || code.indexOf("dt_") === 0 || code.indexOf("dt") === 0;
+    };
+    const isDimensionField = function(field) {
+      const type = String(field && field.dataType || "").toLowerCase();
+      return field && field.virtualField !== true && ["string", "text", "date", "datetime", "boolean"].indexOf(type) >= 0;
+    };
+    const numericAggregate = function(field) {
+      const code = String(field && field.code || "").toLowerCase();
+      const type = String(field && field.dataType || "").toLowerCase();
+      if (["integer", "decimal", "number", "currency"].indexOf(type) < 0) {
+        return "";
+      }
+      if (code.indexOf("qtd") >= 0 || code.indexOf("qtde") >= 0 || code.indexOf("quant") >= 0) {
+        return "sum";
+      }
+      if (code.indexOf("valor") >= 0 || code.indexOf("total") >= 0 || code.indexOf("preco") >= 0 || code.indexOf("price") >= 0 || code.indexOf("amount") >= 0) {
+        return "sum";
+      }
+      return "sum";
+    };
+    const ensureJoin = function(sourceAlias, relationField, targetEntityCode, targetFieldCode) {
+      const key = [sourceAlias, relationField.code, targetEntityCode, targetFieldCode].join("|");
+      if (joinMap[key]) {
+        return joinMap[key];
+      }
+      const aliasBase = String(targetEntityCode || "join").replace(/[^A-Za-z0-9_]/g, "_");
+      let alias = aliasBase;
+      let suffix = 2;
+      while (joins.some(function(join) { return join.id === alias; })) {
+        alias = aliasBase + "_" + suffix;
+        suffix += 1;
+      }
+      const join = {
+        id: alias,
+        source: sourceAlias || "base",
+        localField: String(relationField.code || ""),
+        entityCode: String(targetEntityCode || ""),
+        foreignField: String(targetFieldCode || "id"),
+        type: "left"
+      };
+      joins.push(join);
+      joinMap[key] = join;
+      return join;
+    };
+    const addDisplayFieldDimension = function(detail, sourceAlias, relationLabel) {
+      const field = bestDisplayField(detail);
+      if (!field) {
+        return;
+      }
+      addDimension({
+        key: sourceAlias + "." + field.code,
+        id: sourceAlias === "base" ? field.code : sourceAlias + "_" + field.code,
+        field: sourceAlias === "base" ? field.code : sourceAlias + "." + field.code,
+        source: sourceAlias,
+        label: relationLabel ? relationLabel + " - " + String(field.label || field.code) : String(field.label || field.code),
+        type: String(field.dataType || "string"),
+        format: field.options && field.options.analytics && field.options.analytics.format || null
+      });
+    };
+    const addSourceFieldCandidates = function(detail, sourceAlias, preferred) {
+      (Array.isArray(detail.fields) ? detail.fields : []).forEach(function(field) {
+        if (!field || field.virtualField === true || String(field.dataType || "").toLowerCase() === "json") {
+          return;
+        }
+        const type = String(field.dataType || "").toLowerCase();
+        const format = field.options && field.options.analytics && field.options.analytics.format || null;
+        if (isDateField(field) || preferred && preferred.indexOf(String(field.code || "").toLowerCase()) >= 0 || isDimensionField(field)) {
+          addDimension({
+            key: sourceAlias + "." + field.code,
+            id: sourceAlias === "base" ? field.code : sourceAlias + "_" + field.code,
+            field: sourceAlias === "base" ? field.code : sourceAlias + "." + field.code,
+            source: sourceAlias,
+            label: String(field.label || field.code),
+            type: type,
+            format: format
+          });
+        }
+        const aggregate = numericAggregate(field);
+        if (aggregate) {
+          addMeasure({
+            key: sourceAlias + "." + field.code + ":" + aggregate,
+            id: (sourceAlias === "base" ? field.code : sourceAlias + "_" + field.code) + "_" + aggregate,
+            field: sourceAlias === "base" ? field.code : sourceAlias + "." + field.code,
+            source: sourceAlias,
+            label: String(field.label || field.code),
+            aggregate: aggregate,
+            type: type,
+            format: format || (type === "currency" || type === "decimal" ? "c2" : "n0")
+          });
+        }
+      });
+    };
+
+    addSourceFieldCandidates(sourceDetail, "base", ["status", "situacao"]);
+
+    const directParents = this.collectAnalyticsWizardDirectParents(sourceEntityCode, sourceDetail, detailMap);
+    directParents.forEach(function(relation) {
+      const join = ensureJoin("base", relation.field, relation.targetEntityCode, relation.targetFieldCode);
+      addDisplayFieldDimension(relation.targetDetail, join.id, relation.targetLabel);
+    });
+
+    if (String(option.relationKind || "") === "child") {
+      const currentJoin = joins.find(function(join) {
+        return join.entityCode === currentCode;
+      });
+      if (currentJoin) {
+        const currentParents = this.collectAnalyticsWizardDirectParents(currentCode, currentEntity, detailMap);
+        currentParents.forEach(function(relation) {
+          const join = ensureJoin(currentJoin.id, relation.field, relation.targetEntityCode, relation.targetFieldCode);
+          addDisplayFieldDimension(relation.targetDetail, join.id, relation.targetLabel);
+        });
+      }
+    }
+
+    if (!measures.length) {
+      addMeasure({
+        key: "rows:count",
+        id: "total_registros",
+        field: "",
+        source: "base",
+        label: "Registros",
+        aggregate: "count",
+        type: "integer",
+        format: "n0"
+      });
+    }
+
+    const chosenDimensions = dimensions.slice(0, 6);
+    const chosenMeasures = measures.slice(0, 3);
+    const parameterCandidates = chosenDimensions.concat(dimensions.filter(function(item) {
+      return chosenDimensions.indexOf(item) < 0;
+    })).slice(0, 6);
+    parameterCandidates.forEach(function(item) {
+      parameters.push({
+        id: item.id,
+        field: item.field,
+        source: item.source,
+        label: item.label,
+        type: item.type === "date" || item.type === "datetime" ? item.type : "text",
+        operator: item.type === "date" || item.type === "datetime" ? "eq" : "contains"
+      });
+    });
+
+    const title = String(currentLabel || currentCode) + " - visao analitica";
+    const chartCategory = chosenDimensions[0] ? chosenDimensions[0].id : "";
+    const chartValue = chosenMeasures[0] ? chosenMeasures[0].id : "";
+    const sortField = chosenDimensions.find(function(item) {
+      return item.type === "date" || item.type === "datetime";
+    }) || chosenDimensions[0] || chosenMeasures[0] || null;
+
+    return {
+      title: title,
+      sourceEntityCode: sourceEntityCode,
+      sourceLabel: sourceLabel,
+      relationKind: option.relationKind || "base",
+      joins: joins,
+      dimensions: dimensions,
+      measures: measures,
+      datasetBlueprint: {
+        title: title,
+        fields: chosenDimensions.concat(chosenMeasures).map(function(item) {
+          return {
+            id: item.id,
+            field: item.field,
+            source: item.source,
+            label: item.label,
+            type: item.type,
+            format: item.format || null,
+            aggregate: item.aggregate || null
+          };
+        }),
+        dimensions: chosenDimensions.map(function(item) {
+          return {
+            id: item.id,
+            field: item.field,
+            source: item.source,
+            label: item.label,
+            type: item.type,
+            format: item.format || null
+          };
+        }),
+        measures: chosenMeasures.map(function(item) {
+          return {
+            id: item.id,
+            field: item.field,
+            source: item.source,
+            label: item.label,
+            type: item.type,
+            aggregate: item.aggregate,
+            format: item.format || null
+          };
+        }),
+        parameters: parameters,
+        defaultSort: sortField ? [{ field: sortField.id, dir: (sortField.type === "date" || sortField.type === "datetime") ? "desc" : "asc" }] : [],
+        chartCategoryField: chartCategory,
+        chartValueField: chartValue
+      }
+    };
+  };
+
+  ProgramBuilder.prototype.collectAnalyticsWizardDirectParents = function(entityCode, detail, detailMap) {
+    const fields = Array.isArray(detail && detail.fields) ? detail.fields : [];
+    return fields.map(function(field) {
+      const target = this.findAnalyticsWizardTargetEntity(field, detailMap);
+      if (!target) {
+        return null;
+      }
+      return {
+        field: field,
+        targetEntityCode: target.code,
+        targetFieldCode: String(field.foreignKeyColumn || "id"),
+        targetDetail: target.detail,
+        targetLabel: String(target.name || target.code)
+      };
+    }, this).filter(Boolean);
+  };
+
+  ProgramBuilder.prototype.findAnalyticsWizardTargetEntity = function(field, detailMap) {
+    const explicitCode = String(field && field.options && field.options.foreignKey && field.options.foreignKey.entityCode || "").trim();
+    if (explicitCode && detailMap[explicitCode]) {
+      return {
+        code: explicitCode,
+        name: String((this.findEntitySummary(explicitCode) || {}).name || explicitCode),
+        detail: detailMap[explicitCode]
+      };
+    }
+    const foreignTable = String(field && field.foreignKeyTable || "").trim().toLowerCase();
+    if (!foreignTable) {
+      return null;
+    }
+    const code = Object.keys(detailMap).find(function(entityCode) {
+      const detail = detailMap[entityCode];
+      return String(detail && detail.tableName || "").trim().toLowerCase() === foreignTable;
+    });
+    if (!code) {
+      return null;
+    }
+    return {
+      code: code,
+      name: String((this.findEntitySummary(code) || {}).name || code),
+      detail: detailMap[code]
+    };
+  };
+
+  ProgramBuilder.prototype.renderAnalyticsWizard = function(shell, widget, context) {
+    shell.empty();
+    const form = $("<div class=\"program-builder-form\"></div>").appendTo(shell);
+    const intro = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(form);
+    intro.text("Monte rapidamente uma visao analytics a partir da entidade atual, aproveitando FKs e entidades filhas relacionadas.");
+
+    const sourceField = this.appendField(form, "Fonte da visao");
+    const sourceSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo(sourceField);
+    (context.sourceOptions || []).forEach(function(option) {
+      $("<option></option>").attr("value", option.id).text(option.label).appendTo(sourceSelect);
+    });
+
+    const splitA = $("<div class=\"program-builder-split\"></div>").appendTo(form);
+    const titleInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(splitA, "Titulo do programa"));
+    const screenIdInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").appendTo(this.appendField(splitA, "Screen ID"));
+
+    const splitB = $("<div class=\"program-builder-split\"></div>").appendTo(form);
+    const dimensionHost = $("<div class=\"program-builder-field\"></div>").appendTo(splitB);
+    this.appendFieldLabel(dimensionHost, "Dimensoes sugeridas");
+    const dimensionList = $("<div class=\"program-builder-flags\"></div>").appendTo(dimensionHost);
+    const measureHost = $("<div class=\"program-builder-field\"></div>").appendTo(splitB);
+    this.appendFieldLabel(measureHost, "Medidas sugeridas");
+    const measureList = $("<div class=\"program-builder-flags\"></div>").appendTo(measureHost);
+
+    const summary = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(form);
+    const actions = $("<div class=\"program-builder-fields-header\"></div>").appendTo(form);
+    $("<span></span>").text("Aplicacao").appendTo(actions);
+    const applyButton = $("<button type=\"button\"></button>").text("Aplicar no programa").appendTo(actions).kendoButton({
+      icon: "check"
+    }).data("kendoButton");
+
+    const renderSelection = function() {
+      const sourceId = String(sourceSelect.val() || "");
+      const sourceOption = (context.sourceOptions || []).find(function(item) {
+        return item.id === sourceId;
+      }) || context.sourceOptions[0];
+      const preset = sourceOption && sourceOption.preset ? sourceOption.preset : null;
+      dimensionList.empty();
+      measureList.empty();
+      if (!preset) {
+        return;
+      }
+      titleInput.val(preset.title);
+      screenIdInput.val("analytics." + String(preset.sourceEntityCode || "visao").replace(/_/g, "-") + "-wizard");
+      (preset.dimensions || []).forEach(function(item, index) {
+        const label = $("<label></label>").appendTo(dimensionList);
+        const input = $("<input type=\"checkbox\" class=\"program-builder-analytics-wizard-dimension\">").appendTo(label);
+        input.data("dimensionItem", item);
+        input.prop("checked", index < 4);
+        input.kendoCheckBox();
+        $("<span></span>").text(item.label).appendTo(label);
+      });
+      (preset.measures || []).forEach(function(item, index) {
+        const label = $("<label></label>").appendTo(measureList);
+        const input = $("<input type=\"checkbox\" class=\"program-builder-analytics-wizard-measure\">").appendTo(label);
+        input.data("measureItem", item);
+        input.prop("checked", index < 2);
+        input.kendoCheckBox();
+        $("<span></span>").text(item.label + " (" + item.aggregate + ")").appendTo(label);
+      });
+      summary.text("Fonte: " + preset.sourceLabel + ". Joins sugeridos: " + (preset.joins || []).length + ". Campos disponiveis para cliente, data, empresa e produto quando as relacoes existirem na modelagem.");
+    };
+
+    sourceSelect.on("change", renderSelection);
+    renderSelection();
+
+    applyButton.bind("click", function() {
+      const sourceId = String(sourceSelect.val() || "");
+      const sourceOption = (context.sourceOptions || []).find(function(item) {
+        return item.id === sourceId;
+      }) || context.sourceOptions[0];
+      const preset = sourceOption && sourceOption.preset ? global.CrudUtils.clone(sourceOption.preset) : null;
+      if (!preset) {
+        global.CrudUtils.showMessage("Nao foi possivel montar a sugestao da visao.", "warning");
+        return;
+      }
+      const selectedDimensions = dimensionList.find(".program-builder-analytics-wizard-dimension").filter(function() {
+        return $(this).is(":checked");
+      }).map(function() {
+        return global.CrudUtils.clone($(this).data("dimensionItem"));
+      }).get();
+      const selectedMeasures = measureList.find(".program-builder-analytics-wizard-measure").filter(function() {
+        return $(this).is(":checked");
+      }).map(function() {
+        return global.CrudUtils.clone($(this).data("measureItem"));
+      }).get();
+      if (!selectedDimensions.length) {
+        global.CrudUtils.showMessage("Selecione pelo menos uma dimensao para a visao analytics.", "warning");
+        return;
+      }
+      if (!selectedMeasures.length) {
+        global.CrudUtils.showMessage("Selecione pelo menos uma medida para a visao analytics.", "warning");
+        return;
+      }
+      preset.title = String(titleInput.val() || preset.title || "").trim() || preset.title;
+      preset.datasetBlueprint.title = preset.title;
+      preset.datasetBlueprint.dimensions = selectedDimensions.map(function(item) {
+        return { id: item.id, field: item.field, source: item.source, label: item.label, type: item.type, format: item.format || null };
+      });
+      preset.datasetBlueprint.measures = selectedMeasures.map(function(item) {
+        return { id: item.id, field: item.field, source: item.source, label: item.label, type: item.type, aggregate: item.aggregate, format: item.format || null };
+      });
+      preset.datasetBlueprint.fields = preset.datasetBlueprint.dimensions.concat(preset.datasetBlueprint.measures);
+      preset.datasetBlueprint.parameters = preset.datasetBlueprint.dimensions.slice(0, 6).map(function(item) {
+        return { id: item.id, field: item.field, source: item.source, label: item.label, type: item.type === "date" || item.type === "datetime" ? item.type : "text", operator: item.type === "date" || item.type === "datetime" ? "eq" : "contains" };
+      });
+      preset.datasetBlueprint.chartCategoryField = preset.datasetBlueprint.dimensions[0] ? preset.datasetBlueprint.dimensions[0].id : "";
+      preset.datasetBlueprint.chartValueField = preset.datasetBlueprint.measures[0] ? preset.datasetBlueprint.measures[0].id : "";
+      preset.datasetBlueprint.defaultSort = preset.datasetBlueprint.dimensions[0] ? [{ field: preset.datasetBlueprint.dimensions[0].id, dir: "asc" }] : [];
+      this.applyAnalyticsWizardPreset(context.currentEntity, sourceOption, preset, String(screenIdInput.val() || "").trim());
+      widget.close();
+    }.bind(this));
+  };
+
+  ProgramBuilder.prototype.applyAnalyticsWizardPreset = function(currentEntity, sourceOption, preset, requestedScreenId) {
+    const sourceEntityCode = String(preset && preset.sourceEntityCode || currentEntity.code || "").trim();
+    const analyticsConfig = Object.assign({}, this.defaultAnalyticsConfig(), this.collectAnalyticsConfig());
+    analyticsConfig.semanticPipelines = [];
+    analyticsConfig.ingestionPipelines = [];
+    analyticsConfig.executionMode = "live";
+    analyticsConfig.joins = global.CrudUtils.clone(preset.joins || []);
+    analyticsConfig.datasetBlueprint = global.CrudUtils.clone(preset.datasetBlueprint || null);
+    analyticsConfig.wizardMeta = {
+      generatedFromEntityCode: String(currentEntity.code || ""),
+      sourceEntityCode: sourceEntityCode,
+      sourceLabel: String(preset.sourceLabel || sourceEntityCode),
+      relationKind: String(sourceOption && sourceOption.relationKind || "base"),
+      generatedAt: new Date().toISOString()
+    };
+    analyticsConfig.defaultSortField = analyticsConfig.datasetBlueprint && analyticsConfig.datasetBlueprint.defaultSort && analyticsConfig.datasetBlueprint.defaultSort[0] ? String(analyticsConfig.datasetBlueprint.defaultSort[0].field || "") : "";
+    analyticsConfig.defaultSortDir = analyticsConfig.datasetBlueprint && analyticsConfig.datasetBlueprint.defaultSort && analyticsConfig.datasetBlueprint.defaultSort[0] ? String(analyticsConfig.datasetBlueprint.defaultSort[0].dir || "asc") : "asc";
+    analyticsConfig.chartCategoryField = analyticsConfig.datasetBlueprint && analyticsConfig.datasetBlueprint.chartCategoryField || "";
+    analyticsConfig.chartValueField = analyticsConfig.datasetBlueprint && analyticsConfig.datasetBlueprint.chartValueField || "";
+
+    this.pageTypeSelect.value("analytics");
+    this.syncProgramTypeState();
+    this.builderEntitySelect.value(sourceEntityCode);
+    if (!String(this.programTitleInput.value() || "").trim()) {
+      this.programTitleInput.value(String(preset.title || "Visao analytics"));
+    } else {
+      this.programTitleInput.value(String(preset.title || this.programTitleInput.value() || "").trim());
+    }
+    if (!String(this.screenIdInput.value() || "").trim() || String(this.screenIdInput.value() || "").indexOf("cadastros.") === 0) {
+      this.screenIdInput.value(requestedScreenId || ("analytics." + sourceEntityCode.replace(/_/g, "-") + "-wizard"));
+    }
+    if (!String(this.permissionPrefixInput.value() || "").trim() || String(this.permissionPrefixInput.value() || "").indexOf("cadastros.") === 0) {
+      this.permissionPrefixInput.value(String(this.screenIdInput.value() || ""));
+    }
+    if (!String(this.programCodeInput.value() || "").trim()) {
+      this.programCodeInput.value(this.suggestProgramCodeForModule(String(this.moduleInput.value() || "")));
+    }
+    if (!String(this.subtitleInput.value() || "").trim()) {
+      this.subtitleInput.value("Gerado pelo wizard BI a partir de " + String(currentEntity.name || currentEntity.code || ""));
+    }
+    this.ensureEntityDetail(sourceEntityCode).then(function() {
+      this.populateAnalyticsProgramConfig(analyticsConfig);
+      this.activateEditorTab(2);
+      this.activateSideTab(6);
+      this.schedulePreview();
+      global.CrudUtils.showMessage("Wizard BI aplicado no programa analytics.", "success");
+    }.bind(this));
+  };
+
+  ProgramBuilder.prototype.suggestProgramCodeForModule = function(moduleCode) {
+    const module = this.findModuleSummary(moduleCode);
+    if (!module) {
+      return "";
+    }
+    const abbreviation = String(module.abbreviation || "").trim().toLowerCase();
+    const start = Number(module.numberStart || 1);
+    if (!abbreviation) {
+      return "";
+    }
+    let next = start;
+    (this.state.programs || []).forEach(function(program) {
+      const code = String(program && program.code || "").trim().toLowerCase();
+      if (code.indexOf(abbreviation) !== 0) {
+        return;
+      }
+      const suffix = Number(code.slice(abbreviation.length) || 0);
+      if (suffix >= next) {
+        next = suffix + 1;
+      }
+    });
+    return abbreviation + String(next).padStart(4, "0");
   };
 
   ProgramBuilder.prototype.collectReportConfig = function() {
@@ -4671,6 +5428,10 @@
     this.analyticsViewPivotInput.prop("checked", views.pivot !== false);
     this.analyticsViewKpiInput.prop("checked", views.kpi === true);
     this.analyticsViewDashboardInput.prop("checked", views.dashboard !== false);
+    this.state.analyticsWizard = {
+      datasetBlueprint: value.datasetBlueprint ? global.CrudUtils.clone(value.datasetBlueprint) : null,
+      wizardMeta: value.wizardMeta ? global.CrudUtils.clone(value.wizardMeta) : null
+    };
     this.analyticsJoinTableBody.empty();
     (Array.isArray(value.joins) ? value.joins : []).forEach(function(join) {
       this.addAnalyticsJoinRow(join);
@@ -4742,6 +5503,7 @@
       }, this);
     }
     this.syncAnalyticsProgramPanelState();
+    this.renderAnalyticsBlueprintSummary();
   };
 
   ProgramBuilder.prototype.populateReportProgramConfig = function(config) {
@@ -10073,6 +10835,11 @@
       const semanticPipelines = Array.isArray(analyticsConfig.semanticPipelines) ? analyticsConfig.semanticPipelines : [];
       const firstPipeline = semanticPipelines[0] || null;
       const publishedDatasetId = firstPipeline && firstPipeline.publishConfig && firstPipeline.publishConfig.publishedDatasetId || "principal_published";
+      const blueprint = analyticsConfig.datasetBlueprint || null;
+      const blueprintFields = blueprint && Array.isArray(blueprint.fields) ? blueprint.fields : null;
+      const blueprintDimensions = blueprint && Array.isArray(blueprint.dimensions) ? blueprint.dimensions : null;
+      const blueprintMeasures = blueprint && Array.isArray(blueprint.measures) ? blueprint.measures : null;
+      const blueprintParameters = blueprint && Array.isArray(blueprint.parameters) ? blueprint.parameters : null;
       preview.runtime.entityCode = payload.builderEntityCode;
       preview.analytics = {
         audit: {
@@ -10092,23 +10859,23 @@
             limit: analyticsConfig.limit || 1000,
             joins: analyticsConfig.joins || [],
             defaultSort: analyticsConfig.defaultSortField ? [{ field: analyticsConfig.defaultSortField, dir: analyticsConfig.defaultSortDir || "asc" }] : [],
-            fields: [
+            fields: blueprintFields || [
               { id: "uf", field: "uf", label: "UF", type: "string" },
               { id: "status", field: "status", label: "Status", type: "string" },
               { id: "clientes", field: "clientes", label: "Clientes", type: "integer", format: "n0" },
               { id: "valor_total_sum", field: "valor_total_sum", label: "Valor total", type: "decimal", format: "c2" },
               { id: "qtde_pedidos_sum", field: "qtde_pedidos_sum", label: "Pedidos", type: "integer", format: "n0" }
             ],
-            dimensions: [
+            dimensions: blueprintDimensions || [
               { id: "uf", field: "uf", label: "UF", type: "string" },
               { id: "status", field: "status", label: "Status", type: "string" }
             ],
-            measures: [
+            measures: blueprintMeasures || [
               { id: "clientes", field: "clientes", label: "Clientes", aggregate: "count", format: "n0" },
               { id: "valor_total_sum", field: "valor_total_sum", label: "Valor total", aggregate: "sum", format: "c2" },
               { id: "qtde_pedidos_sum", field: "qtde_pedidos_sum", label: "Pedidos", aggregate: "sum", format: "n0" }
             ],
-            parameters: [
+            parameters: blueprintParameters || [
               { id: "status", field: "status", label: "Status", type: "text" },
               { id: "uf", field: "uf", label: "UF", type: "text" }
             ],

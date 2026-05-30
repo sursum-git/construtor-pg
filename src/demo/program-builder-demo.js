@@ -55,8 +55,10 @@
       const code = decodeURIComponent(url.split("/").pop() || "");
       return Promise.resolve(global.CrudUtils.clone((embedded.apiSources || {})[code] || null));
     }
-    if (url === "/api/admin/program-builder/entities/cliente" && method === "GET") {
-      return Promise.resolve(global.CrudUtils.clone(embedded.entityDefinition || {}));
+    if (/^\/api\/admin\/program-builder\/entities\/[^/]+$/.test(url) && method === "GET") {
+      const code = decodeURIComponent(url.split("/").pop() || "");
+      const entity = embedded.entityDefinitions && embedded.entityDefinitions[code] || (code === "cliente" ? embedded.entityDefinition : null);
+      return Promise.resolve(global.CrudUtils.clone({ entity: entity || null }));
     }
     if (url === "/api/admin/program-builder/programs/cd1001" && method === "GET") {
       return Promise.resolve(global.CrudUtils.clone(embedded.programDefinition || {}));
@@ -248,6 +250,7 @@
     const title = String(data && data.programTitle || "Clientes por UF").trim() || "Clientes por UF";
     const version = String(data && data.version || "1.0.0").trim() || "1.0.0";
     const entityCode = String(data && data.builderEntityCode || "cliente").trim() || "cliente";
+    const datasetBlueprint = analyticsConfig && analyticsConfig.datasetBlueprint || null;
     const views = [];
     if (analyticsConfig.views.grid !== false) {
       views.push({ id: "grid", type: "grid", title: "Grid", datasetId: "principal" });
@@ -323,24 +326,24 @@
               publishedDatasetId: analyticsConfig.semanticPipelines && analyticsConfig.semanticPipelines[0] && analyticsConfig.semanticPipelines[0].publishConfig && analyticsConfig.semanticPipelines[0].publishConfig.publishedDatasetId || "principal_published"
             },
             joins: Array.isArray(analyticsConfig.joins) ? analyticsConfig.joins : [],
-            fields: [
+            fields: datasetBlueprint && Array.isArray(datasetBlueprint.fields) && datasetBlueprint.fields.length ? datasetBlueprint.fields : [
               { id: "uf", field: "uf", label: "UF", type: "string" },
               { id: "status", field: "status", label: "Status", type: "string" },
               { id: "limite_credito_sum", field: "limite_credito", label: "Limite de credito", type: "decimal", format: "c2" }
             ],
-            dimensions: [
+            dimensions: datasetBlueprint && Array.isArray(datasetBlueprint.dimensions) && datasetBlueprint.dimensions.length ? datasetBlueprint.dimensions : [
               { id: "uf", field: "uf", label: "UF", type: "string" },
               { id: "status", field: "status", label: "Status", type: "string" }
             ],
-            measures: [
+            measures: datasetBlueprint && Array.isArray(datasetBlueprint.measures) && datasetBlueprint.measures.length ? datasetBlueprint.measures : [
               { id: "limite_credito_sum", field: "limite_credito", label: "Limite de credito", aggregate: "sum", format: "c2" },
               { id: "total_clientes", field: "id", label: "Clientes", aggregate: "count", format: "n0" }
             ],
-            parameters: [
+            parameters: datasetBlueprint && Array.isArray(datasetBlueprint.parameters) && datasetBlueprint.parameters.length ? datasetBlueprint.parameters : [
               { id: "status", field: "status", label: "Status", type: "text" },
               { id: "uf", field: "uf", label: "UF", type: "text" }
             ],
-            defaultSort: analyticsConfig.defaultSortField ? [{ field: analyticsConfig.defaultSortField, dir: analyticsConfig.defaultSortDir || "asc" }] : [{ field: "uf", dir: "asc" }],
+            defaultSort: analyticsConfig.defaultSortField ? [{ field: analyticsConfig.defaultSortField, dir: analyticsConfig.defaultSortDir || "asc" }] : (datasetBlueprint && Array.isArray(datasetBlueprint.defaultSort) && datasetBlueprint.defaultSort.length ? datasetBlueprint.defaultSort : [{ field: "uf", dir: "asc" }]),
             limit: analyticsConfig.limit || 1000,
             executionMode: analyticsConfig.executionMode || "auto",
             audit: {

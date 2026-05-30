@@ -684,7 +684,7 @@
       engine: "program-builder",
       category: "Construtor",
       title: "Program Builder - Propriedades tecnicas",
-      summary: "Exemplo local do construtor com mock leve para validar icones de propriedades tecnicas em entidade, programa, API/Odoo e inspetor lateral.",
+      summary: "Exemplo local do construtor com mock leve para validar icones de propriedades tecnicas, wizard BI direto na entidade, API/Odoo e inspetor lateral.",
       page: pagePath + "program-builder-technical-properties.html"
     },
     {

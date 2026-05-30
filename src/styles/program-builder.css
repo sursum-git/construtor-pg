@@ -606,6 +606,17 @@
   color: #344054;
 }
 
+.program-builder-analytics-wizard .program-builder-flags {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+}
+
+.program-builder-analytics-blueprint-summary {
+  border: 1px dashed rgba(37, 99, 235, 0.25);
+  background: rgba(37, 99, 235, 0.04);
+}
+
 .program-builder-fields-header {
   display: flex;
   align-items: center;

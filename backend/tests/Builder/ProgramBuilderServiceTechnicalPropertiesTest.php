@@ -158,10 +158,112 @@ SQL
         ]);
     }
 
-    private function service(): ProgramBuilderService
+    public function testAnalyticsDefinitionHonorsWizardBlueprintAndChainedJoinSource(): void
+    {
+        $pedido = $this->entity('pedido', 'Pedido', 't_pedido', [
+            $this->field('id', 'Id', 'integer', 1, ['primaryKey' => true]),
+            $this->field('cliente_id', 'Cliente', 'integer', 2),
+            $this->field('empresa_id', 'Empresa', 'integer', 3),
+            $this->field('data_prevista', 'Data prevista', 'date', 4),
+        ]);
+        $pedidoItem = $this->entity('pedido_item', 'Item do pedido', 't_pedido_item', [
+            $this->field('id', 'Id', 'integer', 1, ['primaryKey' => true]),
+            $this->field('pedido_id', 'Pedido', 'integer', 2),
+            $this->field('produto_id', 'Produto', 'integer', 3),
+            $this->field('valor_previsto', 'Valor previsto', 'decimal', 4, ['analytics' => ['measure' => true, 'format' => 'c2']]),
+        ]);
+        $cliente = $this->entity('cliente', 'Cliente', 't_cliente', [
+            $this->field('id', 'Id', 'integer', 1, ['primaryKey' => true]),
+            $this->field('nome', 'Cliente', 'string', 2, ['analytics' => ['dimension' => true]]),
+        ]);
+        $empresa = $this->entity('empresa', 'Empresa', 't_empresa', [
+            $this->field('id', 'Id', 'integer', 1, ['primaryKey' => true]),
+            $this->field('nome_fantasia', 'Empresa', 'string', 2, ['analytics' => ['dimension' => true]]),
+        ]);
+        $produto = $this->entity('produto', 'Produto', 't_produto', [
+            $this->field('id', 'Id', 'integer', 1, ['primaryKey' => true]),
+            $this->field('descricao', 'Produto', 'string', 2, ['analytics' => ['dimension' => true]]),
+        ]);
+
+        $entities = $this->createMock(BuilderEntityRepository::class);
+        $entities->method('findOneBy')
+            ->willReturnCallback(static function (array $criteria) use ($pedido, $pedidoItem, $cliente, $empresa, $produto): ?BuilderEntity {
+                return match ($criteria['code'] ?? null) {
+                    'pedido' => $pedido,
+                    'pedido_item' => $pedidoItem,
+                    'cliente' => $cliente,
+                    'empresa' => $empresa,
+                    'produto' => $produto,
+                    default => null,
+                };
+            });
+
+        $service = $this->service($entities);
+
+        $normalized = $this->invokePrivateMixed($service, 'normalizeAnalyticsBuilderConfig', [[
+            'joins' => [
+                ['id' => 'pedido', 'source' => 'base', 'localField' => 'pedido_id', 'entityCode' => 'pedido', 'foreignField' => 'id', 'type' => 'left'],
+                ['id' => 'cliente', 'source' => 'pedido', 'localField' => 'cliente_id', 'entityCode' => 'cliente', 'foreignField' => 'id', 'type' => 'left'],
+                ['id' => 'empresa', 'source' => 'pedido', 'localField' => 'empresa_id', 'entityCode' => 'empresa', 'foreignField' => 'id', 'type' => 'left'],
+                ['id' => 'produto', 'source' => 'base', 'localField' => 'produto_id', 'entityCode' => 'produto', 'foreignField' => 'id', 'type' => 'left'],
+            ],
+            'datasetBlueprint' => [
+                'dimensions' => [
+                    ['id' => 'cliente_nome', 'source' => 'cliente', 'field' => 'cliente.nome', 'label' => 'Cliente', 'type' => 'string'],
+                    ['id' => 'empresa_nome', 'source' => 'empresa', 'field' => 'empresa.nome_fantasia', 'label' => 'Empresa', 'type' => 'string'],
+                    ['id' => 'produto_descricao', 'source' => 'produto', 'field' => 'produto.descricao', 'label' => 'Produto', 'type' => 'string'],
+                    ['id' => 'data_prevista', 'source' => 'pedido', 'field' => 'pedido.data_prevista', 'label' => 'Data prevista', 'type' => 'date'],
+                ],
+                'measures' => [
+                    ['id' => 'valor_previsto_sum', 'source' => 'base', 'field' => 'valor_previsto', 'label' => 'Valor previsto', 'type' => 'decimal', 'aggregate' => 'sum', 'format' => 'c2'],
+                ],
+                'fields' => [
+                    ['id' => 'cliente_nome', 'source' => 'cliente', 'field' => 'cliente.nome', 'label' => 'Cliente', 'type' => 'string'],
+                    ['id' => 'empresa_nome', 'source' => 'empresa', 'field' => 'empresa.nome_fantasia', 'label' => 'Empresa', 'type' => 'string'],
+                    ['id' => 'produto_descricao', 'source' => 'produto', 'field' => 'produto.descricao', 'label' => 'Produto', 'type' => 'string'],
+                    ['id' => 'data_prevista', 'source' => 'pedido', 'field' => 'pedido.data_prevista', 'label' => 'Data prevista', 'type' => 'date'],
+                    ['id' => 'valor_previsto_sum', 'source' => 'base', 'field' => 'valor_previsto', 'label' => 'Valor previsto', 'type' => 'decimal', 'aggregate' => 'sum', 'format' => 'c2'],
+                ],
+                'parameters' => [
+                    ['id' => 'cliente_nome', 'source' => 'cliente', 'field' => 'cliente.nome', 'label' => 'Cliente', 'type' => 'text', 'operator' => 'contains'],
+                ],
+                'defaultSort' => [
+                    ['field' => 'data_prevista', 'dir' => 'asc'],
+                ],
+                'chartCategoryField' => 'cliente_nome',
+                'chartValueField' => 'valor_previsto_sum',
+            ],
+            'defaultSortField' => 'data_prevista',
+            'chartCategoryField' => 'cliente_nome',
+            'chartValueField' => 'valor_previsto_sum',
+        ], $pedidoItem]);
+
+        $definition = $this->invokePrivateMixed($service, 'generateAnalyticsDefinition', [[
+            '_entity' => $pedidoItem,
+            'programCode' => 'bi1001',
+            'programTitle' => 'Vendas previstas',
+            'screenId' => 'analytics.pedidos',
+            'pageType' => 'analytics',
+            'permissionPrefix' => 'bi1001',
+            'analyticsConfig' => $normalized,
+        ]]);
+
+        self::assertCount(4, $normalized['joins']);
+        self::assertSame('pedido', $normalized['joins'][1]['source']);
+        self::assertSame('cliente.nome', $normalized['datasetBlueprint']['dimensions'][0]['field']);
+        self::assertSame('valor_previsto_sum', $normalized['datasetBlueprint']['measures'][0]['id']);
+        self::assertSame('cliente_nome', $normalized['datasetBlueprint']['chartCategoryField']);
+        self::assertSame('valor_previsto_sum', $normalized['datasetBlueprint']['chartValueField']);
+        self::assertSame('cliente_nome', $definition['analytics']['datasets'][0]['dimensions'][0]['id']);
+        self::assertSame('produto.descricao', $definition['analytics']['datasets'][0]['dimensions'][2]['field']);
+        self::assertSame('sum', $definition['analytics']['datasets'][0]['measures'][0]['aggregate']);
+        self::assertSame('data_prevista', $definition['analytics']['datasets'][0]['defaultSort'][0]['field']);
+    }
+
+    private function service(?BuilderEntityRepository $entities = null): ProgramBuilderService
     {
         return new ProgramBuilderService(
-            $this->createStub(BuilderEntityRepository::class),
+            $entities ?? $this->createStub(BuilderEntityRepository::class),
             $this->createStub(BuilderApiSourceRepository::class),
             $this->createStub(BuilderEditorLockRepository::class),
             $this->createStub(BuilderModuleRepository::class),
@@ -197,6 +299,41 @@ SQL
         $result = $reflection->invokeArgs($target, $arguments);
 
         return $result;
+    }
+
+    /**
+     * @param array<int, mixed> $arguments
+     */
+    private function invokePrivateMixed(object $target, string $method, array $arguments): mixed
+    {
+        $reflection = new \ReflectionMethod($target, $method);
+        $reflection->setAccessible(true);
+
+        return $reflection->invokeArgs($target, $arguments);
+    }
+
+    private function entity(string $code, string $name, string $tableName, array $fields): BuilderEntity
+    {
+        $entity = (new BuilderEntity())
+            ->setCode($code)
+            ->setName($name)
+            ->setEntityType('persistence')
+            ->setTableName($tableName);
+        foreach ($fields as $field) {
+            $entity->addField($field);
+        }
+
+        return $entity;
+    }
+
+    private function field(string $code, string $label, string $type, int $position, array $options = []): BuilderField
+    {
+        return (new BuilderField())
+            ->setCode($code)
+            ->setLabel($label)
+            ->setDataType($type)
+            ->setPosition($position)
+            ->setOptions($options);
     }
 
     /**

@@ -3701,6 +3701,7 @@ class ProgramBuilderService
         $cacheTtlSeconds = $this->normalizePositiveInt($config['cacheTtlSeconds'] ?? null) ?? 900;
 
         $fieldMap = [];
+        $baseFieldMetaMap = [];
         $measureMap = [];
         foreach ($entity->getFields() as $field) {
             $code = $field->getCode();
@@ -3713,11 +3714,21 @@ class ProgramBuilderService
                 continue;
             }
             $fieldMap[$code] = true;
+            $baseFieldMetaMap[$code] = [
+                'id' => $code,
+                'field' => $code,
+                'label' => $field->getLabel(),
+                'type' => $dataType,
+                'format' => $options['analytics']['format'] ?? null,
+            ];
             if (in_array($dataType, ['integer', 'decimal', 'number', 'currency'], true)) {
                 $measureMap[$code . '_sum'] = true;
             }
             $measureMap[$code . '_count'] = true;
         }
+        $contextFieldMetaMap = [
+            'base' => $baseFieldMetaMap,
+        ];
 
         $defaultSortField = $this->safeCode((string) ($config['defaultSortField'] ?? ''));
         if ($defaultSortField !== '' && !isset($fieldMap[$defaultSortField])) {
@@ -3733,13 +3744,7 @@ class ProgramBuilderService
             $chartSeriesType = 'column';
         }
         $chartCategoryField = $this->safeCode((string) ($config['chartCategoryField'] ?? ''));
-        if ($chartCategoryField !== '' && !isset($fieldMap[$chartCategoryField])) {
-            $chartCategoryField = '';
-        }
         $chartValueField = $this->safeCode((string) ($config['chartValueField'] ?? ''));
-        if ($chartValueField !== '' && !isset($measureMap[$chartValueField])) {
-            $chartValueField = '';
-        }
         $audit = is_array($config['audit'] ?? null) ? $config['audit'] : [];
         $datasetAudit = is_array($config['datasetAudit'] ?? null) ? $config['datasetAudit'] : [];
         $normalizedAudit = [
@@ -3766,6 +3771,7 @@ class ProgramBuilderService
                 continue;
             }
             $id = $this->safeCode((string) ($item['id'] ?? ''));
+            $source = $this->safeCode((string) ($item['source'] ?? 'base')) ?: 'base';
             $localField = $this->safeCode((string) ($item['localField'] ?? ''));
             $entityCode = $this->safeCode((string) ($item['entityCode'] ?? ''));
             $foreignField = $this->safeCode((string) ($item['foreignField'] ?? ''));
@@ -3773,7 +3779,8 @@ class ProgramBuilderService
             if ($id === '' || $localField === '' || $entityCode === '' || $foreignField === '') {
                 continue;
             }
-            if (!isset($fieldMap[$localField])) {
+            $sourceFieldMap = $contextFieldMetaMap[$source] ?? null;
+            if ($sourceFieldMap === null || !isset($sourceFieldMap[$localField])) {
                 continue;
             }
             $targetEntity = $this->entities->findOneBy(['code' => $entityCode]);
@@ -3781,10 +3788,25 @@ class ProgramBuilderService
                 continue;
             }
             $targetFieldExists = false;
+            $targetFieldMetaMap = [];
             foreach ($targetEntity->getFields() as $targetField) {
+                $targetOptions = $targetField->getOptions();
+                if (($targetOptions['virtual'] ?? false) === true) {
+                    continue;
+                }
+                $targetDataType = $this->normalizeFieldType($targetField->getDataType());
+                if ($targetDataType === 'json') {
+                    continue;
+                }
+                $targetFieldMetaMap[$targetField->getCode()] = [
+                    'id' => $id . '_' . $targetField->getCode(),
+                    'field' => $id . '.' . $targetField->getCode(),
+                    'label' => $targetField->getLabel(),
+                    'type' => $targetDataType,
+                    'format' => $targetOptions['analytics']['format'] ?? null,
+                ];
                 if ($targetField->getCode() === $foreignField) {
                     $targetFieldExists = true;
-                    break;
                 }
             }
             if (!$targetFieldExists) {
@@ -3792,12 +3814,13 @@ class ProgramBuilderService
             }
             $joins[] = [
                 'id' => $id,
-                'source' => 'base',
+                'source' => $source,
                 'localField' => $localField,
                 'entityCode' => $entityCode,
                 'foreignField' => $foreignField,
                 'type' => $type === 'inner' ? 'inner' : 'left',
             ];
+            $contextFieldMetaMap[$id] = $targetFieldMetaMap;
         }
 
         $pipelines = [];
@@ -3864,6 +3887,43 @@ class ProgramBuilderService
                 'retention' => is_array($item['retention'] ?? null) ? $item['retention'] : [],
             ];
         }
+        $datasetBlueprint = $this->normalizeAnalyticsDatasetBlueprint($config['datasetBlueprint'] ?? null, $contextFieldMetaMap);
+        if ($datasetBlueprint !== null) {
+            $allowedFieldIds = [];
+            $allowedMeasureIds = [];
+            foreach ((array) ($datasetBlueprint['fields'] ?? []) as $spec) {
+                if (!empty($spec['id'])) {
+                    $allowedFieldIds[(string) $spec['id']] = true;
+                }
+            }
+            foreach ((array) ($datasetBlueprint['dimensions'] ?? []) as $spec) {
+                if (!empty($spec['id'])) {
+                    $allowedFieldIds[(string) $spec['id']] = true;
+                }
+            }
+            foreach ((array) ($datasetBlueprint['measures'] ?? []) as $spec) {
+                if (!empty($spec['id'])) {
+                    $allowedFieldIds[(string) $spec['id']] = true;
+                    $allowedMeasureIds[(string) $spec['id']] = true;
+                }
+            }
+            if ($defaultSortField !== '' && !isset($allowedFieldIds[$defaultSortField])) {
+                $defaultSortField = '';
+            }
+            if ($chartCategoryField !== '' && !isset($allowedFieldIds[$chartCategoryField])) {
+                $chartCategoryField = '';
+            }
+            if ($chartValueField !== '' && !isset($allowedMeasureIds[$chartValueField])) {
+                $chartValueField = '';
+            }
+        } else {
+            if ($chartCategoryField !== '' && !isset($fieldMap[$chartCategoryField])) {
+                $chartCategoryField = '';
+            }
+            if ($chartValueField !== '' && !isset($measureMap[$chartValueField])) {
+                $chartValueField = '';
+            }
+        }
 
         return [
             'executionMode' => $executionMode,
@@ -3877,9 +3937,132 @@ class ProgramBuilderService
             'audit' => $normalizedAudit,
             'datasetAudit' => $normalizedDatasetAudit,
             'views' => $normalizedViews,
+            'datasetBlueprint' => $datasetBlueprint,
+            'wizardMeta' => is_array($config['wizardMeta'] ?? null) ? $config['wizardMeta'] : null,
             'joins' => $joins,
             'semanticPipelines' => $pipelines,
             'ingestionPipelines' => [],
+        ];
+    }
+
+    /**
+     * @param array<string, array<string, array<string, mixed>>> $contextFieldMetaMap
+     * @return array<string, mixed>|null
+     */
+    private function normalizeAnalyticsDatasetBlueprint(mixed $value, array $contextFieldMetaMap): ?array
+    {
+        if (!is_array($value)) {
+            return null;
+        }
+
+        $normalizeFieldSpec = function (mixed $item, bool $measure = false) use ($contextFieldMetaMap): ?array {
+            if (!is_array($item)) {
+                return null;
+            }
+            $id = $this->safeCode((string) ($item['id'] ?? ''));
+            $source = $this->safeCode((string) ($item['source'] ?? 'base')) ?: 'base';
+            $fieldRef = trim((string) ($item['field'] ?? ''));
+            if ($fieldRef === '' && !$measure) {
+                return null;
+            }
+            $fieldCode = $fieldRef;
+            $fieldSource = $source;
+            if ($fieldRef !== '' && str_contains($fieldRef, '.')) {
+                [$fieldSource, $fieldCode] = explode('.', $fieldRef, 2);
+                $fieldSource = $this->safeCode($fieldSource) ?: $source;
+            }
+            $fieldCode = $this->safeCode($fieldCode);
+            if ($fieldCode !== '' && !isset($contextFieldMetaMap[$fieldSource][$fieldCode])) {
+                return null;
+            }
+            $meta = $fieldCode !== '' ? ($contextFieldMetaMap[$fieldSource][$fieldCode] ?? null) : null;
+            $spec = [
+                'id' => $id !== '' ? $id : ($meta['id'] ?? ''),
+                'field' => $fieldCode !== '' ? ($fieldSource === 'base' ? $fieldCode : ($fieldSource . '.' . $fieldCode)) : '',
+                'source' => $fieldSource,
+                'label' => trim((string) ($item['label'] ?? ($meta['label'] ?? ''))),
+                'type' => trim((string) ($item['type'] ?? ($meta['type'] ?? 'string'))),
+            ];
+            $format = trim((string) ($item['format'] ?? ($meta['format'] ?? '')));
+            if ($format !== '') {
+                $spec['format'] = $format;
+            }
+            if ($measure) {
+                $aggregate = strtolower(trim((string) ($item['aggregate'] ?? 'count')));
+                if (!in_array($aggregate, ['count', 'sum', 'avg', 'min', 'max', 'distinct_count'], true)) {
+                    $aggregate = 'count';
+                }
+                $spec['aggregate'] = $aggregate;
+            }
+            if ($spec['id'] === '' || ($spec['field'] === '' && !$measure)) {
+                return null;
+            }
+            return $spec;
+        };
+
+        $fields = [];
+        foreach ((array) ($value['fields'] ?? []) as $item) {
+            $normalized = $normalizeFieldSpec($item, false);
+            if ($normalized !== null) {
+                $fields[] = $normalized;
+            }
+        }
+        $dimensions = [];
+        foreach ((array) ($value['dimensions'] ?? []) as $item) {
+            $normalized = $normalizeFieldSpec($item, false);
+            if ($normalized !== null) {
+                $dimensions[] = $normalized;
+            }
+        }
+        $measures = [];
+        foreach ((array) ($value['measures'] ?? []) as $item) {
+            $normalized = $normalizeFieldSpec($item, true);
+            if ($normalized !== null) {
+                $measures[] = $normalized;
+            }
+        }
+        $parameters = [];
+        foreach ((array) ($value['parameters'] ?? []) as $item) {
+            $normalized = $normalizeFieldSpec($item, false);
+            if ($normalized === null) {
+                continue;
+            }
+            $operator = strtolower(trim((string) ($item['operator'] ?? 'contains')));
+            if (!in_array($operator, ['eq', 'contains', 'startswith', 'in', 'between', 'gte', 'lte'], true)) {
+                $operator = 'contains';
+            }
+            $normalized['operator'] = $operator;
+            $parameterType = strtolower(trim((string) ($item['type'] ?? $normalized['type'] ?? 'text')));
+            if (!in_array($parameterType, ['text', 'string', 'number', 'integer', 'decimal', 'date', 'datetime', 'boolean', 'enum'], true)) {
+                $parameterType = 'text';
+            }
+            $normalized['type'] = $parameterType;
+            $parameters[] = $normalized;
+        }
+        $defaultSort = [];
+        foreach ((array) ($value['defaultSort'] ?? []) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $field = $this->safeCode((string) ($item['field'] ?? ''));
+            if ($field === '') {
+                continue;
+            }
+            $defaultSort[] = [
+                'field' => $field,
+                'dir' => strtolower(trim((string) ($item['dir'] ?? 'asc'))) === 'desc' ? 'desc' : 'asc',
+            ];
+        }
+
+        return [
+            'title' => trim((string) ($value['title'] ?? '')),
+            'fields' => $fields,
+            'dimensions' => $dimensions,
+            'measures' => $measures,
+            'parameters' => $parameters,
+            'defaultSort' => $defaultSort,
+            'chartCategoryField' => $this->safeCode((string) ($value['chartCategoryField'] ?? '')),
+            'chartValueField' => $this->safeCode((string) ($value['chartValueField'] ?? '')),
         ];
     }
 
@@ -4203,66 +4386,73 @@ class ProgramBuilderService
         $entity = $config['_entity'];
         $datasetId = 'principal';
         $analyticsConfig = is_array($config['analyticsConfig'] ?? null) ? $config['analyticsConfig'] : [];
+        $datasetBlueprint = is_array($analyticsConfig['datasetBlueprint'] ?? null) ? $analyticsConfig['datasetBlueprint'] : null;
         $fields = [];
         $dimensions = [];
         $measures = [];
         $parameters = [];
         $position = 0;
-
-        foreach ($entity->getFields() as $field) {
-            $code = $field->getCode();
-            $options = $field->getOptions();
-            $analytics = is_array($options['analytics'] ?? null) ? $options['analytics'] : [];
-            if (($analytics['hidden'] ?? false) === true || ($options['virtual'] ?? false) === true) {
-                continue;
-            }
-            $dataType = $this->normalizeFieldType($field->getDataType());
-            if ($dataType === 'json') {
-                continue;
-            }
-            $item = [
-                'id' => $code,
-                'field' => $code,
-                'label' => $field->getLabel(),
-                'type' => $dataType,
-                'format' => $analytics['format'] ?? null,
-                'technicalProperties' => $this->programFieldTechnicalProperties($entity, $field, $dataType, $options),
-            ];
-            $fields[] = array_filter($item, static fn ($value): bool => $value !== null);
-
-            $isNumeric = in_array($dataType, ['integer', 'decimal', 'number', 'currency'], true);
-            if (($analytics['dimension'] ?? null) === true || (!$isNumeric && count($dimensions) < 6)) {
-                $dimensions[] = [
+        if ($datasetBlueprint !== null && (($datasetBlueprint['fields'] ?? []) !== [] || ($datasetBlueprint['dimensions'] ?? []) !== [] || ($datasetBlueprint['measures'] ?? []) !== [])) {
+            $fields = array_values(array_filter((array) ($datasetBlueprint['fields'] ?? []), 'is_array'));
+            $dimensions = array_values(array_filter((array) ($datasetBlueprint['dimensions'] ?? []), 'is_array'));
+            $measures = array_values(array_filter((array) ($datasetBlueprint['measures'] ?? []), 'is_array'));
+            $parameters = array_values(array_filter((array) ($datasetBlueprint['parameters'] ?? []), 'is_array'));
+        } else {
+            foreach ($entity->getFields() as $field) {
+                $code = $field->getCode();
+                $options = $field->getOptions();
+                $analytics = is_array($options['analytics'] ?? null) ? $options['analytics'] : [];
+                if (($analytics['hidden'] ?? false) === true || ($options['virtual'] ?? false) === true) {
+                    continue;
+                }
+                $dataType = $this->normalizeFieldType($field->getDataType());
+                if ($dataType === 'json') {
+                    continue;
+                }
+                $item = [
                     'id' => $code,
                     'field' => $code,
                     'label' => $field->getLabel(),
                     'type' => $dataType,
                     'format' => $analytics['format'] ?? null,
+                    'technicalProperties' => $this->programFieldTechnicalProperties($entity, $field, $dataType, $options),
                 ];
-            }
-            if (($analytics['measure'] ?? null) === true || $isNumeric) {
-                $aggregate = strtolower((string) ($analytics['defaultAggregate'] ?? ($isNumeric ? 'sum' : 'count')));
-                if (!in_array($aggregate, ['count', 'sum', 'avg', 'min', 'max', 'distinct_count'], true)) {
-                    $aggregate = $isNumeric ? 'sum' : 'count';
+                $fields[] = array_filter($item, static fn ($value): bool => $value !== null);
+
+                $isNumeric = in_array($dataType, ['integer', 'decimal', 'number', 'currency'], true);
+                if (($analytics['dimension'] ?? null) === true || (!$isNumeric && count($dimensions) < 6)) {
+                    $dimensions[] = [
+                        'id' => $code,
+                        'field' => $code,
+                        'label' => $field->getLabel(),
+                        'type' => $dataType,
+                        'format' => $analytics['format'] ?? null,
+                    ];
                 }
-                $measures[] = [
-                    'id' => $code . '_' . $aggregate,
-                    'field' => $code,
-                    'label' => $aggregate === 'count' ? 'Qtde. ' . $field->getLabel() : 'Total de ' . $field->getLabel(),
-                    'aggregate' => $aggregate,
-                    'format' => $analytics['format'] ?? ($dataType === 'currency' ? 'c2' : null),
-                ];
+                if (($analytics['measure'] ?? null) === true || $isNumeric) {
+                    $aggregate = strtolower((string) ($analytics['defaultAggregate'] ?? ($isNumeric ? 'sum' : 'count')));
+                    if (!in_array($aggregate, ['count', 'sum', 'avg', 'min', 'max', 'distinct_count'], true)) {
+                        $aggregate = $isNumeric ? 'sum' : 'count';
+                    }
+                    $measures[] = [
+                        'id' => $code . '_' . $aggregate,
+                        'field' => $code,
+                        'label' => $aggregate === 'count' ? 'Qtde. ' . $field->getLabel() : 'Total de ' . $field->getLabel(),
+                        'aggregate' => $aggregate,
+                        'format' => $analytics['format'] ?? ($dataType === 'currency' ? 'c2' : null),
+                    ];
+                }
+                if ($position < 5 && !in_array($dataType, ['text'], true)) {
+                    $parameters[] = [
+                        'id' => $code,
+                        'field' => $code,
+                        'label' => $field->getLabel(),
+                        'type' => in_array($dataType, ['boolean', 'enum', 'integer', 'date', 'datetime'], true) ? $dataType : 'text',
+                        'operator' => in_array($dataType, ['boolean', 'enum', 'integer'], true) ? 'eq' : 'contains',
+                    ];
+                }
+                ++$position;
             }
-            if ($position < 5 && !in_array($dataType, ['text'], true)) {
-                $parameters[] = [
-                    'id' => $code,
-                    'field' => $code,
-                    'label' => $field->getLabel(),
-                    'type' => in_array($dataType, ['boolean', 'enum', 'integer', 'date', 'datetime'], true) ? $dataType : 'text',
-                    'operator' => in_array($dataType, ['boolean', 'enum', 'integer'], true) ? 'eq' : 'contains',
-                ];
-            }
-            ++$position;
         }
 
         if (!$dimensions && $fields) {
@@ -4284,20 +4474,29 @@ class ProgramBuilderService
 
         $defaultSort = [];
         $configuredSortField = $this->safeCode((string) ($analyticsConfig['defaultSortField'] ?? ''));
+        $blueprintSort = $datasetBlueprint !== null && is_array($datasetBlueprint['defaultSort'] ?? null) ? $datasetBlueprint['defaultSort'] : [];
         if ($configuredSortField !== '') {
             $defaultSort[] = [
                 'field' => $configuredSortField,
                 'dir' => strtolower((string) ($analyticsConfig['defaultSortDir'] ?? 'asc')) === 'desc' ? 'desc' : 'asc',
             ];
+        } elseif ($blueprintSort !== []) {
+            $defaultSort = array_values(array_filter($blueprintSort, 'is_array'));
         } elseif ($dimensions) {
             $defaultSort[] = ['field' => $dimensions[0]['id'], 'dir' => 'asc'];
         }
 
         $chartCategoryField = $this->safeCode((string) ($analyticsConfig['chartCategoryField'] ?? ''));
+        if ($chartCategoryField === '' && $datasetBlueprint !== null) {
+            $chartCategoryField = $this->safeCode((string) ($datasetBlueprint['chartCategoryField'] ?? ''));
+        }
         if ($chartCategoryField === '' && $dimensions) {
             $chartCategoryField = (string) ($dimensions[0]['id'] ?? '');
         }
         $chartValueField = $this->safeCode((string) ($analyticsConfig['chartValueField'] ?? ''));
+        if ($chartValueField === '' && $datasetBlueprint !== null) {
+            $chartValueField = $this->safeCode((string) ($datasetBlueprint['chartValueField'] ?? ''));
+        }
         if ($chartValueField === '' && $measures) {
             $chartValueField = (string) ($measures[0]['id'] ?? '');
         }

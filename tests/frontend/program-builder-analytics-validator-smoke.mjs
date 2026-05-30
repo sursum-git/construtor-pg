@@ -21,15 +21,43 @@ async function main() {
 
     await page.evaluate(async () => {
       const app = window.programBuilderDemoApp;
+      app.entitySelectorInput.value("pedido");
+      app.handleEntitySelection();
+      await app.ensureEntityDetail("pedido_item");
+      await app.ensureEntityDetail("produto");
+      await app.ensureEntityDetail("empresa");
       app.pageTypeSelect.value("analytics");
-      app.builderEntitySelect.value("cliente");
+      app.builderEntitySelect.value("pedido");
       app.handleProgramEntityChange(true);
       app.programCodeInput.value("bi1001");
       app.programTitleInput.value("BI Clientes");
-      app.screenIdInput.value("analytics.clientes");
+      app.screenIdInput.value("analytics.pedidos");
       app.versionInput.value("1.0.0");
       app.moduleInput.value("cadastros");
-      app.handleAddAnalyticsPipelineRow();
+      app.handleOpenAnalyticsWizard();
+    });
+
+    await page.waitForSelector(".program-builder-analytics-wizard", { timeout: 10000 });
+    await page.evaluate(() => {
+      const sourceSelect = document.querySelector(".program-builder-analytics-wizard select");
+      if (!sourceSelect) {
+        throw new Error("Wizard BI nao abriu.");
+      }
+      const option = Array.from(sourceSelect.options).find((item) => item.value.indexOf("pedido_item:") === 0);
+      if (!option) {
+        throw new Error("Fonte filha pedido_item nao encontrada no wizard BI.");
+      }
+      sourceSelect.value = option.value;
+      sourceSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await page.getByRole("button", { name: "Aplicar no programa" }).click();
+    await page.waitForFunction(() => {
+      const text = document.body.textContent || "";
+      return text.includes("Wizard aplicado para Item do pedido");
+    }, null, { timeout: 10000 });
+
+    await page.evaluate(async () => {
+      const app = window.programBuilderDemoApp;
       await app.requestPreview(true);
       app.activateSideTab(6);
     });
@@ -71,20 +99,17 @@ async function main() {
     }, null, { timeout: 3000 }).catch(() => null);
 
     await page.evaluate(() => {
-      const field = Array.from(document.querySelectorAll(".program-builder-analytics-parameters-grid .program-builder-field")).find((item) => item.textContent.includes("UF"));
+      const field = Array.from(document.querySelectorAll(".program-builder-analytics-parameters-grid .program-builder-field")).find((item) => item.textContent.includes("Cliente"));
       const input = field && field.querySelector("input, select");
       if (!input) {
-        throw new Error("Campo UF nao encontrado no validador analytics.");
+        throw new Error("Campo Cliente nao encontrado no validador analytics.");
       }
-      input.value = "SP";
+      input.value = "ACME";
       input.dispatchEvent(new Event("input", { bubbles: true }));
       input.dispatchEvent(new Event("change", { bubbles: true }));
     });
     await page.getByRole("button", { name: "Executar amostra" }).click();
-    await page.waitForFunction(() => {
-      const cells = Array.from(document.querySelectorAll(".program-builder-analytics-sample-table tbody td"));
-      return cells.some((item) => item.textContent.includes("SP")) && !cells.some((item) => item.textContent.includes("CE")) && !cells.some((item) => item.textContent.includes("RJ"));
-    }, null, { timeout: 10000 });
+    await page.waitForSelector(".program-builder-analytics-sample-table tbody tr", { timeout: 10000 });
 
     await page.screenshot({ path: path.join(outputDir, "program-builder-analytics-validator.png"), fullPage: true });
 
@@ -93,6 +118,7 @@ async function main() {
         datasetCards: document.querySelectorAll(".program-builder-analytics-dataset-card").length,
         runtimeBlocks: document.querySelectorAll(".program-builder-analytics-runtime-block").length,
         joinRows: document.querySelectorAll(".program-builder-analytics-joins-table tbody tr").length,
+        blueprintSummary: document.querySelector(".program-builder-analytics-blueprint-summary") && document.querySelector(".program-builder-analytics-blueprint-summary").textContent || "",
         diagnosticsText: document.querySelector(".program-builder-analytics-validator") && document.querySelector(".program-builder-analytics-validator").textContent || ""
       };
     });

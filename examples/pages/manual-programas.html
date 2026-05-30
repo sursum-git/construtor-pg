@@ -2219,7 +2219,7 @@
           type: "Editor administrativo",
           route: "../../program-builder.html",
           screenId: "",
-          summary: "Editor visual de modulos, entidades, programas, APIs, Odoo, importacao de tabelas, importacao de SQL/DDL, importacao de JSON externo, IA assistida com sessao persistente, import/export, governanca de padrao, integridade estrutural e publicacao no runtime.",
+          summary: "Editor visual de modulos, entidades, programas, APIs, Odoo, importacao de tabelas, importacao de SQL/DDL, importacao de JSON externo, IA assistida com sessao persistente, import/export, wizard direto de visao analytics a partir da entidade, governanca de padrao, integridade estrutural e publicacao no runtime.",
           functional: {
             objective: "Permitir autoria de metadados do sistema sem editar JSON manualmente na maior parte dos casos.",
             scope: [
@@ -2231,6 +2231,7 @@
               "Importacao de JSON externo validado e assistente interno de IA com `sessionId`, historico resumido, catalogo versionado, rascunho persistido e diagnosticos.",
               "Mapeamentos de importacao/exportacao entre entidades e arquivos CSV/TXT/XML.",
               "Assistente de integracao para gerar esqueleto de mapping a partir da entidade atual.",
+              "Wizard BI direto a partir da entidade atual para abrir um programa analytics com sugestoes de dimensoes, medidas, joins encadeados e visoes iniciais usando FKs e relacoes filhas.",
               "Consumo do catalogo runtime de literais para a propria interface do construtor.",
               "Governanca de programas padrao com grant, lock, bundle de testes e aprovacao final.",
               "Classificacao de ownership e customizacao entre `standard`, `customer_overlay` e `customer_custom`.",
@@ -2262,6 +2263,7 @@
               "Usar `Assistente IA` para iniciar ou retomar uma conversa persistente; usar `Nova conversa` quando quiser descartar o contexto anterior.",
               "Definir ownership, politica de customizacao e ambientes permitidos para publicacao quando o programa exigir governanca.",
               "Usar o botao `Integracao` quando quiser abrir um esqueleto inicial de mapping vinculado a entidade atual.",
+              "Usar o botao `Wizard BI` na entidade quando quiser abrir rapidamente uma visao analytics baseada em indices, FKs e entidades filhas relacionadas.",
               "Usar o botao `Governanca` para solicitar alteracao, liberar/congelar/revogar grant, registrar bundle de testes, ajustar a retencao e aprovar a publicacao.",
               "Quando a operacao exigir uma superficie dedicada, abrir `admin.programa-governanca` para trabalhar com o mesmo fluxo fora do editor.",
               "Se a notificacao ja apontar para grants, aprovacoes, retencao ou overlays, usar as entradas focadas `admin.programa-grants-operacao`, `admin.programa-aprovacoes-operacao`, `admin.programa-retencao-operacao` e `admin.programa-overlays-operacao`.",
