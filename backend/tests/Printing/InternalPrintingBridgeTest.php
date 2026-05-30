@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Tests\Printing;
 
 use App\Printing\Delivery\DownloadArtifactDelivery;
+use App\Printing\Delivery\QzTrayArtifactDelivery;
 use App\Printing\DTO\PrintJob;
 use App\Printing\DTO\PrinterConfig;
 use App\Printing\DTO\ReportRequest;
@@ -34,6 +35,28 @@ class InternalPrintingBridgeTest extends TestCase
         self::assertSame('download', $payload['deliveryMode']);
         self::assertSame('application/pdf', $payload['contentType']);
         self::assertStringStartsWith('%PDF-test-Clientes', (string) base64_decode((string) $payload['contentBase64']));
+    }
+
+    public function testQzTrayDeliveryMarksLocalPrinterMetadata(): void
+    {
+        $generator = new InternalReportPdfGenerator(
+            fn (ReportRequest $request): string => '%PDF-test-' . $request->title
+        );
+        $delivery = new QzTrayArtifactDelivery();
+
+        $payload = $delivery->deliverReport($generator->generate(new ReportRequest(
+            'relatorio.pdf',
+            'Clientes',
+            'pdf'
+        )), [
+            'printerName' => 'IMP-LOCAL-01',
+            'jobName' => 'Relatorio de clientes',
+            'copies' => 2,
+        ]);
+
+        self::assertSame('qz_tray', $payload['deliveryMode']);
+        self::assertSame('IMP-LOCAL-01', $payload['printer']['printerName']);
+        self::assertSame(2, $payload['printer']['copies']);
     }
 
     public function testTemplateRendererRejectsUnsafeTemplate(): void

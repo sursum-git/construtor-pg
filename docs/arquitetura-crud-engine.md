@@ -880,6 +880,8 @@ O produto agora separa explicitamente tres trilhas:
 
 Na camada `reports`, tambem existe opcionalmente `report.authenticity.enabled`, que grava um hash `sha256` da emissao no banco separado de auditoria e permite conferencia publica posterior por `production/report-authenticity.html`. O contrato ainda aceita `report.authenticity.storage.storeCanonicalPayload` e `storeExportArtifact` para guardar, opcionalmente, o payload canonico da emissao e o artefato exportado no mesmo banco separado.
 
+A bridge de impressao agora tambem aceita `printing.deliveryMode=qz_tray` para PDF em `reports`, `special_document` e `regulated_document`, sempre por metadado fechado e com entrega local no cliente via `window.qz`. Nao existe nesta fase spooler gerenciado pelo backend nem suporte a linguagens brutas de impressora.
+
 Referencia funcional: `docs/politica-reports-documentos.md`.
 Referencia tecnica: `docs/arquitetura-printing-bridge.md`.
 

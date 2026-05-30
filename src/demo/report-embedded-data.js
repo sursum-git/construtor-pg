@@ -68,6 +68,15 @@
             "storeExportArtifact": true
           }
         },
+        "printing": {
+          "deliveryMode": "download",
+          "qzTray": {
+            "enabled": true,
+            "printerName": "IMP-LOCAL-01",
+            "jobName": "Relatorio operacional de clientes",
+            "copies": 1
+          }
+        },
         "outputs": { "html": true, "print": true, "pdfBrowser": true, "excel": true, "csv": true }
       }
     },
@@ -129,6 +138,15 @@
           "storage": {
             "storeCanonicalPayload": true,
             "storeExportArtifact": false
+          }
+        },
+        "printing": {
+          "deliveryMode": "download",
+          "qzTray": {
+            "enabled": true,
+            "printerName": "IMP-LOCAL-01",
+            "jobName": "Relatorio analitico por UF",
+            "copies": 1
           }
         },
         "outputs": { "html": true, "print": true, "pdfBrowser": true, "excel": true, "csv": true }

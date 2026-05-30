@@ -115,6 +115,33 @@ class RuntimeReportServiceTest extends TestCase
         self::assertStringContainsString('Pagina 1 de 1', $binary);
     }
 
+    public function testExportReturnsQzTrayPayloadWhenEnabled(): void
+    {
+        $service = $this->createService('tenant-a', [
+            'report' => [
+                'printing' => [
+                    'qzTray' => [
+                        'enabled' => true,
+                        'printerName' => 'IMP-LOCAL-01',
+                        'jobName' => 'Relatorio operacional de clientes',
+                        'copies' => 2,
+                    ],
+                ],
+            ],
+        ]);
+
+        $result = $service->export('relatorios.clientes-operacional', [
+            'parameters' => ['status' => 'ATIVO'],
+            'format' => 'pdf',
+            'deliveryMode' => 'qz_tray',
+        ]);
+
+        self::assertSame('qz_tray', $result['deliveryMode']);
+        self::assertSame('qz_tray', $result['printer']['transport'] ?? '');
+        self::assertSame('IMP-LOCAL-01', $result['printer']['printerName'] ?? '');
+        self::assertSame(2, $result['printer']['copies'] ?? 0);
+    }
+
     public function testOperationalRunSupportsNestedGroups(): void
     {
         $service = $this->createService('tenant-a', [

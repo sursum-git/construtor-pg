@@ -3,6 +3,7 @@
 namespace App\Runtime;
 
 use App\Printing\Delivery\DownloadArtifactDelivery;
+use App\Printing\Delivery\QzTrayArtifactDelivery;
 use App\Printing\Document\InternalRegulatedDocumentHtmlGenerator;
 use App\Printing\Document\InternalRegulatedDocumentPdfGenerator;
 use App\Printing\DTO\DocumentArtifactRequest;
@@ -198,23 +199,42 @@ class RuntimeRegulatedDocumentService
         $hash = 'sha256:' . hash('sha256', (string) json_encode($canonical, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         $delivery = new DownloadArtifactDelivery();
         $safeName = $this->safeFileName((string) ($rendered['documentId'] ?? 'documento-regulado'));
+        $deliveryConfig = $this->resolvePrintingDelivery($document, $payload, $format, (string) ($rendered['title'] ?? $safeName));
         $artifact = $format === 'html'
-            ? $delivery->deliverPrint((new InternalRegulatedDocumentHtmlGenerator(
+            ? (($deliveryConfig['mode'] === 'qz_tray')
+                ? (new QzTrayArtifactDelivery())->deliverPrint((new InternalRegulatedDocumentHtmlGenerator(
+                    fn (DocumentArtifactRequest $request): string => $this->buildHtmlArtifact((array) ($request->context['result'] ?? []))
+                ))->generate(new DocumentArtifactRequest(
+                    $safeName . '.html',
+                    (string) ($rendered['title'] ?? $safeName),
+                    'html',
+                    ['result' => $rendered]
+                )), $deliveryConfig['printer'])
+                : $delivery->deliverPrint((new InternalRegulatedDocumentHtmlGenerator(
                 fn (DocumentArtifactRequest $request): string => $this->buildHtmlArtifact((array) ($request->context['result'] ?? []))
             ))->generate(new DocumentArtifactRequest(
                 $safeName . '.html',
                 (string) ($rendered['title'] ?? $safeName),
                 'html',
                 ['result' => $rendered]
-            )))
-            : $delivery->deliverPrint((new InternalRegulatedDocumentPdfGenerator(
+            ))))
+            : (($deliveryConfig['mode'] === 'qz_tray')
+                ? (new QzTrayArtifactDelivery())->deliverPrint((new InternalRegulatedDocumentPdfGenerator(
+                    fn (DocumentArtifactRequest $request): string => $this->buildPdfArtifact((array) ($request->context['result'] ?? []))
+                ))->generate(new DocumentArtifactRequest(
+                    $safeName . '.pdf',
+                    (string) ($rendered['title'] ?? $safeName),
+                    'pdf',
+                    ['result' => $rendered]
+                )), $deliveryConfig['printer'])
+                : $delivery->deliverPrint((new InternalRegulatedDocumentPdfGenerator(
                 fn (DocumentArtifactRequest $request): string => $this->buildPdfArtifact((array) ($request->context['result'] ?? []))
             ))->generate(new DocumentArtifactRequest(
                 $safeName . '.pdf',
                 (string) ($rendered['title'] ?? $safeName),
                 'pdf',
                 ['result' => $rendered]
-            )));
+            ))));
 
         $storeArtifact = ($document['artifactPolicy']['storeArtifact'] ?? true) === true;
         $record = $this->store->findByIssueId((string) $rendered['issueId']) ?? [];
@@ -269,6 +289,7 @@ class RuntimeRegulatedDocumentService
             'hash' => $hash,
             'format' => $format,
             'deliveryMode' => (string) ($artifact['deliveryMode'] ?? 'download'),
+            'printer' => is_array($artifact['printer'] ?? null) ? $artifact['printer'] : [],
             'artifactStored' => $storeArtifact,
             'artifact' => $artifact,
             'verificationUrl' => $this->buildVerificationUrl((string) ($document['verification']['publicPath'] ?? 'regulated-document-authenticity.html'), $hash),
@@ -351,7 +372,7 @@ class RuntimeRegulatedDocumentService
             ]);
         }
 
-        return [
+        $response = [
             'ok' => true,
             'issueId' => $issueId,
             'format' => (string) ($artifact['format'] ?? ''),
@@ -360,6 +381,16 @@ class RuntimeRegulatedDocumentService
             'contentBase64' => (string) ($artifact['contentBase64'] ?? ''),
             'deliveryMode' => (string) ($artifact['deliveryMode'] ?? 'download'),
         ];
+
+        $definition = $this->loadDefinition($screenId);
+        $document = is_array($definition['regulatedDocument'] ?? null) ? $definition['regulatedDocument'] : [];
+        $deliveryConfig = $this->resolvePrintingDelivery($document, $payload, strtolower(trim((string) ($response['format'] ?? ''))), (string) ($definition['program']['title'] ?? 'Documento regulado'));
+        if ($deliveryConfig['mode'] === 'qz_tray') {
+            $response['deliveryMode'] = 'qz_tray';
+            $response['printer'] = $deliveryConfig['printer'];
+        }
+
+        return $response;
     }
 
     /**
@@ -1017,5 +1048,41 @@ class RuntimeRegulatedDocumentService
     {
         $clean = preg_replace('/[^A-Za-z0-9._-]+/', '-', $value) ?: 'documento-regulado';
         return trim($clean, '-');
+    }
+
+    /**
+     * @param array<string, mixed> $document
+     * @param array<string, mixed> $payload
+     * @return array{mode: string, printer: array<string, mixed>}
+     */
+    private function resolvePrintingDelivery(array $document, array $payload, string $format, string $defaultJobName): array
+    {
+        $printing = is_array($document['printing'] ?? null) ? $document['printing'] : [];
+        $requestedMode = strtolower(trim((string) ($payload['deliveryMode'] ?? ($printing['deliveryMode'] ?? 'download'))));
+        if ($requestedMode !== 'qz_tray') {
+            return [
+                'mode' => 'download',
+                'printer' => [],
+            ];
+        }
+
+        $qzTray = is_array($printing['qzTray'] ?? null) ? $printing['qzTray'] : [];
+        if (($qzTray['enabled'] ?? false) !== true) {
+            throw new RuntimeHttpException('REGULATED_DOCUMENT_QZ_TRAY_DISABLED', 'A impressao local por QZ Tray nao esta habilitada para este documento regulado.', 422);
+        }
+        if ($format !== 'pdf') {
+            throw new RuntimeHttpException('REGULATED_DOCUMENT_QZ_TRAY_FORMAT_NOT_SUPPORTED', 'A impressao local por QZ Tray aceita apenas PDF nesta fase.', 422, [
+                'format' => $format,
+            ]);
+        }
+
+        return [
+            'mode' => 'qz_tray',
+            'printer' => [
+                'printerName' => trim((string) ($payload['printerName'] ?? $qzTray['printerName'] ?? '')),
+                'jobName' => trim((string) ($payload['jobName'] ?? $qzTray['jobName'] ?? $defaultJobName)),
+                'copies' => max(1, (int) ($payload['copies'] ?? $qzTray['copies'] ?? 1)),
+            ],
+        ];
     }
 }

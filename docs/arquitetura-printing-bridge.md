@@ -1,6 +1,6 @@
 # Arquitetura da bridge interna de impressao
 
-Esta frente padroniza a emissao de artefatos do produto sem trocar os endpoints atuais e sem introduzir transporte fisico agora.
+Esta frente padroniza a emissao de artefatos do produto sem trocar os endpoints atuais e sem introduzir transporte fisico completo agora.
 
 ## Separacao em 3 camadas
 
@@ -11,13 +11,13 @@ Esta frente padroniza a emissao de artefatos do produto sem trocar os endpoints 
 
 2. **Entrega ao cliente**
    - entrega o artefato por `download`, `browser_inline` ou `archive`;
-   - hoje a implementacao ativa e `download`;
+   - hoje as implementacoes ativas sao `download` e `qz_tray` local para PDF;
    - o payload externo continua em `fileName`, `contentType`, `contentBase64`, `format`.
 
 3. **Transporte para impressora real**
    - reservado para fases futuras;
    - contratos previstos para `raw_tcp_9100`, `cups`, `qz_tray` e `file_spool`;
-   - ainda sem implementacao funcional.
+   - nesta fase, apenas `qz_tray` existe como ponte local cliente-side para PDF, sem spooler/driver gerenciado pelo backend.
 
 ## Como isso se encaixa no produto
 
@@ -66,5 +66,6 @@ A bridge interna fica em `backend/src/Printing/` e hoje expoe:
 
 - nao existe ainda `ESC/POS`;
 - nao existe ainda `ZPL/EPL`;
-- nao existe ainda envio por `TCP 9100`, `CUPS` ou `QZ Tray`;
-- qualquer tentativa de usar transporte fisico deve falhar com erro controlado.
+- nao existe ainda envio por `TCP 9100` ou `CUPS`;
+- `QZ Tray` existe apenas como entrega local fechada para PDF, exigindo `window.qz` no cliente e metadado `printing.qzTray.enabled=true`;
+- qualquer tentativa de usar linguagem de impressora bruta ou transporte nao habilitado deve falhar com erro controlado.

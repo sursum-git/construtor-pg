@@ -62,7 +62,16 @@
         renderEngine: "native",
         source: { type: "operational" },
         layout: { title: source.program.title || "Documento especial", subtitle: source.program.subtitle || "", notes: "" },
-        outputs: { html: true, pdf: true }
+        outputs: { html: true, pdf: true },
+        printing: {
+          deliveryMode: "download",
+          qzTray: {
+            enabled: false,
+            printerName: "",
+            jobName: "",
+            copies: 1
+          }
+        }
       }, source.specialDocument || {});
       source.specialDocument.endpoints = Object.assign({}, source.specialDocument.endpoints || {}, source.dataSource && source.dataSource.api || source.api || {});
       return source;
@@ -84,6 +93,9 @@
       }
       if ((this.definition.specialDocument.outputs || {}).pdf !== false) {
         $("<button type=\"button\"></button>").appendTo(actions).kendoButton({ icon: "file-pdf", click: () => this.exportDocument("pdf") }).data("kendoButton").element.text("PDF");
+        if (this.isQzTrayEnabled()) {
+          $("<button type=\"button\"></button>").appendTo(actions).kendoButton({ icon: "print", click: () => this.exportDocument("pdf", { deliveryMode: "qz_tray" }) }).data("kendoButton").element.text("Imprimir local");
+        }
       }
       this.renderParameters(screen);
       this.outputHost = $("<section class=\"report-output\"></section>").appendTo(screen);
@@ -187,25 +199,26 @@
       });
     }
 
-    exportDocument(format) {
-      return this.runtimeRequest("export", {
+    exportDocument(format, extraPayload) {
+      const payload = Object.assign({
         format: format,
         documentKind: this.definition.specialDocument && this.definition.specialDocument.classification && this.definition.specialDocument.classification.documentKind || "special",
         parameters: this.currentParameters()
-      }).then((response) => {
-        const bytes = Uint8Array.from(global.atob(String(response.contentBase64 || "")), function(char) {
-          return char.charCodeAt(0);
+      }, extraPayload || {});
+      return this.runtimeRequest("export", payload).then((response) => {
+        return global.PrintingBridgeClient.deliverPayload(response || {}).then((delivery) => {
+          global.CrudUtils.showMessage(delivery.mode === "qz_tray" ? "Impressao local enviada." : "Arquivo gerado.", "success");
+          return response;
         });
-        const blob = new Blob([bytes], { type: String(response.contentType || "application/octet-stream") });
-        const href = global.URL.createObjectURL(blob);
-        const link = global.document.createElement("a");
-        link.href = href;
-        link.download = String(response.fileName || ("documento-especial." + format));
-        global.document.body.appendChild(link);
-        link.click();
-        link.remove();
-        global.URL.revokeObjectURL(href);
+      }).catch((error) => {
+        const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel exportar o documento especial.");
+        global.CrudUtils.showMessage(normalized.message, "error");
+        throw error;
       });
+    }
+
+    isQzTrayEnabled() {
+      return !!(this.definition && this.definition.specialDocument && this.definition.specialDocument.printing && this.definition.specialDocument.printing.qzTray && this.definition.specialDocument.printing.qzTray.enabled === true);
     }
 
     renderResult() {

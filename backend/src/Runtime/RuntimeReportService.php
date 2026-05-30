@@ -3,6 +3,7 @@
 namespace App\Runtime;
 
 use App\Printing\Delivery\DownloadArtifactDelivery;
+use App\Printing\Delivery\QzTrayArtifactDelivery;
 use App\Printing\DTO\ReportRequest;
 use App\Printing\Report\InternalReportCsvGenerator;
 use App\Printing\Report\InternalReportPdfGenerator;
@@ -157,15 +158,19 @@ class RuntimeReportService
         $columns = is_array($result['columns'] ?? null) ? $result['columns'] : [];
         $safeName = $this->safeFileName((string) ($result['reportId'] ?? 'relatorio'));
         $delivery = new DownloadArtifactDelivery();
+        $deliveryConfig = $this->resolvePrintingDelivery($report, $payload, $format, (string) ($result['title'] ?? $safeName));
 
         if ($format === 'excel') {
             $generator = new InternalReportXlsxGenerator(fn (ReportRequest $request): string => $this->rowsToXlsx((array) ($request->context['result'] ?? [])));
-            $response = $delivery->deliverReport($generator->generate(new ReportRequest(
+            $artifact = $generator->generate(new ReportRequest(
                 $safeName . '.xlsx',
                 (string) ($result['title'] ?? $safeName),
                 'excel',
                 ['result' => $result]
-            )));
+            ));
+            $response = $deliveryConfig['mode'] === 'qz_tray'
+                ? (new QzTrayArtifactDelivery())->deliverReport($artifact, $deliveryConfig['printer'])
+                : $delivery->deliverReport($artifact);
             $response['authenticity'] = $result['authenticity'] ?? null;
             $this->recordExportArtifactAudit($definition, $report, $result, $payload, 'excel', $response, $tenantId);
 
@@ -173,12 +178,15 @@ class RuntimeReportService
         }
         if ($format === 'pdf') {
             $generator = new InternalReportPdfGenerator(fn (ReportRequest $request): string => $this->resultToPdf((array) ($request->context['result'] ?? [])));
-            $response = $delivery->deliverReport($generator->generate(new ReportRequest(
+            $artifact = $generator->generate(new ReportRequest(
                 $safeName . '.pdf',
                 (string) ($result['title'] ?? $safeName),
                 'pdf',
                 ['result' => $result]
-            )));
+            ));
+            $response = $deliveryConfig['mode'] === 'qz_tray'
+                ? (new QzTrayArtifactDelivery())->deliverReport($artifact, $deliveryConfig['printer'])
+                : $delivery->deliverReport($artifact);
             $response['authenticity'] = $result['authenticity'] ?? null;
             $this->recordExportArtifactAudit($definition, $report, $result, $payload, 'pdf', $response, $tenantId);
 
@@ -189,12 +197,15 @@ class RuntimeReportService
             (array) ($request->context['columns'] ?? []),
             (array) ($request->context['rows'] ?? [])
         ));
-        $response = $delivery->deliverReport($generator->generate(new ReportRequest(
+        $artifact = $generator->generate(new ReportRequest(
             $safeName . '.csv',
             (string) ($result['title'] ?? $safeName),
             'csv',
             ['columns' => $columns, 'rows' => $rows]
-        )));
+        ));
+        $response = $deliveryConfig['mode'] === 'qz_tray'
+            ? (new QzTrayArtifactDelivery())->deliverReport($artifact, $deliveryConfig['printer'])
+            : $delivery->deliverReport($artifact);
         $response['authenticity'] = $result['authenticity'] ?? null;
         $this->recordExportArtifactAudit($definition, $report, $result, $payload, 'csv', $response, $tenantId);
 
@@ -1076,6 +1087,42 @@ XML;
     {
         $clean = preg_replace('/[^A-Za-z0-9._-]+/', '-', $value) ?: 'relatorio';
         return trim($clean, '-');
+    }
+
+    /**
+     * @param array<string, mixed> $report
+     * @param array<string, mixed> $payload
+     * @return array{mode: string, printer: array<string, mixed>}
+     */
+    private function resolvePrintingDelivery(array $report, array $payload, string $format, string $defaultJobName): array
+    {
+        $printing = is_array($report['printing'] ?? null) ? $report['printing'] : [];
+        $requestedMode = strtolower(trim((string) ($payload['deliveryMode'] ?? ($printing['deliveryMode'] ?? 'download'))));
+        if ($requestedMode !== 'qz_tray') {
+            return [
+                'mode' => 'download',
+                'printer' => [],
+            ];
+        }
+
+        $qzTray = is_array($printing['qzTray'] ?? null) ? $printing['qzTray'] : [];
+        if (($qzTray['enabled'] ?? false) !== true) {
+            throw new RuntimeHttpException('REPORT_QZ_TRAY_DISABLED', 'A impressao local por QZ Tray nao esta habilitada para este relatorio.', 422);
+        }
+        if ($format !== 'pdf') {
+            throw new RuntimeHttpException('REPORT_QZ_TRAY_FORMAT_NOT_SUPPORTED', 'A impressao local por QZ Tray aceita apenas PDF nesta fase.', 422, [
+                'format' => $format,
+            ]);
+        }
+
+        return [
+            'mode' => 'qz_tray',
+            'printer' => [
+                'printerName' => trim((string) ($payload['printerName'] ?? $qzTray['printerName'] ?? '')),
+                'jobName' => trim((string) ($payload['jobName'] ?? $qzTray['jobName'] ?? $defaultJobName)),
+                'copies' => max(1, (int) ($payload['copies'] ?? $qzTray['copies'] ?? 1)),
+            ],
+        ];
     }
 
     private function formatValue(mixed $value, mixed $format): string

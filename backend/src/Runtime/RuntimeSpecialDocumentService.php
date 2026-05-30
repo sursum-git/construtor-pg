@@ -3,6 +3,7 @@
 namespace App\Runtime;
 
 use App\Printing\Delivery\DownloadArtifactDelivery;
+use App\Printing\Delivery\QzTrayArtifactDelivery;
 use App\Printing\Document\InternalSpecialDocumentHtmlGenerator;
 use App\Printing\Document\InternalSpecialDocumentPdfGenerator;
 use App\Printing\DTO\DocumentArtifactRequest;
@@ -142,6 +143,7 @@ class RuntimeSpecialDocumentService
     public function export(string $screenId, array $payload): array
     {
         $result = $this->render($screenId, $payload);
+        $definition = $this->loadDefinition($screenId);
         $format = strtolower(trim((string) ($payload['format'] ?? 'pdf')));
         if (!in_array($format, ['pdf', 'html'], true)) {
             throw new RuntimeHttpException('SPECIAL_DOCUMENT_EXPORT_FORMAT_NOT_SUPPORTED', 'A exportacao inicial do documento especial aceita apenas PDF/HTML.', 422, [
@@ -150,26 +152,33 @@ class RuntimeSpecialDocumentService
         }
         $delivery = new DownloadArtifactDelivery();
         $safeName = $this->safeFileName((string) ($result['documentId'] ?? 'documento-especial'));
+        $deliveryConfig = $this->resolvePrintingDelivery($document = is_array($definition['specialDocument'] ?? null) ? $definition['specialDocument'] : [], $payload, $format, (string) ($result['title'] ?? $safeName));
 
         if ($format === 'html') {
             $generator = new InternalSpecialDocumentHtmlGenerator(fn (DocumentArtifactRequest $request): string => $this->buildHtmlDocument((array) ($request->context['result'] ?? [])));
-
-            return $delivery->deliverPrint($generator->generate(new DocumentArtifactRequest(
+            $artifact = $generator->generate(new DocumentArtifactRequest(
                 $safeName . '.html',
                 (string) ($result['title'] ?? $safeName),
                 'html',
                 ['result' => $result]
-            )));
+            ));
+
+            return $deliveryConfig['mode'] === 'qz_tray'
+                ? (new QzTrayArtifactDelivery())->deliverPrint($artifact, $deliveryConfig['printer'])
+                : $delivery->deliverPrint($artifact);
         }
 
         $generator = new InternalSpecialDocumentPdfGenerator(fn (DocumentArtifactRequest $request): string => $this->buildDocumentPdf((array) ($request->context['result'] ?? [])));
-
-        return $delivery->deliverPrint($generator->generate(new DocumentArtifactRequest(
+        $artifact = $generator->generate(new DocumentArtifactRequest(
             $safeName . '.pdf',
             (string) ($result['title'] ?? $safeName),
             'pdf',
             ['result' => $result]
-        )));
+        ));
+
+        return $deliveryConfig['mode'] === 'qz_tray'
+            ? (new QzTrayArtifactDelivery())->deliverPrint($artifact, $deliveryConfig['printer'])
+            : $delivery->deliverPrint($artifact);
     }
 
     /**
@@ -990,5 +999,41 @@ class RuntimeSpecialDocumentService
     {
         $clean = preg_replace('/[^A-Za-z0-9._-]+/', '-', $value) ?: 'documento-especial';
         return trim($clean, '-');
+    }
+
+    /**
+     * @param array<string, mixed> $document
+     * @param array<string, mixed> $payload
+     * @return array{mode: string, printer: array<string, mixed>}
+     */
+    private function resolvePrintingDelivery(array $document, array $payload, string $format, string $defaultJobName): array
+    {
+        $printing = is_array($document['printing'] ?? null) ? $document['printing'] : [];
+        $requestedMode = strtolower(trim((string) ($payload['deliveryMode'] ?? ($printing['deliveryMode'] ?? 'download'))));
+        if ($requestedMode !== 'qz_tray') {
+            return [
+                'mode' => 'download',
+                'printer' => [],
+            ];
+        }
+
+        $qzTray = is_array($printing['qzTray'] ?? null) ? $printing['qzTray'] : [];
+        if (($qzTray['enabled'] ?? false) !== true) {
+            throw new RuntimeHttpException('SPECIAL_DOCUMENT_QZ_TRAY_DISABLED', 'A impressao local por QZ Tray nao esta habilitada para este documento especial.', 422);
+        }
+        if ($format !== 'pdf') {
+            throw new RuntimeHttpException('SPECIAL_DOCUMENT_QZ_TRAY_FORMAT_NOT_SUPPORTED', 'A impressao local por QZ Tray aceita apenas PDF nesta fase.', 422, [
+                'format' => $format,
+            ]);
+        }
+
+        return [
+            'mode' => 'qz_tray',
+            'printer' => [
+                'printerName' => trim((string) ($payload['printerName'] ?? $qzTray['printerName'] ?? '')),
+                'jobName' => trim((string) ($payload['jobName'] ?? $qzTray['jobName'] ?? $defaultJobName)),
+                'copies' => max(1, (int) ($payload['copies'] ?? $qzTray['copies'] ?? 1)),
+            ],
+        ];
     }
 }

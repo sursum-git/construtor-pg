@@ -58,6 +58,34 @@ class RuntimeRegulatedDocumentServiceTest extends TestCase
         self::assertStringStartsWith('%PDF', (string) base64_decode((string) $artifact['contentBase64']));
     }
 
+    public function testIssueReturnsQzTrayPayloadWhenEnabled(): void
+    {
+        $service = $this->createService([
+            'regulatedDocument' => [
+                'printing' => [
+                    'qzTray' => [
+                        'enabled' => true,
+                        'printerName' => 'IMP-LOCAL-01',
+                        'jobName' => 'Documento regulado fiscal base',
+                        'copies' => 1,
+                    ],
+                ],
+            ],
+        ]);
+
+        $prepared = $service->prepare('documentos.regulados-fiscal-base', [
+            'parameters' => ['status' => 'ATIVO'],
+        ]);
+        $issued = $service->issue('documentos.regulados-fiscal-base', [
+            'issueId' => $prepared['issueId'],
+            'format' => 'pdf',
+            'deliveryMode' => 'qz_tray',
+        ]);
+
+        self::assertSame('qz_tray', $issued['deliveryMode']);
+        self::assertSame('IMP-LOCAL-01', $issued['printer']['printerName'] ?? '');
+    }
+
     public function testPrepareSupportsAnalyticSource(): void
     {
         $service = $this->createService([

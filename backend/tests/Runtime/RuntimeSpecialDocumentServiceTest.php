@@ -45,6 +45,30 @@ class RuntimeSpecialDocumentServiceTest extends TestCase
         self::assertStringStartsWith('%PDF', (string) base64_decode((string) $result['contentBase64']));
     }
 
+    public function testExportReturnsQzTrayPayloadWhenEnabled(): void
+    {
+        $service = $this->createService([
+            'specialDocument' => [
+                'printing' => [
+                    'qzTray' => [
+                        'enabled' => true,
+                        'printerName' => 'IMP-LOCAL-01',
+                        'jobName' => 'Documento especial base',
+                        'copies' => 1,
+                    ],
+                ],
+            ],
+        ]);
+
+        $result = $service->export('documentos.especiais-base', [
+            'format' => 'pdf',
+            'deliveryMode' => 'qz_tray',
+        ]);
+
+        self::assertSame('qz_tray', $result['deliveryMode']);
+        self::assertSame('IMP-LOCAL-01', $result['printer']['printerName'] ?? '');
+    }
+
     public function testExportReturnsHtmlPayload(): void
     {
         $service = $this->createService();

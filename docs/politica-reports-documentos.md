@@ -155,3 +155,8 @@ O que ainda nao se deve prometer como entregue apenas com a camada atual:
 - renderer industrial com coordenada livre;
 - designer documental livre.
 - transporte fisico real para impressoras por `TCP 9100`, `CUPS`, `QZ Tray`, `ESC/POS`, `ZPL` ou `EPL`.
+
+Excecao atual:
+
+- `QZ Tray` local ja pode ser usado como entrega fechada para PDF em `reports`, `special_document` e `regulated_document`;
+- isso nao muda a classificacao funcional das trilhas e nao equivale a suporte homologado de impressora, spooler ou linguagem bruta.

@@ -74,6 +74,15 @@
         "storeExportArtifact": true
       }
     },
+    "printing": {
+      "deliveryMode": "download",
+      "qzTray": {
+        "enabled": true,
+        "printerName": "IMP-LOCAL-01",
+        "jobName": "Relatorio operacional de clientes",
+        "copies": 1
+      }
+    },
     "outputs": {
       "html": true,
       "print": true,

@@ -1101,6 +1101,15 @@
       definition.api = api;
       definition.report = definition.report || {};
       definition.report.endpoints = api;
+      definition.report.printing = Object.assign({
+        deliveryMode: "download",
+        qzTray: {
+          enabled: true,
+          printerName: "IMP-LOCAL-01",
+          jobName: definition.program && definition.program.title || "Relatorio",
+          copies: 1
+        }
+      }, definition.report.printing || {});
       return definition;
     }
 
@@ -1148,6 +1157,15 @@
             notes: "Sem layout livre na v1.",
             issuerName: "Emitente padrao LTDA",
             issuerDocument: "12.345.678/0001-90"
+          },
+          printing: {
+            deliveryMode: "download",
+            qzTray: {
+              enabled: true,
+              printerName: "IMP-LOCAL-01",
+              jobName: "Documento especial base",
+              copies: 1
+            }
           },
           outputs: {
             html: true,
@@ -1207,6 +1225,15 @@
           outputs: {
             html: true,
             pdf: true
+          },
+          printing: {
+            deliveryMode: "download",
+            qzTray: {
+              enabled: true,
+              printerName: "IMP-LOCAL-01",
+              jobName: title,
+              copies: 1
+            }
           },
           artifactPolicy: {
             storeCanonicalPayload: true,
@@ -1632,7 +1659,7 @@
       }
       if (endpointId === "reports.export") {
         const result = analytic ? this.runAnalyticReport(data || {}) : this.runOperationalReport(data || {});
-        return this.exportReportResult(result, data && data.format || "csv");
+        return this.exportReportResult(result, data && data.format || "csv", data || {}, this.buildReportClientesDefinition(screenId, analytic ? "analytic" : "operational"));
       }
       throw global.CrudUtils.makeError("RUNTIME_ENDPOINT_NOT_FOUND", "Endpoint de relatorio mock nao encontrado.", { screenId, endpointId });
     }
@@ -1850,13 +1877,13 @@
         const content = format === "html"
           ? "<html><body><h1>Documento especial base</h1><p>Renderizacao controlada com dados locais.</p><table><tr><th>Nome</th><th>UF</th></tr><tr><td>Acme Comercio</td><td>CE</td></tr></table></body></html>"
           : "%PDF-1.4\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF";
-        return {
+        return this.decoratePrintingPayload({
           ok: true,
           format: format,
           fileName: "documento-especial-base." + (format === "html" ? "html" : "pdf"),
           contentType: format === "html" ? "text/html;charset=utf-8" : "application/pdf",
           contentBase64: global.btoa(unescape(encodeURIComponent(content)))
-        };
+        }, data || {}, this.buildSpecialDocumentDefinition(screenId).specialDocument && this.buildSpecialDocumentDefinition(screenId).specialDocument.printing || {});
       }
       throw global.CrudUtils.makeError("RUNTIME_ENDPOINT_NOT_FOUND", "Endpoint de documento especial mock nao encontrado.", { screenId, endpointId });
     }
@@ -2109,32 +2136,32 @@
       return this.decorateReportAuthenticity(result, data);
     }
 
-    exportReportResult(result, format) {
+    exportReportResult(result, format, payload, definition) {
       const columns = global.CrudUtils.ensureArray(result.columns || []);
       const rows = global.CrudUtils.ensureArray(result.rows || []);
       if (String(format || "").toLowerCase() === "pdf") {
-        return {
+        return this.decoratePrintingPayload({
           ok: true,
           format: "pdf",
           fileName: (result.reportId || "relatorio") + ".pdf",
           contentType: "application/pdf",
           contentBase64: global.btoa("%PDF-1.4\n1 0 obj <<>> endobj\ntrailer <<>>\n%%EOF"),
           authenticity: result.authenticity || null
-        };
+        }, payload || {}, definition && definition.report && definition.report.printing || {});
       }
       if (String(format || "").toLowerCase() === "excel") {
         const workbook = JSON.stringify({
           columns: columns.map(function(column) { return column.title || column.field || ""; }),
           rows: rows
         });
-        return {
+        return this.decoratePrintingPayload({
           ok: true,
           format: "excel",
           fileName: (result.reportId || "relatorio") + ".xlsx",
           contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
           contentBase64: global.btoa(unescape(encodeURIComponent(workbook))),
           authenticity: result.authenticity || null
-        };
+        }, payload || {}, definition && definition.report && definition.report.printing || {});
       }
       const lines = [];
       lines.push(columns.map(function(column) {
@@ -2146,14 +2173,38 @@
         }).join(";"));
       });
       const content = "\uFEFF" + lines.join("\r\n");
-      return {
+      return this.decoratePrintingPayload({
         ok: true,
         format: format,
         fileName: (result.reportId || "relatorio") + ".csv",
         contentType: "text/csv; charset=utf-8",
         contentBase64: global.btoa(unescape(encodeURIComponent(content))),
         authenticity: result.authenticity || null
+      }, payload || {}, definition && definition.report && definition.report.printing || {});
+    }
+
+    decoratePrintingPayload(artifact, payload, printingConfig) {
+      const response = Object.assign({}, artifact || {});
+      const requestedMode = String(payload && payload.deliveryMode || printingConfig && printingConfig.deliveryMode || "download").trim().toLowerCase();
+      if (requestedMode !== "qz_tray") {
+        response.deliveryMode = "download";
+        return response;
+      }
+      if (String(response.format || "").toLowerCase() !== "pdf") {
+        throw global.CrudUtils.makeError("PRINT_QZ_TRAY_FORMAT_NOT_SUPPORTED", "A impressao local no mock aceita apenas PDF.");
+      }
+      const qz = printingConfig && printingConfig.qzTray || {};
+      if (qz.enabled !== true) {
+        throw global.CrudUtils.makeError("PRINT_QZ_TRAY_DISABLED", "A impressao local nao esta habilitada para este artefato.");
+      }
+      response.deliveryMode = "qz_tray";
+      response.printer = {
+        transport: "qz_tray",
+        printerName: String(payload && payload.printerName || qz.printerName || "IMP-LOCAL-01"),
+        jobName: String(payload && payload.jobName || qz.jobName || response.fileName || "Documento"),
+        copies: Math.max(1, Number(payload && payload.copies || qz.copies || 1))
       };
+      return response;
     }
 
     decorateReportAuthenticity(result, data) {
@@ -2338,7 +2389,7 @@
       const record = this.findRegulatedDocumentByIssueId(preview.issueId);
       const format = String(data && data.format || "pdf").toLowerCase() === "html" ? "html" : "pdf";
       const hash = "sha256:" + this.hashString(JSON.stringify(record && record.canonicalPayload || {}));
-      const artifact = this.buildRegulatedDocumentArtifact(preview, format);
+      const artifact = this.decoratePrintingPayload(this.buildRegulatedDocumentArtifact(preview, format), data || {}, this.buildRegulatedDocumentDefinition(screenId).regulatedDocument && this.buildRegulatedDocumentDefinition(screenId).regulatedDocument.printing || {});
       record.state = "issued";
       record.hash = hash;
       record.format = format;
@@ -2521,7 +2572,7 @@
       if (!record || !record.artifact || !record.artifact.contentBase64) {
         throw global.CrudUtils.makeError("REGULATED_DOCUMENT_ARTIFACT_NOT_AVAILABLE", "Artefato nao esta disponivel para este issueId.");
       }
-      return global.CrudUtils.clone(record.artifact);
+      return this.decoratePrintingPayload(global.CrudUtils.clone(record.artifact), {}, this.buildRegulatedDocumentDefinition(record.screenId).regulatedDocument && this.buildRegulatedDocumentDefinition(record.screenId).regulatedDocument.printing || {});
     }
 
     fetchRegulatedDocumentEvents(issueId) {

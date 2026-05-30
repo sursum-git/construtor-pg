@@ -235,7 +235,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
   - geracao de artefato;
   - entrega ao cliente;
   - transporte para impressora real.
-- nesta fase, a bridge entrega apenas `download`; `raw_tcp_9100`, `cups`, `qz_tray`, `escpos`, `zpl` e `epl` ficam apenas previstos por contrato.
+- nesta fase, a bridge entrega `download` e `qz_tray` local para PDF; `raw_tcp_9100`, `cups`, `escpos`, `zpl` e `epl` continuam apenas previstos por contrato.
 - a trilha separada de documentos especiais agora existe:
   - `pageType=special_document`;
   - schema `public/metadata/schemas/special-document-definition-v1.schema.json`;

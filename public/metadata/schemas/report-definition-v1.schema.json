@@ -220,6 +220,23 @@
           },
           "additionalProperties": false
         },
+        "printing": {
+          "type": "object",
+          "properties": {
+            "deliveryMode": { "type": "string", "enum": ["download", "qz_tray"] },
+            "qzTray": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "printerName": { "type": "string" },
+                "jobName": { "type": "string" },
+                "copies": { "type": "integer", "minimum": 1, "maximum": 10 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
         "outputs": {
           "type": "object",
           "properties": {

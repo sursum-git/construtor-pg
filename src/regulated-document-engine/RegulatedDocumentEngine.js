@@ -68,6 +68,15 @@
         renderEngine: "internal",
         source: { type: "operational" },
         outputs: { html: true, pdf: true },
+        printing: {
+          deliveryMode: "download",
+          qzTray: {
+            enabled: false,
+            printerName: "",
+            jobName: "",
+            copies: 1
+          }
+        },
         artifactPolicy: { storeCanonicalPayload: true, storeArtifact: true, defaultFormat: "pdf" },
         verification: { enabled: true, algorithm: "sha256", publicPath: "regulated-document-authenticity.html", label: "Codigo de conferencia" },
         retention: { keepPayload: true, keepArtifact: true, storeDays: 365 },
@@ -90,6 +99,9 @@
       this.prepareButton = this.makeButton(actions, "Preparar", "gear", "primary", () => this.prepareDocument(true));
       this.previewButton = this.makeButton(actions, "Preview", "eye", "", () => this.renderDocument());
       this.issuePdfButton = this.makeButton(actions, "Emitir PDF", "file-pdf", "", () => this.issueDocument("pdf"));
+      if (this.isQzTrayEnabled()) {
+        this.issueLocalButton = this.makeButton(actions, "Emitir local", "print", "", () => this.issueDocument("pdf", { deliveryMode: "qz_tray" }));
+      }
       this.issueHtmlButton = this.makeButton(actions, "Emitir HTML", "file", "", () => this.issueDocument("html"));
       this.verifyButton = this.makeButton(actions, "Conferir", "search", "", () => this.verifyDocument());
       this.downloadButton = this.makeButton(actions, "Baixar artefato", "download", "", () => this.downloadArtifact());
@@ -219,17 +231,21 @@
       });
     }
 
-    issueDocument(format) {
-      return this.runtimeRequest("issue", {
+    issueDocument(format, extraPayload) {
+      const payload = Object.assign({
         issueId: this.currentPrepared && this.currentPrepared.issueId || "",
         parameters: this.currentParameters(),
         format: format
-      }).then((response) => {
+      }, extraPayload || {});
+      return this.runtimeRequest("issue", payload).then((response) => {
         this.currentIssued = response || {};
         this.currentPrepared = Object.assign({}, this.currentPrepared || {}, { issueId: response.issueId, state: response.state || "issued" });
         this.updateStateCards();
-        if (response && response.artifact && response.artifact.contentBase64) {
-          this.downloadPayload(response.artifact);
+        if (response && response.artifact) {
+          return global.PrintingBridgeClient.deliverPayload(response.artifact).then((delivery) => {
+            global.CrudUtils.showMessage(delivery.mode === "qz_tray" ? "Documento regulado enviado para impressao local." : "Documento regulado emitido.", "success");
+            return response;
+          });
         }
         global.CrudUtils.showMessage("Documento regulado emitido.", "success");
         return response;
@@ -267,27 +283,15 @@
         return Promise.resolve(null);
       }
       return this.runtimeRequest("artifact", { issueId: issueId }).then((response) => {
-        this.downloadPayload(response);
-        return response;
+        return global.PrintingBridgeClient.deliverPayload(response || {}).then(() => response);
       }).catch((error) => {
         this.handleError(error, "Nao foi possivel baixar o artefato emitido.");
         throw error;
       });
     }
 
-    downloadPayload(payload) {
-      const bytes = Uint8Array.from(global.atob(String(payload.contentBase64 || "")), function(char) {
-        return char.charCodeAt(0);
-      });
-      const blob = new Blob([bytes], { type: String(payload.contentType || "application/octet-stream") });
-      const href = global.URL.createObjectURL(blob);
-      const link = global.document.createElement("a");
-      link.href = href;
-      link.download = String(payload.fileName || "documento-regulado");
-      global.document.body.appendChild(link);
-      link.click();
-      link.remove();
-      global.URL.revokeObjectURL(href);
+    isQzTrayEnabled() {
+      return !!(this.definition && this.definition.regulatedDocument && this.definition.regulatedDocument.printing && this.definition.regulatedDocument.printing.qzTray && this.definition.regulatedDocument.printing.qzTray.enabled === true);
     }
 
     updateStateCards() {

@@ -111,6 +111,15 @@
           pdfBrowser: true,
           excel: true,
           csv: true
+        },
+        printing: {
+          deliveryMode: "download",
+          qzTray: {
+            enabled: false,
+            printerName: "",
+            jobName: "",
+            copies: 1
+          }
         }
       }, source.report || {});
       source.report.query = Object.assign({
@@ -242,6 +251,12 @@
           icon: "file-pdf",
           click: () => this.exportReport("pdf")
         }).data("kendoButton").element.text("PDF");
+        if (this.isQzTrayEnabled()) {
+          $("<button type=\"button\"></button>").appendTo(actions).kendoButton({
+            icon: "print",
+            click: () => this.exportReport("pdf", { deliveryMode: "qz_tray" })
+          }).data("kendoButton").element.text("Imprimir local");
+        }
       }
 
       const exportActions = $("<div class=\"report-export-actions\"></div>").appendTo(actions);
@@ -379,41 +394,36 @@
       });
     }
 
-    exportReport(format) {
-      return this.runtimeRequest("export", this.buildPayload({ format: format })).then((response) => {
+    exportReport(format, extraPayload) {
+      return this.runtimeRequest("export", this.buildPayload(Object.assign({ format: format }, extraPayload || {}))).then((response) => {
         const extension = format === "excel" ? "xlsx" : format;
         const fallbackType = format === "excel"
           ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           : (format === "pdf" ? "application/pdf" : "text/csv;charset=utf-8");
-        const name = String(response.fileName || ("relatorio." + extension)).trim();
-        const contentType = String(response.contentType || fallbackType).trim();
-        const contentBase64 = String(response.contentBase64 || "").trim();
-        if (!contentBase64) {
+        response = Object.assign({
+          fileName: "relatorio." + extension,
+          contentType: fallbackType
+        }, response || {});
+        if (!String(response.contentBase64 || "").trim()) {
           throw global.CrudUtils.makeError("REPORT_EXPORT_EMPTY", "O runtime nao devolveu conteudo para exportacao.");
         }
-        const bytes = Uint8Array.from(global.atob(contentBase64), function(char) {
-          return char.charCodeAt(0);
-        });
-        const blob = new Blob([bytes], { type: contentType });
-        const href = global.URL.createObjectURL(blob);
-        const link = global.document.createElement("a");
-        link.href = href;
-        link.download = name;
-        global.document.body.appendChild(link);
-        link.click();
-        link.remove();
-        global.URL.revokeObjectURL(href);
+        return global.PrintingBridgeClient.deliverPayload(response).then((delivery) => {
         const authenticity = response && response.authenticity;
         if (authenticity && authenticity.hash) {
-          global.CrudUtils.showMessage("Arquivo gerado. " + String(authenticity.footerLabel || "Codigo de autenticidade") + ": " + String(authenticity.hash), "success");
+          global.CrudUtils.showMessage((delivery.mode === "qz_tray" ? "Impressao local enviada. " : "Arquivo gerado. ") + String(authenticity.footerLabel || "Codigo de autenticidade") + ": " + String(authenticity.hash), "success");
         } else {
-          global.CrudUtils.showMessage("Arquivo gerado.", "success");
+          global.CrudUtils.showMessage(delivery.mode === "qz_tray" ? "Impressao local enviada." : "Arquivo gerado.", "success");
         }
+        });
       }).catch((error) => {
         const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel exportar o relatorio.");
         global.CrudUtils.showMessage(normalized.message, "error");
         throw error;
       });
+    }
+
+    isQzTrayEnabled() {
+      return !!(this.definition && this.definition.report && this.definition.report.printing && this.definition.report.printing.qzTray && this.definition.report.printing.qzTray.enabled === true);
     }
 
     renderEmpty() {
