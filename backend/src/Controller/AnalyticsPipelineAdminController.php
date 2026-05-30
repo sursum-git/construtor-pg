@@ -76,7 +76,8 @@ class AnalyticsPipelineAdminController extends AbstractController
             return $this->json($this->admin->publish(
                 trim((string) ($payload['screenId'] ?? '')),
                 trim((string) ($payload['pipelineId'] ?? '')),
-                trim((string) ($payload['executionId'] ?? ''))
+                trim((string) ($payload['executionId'] ?? '')),
+                ($payload['strictCompatibility'] ?? false) === true
             ));
         } catch (\Throwable $error) {
             return $this->error($error);

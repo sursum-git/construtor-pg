@@ -68,11 +68,12 @@ class RuntimeAnalyticsPipelineAdminService
         ];
     }
 
-    public function publish(string $screenId, string $pipelineId, string $executionId): array
+    public function publish(string $screenId, string $pipelineId, string $executionId, bool $strictCompatibility = false): array
     {
         return $this->pipelines->publish($screenId, [
             'pipelineId' => $pipelineId,
             'executionId' => $executionId,
+            'strictCompatibility' => $strictCompatibility,
         ]);
     }
 

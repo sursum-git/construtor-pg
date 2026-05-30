@@ -7,7 +7,7 @@ use Doctrine\DBAL\Connection;
 
 class RuntimeAnalyticsPipelineService
 {
-    private const STEP_TYPES = ['source', 'select', 'filter', 'join', 'derive', 'group', 'sort', 'limit', 'publish'];
+    private const STEP_TYPES = ['source', 'select', 'filter', 'having', 'join', 'derive', 'group', 'sort', 'limit', 'union', 'union_all', 'intersect', 'except', 'publish'];
     private const AGGREGATES = ['count', 'sum', 'avg', 'min', 'max', 'distinct_count'];
 
     public function __construct(
@@ -204,6 +204,14 @@ class RuntimeAnalyticsPipelineService
                 'pipelineId' => $pipeline['id'] ?? null,
             ]);
         }
+        $compatibility = $this->validatePublishCompatibility($screenId, $definition, $pipeline, $working, $tenantId);
+        $strictCompatibility = ($payload['strictCompatibility'] ?? false) === true
+            || strtolower(trim((string) ($pipeline['publishConfig']['compatibilityMode'] ?? 'warn'))) === 'block';
+        if ($strictCompatibility && ($compatibility['breaking'] ?? false) === true) {
+            throw new RuntimeHttpException('ANALYTICS_PIPELINE_COMPATIBILITY_BLOCKED', 'A publicacao foi bloqueada por quebra de compatibilidade com a versao ativa.', 422, [
+                'compatibility' => $compatibility,
+            ]);
+        }
         $version = $this->store->publishDatasetVersion([
             'tenantId' => $tenantId,
             'screenId' => $screenId,
@@ -232,6 +240,7 @@ class RuntimeAnalyticsPipelineService
             'executionId' => $executionId,
             'publishedDatasetId' => $publishedDatasetId,
             'publishedVersion' => $version,
+            'compatibility' => $compatibility,
         ];
     }
 
@@ -525,11 +534,13 @@ class RuntimeAnalyticsPipelineService
             'source' => $this->applySourceStep($definition, $working, $step, $tenantId, $payload),
             'select' => $this->applySelectStep($working, $step),
             'filter' => $this->applyFilterStep($working, $step),
+            'having' => $this->applyFilterStep($working, $step),
             'join' => $this->applyJoinStep($definition, $working, $step, $tenantId, $payload),
             'derive' => $this->applyDeriveStep($working, $step),
             'group' => $this->applyGroupStep($working, $step),
             'sort' => $this->applySortStep($working, $step),
             'limit' => $this->applyLimitStep($working, $step),
+            'union', 'union_all', 'intersect', 'except' => $this->applySetOperationStep($definition, $working, $step, $tenantId, $payload),
             'publish' => $this->applyPublishStep($working, $pipeline, $step),
             default => throw new RuntimeHttpException('ANALYTICS_PIPELINE_STEP_INVALID', 'Tipo de etapa do pipeline nao suportado.', 422, [
                 'stepId' => $step['id'] ?? null,
@@ -754,7 +765,9 @@ class RuntimeAnalyticsPipelineService
             return $working;
         }
         $type = match ($operation) {
-            'year', 'month', 'day', 'bucket_number', 'map_value' => 'string',
+            'length' => 'integer',
+            'add', 'subtract', 'multiply', 'divide' => 'decimal',
+            'year', 'month', 'day', 'date_bucket', 'bucket_number', 'map_value', 'upper', 'lower', 'trim', 'concat', 'substring', 'coalesce' => 'string',
             default => 'string',
         };
         $columns = is_array($working['columns'] ?? null) ? $working['columns'] : [];
@@ -778,11 +791,51 @@ class RuntimeAnalyticsPipelineService
                     $parts[] = isset($row[$field]) ? (string) $row[$field] : '';
                 }
                 $result[$targetField] = implode((string) ($step['separator'] ?? ' '), array_filter($parts, static fn ($item): bool => $item !== ''));
+            } elseif (in_array($operation, ['add', 'subtract', 'multiply', 'divide'], true)) {
+                $operands = [];
+                foreach ((array) ($step['fields'] ?? []) as $field) {
+                    $operands[] = is_numeric($row[$field] ?? null) ? (float) $row[$field] : null;
+                }
+                $operands = array_values(array_filter($operands, static fn ($item): bool => $item !== null));
+                if ($operands === []) {
+                    $result[$targetField] = null;
+                } else {
+                    $value = array_shift($operands);
+                    foreach ($operands as $operand) {
+                        $value = match ($operation) {
+                            'add' => $value + $operand,
+                            'subtract' => $value - $operand,
+                            'multiply' => $value * $operand,
+                            'divide' => $operand == 0.0 ? null : ($value / $operand),
+                            default => $value,
+                        };
+                        if ($value === null) {
+                            break;
+                        }
+                    }
+                    $result[$targetField] = $value;
+                }
             } elseif (in_array($operation, ['year', 'month', 'day'], true)) {
                 $sourceField = (string) ($step['sourceField'] ?? '');
                 $raw = trim((string) ($row[$sourceField] ?? ''));
                 $date = $raw !== '' ? strtotime($raw) : false;
                 $result[$targetField] = $date ? date($operation === 'year' ? 'Y' : ($operation === 'month' ? 'm' : 'd'), $date) : null;
+            } elseif ($operation === 'date_bucket') {
+                $sourceField = (string) ($step['sourceField'] ?? '');
+                $bucket = strtolower(trim((string) ($step['bucket'] ?? 'month')));
+                $raw = trim((string) ($row[$sourceField] ?? ''));
+                $date = $raw !== '' ? strtotime($raw) : false;
+                if (!$date) {
+                    $result[$targetField] = null;
+                } else {
+                    $result[$targetField] = match ($bucket) {
+                        'year' => date('Y', $date),
+                        'quarter' => date('Y', $date) . '-T' . (string) (int) ceil(((int) date('n', $date)) / 3),
+                        'week' => date('o-\WW', $date),
+                        'day' => date('Y-m-d', $date),
+                        default => date('Y-m', $date),
+                    };
+                }
             } elseif ($operation === 'coalesce') {
                 $value = null;
                 foreach ((array) ($step['fields'] ?? []) as $field) {
@@ -822,6 +875,22 @@ class RuntimeAnalyticsPipelineService
                     }
                 }
                 $result[$targetField] = $mapped;
+            } elseif (in_array($operation, ['upper', 'lower', 'trim', 'length'], true)) {
+                $sourceField = (string) ($step['sourceField'] ?? '');
+                $value = isset($row[$sourceField]) ? (string) $row[$sourceField] : '';
+                $result[$targetField] = match ($operation) {
+                    'upper' => mb_strtoupper($value),
+                    'lower' => mb_strtolower($value),
+                    'trim' => trim($value),
+                    'length' => mb_strlen($value),
+                    default => $value,
+                };
+            } elseif ($operation === 'substring') {
+                $sourceField = (string) ($step['sourceField'] ?? '');
+                $start = max(0, (int) ($step['start'] ?? 0));
+                $length = array_key_exists('length', $step) ? max(0, (int) $step['length']) : null;
+                $value = isset($row[$sourceField]) ? (string) $row[$sourceField] : '';
+                $result[$targetField] = $length === null ? mb_substr($value, $start) : mb_substr($value, $start, $length);
             }
 
             return $result;
@@ -964,6 +1033,44 @@ class RuntimeAnalyticsPipelineService
         return [
             'columns' => $working['columns'] ?? [],
             'rows' => array_slice((array) ($working['rows'] ?? []), $skip, $take),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $definition
+     * @param array<string, mixed> $working
+     * @param array<string, mixed> $step
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function applySetOperationStep(array $definition, array $working, array $step, string $tenantId, array $payload): array
+    {
+        $operation = strtolower(trim((string) ($step['type'] ?? 'union')));
+        $target = $this->resolveSetOperationDataset($definition, $step, $tenantId, $payload);
+        if (!is_array($target)) {
+            return $working;
+        }
+        $this->assertWorkingDatasetCompatibility($working, $target, 'ANALYTICS_PIPELINE_SET_SCHEMA_INVALID', 'Operacao de conjunto exige datasets com colunas compativeis.', [
+            'stepId' => $step['id'] ?? null,
+            'stepType' => $operation,
+        ]);
+        $columns = is_array($working['columns'] ?? null) ? $working['columns'] : [];
+        $leftRows = array_values(array_filter((array) ($working['rows'] ?? []), 'is_array'));
+        $rightRows = array_values(array_filter((array) ($target['rows'] ?? []), 'is_array'));
+        $leftMap = $this->workingDatasetRowMap($leftRows, $columns);
+        $rightMap = $this->workingDatasetRowMap($rightRows, $columns);
+
+        $rows = match ($operation) {
+            'union' => array_values(array_merge($leftMap, array_diff_key($rightMap, $leftMap))),
+            'union_all' => array_values(array_merge($leftRows, $rightRows)),
+            'intersect' => array_values(array_intersect_key($leftMap, $rightMap)),
+            'except' => array_values(array_diff_key($leftMap, $rightMap)),
+            default => $leftRows,
+        };
+
+        return [
+            'columns' => $columns,
+            'rows' => $rows,
         ];
     }
 
@@ -1212,6 +1319,244 @@ class RuntimeAnalyticsPipelineService
             'isnotnull' => $current !== null && $current !== '',
             default => true,
         };
+    }
+
+    /**
+     * @param array<string, mixed> $definition
+     * @param array<string, mixed> $step
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>|null
+     */
+    private function resolveSetOperationDataset(array $definition, array $step, string $tenantId, array $payload): ?array
+    {
+        $entityCode = trim((string) ($step['entityCode'] ?? $step['sourceEntityCode'] ?? ''));
+        $datasetId = trim((string) ($step['datasetId'] ?? $step['sourceDatasetId'] ?? ''));
+        $pipelineId = trim((string) ($step['sourcePipelineId'] ?? ''));
+        if ($entityCode !== '') {
+            return $this->loadEntityWorkingDataset($entityCode, $tenantId, $payload);
+        }
+        if ($datasetId !== '') {
+            return $this->loadDatasetWorkingDataset($definition, $datasetId, $tenantId, $payload);
+        }
+        if ($pipelineId !== '') {
+            return $this->loadPipelinePublishedWorkingDataset($definition, $pipelineId, $tenantId);
+        }
+
+        return null;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $rows
+     * @param list<array<string, mixed>> $columns
+     * @return array<string, array<string, mixed>>
+     */
+    private function workingDatasetRowMap(array $rows, array $columns): array
+    {
+        $map = [];
+        foreach ($rows as $row) {
+            $map[$this->workingDatasetRowFingerprint($row, $columns)] = $row;
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @param list<array<string, mixed>> $columns
+     */
+    private function workingDatasetRowFingerprint(array $row, array $columns): string
+    {
+        $normalized = [];
+        foreach ($columns as $column) {
+            $field = (string) ($column['field'] ?? $column['id'] ?? '');
+            if ($field === '') {
+                continue;
+            }
+            $normalized[$field] = $row[$field] ?? null;
+        }
+
+        return hash('sha256', (string) json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    }
+
+    /**
+     * @param array<string, mixed> $left
+     * @param array<string, mixed> $right
+     * @param array<string, mixed> $details
+     */
+    private function assertWorkingDatasetCompatibility(array $left, array $right, string $errorCode, string $message, array $details = []): void
+    {
+        $leftColumns = is_array($left['columns'] ?? null) ? $left['columns'] : [];
+        $rightColumns = is_array($right['columns'] ?? null) ? $right['columns'] : [];
+        $leftMap = [];
+        $rightMap = [];
+        foreach ($leftColumns as $column) {
+            if (is_array($column) && !empty($column['field'])) {
+                $leftMap[(string) $column['field']] = (string) ($column['type'] ?? 'string');
+            }
+        }
+        foreach ($rightColumns as $column) {
+            if (is_array($column) && !empty($column['field'])) {
+                $rightMap[(string) $column['field']] = (string) ($column['type'] ?? 'string');
+            }
+        }
+        if (array_keys($leftMap) !== array_keys($rightMap)) {
+            throw new RuntimeHttpException($errorCode, $message, 422, $details + [
+                'leftFields' => array_keys($leftMap),
+                'rightFields' => array_keys($rightMap),
+            ]);
+        }
+        foreach ($leftMap as $field => $type) {
+            if (($rightMap[$field] ?? null) !== $type) {
+                throw new RuntimeHttpException($errorCode, $message, 422, $details + [
+                    'field' => $field,
+                    'leftType' => $type,
+                    'rightType' => $rightMap[$field] ?? null,
+                ]);
+            }
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $definition
+     * @param array<string, mixed> $pipeline
+     * @param array<string, mixed> $working
+     * @return array<string, mixed>
+     */
+    private function validatePublishCompatibility(string $screenId, array $definition, array $pipeline, array $working, string $tenantId): array
+    {
+        $publishedDatasetId = $this->publishedDatasetId($pipeline);
+        $active = $publishedDatasetId !== '' ? $this->store->activePublishedDatasetVersion($tenantId, $screenId, $publishedDatasetId) : null;
+        $activeData = is_array($active['data'] ?? null) ? $active['data'] : [];
+        $activeColumns = is_array($activeData['columns'] ?? null) ? $activeData['columns'] : [];
+        $workingColumns = is_array($working['columns'] ?? null) ? $working['columns'] : [];
+        $activeMap = [];
+        $workingMap = [];
+        foreach ($activeColumns as $column) {
+            if (is_array($column) && !empty($column['field'])) {
+                $activeMap[(string) $column['field']] = (string) ($column['type'] ?? 'string');
+            }
+        }
+        foreach ($workingColumns as $column) {
+            if (is_array($column) && !empty($column['field'])) {
+                $workingMap[(string) $column['field']] = (string) ($column['type'] ?? 'string');
+            }
+        }
+        $added = [];
+        $removed = [];
+        $changed = [];
+        foreach ($workingMap as $field => $type) {
+            if (!isset($activeMap[$field])) {
+                $added[] = $field;
+            }
+        }
+        foreach ($activeMap as $field => $type) {
+            if (!isset($workingMap[$field])) {
+                $removed[] = $field;
+                continue;
+            }
+            if ($workingMap[$field] !== $type) {
+                $changed[] = [
+                    'field' => $field,
+                    'before' => $type,
+                    'after' => $workingMap[$field],
+                ];
+            }
+        }
+        $impact = $this->buildPublishImpact($definition, $screenId, (string) ($pipeline['id'] ?? ''), $publishedDatasetId);
+
+        return [
+            'checkedAt' => (new \DateTimeImmutable())->format(DATE_ATOM),
+            'activeVersionNo' => $active['versionNo'] ?? null,
+            'publishedDatasetId' => $publishedDatasetId,
+            'rowDelta' => count((array) ($working['rows'] ?? [])) - count((array) ($activeData['rows'] ?? [])),
+            'columnDelta' => count($workingColumns) - count($activeColumns),
+            'addedColumns' => $added,
+            'removedColumns' => $removed,
+            'changedTypes' => $changed,
+            'impact' => $impact,
+            'breaking' => ($removed !== [] || $changed !== [])
+                && (((int) ($impact['summary']['views'] ?? 0)) > 0 || ((int) ($impact['summary']['reports'] ?? 0)) > 0),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $definition
+     * @return array<string, mixed>
+     */
+    private function buildPublishImpact(array $definition, string $screenId, string $pipelineId, string $publishedDatasetId): array
+    {
+        $analytics = is_array($definition['analytics'] ?? null) ? $definition['analytics'] : [];
+        $datasets = is_array($analytics['datasets'] ?? null) ? $analytics['datasets'] : [];
+        $views = is_array($analytics['views'] ?? null) ? $analytics['views'] : [];
+        $consumingDatasets = [];
+        $consumingDatasetIds = [];
+        foreach ($datasets as $dataset) {
+            if (!is_array($dataset)) {
+                continue;
+            }
+            $source = is_array($dataset['source'] ?? null) ? $dataset['source'] : [];
+            if (($source['type'] ?? '') !== 'pipeline_published') {
+                continue;
+            }
+            $matchesPipeline = (string) ($source['pipelineId'] ?? '') === $pipelineId;
+            $matchesPublished = $publishedDatasetId !== '' && (string) ($source['publishedDatasetId'] ?? '') === $publishedDatasetId;
+            if (!$matchesPipeline && !$matchesPublished) {
+                continue;
+            }
+            $consumingDatasets[] = [
+                'datasetId' => (string) ($dataset['id'] ?? ''),
+                'title' => (string) ($dataset['title'] ?? $dataset['id'] ?? ''),
+            ];
+            $consumingDatasetIds[] = (string) ($dataset['id'] ?? '');
+        }
+        $affectedViews = [];
+        foreach ($views as $view) {
+            if (!is_array($view)) {
+                continue;
+            }
+            $datasetId = (string) ($view['datasetId'] ?? '');
+            if ($datasetId === '' || !in_array($datasetId, $consumingDatasetIds, true)) {
+                continue;
+            }
+            $affectedViews[] = [
+                'viewId' => (string) ($view['id'] ?? ''),
+                'title' => (string) ($view['title'] ?? $view['id'] ?? ''),
+                'type' => (string) ($view['type'] ?? ''),
+                'datasetId' => $datasetId,
+            ];
+        }
+        $affectedReports = [];
+        foreach ($this->screens->findBy(['pageType' => 'report', 'status' => 'published'], ['screenId' => 'ASC']) as $reportScreen) {
+            $reportDefinition = $reportScreen->getDefinition();
+            $report = is_array($reportDefinition['report'] ?? null) ? $reportDefinition['report'] : [];
+            $source = is_array($report['source'] ?? null) ? $report['source'] : [];
+            if (($source['type'] ?? '') !== 'analytic') {
+                continue;
+            }
+            if ((string) ($source['analyticsScreenId'] ?? '') !== $screenId) {
+                continue;
+            }
+            if (!in_array((string) ($source['analyticsDatasetId'] ?? ''), $consumingDatasetIds, true)) {
+                continue;
+            }
+            $affectedReports[] = [
+                'screenId' => $reportScreen->getScreenId(),
+                'reportId' => (string) ($report['id'] ?? $reportScreen->getScreenId()),
+                'title' => (string) ($report['title'] ?? $reportScreen->getScreenId()),
+                'datasetId' => (string) ($source['analyticsDatasetId'] ?? ''),
+            ];
+        }
+
+        return [
+            'consumingDatasets' => $consumingDatasets,
+            'affectedViews' => $affectedViews,
+            'affectedReports' => $affectedReports,
+            'summary' => [
+                'datasets' => count($consumingDatasets),
+                'views' => count($affectedViews),
+                'reports' => count($affectedReports),
+            ],
+        ];
     }
 
     private function publishedDatasetId(array $pipeline): string

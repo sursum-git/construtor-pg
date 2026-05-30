@@ -261,6 +261,7 @@
         "enabled": { "type": "boolean" },
         "sourceEntityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
         "sourceDatasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+        "sourcePipelineId": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
         "steps": {
           "type": "array",
           "items": { "$ref": "#/$defs/pipelineStep" }
@@ -271,7 +272,8 @@
           "properties": {
             "publishedDatasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
             "title": { "type": "string" },
-            "visibility": { "enum": ["internal", "shared"] }
+            "visibility": { "enum": ["internal", "shared"] },
+            "compatibilityMode": { "enum": ["warn", "block"] }
           },
           "additionalProperties": false
         },
@@ -285,17 +287,30 @@
       "required": ["id", "type"],
       "properties": {
         "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-        "type": { "enum": ["source", "select", "filter", "join", "derive", "group", "sort", "limit", "publish"] },
+        "type": { "enum": ["source", "select", "filter", "having", "join", "derive", "group", "sort", "limit", "union", "union_all", "intersect", "except", "publish"] },
         "sourceEntityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
         "sourceDatasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
         "sourcePipelineId": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
         "publishedDatasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
         "title": { "type": "string" },
         "field": { "type": "string" },
+        "operation": { "type": "string" },
+        "targetField": { "type": "string" },
+        "sourceField": { "type": "string" },
+        "separator": { "type": "string" },
+        "bucket": { "enum": ["year", "quarter", "month", "week", "day"] },
+        "joinType": { "enum": ["left", "inner"] },
+        "localField": { "type": "string" },
+        "foreignField": { "type": "string" },
+        "datasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+        "entityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "defaultLabel": { "type": "string" },
         "dir": { "enum": ["asc", "desc"] },
         "take": { "type": "integer", "minimum": 0, "maximum": 5000 },
         "skip": { "type": "integer", "minimum": 0, "maximum": 5000 },
         "limit": { "type": "integer", "minimum": 0, "maximum": 5000 },
+        "start": { "type": "integer", "minimum": 0, "maximum": 5000 },
+        "length": { "type": "integer", "minimum": 0, "maximum": 5000 },
         "fields": {
           "type": "array",
           "items": {
@@ -347,11 +362,36 @@
             "properties": {
               "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
               "label": { "type": "string" },
-              "function": { "enum": ["concat", "date_part", "coalesce", "bucket_number", "map_value"] },
+              "function": { "enum": ["concat", "date_part", "coalesce", "bucket_number", "map_value", "add", "subtract", "multiply", "divide", "upper", "lower", "trim", "substring", "length", "date_bucket"] },
               "type": { "type": "string" },
               "args": { "type": "array" },
               "options": { "type": "object", "additionalProperties": true }
             },
+            "additionalProperties": false
+          }
+        },
+        "ranges": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from": { "type": "number" },
+              "to": { "type": "number" },
+              "label": { "type": "string" }
+            },
+            "required": ["label"],
+            "additionalProperties": false
+          }
+        },
+        "cases": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "string" },
+              "label": { "type": "string" }
+            },
+            "required": ["value", "label"],
             "additionalProperties": false
           }
         },

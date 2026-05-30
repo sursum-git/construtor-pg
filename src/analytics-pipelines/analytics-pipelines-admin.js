@@ -382,7 +382,8 @@
     return this.request("POST", "/api/admin/analytics-pipelines/publish", {
       screenId: this.currentEntry.screenId,
       pipelineId: this.currentEntry.pipelineId,
-      executionId: executionId
+      executionId: executionId,
+      strictCompatibility: true
     }).then(function() {
       return this.loadRows();
     }.bind(this));

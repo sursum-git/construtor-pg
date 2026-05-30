@@ -4265,7 +4265,7 @@
     const step = { element: row };
     step.idInput = $("<input type=\"text\" class=\"program-builder-mini-input\">").val(item.id || "").appendTo($("<td></td>").appendTo(row));
     step.typeSelect = $("<select class=\"program-builder-mini-select\"></select>").appendTo($("<td></td>").appendTo(row));
-    ["source", "select", "filter", "join", "derive", "group", "sort", "limit", "publish"].forEach(function(type) {
+    ["source", "select", "filter", "having", "join", "derive", "group", "sort", "limit", "union", "union_all", "intersect", "except", "publish"].forEach(function(type) {
       $("<option></option>").attr("value", type).text(type).appendTo(step.typeSelect);
     });
     step.typeSelect.val(item.type || "group");
@@ -4355,10 +4355,10 @@
       if (type === "publish") {
         return { id: id, type: "publish", title: fieldA || null };
       }
-      if (type === "filter") {
+      if (type === "filter" || type === "having") {
         return {
           id: id,
-          type: "filter",
+          type: type,
           filters: this.analyticsParseStepPairs(configText).map(function(item) {
             const parts = item.split(":");
             return { field: String(parts[0] || "").trim(), operator: String(parts[1] || "eq").trim(), value: String(parts.slice(2).join(":") || "").trim() };
@@ -4413,8 +4413,8 @@
           targetField: fieldB || "",
           sourceField: fieldC || ""
         };
-        if (derive.operation === "concat" || derive.operation === "coalesce") {
-          derive.fields = this.analyticsParseStepPairs(configText);
+        if (["concat", "coalesce", "add", "subtract", "multiply", "divide"].indexOf(derive.operation) >= 0) {
+          derive.fields = this.analyticsParseStepPairs([fieldC, configText].filter(Boolean).join(","));
         } else if (derive.operation === "bucket_number") {
           derive.ranges = this.analyticsParseStepPairs(configText).map(function(item) {
             const parts = item.split(":");
@@ -4425,8 +4425,27 @@
             const parts = item.split(":");
             return { value: String(parts[0] || "").trim(), label: String(parts[1] || "").trim() };
           }).filter(function(item) { return !!item.value; });
+        } else if (derive.operation === "date_bucket") {
+          derive.bucket = configText || "month";
+        } else if (derive.operation === "substring") {
+          const parts = String(configText || "").split(":");
+          derive.start = Math.max(0, Number(parts[0] || 0) || 0);
+          if (String(parts[1] || "").trim() !== "") {
+            derive.length = Math.max(0, Number(parts[1] || 0) || 0);
+          }
         }
         return derive;
+      }
+      if (["union", "union_all", "intersect", "except"].indexOf(type) >= 0) {
+        const setStep = { id: id, type: type };
+        if (fieldA === "dataset") {
+          setStep.sourceDatasetId = fieldB;
+        } else if (fieldA === "pipeline") {
+          setStep.sourcePipelineId = fieldB;
+        } else {
+          setStep.sourceEntityCode = fieldB;
+        }
+        return setStep;
       }
       if (type === "source") {
         const source = { id: id, type: "source" };
@@ -4686,7 +4705,7 @@
               row.fieldA = String(step.take || "");
             } else if (step.type === "publish") {
               row.fieldA = step.title || "";
-            } else if (step.type === "filter") {
+            } else if (step.type === "filter" || step.type === "having") {
               row.configText = (step.filters || []).map(function(filter) {
                 return [filter.field, filter.operator || "eq", filter.value].join(":");
               }).join(";");
@@ -4709,7 +4728,10 @@
                 return [range.from, range.to, range.label].join(":");
               }).join(";") || (step.cases || []).map(function(item) {
                 return [item.value, item.label].join(":");
-              }).join(";");
+              }).join(";") || (step.operation === "date_bucket" ? (step.bucket || "month") : "") || (step.operation === "substring" ? [step.start || 0, step.length || ""].join(":") : "");
+            } else if (step.type === "union" || step.type === "union_all" || step.type === "intersect" || step.type === "except") {
+              row.fieldA = step.sourceDatasetId ? "dataset" : (step.sourcePipelineId ? "pipeline" : "entity");
+              row.fieldB = step.sourceDatasetId || step.sourcePipelineId || step.sourceEntityCode || "";
             } else if (step.type === "source") {
               row.fieldA = step.sourceDatasetId ? "dataset" : (step.sourcePipelineId ? "pipeline" : "entity");
               row.fieldB = step.sourceDatasetId || step.sourcePipelineId || step.sourceEntityCode || "";
@@ -7390,7 +7412,8 @@
     }
     return this.analyticsRuntimeRequest("pipelinePublish", {
       pipelineId: pipeline.id || "",
-      executionId: executionId
+      executionId: executionId,
+      strictCompatibility: true
     }).then(function(response) {
       return this.handleLoadAnalyticsPipelineVersions().then(function() {
         this.renderDiagnostics();

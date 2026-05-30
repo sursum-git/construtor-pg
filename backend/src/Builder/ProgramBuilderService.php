@@ -3817,24 +3817,24 @@ class ProgramBuilderService
                 }
                 $stepId = $this->safeCode((string) ($step['id'] ?? ('step' . ($stepIndex + 1))));
                 $stepType = strtolower(trim((string) ($step['type'] ?? '')));
-                if ($stepId === '' || !in_array($stepType, ['source', 'select', 'filter', 'join', 'derive', 'group', 'sort', 'limit', 'publish'], true)) {
+                if ($stepId === '' || !in_array($stepType, ['source', 'select', 'filter', 'having', 'join', 'derive', 'group', 'sort', 'limit', 'union', 'union_all', 'intersect', 'except', 'publish'], true)) {
                     continue;
                 }
                 $normalizedStep = [
                     'id' => $stepId,
                     'type' => $stepType,
                 ];
-                foreach (['sourceEntityCode', 'sourceDatasetId', 'sourcePipelineId', 'publishedDatasetId', 'title', 'field', 'dir'] as $key) {
+                foreach (['sourceEntityCode', 'sourceDatasetId', 'sourcePipelineId', 'publishedDatasetId', 'title', 'field', 'dir', 'operation', 'targetField', 'sourceField', 'separator', 'bucket', 'joinType', 'localField', 'foreignField', 'datasetId', 'entityCode', 'defaultLabel'] as $key) {
                     if (array_key_exists($key, $step) && $step[$key] !== null && $step[$key] !== '') {
                         $normalizedStep[$key] = is_string($step[$key]) ? trim((string) $step[$key]) : $step[$key];
                     }
                 }
-                foreach (['fields', 'filters', 'join', 'joins', 'derive', 'group', 'sort'] as $key) {
+                foreach (['fields', 'filters', 'join', 'joins', 'derive', 'group', 'sort', 'ranges', 'cases'] as $key) {
                     if (array_key_exists($key, $step) && is_array($step[$key])) {
                         $normalizedStep[$key] = $step[$key];
                     }
                 }
-                foreach (['take', 'skip', 'limit'] as $key) {
+                foreach (['take', 'skip', 'limit', 'start', 'length'] as $key) {
                     if (array_key_exists($key, $step) && $step[$key] !== null && $step[$key] !== '') {
                         $normalizedStep[$key] = max(0, (int) $step[$key]);
                     }
@@ -3852,11 +3852,13 @@ class ProgramBuilderService
                 'enabled' => ($item['enabled'] ?? true) !== false,
                 'sourceEntityCode' => trim((string) ($item['sourceEntityCode'] ?? $entity->getCode())),
                 'sourceDatasetId' => trim((string) ($item['sourceDatasetId'] ?? '')),
+                'sourcePipelineId' => trim((string) ($item['sourcePipelineId'] ?? '')),
                 'steps' => $steps,
                 'publishConfig' => [
                     'publishedDatasetId' => $publishedDatasetId,
                     'title' => trim((string) ($publishConfig['title'] ?? $title)) ?: $title,
                     'visibility' => strtolower(trim((string) ($publishConfig['visibility'] ?? 'internal'))) === 'shared' ? 'shared' : 'internal',
+                    'compatibilityMode' => strtolower(trim((string) ($publishConfig['compatibilityMode'] ?? 'warn'))) === 'block' ? 'block' : 'warn',
                 ],
                 'schedule' => is_array($item['schedule'] ?? null) ? $item['schedule'] : [],
                 'retention' => is_array($item['retention'] ?? null) ? $item['retention'] : [],

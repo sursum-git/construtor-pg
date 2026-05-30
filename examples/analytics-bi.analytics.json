@@ -150,6 +150,80 @@
         },
         "schedule": { "mode": "manual" },
         "retention": { "keepDays": 30 }
+      },
+      {
+        "id": "clientes_ce_brutos",
+        "title": "Clientes CE brutos",
+        "enabled": true,
+        "sourcePipelineId": "clientes_base",
+        "steps": [
+          { "id": "filter_ce", "type": "filter", "filters": [{ "field": "uf", "operator": "eq", "value": "CE" }] },
+          { "id": "publish_ce", "type": "publish", "title": "Clientes CE brutos" }
+        ],
+        "publishConfig": {
+          "publishedDatasetId": "clientes_ce_brutos_published",
+          "title": "Clientes CE brutos"
+        },
+        "schedule": { "mode": "manual" },
+        "retention": { "keepDays": 30 }
+      },
+      {
+        "id": "clientes_sp_brutos",
+        "title": "Clientes SP brutos",
+        "enabled": true,
+        "sourcePipelineId": "clientes_base",
+        "steps": [
+          { "id": "filter_sp", "type": "filter", "filters": [{ "field": "uf", "operator": "eq", "value": "SP" }] },
+          { "id": "publish_sp", "type": "publish", "title": "Clientes SP brutos" }
+        ],
+        "publishConfig": {
+          "publishedDatasetId": "clientes_sp_brutos_published",
+          "title": "Clientes SP brutos"
+        },
+        "schedule": { "mode": "manual" },
+        "retention": { "keepDays": 30 }
+      },
+      {
+        "id": "clientes_ce_sp_union",
+        "title": "Clientes CE + SP",
+        "enabled": true,
+        "sourcePipelineId": "clientes_ce_brutos",
+        "steps": [
+          { "id": "union_sp", "type": "union", "sourcePipelineId": "clientes_sp_brutos" },
+          { "id": "derive_status_upper", "type": "derive", "operation": "upper", "targetField": "status_maiusculo", "sourceField": "status" },
+          { "id": "publish_union", "type": "publish", "title": "Clientes CE + SP" }
+        ],
+        "publishConfig": {
+          "publishedDatasetId": "clientes_ce_sp_union_published",
+          "title": "Clientes CE + SP"
+        },
+        "schedule": { "mode": "manual" },
+        "retention": { "keepDays": 30 }
+      },
+      {
+        "id": "clientes_uf_having",
+        "title": "UFs com having",
+        "enabled": true,
+        "sourcePipelineId": "clientes_base",
+        "steps": [
+          {
+            "id": "group_uf_having",
+            "type": "group",
+            "dimensions": ["uf"],
+            "measures": [
+              { "field": "id", "aggregate": "count", "id": "clientes", "label": "Clientes" },
+              { "field": "valor_total", "aggregate": "sum", "id": "valor_total_sum", "label": "Valor total", "format": "c2" }
+            ]
+          },
+          { "id": "having_clientes", "type": "having", "filters": [{ "field": "clientes", "operator": "gte", "value": 2 }] },
+          { "id": "publish_having", "type": "publish", "title": "UFs com having" }
+        ],
+        "publishConfig": {
+          "publishedDatasetId": "clientes_uf_having_published",
+          "title": "UFs com having"
+        },
+        "schedule": { "mode": "manual" },
+        "retention": { "keepDays": 30 }
       }
     ],
     "ingestionPipelines": [],

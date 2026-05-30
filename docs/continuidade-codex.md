@@ -905,6 +905,8 @@ Implementado ate agora, em nivel demo/frontend:
   - o Program Builder agora expoe configuracao simples de semantic pipelines, preview de working dataset, execucao, publicacao versionada e rollback;
   - builder e admin agora mostram `working dataset`, `dataset publicado`, `versao ativa`, diff entre versoes e alerta de quebra de contrato antes do publish;
   - a administracao recebeu o endpoint `/api/admin/analytics-pipelines/impact` para relacionar datasets consumidores, views analytics e reports impactados pelo publish.
+  - o pipeline agora aceita `having` explicito, operacoes de conjunto `union|union_all|intersect|except` e campos calculados fechados adicionais como `add`, `subtract`, `multiply`, `divide`, `upper`, `lower`, `trim`, `substring`, `length` e `date_bucket`;
+  - o publish pode validar compatibilidade com a versao ativa e bloquear quebra de contrato quando chamado com `strictCompatibility=true` ou quando o pipeline usar `publishConfig.compatibilityMode=block`.
 - Camada `reports` v1 nativa:
   - `pageType=report` com `ReportEngine` em `src/report-engine/ReportEngine.js`;
   - schema em `public/metadata/schemas/report-definition-v1.schema.json`;
