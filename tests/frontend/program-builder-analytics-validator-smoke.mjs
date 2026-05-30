@@ -49,8 +49,13 @@ async function main() {
     await page.getByRole("button", { name: "Executar pipeline" }).click();
     await page.getByRole("button", { name: "Versoes" }).click();
     await page.waitForFunction(() => {
-      const blocks = Array.from(document.querySelectorAll(".program-builder-json-preview"));
-      return blocks.some((item) => item.textContent.includes("\"activeVersion\""));
+      const text = document.body.textContent || "";
+      return text.includes("Dataset publicado e comparacao");
+    }, null, { timeout: 10000 });
+
+    await page.waitForFunction(() => {
+      const text = document.body.textContent || "";
+      return text.includes("Impacto antes do publish");
     }, null, { timeout: 10000 });
 
     await page.getByRole("button", { name: "Status do cache" }).click();

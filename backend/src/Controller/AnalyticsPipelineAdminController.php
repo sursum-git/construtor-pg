@@ -131,6 +131,22 @@ class AnalyticsPipelineAdminController extends AbstractController
         }
     }
 
+    #[Route('/impact', methods: ['GET'])]
+    public function impact(Request $request): JsonResponse
+    {
+        try {
+            $this->sessions->ensureActive();
+            $this->ensureReadPermission();
+
+            return $this->json($this->admin->impact(
+                trim((string) $request->query->get('screenId', '')),
+                trim((string) $request->query->get('pipelineId', ''))
+            ));
+        } catch (\Throwable $error) {
+            return $this->error($error);
+        }
+    }
+
     #[Route('/rollback', methods: ['POST'])]
     public function rollback(Request $request): JsonResponse
     {

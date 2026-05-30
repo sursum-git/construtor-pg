@@ -73,6 +73,25 @@
             if (url === "/api/admin/analytics-pipelines/versions" && method === "GET") {
               return Promise.resolve(client.routeAnalyticsClientesEndpoint("analytics.clientes", "analytics.pipeline.versions", data));
             }
+            if (url === "/api/admin/analytics-pipelines/impact" && method === "GET") {
+              return Promise.resolve({
+                screenId: "analytics.clientes",
+                pipelineId: "clientes_uf_status",
+                publishedDatasetId: "clientes_uf_status_published",
+                consumingDatasets: [
+                  { datasetId: "clientes-uf-status", title: "Clientes por UF e status", publishedDatasetId: "clientes_uf_status_published" }
+                ],
+                affectedViews: [
+                  { viewId: "grid", title: "Grid", type: "grid", datasetId: "clientes-uf-status" },
+                  { viewId: "chart", title: "Grafico", type: "chart", datasetId: "clientes-uf-status" },
+                  { viewId: "pivot", title: "Pivot", type: "pivot", datasetId: "clientes-uf-status" }
+                ],
+                affectedReports: [
+                  { screenId: "relatorios.clientes-analitico", reportId: "relatorio-clientes-analitico", title: "Relatorio analitico de clientes", datasetId: "clientes-uf-status" }
+                ],
+                summary: { datasets: 1, views: 3, reports: 1 }
+              });
+            }
             if (url === "/api/admin/analytics-pipelines/run" && method === "POST") {
               return Promise.resolve(client.routeAnalyticsClientesEndpoint("analytics.clientes", "analytics.pipeline.run", data));
             }

@@ -2044,14 +2044,16 @@
           type: "Tela custom de operacao",
           route: "../../examples/pages/admin-analytics-pipelines.html",
           screenId: "admin.analytics-pipelines",
-          summary: "Operacao basica dos pipelines semanticos versionados da camada BI, com execucao, publicacao e rollback.",
+          summary: "Operacao dos pipelines semanticos versionados da camada BI, com working dataset, diff antes do publish, impacto em consumidores, publicacao e rollback.",
           functional: {
             objective: "Acompanhar working dataset, execucoes e versoes publicadas dos pipelines semanticos sem abrir SQL ou script livre.",
             scope: [
               "Consulta do status de execucao do pipeline.",
+              "Revisao do working dataset antes do publish.",
+              "Comparacao entre versao ativa e nova execucao.",
               "Publicacao de versao ativa do dataset publicado.",
               "Rollback para versao anterior.",
-              "Leitura do historico resumido de execucoes."
+              "Leitura do historico resumido de execucoes e impacto em views/reports."
             ],
             outputs: [
               "Visao operacional da camada BI semantica versionada."
@@ -2067,6 +2069,7 @@
               "Abrir a tela administrativa de pipelines analytics.",
               "Selecionar o pipeline desejado na grade.",
               "Executar o pipeline para gerar working dataset candidato.",
+              "Revisar diff, contrato e impacto antes de publicar.",
               "Publicar a versao gerada e, quando necessario, acionar rollback."
             ],
             cautions: [

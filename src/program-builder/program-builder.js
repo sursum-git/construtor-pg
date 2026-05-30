@@ -6968,10 +6968,11 @@
       const pipelineActions = $("<div class=\"program-builder-inline-actions\"></div>").appendTo(pipelineRunner);
       $("<button type=\"button\"></button>").text("Preview pipeline").appendTo(pipelineActions).kendoButton({ icon: "eye", click: this.handlePreviewAnalyticsPipeline.bind(this) });
       $("<button type=\"button\"></button>").text("Executar pipeline").appendTo(pipelineActions).kendoButton({ icon: "play", click: this.handleRunAnalyticsPipeline.bind(this) });
-      $("<button type=\"button\"></button>").text("Publicar versao").appendTo(pipelineActions).kendoButton({ icon: "upload", click: this.handlePublishAnalyticsPipeline.bind(this) });
+      $("<button type=\"button\"></button>").text("Publicar versao ativa").appendTo(pipelineActions).kendoButton({ icon: "upload", click: this.handlePublishAnalyticsPipeline.bind(this) });
       $("<button type=\"button\"></button>").text("Versoes").appendTo(pipelineActions).kendoButton({ icon: "track-changes", click: this.handleLoadAnalyticsPipelineVersions.bind(this) });
       $("<button type=\"button\"></button>").text("Rollback").appendTo(pipelineActions).kendoButton({ icon: "undo", click: this.handleRollbackAnalyticsPipeline.bind(this) });
       const pipelineResultHost = $("<div class=\"program-builder-analytics-results\"></div>").appendTo(pipelineRunner);
+      $("<p class=\"program-builder-analytics-runtime-meta\"></p>").text("Sequencia segura: executar, revisar working dataset e so entao publicar a versao ativa.").appendTo(pipelineResultHost);
       this.renderAnalyticsPipelineFeedback(pipelineResultHost, state);
     }
   };
@@ -7451,6 +7452,11 @@
   };
 
   ProgramBuilder.prototype.renderAnalyticsPipelineFeedback = function(container, state) {
+    const definition = this.collectProgramPayload().generatedDefinition || {};
+    const impact = this.collectAnalyticsPipelineImpact(definition, state);
+    const activeVersion = state.pipelineVersions && state.pipelineVersions.activeVersion || null;
+    const working = state.pipelinePreview && state.pipelinePreview.workingDataset || null;
+    const comparison = this.compareAnalyticsPipelineDatasets(activeVersion && activeVersion.data || null, working);
     const previewHost = $("<div class=\"program-builder-analytics-runtime-block\"></div>").appendTo(container);
     $("<h5></h5>").text("Working dataset").appendTo(previewHost);
     if (state.pipelinePreviewError) {
@@ -7458,8 +7464,7 @@
         .append($("<strong></strong>").text("Falha no preview"))
         .append($("<span></span>").text(state.pipelinePreviewError))
         .appendTo(previewHost);
-    } else if (state.pipelinePreview && state.pipelinePreview.workingDataset) {
-      const working = state.pipelinePreview.workingDataset;
+    } else if (working) {
       $("<div class=\"program-builder-analytics-runtime-meta\"></div>").text("Linhas: " + String((working.rows || []).length) + " | colunas: " + String((working.columns || []).length)).appendTo(previewHost);
       $("<pre class=\"program-builder-json-preview\"></pre>").text(JSON.stringify(working, null, 2)).appendTo(previewHost);
     } else {
@@ -7467,7 +7472,7 @@
     }
 
     const statusHost = $("<div class=\"program-builder-analytics-runtime-block\"></div>").appendTo(container);
-    $("<h5></h5>").text("Execucao e publicacao").appendTo(statusHost);
+    $("<h5></h5>").text("Dataset publicado e comparacao").appendTo(statusHost);
     if (state.pipelineStatusError) {
       $("<div class=\"program-builder-diagnostic-item is-error\"></div>")
         .append($("<strong></strong>").text("Falha no status"))
@@ -7483,12 +7488,163 @@
         .append($("<span></span>").text(state.pipelineVersionsError))
         .appendTo(statusHost);
     } else if (state.pipelineVersions) {
+      if (activeVersion && activeVersion.data) {
+        $("<div class=\"program-builder-analytics-runtime-meta\"></div>")
+          .text("Versao ativa: " + String(activeVersion.versionNo || "-") + " | linhas: " + String((activeVersion.data.rows || []).length) + " | colunas: " + String((activeVersion.data.columns || []).length))
+          .appendTo(statusHost);
+      }
+      this.renderAnalyticsPipelineComparison(statusHost, comparison, impact);
       $("<pre class=\"program-builder-json-preview\"></pre>").text(JSON.stringify({
         activeVersion: state.pipelineVersions.activeVersion || null,
         versions: state.pipelineVersions.versions || []
       }, null, 2)).appendTo(statusHost);
     } else {
       $("<p class=\"program-builder-empty\"></p>").text("Consulte as versoes publicadas para acompanhar publish e rollback.").appendTo(statusHost);
+    }
+  };
+
+  ProgramBuilder.prototype.collectAnalyticsPipelineImpact = function(definition, state) {
+    const result = {
+      pipelineId: state.pipelineId || "",
+      publishedDatasetId: "",
+      consumingDatasets: [],
+      affectedViews: []
+    };
+    const analytics = definition && definition.analytics || {};
+    const pipelines = Array.isArray(analytics.semanticPipelines) ? analytics.semanticPipelines : [];
+    const datasets = Array.isArray(analytics.datasets) ? analytics.datasets : [];
+    const views = Array.isArray(analytics.views) ? analytics.views : [];
+    const pipeline = pipelines.find(function(item) {
+      return String(item && item.id || "") === String(result.pipelineId || "");
+    });
+    if (!pipeline) {
+      return result;
+    }
+    result.publishedDatasetId = String(pipeline.publishConfig && pipeline.publishConfig.publishedDatasetId || pipeline.publishedDatasetId || "");
+    const consumingIds = [];
+    datasets.forEach(function(dataset) {
+      const source = dataset && dataset.source || {};
+      if (String(source.type || "") !== "pipeline_published") {
+        return;
+      }
+      const matchesPipeline = String(source.pipelineId || "") === String(result.pipelineId || "");
+      const matchesPublishedDataset = result.publishedDatasetId && String(source.publishedDatasetId || "") === result.publishedDatasetId;
+      if (!matchesPipeline && !matchesPublishedDataset) {
+        return;
+      }
+      result.consumingDatasets.push({
+        datasetId: String(dataset.id || ""),
+        title: String(dataset.title || dataset.id || "")
+      });
+      consumingIds.push(String(dataset.id || ""));
+    });
+    views.forEach(function(view) {
+      if (consumingIds.indexOf(String(view && view.datasetId || "")) === -1) {
+        return;
+      }
+      result.affectedViews.push({
+        viewId: String(view.id || ""),
+        title: String(view.title || view.id || ""),
+        type: String(view.type || ""),
+        datasetId: String(view.datasetId || "")
+      });
+    });
+    return result;
+  };
+
+  ProgramBuilder.prototype.compareAnalyticsPipelineDatasets = function(published, working) {
+    const publishedColumns = Array.isArray(published && published.columns) ? published.columns : [];
+    const workingColumns = Array.isArray(working && working.columns) ? working.columns : [];
+    const publishedMap = {};
+    const workingMap = {};
+    publishedColumns.forEach(function(column) {
+      publishedMap[String(column && (column.field || column.id) || "")] = column || {};
+    });
+    workingColumns.forEach(function(column) {
+      workingMap[String(column && (column.field || column.id) || "")] = column || {};
+    });
+    const added = [];
+    const removed = [];
+    const changedTypes = [];
+    Object.keys(workingMap).forEach(function(key) {
+      if (!publishedMap[key]) {
+        added.push(key);
+      }
+    });
+    Object.keys(publishedMap).forEach(function(key) {
+      if (!workingMap[key]) {
+        removed.push(key);
+        return;
+      }
+      const before = String(publishedMap[key].type || "");
+      const after = String(workingMap[key].type || "");
+      if (before !== after) {
+        changedTypes.push({ field: key, before: before, after: after });
+      }
+    });
+    return {
+      publishedRows: Array.isArray(published && published.rows) ? published.rows.length : 0,
+      workingRows: Array.isArray(working && working.rows) ? working.rows.length : 0,
+      publishedColumns: publishedColumns.length,
+      workingColumns: workingColumns.length,
+      rowDelta: (Array.isArray(working && working.rows) ? working.rows.length : 0) - (Array.isArray(published && published.rows) ? published.rows.length : 0),
+      columnDelta: workingColumns.length - publishedColumns.length,
+      addedColumns: added,
+      removedColumns: removed,
+      changedTypes: changedTypes
+    };
+  };
+
+  ProgramBuilder.prototype.renderAnalyticsPipelineComparison = function(container, comparison, impact) {
+    const block = $("<div class=\"program-builder-analytics-runtime-block\"></div>").appendTo(container);
+    $("<h5></h5>").text("Impacto antes do publish").appendTo(block);
+    if (!comparison.publishedColumns && !comparison.publishedRows) {
+      $("<p class=\"program-builder-empty\"></p>").text("Ainda nao existe versao ativa para comparar. Use o preview do working dataset e publique a primeira versao quando estiver revisado.").appendTo(block);
+    } else {
+      $("<div class=\"program-builder-analytics-runtime-meta\"></div>")
+        .text("Delta de linhas: " + String(comparison.rowDelta) + " | delta de colunas: " + String(comparison.columnDelta))
+        .appendTo(block);
+      if (!comparison.addedColumns.length && !comparison.removedColumns.length && !comparison.changedTypes.length) {
+        $("<div class=\"program-builder-diagnostic-item is-success\"></div>")
+          .append($("<strong></strong>").text("Contrato estavel"))
+          .append($("<span></span>").text("O working dataset manteve as colunas e os tipos da versao ativa."))
+          .appendTo(block);
+      }
+      if (comparison.removedColumns.length) {
+        $("<div class=\"program-builder-diagnostic-item is-warn\"></div>")
+          .append($("<strong></strong>").text("Colunas removidas"))
+          .append($("<span></span>").text(comparison.removedColumns.join(", ")))
+          .appendTo(block);
+      }
+      if (comparison.changedTypes.length) {
+        $("<div class=\"program-builder-diagnostic-item is-warn\"></div>")
+          .append($("<strong></strong>").text("Tipos alterados"))
+          .append($("<span></span>").text(comparison.changedTypes.map(function(item) {
+            return item.field + " (" + item.before + " -> " + item.after + ")";
+          }).join(", ")))
+          .appendTo(block);
+      }
+      if (comparison.addedColumns.length) {
+        $("<div class=\"program-builder-diagnostic-item is-info\"></div>")
+          .append($("<strong></strong>").text("Colunas novas"))
+          .append($("<span></span>").text(comparison.addedColumns.join(", ")))
+          .appendTo(block);
+      }
+    }
+    if (impact && impact.affectedViews && impact.affectedViews.length) {
+      $("<div class=\"program-builder-analytics-runtime-meta\"></div>")
+        .text("Views da tela afetadas: " + impact.affectedViews.map(function(item) {
+          return item.title + " [" + item.type + "]";
+        }).join(" | "))
+        .appendTo(block);
+    } else {
+      $("<p class=\"program-builder-empty\"></p>").text("Nenhuma view desta tela foi relacionada ao pipeline selecionado.").appendTo(block);
+    }
+    if ((comparison.removedColumns.length || comparison.changedTypes.length) && impact && impact.affectedViews && impact.affectedViews.length) {
+      $("<div class=\"program-builder-diagnostic-item is-warn\"></div>")
+        .append($("<strong></strong>").text("Risco de quebra de consumo"))
+        .append($("<span></span>").text("A revisao local detectou views dependentes e mudanca de contrato. Use a tela administrativa para revisar tambem reports publicados antes do publish."))
+        .appendTo(block);
     }
   };
 

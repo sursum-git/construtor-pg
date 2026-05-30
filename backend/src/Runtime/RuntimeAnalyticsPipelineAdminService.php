@@ -97,6 +97,101 @@ class RuntimeAnalyticsPipelineAdminService
         ]);
     }
 
+    public function impact(string $screenId, string $pipelineId): array
+    {
+        $screen = $this->screens->findPublishedByScreenId($screenId);
+        $definition = $screen?->getDefinition() ?? [];
+        $analytics = is_array($definition['analytics'] ?? null) ? $definition['analytics'] : [];
+        $pipelines = is_array($analytics['semanticPipelines'] ?? null) ? $analytics['semanticPipelines'] : [];
+        $datasets = is_array($analytics['datasets'] ?? null) ? $analytics['datasets'] : [];
+        $views = is_array($analytics['views'] ?? null) ? $analytics['views'] : [];
+
+        $selectedPipeline = null;
+        foreach ($pipelines as $pipeline) {
+            if (is_array($pipeline) && (string) ($pipeline['id'] ?? '') === $pipelineId) {
+                $selectedPipeline = $pipeline;
+                break;
+            }
+        }
+
+        $publishedDatasetId = trim((string) ($selectedPipeline['publishConfig']['publishedDatasetId'] ?? $selectedPipeline['publishedDatasetId'] ?? ''));
+        $consumingDatasets = [];
+        $consumingDatasetIds = [];
+        foreach ($datasets as $dataset) {
+            if (!is_array($dataset)) {
+                continue;
+            }
+            $source = is_array($dataset['source'] ?? null) ? $dataset['source'] : [];
+            if (($source['type'] ?? '') !== 'pipeline_published') {
+                continue;
+            }
+            $matchesPipeline = (string) ($source['pipelineId'] ?? '') === $pipelineId;
+            $matchesPublishedDataset = $publishedDatasetId !== '' && (string) ($source['publishedDatasetId'] ?? '') === $publishedDatasetId;
+            if (!$matchesPipeline && !$matchesPublishedDataset) {
+                continue;
+            }
+            $consumingDatasets[] = [
+                'datasetId' => (string) ($dataset['id'] ?? ''),
+                'title' => (string) ($dataset['title'] ?? $dataset['id'] ?? ''),
+                'publishedDatasetId' => (string) ($source['publishedDatasetId'] ?? ''),
+            ];
+            $consumingDatasetIds[] = (string) ($dataset['id'] ?? '');
+        }
+
+        $affectedViews = [];
+        foreach ($views as $view) {
+            if (!is_array($view)) {
+                continue;
+            }
+            $datasetId = (string) ($view['datasetId'] ?? '');
+            if ($datasetId === '' || !in_array($datasetId, $consumingDatasetIds, true)) {
+                continue;
+            }
+            $affectedViews[] = [
+                'viewId' => (string) ($view['id'] ?? ''),
+                'title' => (string) ($view['title'] ?? $view['id'] ?? ''),
+                'type' => (string) ($view['type'] ?? ''),
+                'datasetId' => $datasetId,
+            ];
+        }
+
+        $affectedReports = [];
+        foreach ($this->screens->findBy(['pageType' => 'report', 'status' => 'published'], ['screenId' => 'ASC']) as $reportScreen) {
+            $reportDefinition = $reportScreen->getDefinition();
+            $report = is_array($reportDefinition['report'] ?? null) ? $reportDefinition['report'] : [];
+            $source = is_array($report['source'] ?? null) ? $report['source'] : [];
+            if (($source['type'] ?? '') !== 'analytic') {
+                continue;
+            }
+            if ((string) ($source['analyticsScreenId'] ?? '') !== $screenId) {
+                continue;
+            }
+            if (!in_array((string) ($source['analyticsDatasetId'] ?? ''), $consumingDatasetIds, true)) {
+                continue;
+            }
+            $affectedReports[] = [
+                'screenId' => $reportScreen->getScreenId(),
+                'reportId' => (string) ($report['id'] ?? $reportScreen->getScreenId()),
+                'title' => (string) ($report['title'] ?? $reportScreen->getScreenId()),
+                'datasetId' => (string) ($source['analyticsDatasetId'] ?? ''),
+            ];
+        }
+
+        return [
+            'screenId' => $screenId,
+            'pipelineId' => $pipelineId,
+            'publishedDatasetId' => $publishedDatasetId,
+            'consumingDatasets' => $consumingDatasets,
+            'affectedViews' => $affectedViews,
+            'affectedReports' => $affectedReports,
+            'summary' => [
+                'datasets' => count($consumingDatasets),
+                'views' => count($affectedViews),
+                'reports' => count($affectedReports),
+            ],
+        ];
+    }
+
     public function rollback(string $screenId, string $pipelineId, int $versionNo): array
     {
         return $this->pipelines->rollback($screenId, [

@@ -902,7 +902,9 @@ Implementado ate agora, em nivel demo/frontend:
     - `backend/src/Runtime/RuntimeAnalyticsPipelineStore.php`
     - `backend/src/Runtime/RuntimeAnalyticsPipelineJobHandler.php`
   - existe agora a tela administrativa `admin.analytics-pipelines`, com entrada custom `production/admin/analytics-pipelines.html` e endpoints `/api/admin/analytics-pipelines/*`;
-  - o Program Builder agora expõe configuracao simples de semantic pipelines, preview de working dataset, execucao, publicacao versionada e rollback.
+  - o Program Builder agora expoe configuracao simples de semantic pipelines, preview de working dataset, execucao, publicacao versionada e rollback;
+  - builder e admin agora mostram `working dataset`, `dataset publicado`, `versao ativa`, diff entre versoes e alerta de quebra de contrato antes do publish;
+  - a administracao recebeu o endpoint `/api/admin/analytics-pipelines/impact` para relacionar datasets consumidores, views analytics e reports impactados pelo publish.
 - Camada `reports` v1 nativa:
   - `pageType=report` com `ReportEngine` em `src/report-engine/ReportEngine.js`;
   - schema em `public/metadata/schemas/report-definition-v1.schema.json`;
