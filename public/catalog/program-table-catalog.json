@@ -1,0 +1,2704 @@
+{
+    "generatedAt": "2026-06-01T02:15:18+00:00",
+    "stats": {
+        "programCount": 64,
+        "tableCount": 74,
+        "relationCount": 38
+    },
+    "programs": [
+        {
+            "programCode": "ad2100",
+            "title": "Odoo Parceiros 329100",
+            "screenId": "odoo.api.329100",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "odoo_api_329100",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `ad2100` do tipo `crud` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `ad2100` (Odoo Parceiros 329100); tipo `crud`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "ad2379",
+            "title": "Odoo Parceiros 587379",
+            "screenId": "odoo.api.587379",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "odoo_api_587379",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `ad2379` do tipo `crud` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `ad2379` (Odoo Parceiros 587379); tipo `crud`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "ad2996",
+            "title": "API CRUD Mock Produtos",
+            "screenId": "api.crud.mock.produtos",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "api_crud_mock_produto",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `ad2996` do tipo `crud` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `ad2996` (API CRUD Mock Produtos); tipo `crud`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "ad2998",
+            "title": "E2E API Produtos 382562",
+            "screenId": "e2e.api.382562",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "e2e_api_382562",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `ad2998` do tipo `crud` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `ad2998` (E2E API Produtos 382562); tipo `crud`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "ad2999",
+            "title": "E2E API Produtos 107759",
+            "screenId": "e2e.api.107759",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "e2e_api_107759",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `ad2999` do tipo `crud` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `ad2999` (E2E API Produtos 107759); tipo `crud`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-analytics-auditoria",
+            "title": "Auditoria analytics",
+            "screenId": "admin.analytics-auditoria",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-analytics-auditoria` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-analytics-auditoria` (Auditoria analytics); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-analytics-pipelines",
+            "title": "Pipelines analytics",
+            "screenId": "admin.analytics-pipelines",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-analytics-pipelines` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-analytics-pipelines` (Pipelines analytics); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-assinante-ambientes",
+            "title": "Provisionamento de assinantes",
+            "screenId": "admin.assinante-ambientes",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-assinante-ambientes` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-assinante-ambientes` (Provisionamento de assinantes); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-atualizacoes",
+            "title": "Atualizacoes do sistema",
+            "screenId": "admin.atualizacoes",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-atualizacoes` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-atualizacoes` (Atualizacoes do sistema); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-atualizacoes-assinantes",
+            "title": "Atualizacoes por assinante",
+            "screenId": "admin.atualizacoes-assinantes",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-atualizacoes-assinantes` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-atualizacoes-assinantes` (Atualizacoes por assinante); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-central-operacoes",
+            "title": "Operacoes da central",
+            "screenId": "admin.central-operacoes",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-central-operacoes` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-central-operacoes` (Operacoes da central); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-documentos-regulados",
+            "title": "Documentos regulados",
+            "screenId": "admin.documentos-regulados",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-documentos-regulados` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-documentos-regulados` (Documentos regulados); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-evento-assinaturas",
+            "title": "Assinaturas de Eventos",
+            "screenId": "admin.evento-assinaturas",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "runtime_event_subscription",
+            "primaryTableName": "runtime_event_subscription",
+            "tableNames": [
+                "runtime_event_subscription"
+            ],
+            "summary": "Programa `admin-evento-assinaturas` do tipo `crud` com tabela principal `runtime_event_subscription` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-evento-assinaturas` (Assinaturas de Eventos); tipo `crud`; usa `runtime_event_subscription` como tabela principal; e referencia 1 tabela(s): runtime_event_subscription."
+        },
+        {
+            "programCode": "admin-evento-entregas",
+            "title": "Entregas de Eventos",
+            "screenId": "admin.evento-entregas",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "runtime_event_delivery",
+            "primaryTableName": "runtime_event_delivery",
+            "tableNames": [
+                "runtime_event_delivery"
+            ],
+            "summary": "Programa `admin-evento-entregas` do tipo `crud` com tabela principal `runtime_event_delivery` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-evento-entregas` (Entregas de Eventos); tipo `crud`; usa `runtime_event_delivery` como tabela principal; e referencia 1 tabela(s): runtime_event_delivery."
+        },
+        {
+            "programCode": "admin-eventos-runtime",
+            "title": "Eventos Runtime",
+            "screenId": "admin.eventos-runtime",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "runtime_event",
+            "primaryTableName": "runtime_event",
+            "tableNames": [
+                "runtime_event"
+            ],
+            "summary": "Programa `admin-eventos-runtime` do tipo `crud` com tabela principal `runtime_event` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-eventos-runtime` (Eventos Runtime); tipo `crud`; usa `runtime_event` como tabela principal; e referencia 1 tabela(s): runtime_event."
+        },
+        {
+            "programCode": "admin-instalacao-licencas",
+            "title": "Licencas de Instalacao",
+            "screenId": "admin.instalacao-licencas",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "installer_activation_license",
+            "primaryTableName": "installer_activation_license",
+            "tableNames": [
+                "installer_activation_license"
+            ],
+            "summary": "Programa `admin-instalacao-licencas` do tipo `crud` com tabela principal `installer_activation_license` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-instalacao-licencas` (Licencas de Instalacao); tipo `crud`; usa `installer_activation_license` como tabela principal; e referencia 1 tabela(s): installer_activation_license."
+        },
+        {
+            "programCode": "admin-instalacao-tokens",
+            "title": "Tokens Internos de Instalacao",
+            "screenId": "admin.instalacao-tokens",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "installer_activation_service_token",
+            "primaryTableName": "installer_activation_service_token",
+            "tableNames": [
+                "installer_activation_service_token"
+            ],
+            "summary": "Programa `admin-instalacao-tokens` do tipo `crud` com tabela principal `installer_activation_service_token` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-instalacao-tokens` (Tokens Internos de Instalacao); tipo `crud`; usa `installer_activation_service_token` como tabela principal; e referencia 1 tabela(s): installer_activation_service_token."
+        },
+        {
+            "programCode": "admin-integracoes",
+            "title": "Integracoes",
+            "screenId": "admin.integracoes",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-integracoes` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-integracoes` (Integracoes); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-integridade",
+            "title": "Integridade Estrutural",
+            "screenId": "admin.integridade",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "system_record_integrity",
+            "primaryTableName": "system_record_integrity",
+            "tableNames": [
+                "system_record_integrity"
+            ],
+            "summary": "Programa `admin-integridade` do tipo `crud` com tabela principal `system_record_integrity` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-integridade` (Integridade Estrutural); tipo `crud`; usa `system_record_integrity` como tabela principal; e referencia 1 tabela(s): system_record_integrity."
+        },
+        {
+            "programCode": "admin-lgpd-evidencias",
+            "title": "Evidencias LGPD",
+            "screenId": "admin.lgpd-evidencias",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "privacy_subject_request_evidence",
+            "primaryTableName": "privacy_subject_request_evidence",
+            "tableNames": [
+                "privacy_subject_request_evidence"
+            ],
+            "summary": "Programa `admin-lgpd-evidencias` do tipo `crud` com tabela principal `privacy_subject_request_evidence` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-lgpd-evidencias` (Evidencias LGPD); tipo `crud`; usa `privacy_subject_request_evidence` como tabela principal; e referencia 1 tabela(s): privacy_subject_request_evidence."
+        },
+        {
+            "programCode": "admin-lgpd-retencao",
+            "title": "Politicas LGPD",
+            "screenId": "admin.lgpd-retencao",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "privacy_retention_policy",
+            "primaryTableName": "privacy_retention_policy",
+            "tableNames": [
+                "privacy_retention_policy"
+            ],
+            "summary": "Programa `admin-lgpd-retencao` do tipo `crud` com tabela principal `privacy_retention_policy` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-lgpd-retencao` (Politicas LGPD); tipo `crud`; usa `privacy_retention_policy` como tabela principal; e referencia 1 tabela(s): privacy_retention_policy."
+        },
+        {
+            "programCode": "admin-lgpd-solicitacoes",
+            "title": "Solicitacoes LGPD",
+            "screenId": "admin.lgpd-solicitacoes",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "privacy_subject_request",
+            "primaryTableName": "privacy_subject_request",
+            "tableNames": [
+                "privacy_subject_request"
+            ],
+            "summary": "Programa `admin-lgpd-solicitacoes` do tipo `crud` com tabela principal `privacy_subject_request` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-lgpd-solicitacoes` (Solicitacoes LGPD); tipo `crud`; usa `privacy_subject_request` como tabela principal; e referencia 1 tabela(s): privacy_subject_request."
+        },
+        {
+            "programCode": "admin-listas-opcoes",
+            "title": "Listas de Opcoes",
+            "screenId": "admin.listas-opcoes",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "system_option_list",
+            "primaryTableName": "system_option_list",
+            "tableNames": [
+                "system_option_list"
+            ],
+            "summary": "Programa `admin-listas-opcoes` do tipo `crud` com tabela principal `system_option_list` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-listas-opcoes` (Listas de Opcoes); tipo `crud`; usa `system_option_list` como tabela principal; e referencia 1 tabela(s): system_option_list."
+        },
+        {
+            "programCode": "admin-literais",
+            "title": "Literais e Traducoes",
+            "screenId": "admin.literais",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "system_literal_translation",
+            "primaryTableName": "system_literal_translation",
+            "tableNames": [
+                "system_literal_translation"
+            ],
+            "summary": "Programa `admin-literais` do tipo `crud` com tabela principal `system_literal_translation` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-literais` (Literais e Traducoes); tipo `crud`; usa `system_literal_translation` como tabela principal; e referencia 1 tabela(s): system_literal_translation."
+        },
+        {
+            "programCode": "admin-logs-transacoes",
+            "title": "Logs de Transacoes",
+            "screenId": "admin.logs-transacoes",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "runtime_transaction_log",
+            "primaryTableName": "runtime_transaction_log",
+            "tableNames": [
+                "runtime_transaction_log"
+            ],
+            "summary": "Programa `admin-logs-transacoes` do tipo `crud` com tabela principal `runtime_transaction_log` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-logs-transacoes` (Logs de Transacoes); tipo `crud`; usa `runtime_transaction_log` como tabela principal; e referencia 1 tabela(s): runtime_transaction_log."
+        },
+        {
+            "programCode": "admin-notificacao-destinatarios",
+            "title": "Destinatarios de Notificacoes",
+            "screenId": "admin.notificacao-destinatarios",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "runtime_notification_recipient",
+            "primaryTableName": "runtime_notification_recipient",
+            "tableNames": [
+                "runtime_notification_recipient"
+            ],
+            "summary": "Programa `admin-notificacao-destinatarios` do tipo `crud` com tabela principal `runtime_notification_recipient` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-notificacao-destinatarios` (Destinatarios de Notificacoes); tipo `crud`; usa `runtime_notification_recipient` como tabela principal; e referencia 1 tabela(s): runtime_notification_recipient."
+        },
+        {
+            "programCode": "admin-notificacoes",
+            "title": "Notificacoes",
+            "screenId": "admin.notificacoes",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "runtime_notification",
+            "primaryTableName": "runtime_notification",
+            "tableNames": [
+                "runtime_notification"
+            ],
+            "summary": "Programa `admin-notificacoes` do tipo `crud` com tabela principal `runtime_notification` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-notificacoes` (Notificacoes); tipo `crud`; usa `runtime_notification` como tabela principal; e referencia 1 tabela(s): runtime_notification."
+        },
+        {
+            "programCode": "admin-opcoes",
+            "title": "Opcoes",
+            "screenId": "admin.opcoes",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "system_option",
+            "primaryTableName": "system_option",
+            "tableNames": [
+                "system_option"
+            ],
+            "summary": "Programa `admin-opcoes` do tipo `crud` com tabela principal `system_option` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-opcoes` (Opcoes); tipo `crud`; usa `system_option` como tabela principal; e referencia 1 tabela(s): system_option."
+        },
+        {
+            "programCode": "admin-parametro-valores",
+            "title": "Valores de Parametros",
+            "screenId": "admin.parametro-valores",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "system_parameter_value",
+            "primaryTableName": "system_parameter_value",
+            "tableNames": [
+                "system_parameter_value"
+            ],
+            "summary": "Programa `admin-parametro-valores` do tipo `crud` com tabela principal `system_parameter_value` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-parametro-valores` (Valores de Parametros); tipo `crud`; usa `system_parameter_value` como tabela principal; e referencia 1 tabela(s): system_parameter_value."
+        },
+        {
+            "programCode": "admin-parametros",
+            "title": "Parametros",
+            "screenId": "admin.parametros",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "system_parameter",
+            "primaryTableName": "system_parameter",
+            "tableNames": [
+                "system_parameter"
+            ],
+            "summary": "Programa `admin-parametros` do tipo `crud` com tabela principal `system_parameter` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-parametros` (Parametros); tipo `crud`; usa `system_parameter` como tabela principal; e referencia 1 tabela(s): system_parameter."
+        },
+        {
+            "programCode": "admin-permissoes",
+            "title": "Permissoes",
+            "screenId": "admin.permissoes",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "auth_user",
+            "primaryTableName": "auth_user",
+            "tableNames": [
+                "auth_user"
+            ],
+            "summary": "Programa `admin-permissoes` do tipo `crud` com tabela principal `auth_user` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-permissoes` (Permissoes); tipo `crud`; usa `auth_user` como tabela principal; e referencia 1 tabela(s): auth_user."
+        },
+        {
+            "programCode": "admin-programa-aprovacoes",
+            "title": "Aprovacoes de Publicacao",
+            "screenId": "admin.programa-aprovacoes",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "program_publication_approval",
+            "primaryTableName": "program_publication_approval",
+            "tableNames": [
+                "program_publication_approval"
+            ],
+            "summary": "Programa `admin-programa-aprovacoes` do tipo `crud` com tabela principal `program_publication_approval` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-programa-aprovacoes` (Aprovacoes de Publicacao); tipo `crud`; usa `program_publication_approval` como tabela principal; e referencia 1 tabela(s): program_publication_approval."
+        },
+        {
+            "programCode": "admin-programa-aprovacoes-operacao",
+            "title": "Aprovacoes de publicacao",
+            "screenId": "admin.programa-aprovacoes-operacao",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-programa-aprovacoes-operacao` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-programa-aprovacoes-operacao` (Aprovacoes de publicacao); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-programa-auditoria-operacao",
+            "title": "Auditoria da governanca",
+            "screenId": "admin.programa-auditoria-operacao",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-programa-auditoria-operacao` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-programa-auditoria-operacao` (Auditoria da governanca); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-programa-governanca",
+            "title": "Governanca de programas",
+            "screenId": "admin.programa-governanca",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-programa-governanca` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-programa-governanca` (Governanca de programas); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-programa-grants",
+            "title": "Autorizacoes de Alteracao",
+            "screenId": "admin.programa-grants",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "program_change_grant",
+            "primaryTableName": "program_change_grant",
+            "tableNames": [
+                "program_change_grant"
+            ],
+            "summary": "Programa `admin-programa-grants` do tipo `crud` com tabela principal `program_change_grant` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-programa-grants` (Autorizacoes de Alteracao); tipo `crud`; usa `program_change_grant` como tabela principal; e referencia 1 tabela(s): program_change_grant."
+        },
+        {
+            "programCode": "admin-programa-grants-operacao",
+            "title": "Grants de programas",
+            "screenId": "admin.programa-grants-operacao",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-programa-grants-operacao` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-programa-grants-operacao` (Grants de programas); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-programa-operacoes-operacao",
+            "title": "Operacoes da governanca",
+            "screenId": "admin.programa-operacoes-operacao",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-programa-operacoes-operacao` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-programa-operacoes-operacao` (Operacoes da governanca); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-programa-overlay-versoes",
+            "title": "Versoes de Overlay",
+            "screenId": "admin.programa-overlay-versoes",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "builder_program_overlay_version",
+            "primaryTableName": "builder_program_overlay_version",
+            "tableNames": [
+                "builder_program_overlay_version"
+            ],
+            "summary": "Programa `admin-programa-overlay-versoes` do tipo `crud` com tabela principal `builder_program_overlay_version` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-programa-overlay-versoes` (Versoes de Overlay); tipo `crud`; usa `builder_program_overlay_version` como tabela principal; e referencia 1 tabela(s): builder_program_overlay_version."
+        },
+        {
+            "programCode": "admin-programa-overlay-versoes-operacao",
+            "title": "Versoes de overlay",
+            "screenId": "admin.programa-overlay-versoes-operacao",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-programa-overlay-versoes-operacao` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-programa-overlay-versoes-operacao` (Versoes de overlay); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-programa-overlays",
+            "title": "Overlays de Programa",
+            "screenId": "admin.programa-overlays",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "builder_program_overlay",
+            "primaryTableName": "builder_program_overlay",
+            "tableNames": [
+                "builder_program_overlay"
+            ],
+            "summary": "Programa `admin-programa-overlays` do tipo `crud` com tabela principal `builder_program_overlay` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-programa-overlays` (Overlays de Programa); tipo `crud`; usa `builder_program_overlay` como tabela principal; e referencia 1 tabela(s): builder_program_overlay."
+        },
+        {
+            "programCode": "admin-programa-overlays-operacao",
+            "title": "Overlays de programas",
+            "screenId": "admin.programa-overlays-operacao",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-programa-overlays-operacao` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-programa-overlays-operacao` (Overlays de programas); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-programa-retencao-historico-operacao",
+            "title": "Historico da retencao",
+            "screenId": "admin.programa-retencao-historico-operacao",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-programa-retencao-historico-operacao` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-programa-retencao-historico-operacao` (Historico da retencao); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-programa-retencao-operacao",
+            "title": "Retencao da governanca",
+            "screenId": "admin.programa-retencao-operacao",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-programa-retencao-operacao` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-programa-retencao-operacao` (Retencao da governanca); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-programa-solicitacoes",
+            "title": "Solicitacoes de Alteracao",
+            "screenId": "admin.programa-solicitacoes",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "program_change_request",
+            "primaryTableName": "program_change_request",
+            "tableNames": [
+                "program_change_request"
+            ],
+            "summary": "Programa `admin-programa-solicitacoes` do tipo `crud` com tabela principal `program_change_request` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-programa-solicitacoes` (Solicitacoes de Alteracao); tipo `crud`; usa `program_change_request` como tabela principal; e referencia 1 tabela(s): program_change_request."
+        },
+        {
+            "programCode": "admin-programa-testes",
+            "title": "Execucoes de Teste",
+            "screenId": "admin.programa-testes",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "program_test_execution",
+            "primaryTableName": "program_test_execution",
+            "tableNames": [
+                "program_test_execution"
+            ],
+            "summary": "Programa `admin-programa-testes` do tipo `crud` com tabela principal `program_test_execution` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-programa-testes` (Execucoes de Teste); tipo `crud`; usa `program_test_execution` como tabela principal; e referencia 1 tabela(s): program_test_execution."
+        },
+        {
+            "programCode": "admin-relatorios-auditoria",
+            "title": "Auditoria de relatorios",
+            "screenId": "admin.relatorios-auditoria",
+            "module": "administracao",
+            "programType": "custom",
+            "pageType": "custom",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `admin-relatorios-auditoria` do tipo `custom` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `admin-relatorios-auditoria` (Auditoria de relatorios); tipo `custom`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "admin-sessoes",
+            "title": "Sessoes",
+            "screenId": "admin.sessoes",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "runtime_user_session",
+            "primaryTableName": "runtime_user_session",
+            "tableNames": [
+                "runtime_user_session"
+            ],
+            "summary": "Programa `admin-sessoes` do tipo `crud` com tabela principal `runtime_user_session` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-sessoes` (Sessoes); tipo `crud`; usa `runtime_user_session` como tabela principal; e referencia 1 tabela(s): runtime_user_session."
+        },
+        {
+            "programCode": "admin-transacoes",
+            "title": "Transacoes",
+            "screenId": "admin.transacoes",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "runtime_transaction",
+            "primaryTableName": "runtime_transaction",
+            "tableNames": [
+                "runtime_transaction"
+            ],
+            "summary": "Programa `admin-transacoes` do tipo `crud` com tabela principal `runtime_transaction` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-transacoes` (Transacoes); tipo `crud`; usa `runtime_transaction` como tabela principal; e referencia 1 tabela(s): runtime_transaction."
+        },
+        {
+            "programCode": "admin-usuario-assinantes",
+            "title": "Usuarios por Assinante",
+            "screenId": "admin.usuario-assinantes",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "auth_user_subscriber",
+            "primaryTableName": "auth_user_subscriber",
+            "tableNames": [
+                "auth_user_subscriber"
+            ],
+            "summary": "Programa `admin-usuario-assinantes` do tipo `crud` com tabela principal `auth_user_subscriber` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-usuario-assinantes` (Usuarios por Assinante); tipo `crud`; usa `auth_user_subscriber` como tabela principal; e referencia 1 tabela(s): auth_user_subscriber."
+        },
+        {
+            "programCode": "admin-usuarios",
+            "title": "Usuarios",
+            "screenId": "admin.usuarios",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "auth_user",
+            "primaryTableName": "auth_user",
+            "tableNames": [
+                "auth_user"
+            ],
+            "summary": "Programa `admin-usuarios` do tipo `crud` com tabela principal `auth_user` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `admin-usuarios` (Usuarios); tipo `crud`; usa `auth_user` como tabela principal; e referencia 1 tabela(s): auth_user."
+        },
+        {
+            "programCode": "analytics-clientes",
+            "title": "BI de Clientes",
+            "screenId": "analytics.clientes",
+            "module": "analytics",
+            "programType": "analytics",
+            "pageType": "analytics",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [
+                "cliente"
+            ],
+            "summary": "Programa `analytics-clientes` do tipo `analytics` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `analytics-clientes` (BI de Clientes); tipo `analytics`; nao possui tabela primaria identificada pelo catalogo automatico; e referencia 1 tabela(s): cliente."
+        },
+        {
+            "programCode": "cadastros.clientes",
+            "title": "Clientes",
+            "screenId": "cadastros.clientes",
+            "module": "cadastros",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "cliente",
+            "primaryTableName": "cliente",
+            "tableNames": [
+                "cliente"
+            ],
+            "summary": "Programa `cadastros.clientes` do tipo `crud` com tabela principal `cliente` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `cadastros.clientes` (Clientes); tipo `crud`; usa `cliente` como tabela principal; e referencia 1 tabela(s): cliente."
+        },
+        {
+            "programCode": "documento-especial-base",
+            "title": "Documento especial base",
+            "screenId": "documentos.especiais-base",
+            "module": "relatorios",
+            "programType": "special_document",
+            "pageType": "special_document",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [
+                "cliente"
+            ],
+            "summary": "Programa `documento-especial-base` do tipo `special_document` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `documento-especial-base` (Documento especial base); tipo `special_document`; nao possui tabela primaria identificada pelo catalogo automatico; e referencia 1 tabela(s): cliente."
+        },
+        {
+            "programCode": "documento-regulado-bancario-base",
+            "title": "Documento regulado bancario base",
+            "screenId": "documentos.regulados-bancario-base",
+            "module": "documentos",
+            "programType": "regulated_document",
+            "pageType": "regulated_document",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [
+                "cliente"
+            ],
+            "summary": "Programa `documento-regulado-bancario-base` do tipo `regulated_document` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `documento-regulado-bancario-base` (Documento regulado bancario base); tipo `regulated_document`; nao possui tabela primaria identificada pelo catalogo automatico; e referencia 1 tabela(s): cliente."
+        },
+        {
+            "programCode": "documento-regulado-fiscal-base",
+            "title": "Documento regulado fiscal base",
+            "screenId": "documentos.regulados-fiscal-base",
+            "module": "documentos",
+            "programType": "regulated_document",
+            "pageType": "regulated_document",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [
+                "cliente"
+            ],
+            "summary": "Programa `documento-regulado-fiscal-base` do tipo `regulated_document` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `documento-regulado-fiscal-base` (Documento regulado fiscal base); tipo `regulated_document`; nao possui tabela primaria identificada pelo catalogo automatico; e referencia 1 tabela(s): cliente."
+        },
+        {
+            "programCode": "documento-regulado-logistico-base",
+            "title": "Documento regulado logistico base",
+            "screenId": "documentos.regulados-logistico-base",
+            "module": "documentos",
+            "programType": "regulated_document",
+            "pageType": "regulated_document",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [
+                "cliente"
+            ],
+            "summary": "Programa `documento-regulado-logistico-base` do tipo `regulated_document` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `documento-regulado-logistico-base` (Documento regulado logistico base); tipo `regulated_document`; nao possui tabela primaria identificada pelo catalogo automatico; e referencia 1 tabela(s): cliente."
+        },
+        {
+            "programCode": "home",
+            "title": "Home",
+            "screenId": "home",
+            "module": "global",
+            "programType": "home",
+            "pageType": "home",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `home` do tipo `home` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `home` (Home); tipo `home`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "processamento-clientes",
+            "title": "Processamento de Clientes",
+            "screenId": "processamento.relatorio-clientes",
+            "module": "operacional",
+            "programType": "process",
+            "pageType": "process",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `processamento-clientes` do tipo `process` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `processamento-clientes` (Processamento de Clientes); tipo `process`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "produto-builder-programa",
+            "title": "Produtos Builder",
+            "screenId": "cadastros.produto-builder",
+            "module": "cadastros",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "produto_builder",
+            "primaryTableName": "produto_builder",
+            "tableNames": [
+                "produto_builder"
+            ],
+            "summary": "Programa `produto-builder-programa` do tipo `crud` com tabela principal `produto_builder` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `produto-builder-programa` (Produtos Builder); tipo `crud`; usa `produto_builder` como tabela principal; e referencia 1 tabela(s): produto_builder."
+        },
+        {
+            "programCode": "relatorio-clientes-analitico",
+            "title": "Relatorio analitico por UF",
+            "screenId": "relatorios.clientes-analitico",
+            "module": "relatorios",
+            "programType": "report",
+            "pageType": "report",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [],
+            "summary": "Programa `relatorio-clientes-analitico` do tipo `report` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `relatorio-clientes-analitico` (Relatorio analitico por UF); tipo `report`; nao possui tabela primaria identificada pelo catalogo automatico."
+        },
+        {
+            "programCode": "relatorio-clientes-operacional",
+            "title": "Relatorio operacional de clientes",
+            "screenId": "relatorios.clientes-operacional",
+            "module": "relatorios",
+            "programType": "report",
+            "pageType": "report",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "",
+            "primaryTableName": null,
+            "tableNames": [
+                "cliente"
+            ],
+            "summary": "Programa `relatorio-clientes-operacional` do tipo `report` sem tabela primaria resolvida automaticamente.",
+            "explanation": "Programa `relatorio-clientes-operacional` (Relatorio operacional de clientes); tipo `report`; nao possui tabela primaria identificada pelo catalogo automatico; e referencia 1 tabela(s): cliente."
+        },
+        {
+            "programCode": "runtime-jobs",
+            "title": "Jobs Assincronos",
+            "screenId": "admin.jobs",
+            "module": "administracao",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "runtime_async_job",
+            "primaryTableName": "runtime_async_job",
+            "tableNames": [
+                "runtime_async_job"
+            ],
+            "summary": "Programa `runtime-jobs` do tipo `crud` com tabela principal `runtime_async_job` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `runtime-jobs` (Jobs Assincronos); tipo `crud`; usa `runtime_async_job` como tabela principal; e referencia 1 tabela(s): runtime_async_job."
+        },
+        {
+            "programCode": "teste-builder-clientes",
+            "title": "Clientes Builder",
+            "screenId": "cadastros.clientes-builder",
+            "module": "cadastros",
+            "programType": "crud",
+            "pageType": "crud",
+            "status": "published",
+            "programOrigin": "standard",
+            "ownerScope": "system",
+            "customizationPolicy": "overlay_only",
+            "entityCode": "cliente",
+            "primaryTableName": "cliente",
+            "tableNames": [
+                "cliente"
+            ],
+            "summary": "Programa `teste-builder-clientes` do tipo `crud` com tabela principal `cliente` e 1 tabela(s) relacionadas no catalogo.",
+            "explanation": "Programa `teste-builder-clientes` (Clientes Builder); tipo `crud`; usa `cliente` como tabela principal; e referencia 1 tabela(s): cliente."
+        }
+    ],
+    "tables": [
+        {
+            "tableName": "auth_login_challenge",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "autenticacao",
+            "columnCount": 13,
+            "explanation": "Tabela administrativa de autenticacao, usuarios, sessoes, provedores ou assinantes.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "auth_password_reset_token",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "autenticacao",
+            "columnCount": 11,
+            "explanation": "Tabela administrativa de autenticacao, usuarios, sessoes, provedores ou assinantes.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "auth_provider_config",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "autenticacao",
+            "columnCount": 9,
+            "explanation": "Tabela administrativa de autenticacao, usuarios, sessoes, provedores ou assinantes.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "auth_remember_token",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "autenticacao",
+            "columnCount": 15,
+            "explanation": "Tabela administrativa de autenticacao, usuarios, sessoes, provedores ou assinantes.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "auth_subscriber",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "autenticacao",
+            "columnCount": 9,
+            "explanation": "Tabela administrativa de autenticacao, usuarios, sessoes, provedores ou assinantes.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "auth_user",
+            "entityCode": "auth_user",
+            "entityName": "Permissoes",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 15,
+            "explanation": "Tabela da entidade `auth_user` (Permissoes). Tipo `persistence`, 15 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-permissoes",
+                    "title": "Permissoes",
+                    "screenId": "admin.permissoes",
+                    "relationType": "primary"
+                },
+                {
+                    "programCode": "admin-usuarios",
+                    "title": "Usuarios",
+                    "screenId": "admin.usuarios",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 2
+        },
+        {
+            "tableName": "auth_user_subscriber",
+            "entityCode": "auth_user_subscriber",
+            "entityName": "Usuarios por Assinante",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 10,
+            "explanation": "Tabela da entidade `auth_user_subscriber` (Usuarios por Assinante). Tipo `persistence`, 10 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-usuario-assinantes",
+                    "title": "Usuarios por Assinante",
+                    "screenId": "admin.usuario-assinantes",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "builder_api_source",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "governanca",
+            "columnCount": 10,
+            "explanation": "Tabela de modelagem, versionamento, publicacao e governanca de programas e entidades.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "builder_editor_lock",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "governanca",
+            "columnCount": 18,
+            "explanation": "Tabela de modelagem, versionamento, publicacao e governanca de programas e entidades.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "builder_entity",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "governanca",
+            "columnCount": 12,
+            "explanation": "Tabela de modelagem, versionamento, publicacao e governanca de programas e entidades.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "builder_entity_situation",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "governanca",
+            "columnCount": 12,
+            "explanation": "Tabela de modelagem, versionamento, publicacao e governanca de programas e entidades.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "builder_entity_situation_transition",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "governanca",
+            "columnCount": 14,
+            "explanation": "Tabela de modelagem, versionamento, publicacao e governanca de programas e entidades.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "builder_entity_version",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "governanca",
+            "columnCount": 13,
+            "explanation": "Tabela de modelagem, versionamento, publicacao e governanca de programas e entidades.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "builder_field",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "governanca",
+            "columnCount": 13,
+            "explanation": "Tabela de modelagem, versionamento, publicacao e governanca de programas e entidades.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "builder_module",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "governanca",
+            "columnCount": 10,
+            "explanation": "Tabela de modelagem, versionamento, publicacao e governanca de programas e entidades.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "builder_program",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "governanca",
+            "columnCount": 17,
+            "explanation": "Tabela de modelagem, versionamento, publicacao e governanca de programas e entidades.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "builder_program_overlay",
+            "entityCode": "builder_program_overlay",
+            "entityName": "Overlays de Programa",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 12,
+            "explanation": "Tabela da entidade `builder_program_overlay` (Overlays de Programa). Tipo `persistence`, 12 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-programa-overlays",
+                    "title": "Overlays de Programa",
+                    "screenId": "admin.programa-overlays",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "builder_program_overlay_version",
+            "entityCode": "builder_program_overlay_version",
+            "entityName": "Versoes de Overlay",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 10,
+            "explanation": "Tabela da entidade `builder_program_overlay_version` (Versoes de Overlay). Tipo `persistence`, 10 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-programa-overlay-versoes",
+                    "title": "Versoes de Overlay",
+                    "screenId": "admin.programa-overlay-versoes",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "builder_program_version",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "governanca",
+            "columnCount": 29,
+            "explanation": "Tabela de modelagem, versionamento, publicacao e governanca de programas e entidades.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "cliente",
+            "entityCode": "cliente",
+            "entityName": "Cliente",
+            "entityType": "persistence",
+            "scope": "mixed",
+            "category": "cadastro",
+            "columnCount": 16,
+            "explanation": "Tabela da entidade `cliente` (Cliente). Tipo `persistence`, 16 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "analytics-clientes",
+                    "title": "BI de Clientes",
+                    "screenId": "analytics.clientes",
+                    "relationType": "source"
+                },
+                {
+                    "programCode": "cadastros.clientes",
+                    "title": "Clientes",
+                    "screenId": "cadastros.clientes",
+                    "relationType": "primary"
+                },
+                {
+                    "programCode": "documento-especial-base",
+                    "title": "Documento especial base",
+                    "screenId": "documentos.especiais-base",
+                    "relationType": "source"
+                },
+                {
+                    "programCode": "documento-regulado-bancario-base",
+                    "title": "Documento regulado bancario base",
+                    "screenId": "documentos.regulados-bancario-base",
+                    "relationType": "source"
+                },
+                {
+                    "programCode": "documento-regulado-fiscal-base",
+                    "title": "Documento regulado fiscal base",
+                    "screenId": "documentos.regulados-fiscal-base",
+                    "relationType": "source"
+                },
+                {
+                    "programCode": "documento-regulado-logistico-base",
+                    "title": "Documento regulado logistico base",
+                    "screenId": "documentos.regulados-logistico-base",
+                    "relationType": "source"
+                },
+                {
+                    "programCode": "relatorio-clientes-operacional",
+                    "title": "Relatorio operacional de clientes",
+                    "screenId": "relatorios.clientes-operacional",
+                    "relationType": "source"
+                },
+                {
+                    "programCode": "teste-builder-clientes",
+                    "title": "Clientes Builder",
+                    "screenId": "cadastros.clientes-builder",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 8
+        },
+        {
+            "tableName": "doctrine_migration_versions",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "mixed",
+            "category": "geral",
+            "columnCount": 3,
+            "explanation": "Tabela catalogada automaticamente a partir do banco atual, sem classificacao especifica adicional.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "import_export_execution",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "mixed",
+            "category": "integracao",
+            "columnCount": 18,
+            "explanation": "Tabela de mappings, execucoes, versoes ou agendamentos de importacao e exportacao.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "import_export_mapping",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "mixed",
+            "category": "integracao",
+            "columnCount": 9,
+            "explanation": "Tabela de mappings, execucoes, versoes ou agendamentos de importacao e exportacao.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "import_export_mapping_version",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "mixed",
+            "category": "integracao",
+            "columnCount": 7,
+            "explanation": "Tabela de mappings, execucoes, versoes ou agendamentos de importacao e exportacao.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "import_export_schedule",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "mixed",
+            "category": "integracao",
+            "columnCount": 16,
+            "explanation": "Tabela de mappings, execucoes, versoes ou agendamentos de importacao e exportacao.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "installer_activation_license",
+            "entityCode": "installer_activation_license",
+            "entityName": "Licencas de Instalacao",
+            "entityType": "persistence",
+            "scope": "mixed",
+            "category": "cadastro",
+            "columnCount": 15,
+            "explanation": "Tabela da entidade `installer_activation_license` (Licencas de Instalacao). Tipo `persistence`, 15 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-instalacao-licencas",
+                    "title": "Licencas de Instalacao",
+                    "screenId": "admin.instalacao-licencas",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "installer_activation_service_token",
+            "entityCode": "installer_activation_service_token",
+            "entityName": "Tokens Internos de Instalacao",
+            "entityType": "persistence",
+            "scope": "mixed",
+            "category": "cadastro",
+            "columnCount": 13,
+            "explanation": "Tabela da entidade `installer_activation_service_token` (Tokens Internos de Instalacao). Tipo `persistence`, 13 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-instalacao-tokens",
+                    "title": "Tokens Internos de Instalacao",
+                    "screenId": "admin.instalacao-tokens",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "messenger_messages",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "mixed",
+            "category": "geral",
+            "columnCount": 7,
+            "explanation": "Tabela catalogada automaticamente a partir do banco atual, sem classificacao especifica adicional.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "pedido_builder_v2",
+            "entityCode": "pedido_builder",
+            "entityName": "Pedido Builder",
+            "entityType": "persistence",
+            "scope": "mixed",
+            "category": "cadastro",
+            "columnCount": 7,
+            "explanation": "Tabela da entidade `pedido_builder` (Pedido Builder). Tipo `persistence`, 7 colunas catalogadas e 1 relacoes declaradas.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "privacy_retention_policy",
+            "entityCode": "privacy_retention_policy",
+            "entityName": "Politicas LGPD",
+            "entityType": "persistence",
+            "scope": "mixed",
+            "category": "cadastro",
+            "columnCount": 16,
+            "explanation": "Tabela da entidade `privacy_retention_policy` (Politicas LGPD). Tipo `persistence`, 16 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-lgpd-retencao",
+                    "title": "Politicas LGPD",
+                    "screenId": "admin.lgpd-retencao",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "privacy_subject_request",
+            "entityCode": "privacy_subject_request",
+            "entityName": "Solicitacoes LGPD",
+            "entityType": "persistence",
+            "scope": "mixed",
+            "category": "cadastro",
+            "columnCount": 25,
+            "explanation": "Tabela da entidade `privacy_subject_request` (Solicitacoes LGPD). Tipo `persistence`, 25 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-lgpd-solicitacoes",
+                    "title": "Solicitacoes LGPD",
+                    "screenId": "admin.lgpd-solicitacoes",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "privacy_subject_request_evidence",
+            "entityCode": "privacy_subject_request_evidence",
+            "entityName": "Evidencias LGPD",
+            "entityType": "persistence",
+            "scope": "mixed",
+            "category": "cadastro",
+            "columnCount": 12,
+            "explanation": "Tabela da entidade `privacy_subject_request_evidence` (Evidencias LGPD). Tipo `persistence`, 12 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-lgpd-evidencias",
+                    "title": "Evidencias LGPD",
+                    "screenId": "admin.lgpd-evidencias",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "privacy_subject_request_verification",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "mixed",
+            "category": "lgpd",
+            "columnCount": 8,
+            "explanation": "Tabela da trilha LGPD para solicitacoes do titular, evidencias e politicas de retencao.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "produto_builder",
+            "entityCode": "produto_builder",
+            "entityName": "Produto Builder",
+            "entityType": "persistence",
+            "scope": "mixed",
+            "category": "cadastro",
+            "columnCount": 7,
+            "explanation": "Tabela da entidade `produto_builder` (Produto Builder). Tipo `persistence`, 7 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "produto-builder-programa",
+                    "title": "Produtos Builder",
+                    "screenId": "cadastros.produto-builder",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "program_change_grant",
+            "entityCode": "program_change_grant",
+            "entityName": "Autorizacoes de Alteracao",
+            "entityType": "persistence",
+            "scope": "mixed",
+            "category": "cadastro",
+            "columnCount": 12,
+            "explanation": "Tabela da entidade `program_change_grant` (Autorizacoes de Alteracao). Tipo `persistence`, 12 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-programa-grants",
+                    "title": "Autorizacoes de Alteracao",
+                    "screenId": "admin.programa-grants",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "program_change_request",
+            "entityCode": "program_change_request",
+            "entityName": "Solicitacoes de Alteracao",
+            "entityType": "persistence",
+            "scope": "mixed",
+            "category": "cadastro",
+            "columnCount": 13,
+            "explanation": "Tabela da entidade `program_change_request` (Solicitacoes de Alteracao). Tipo `persistence`, 13 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-programa-solicitacoes",
+                    "title": "Solicitacoes de Alteracao",
+                    "screenId": "admin.programa-solicitacoes",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "program_governance_retention_run",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "mixed",
+            "category": "governanca",
+            "columnCount": 11,
+            "explanation": "Tabela de modelagem, versionamento, publicacao e governanca de programas e entidades.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "program_publication_approval",
+            "entityCode": "program_publication_approval",
+            "entityName": "Aprovacoes de Publicacao",
+            "entityType": "persistence",
+            "scope": "mixed",
+            "category": "cadastro",
+            "columnCount": 11,
+            "explanation": "Tabela da entidade `program_publication_approval` (Aprovacoes de Publicacao). Tipo `persistence`, 11 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-programa-aprovacoes",
+                    "title": "Aprovacoes de Publicacao",
+                    "screenId": "admin.programa-aprovacoes",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "program_test_execution",
+            "entityCode": "program_test_execution",
+            "entityName": "Execucoes de Teste",
+            "entityType": "persistence",
+            "scope": "mixed",
+            "category": "cadastro",
+            "columnCount": 14,
+            "explanation": "Tabela da entidade `program_test_execution` (Execucoes de Teste). Tipo `persistence`, 14 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-programa-testes",
+                    "title": "Execucoes de Teste",
+                    "screenId": "admin.programa-testes",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "runtime_ai_message",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "runtime",
+            "columnCount": 7,
+            "explanation": "Tabela operacional do runtime para transacoes, jobs, mensagens, locks, eventos ou apoio de execucao.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "runtime_ai_session",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "runtime",
+            "columnCount": 14,
+            "explanation": "Tabela operacional do runtime para transacoes, jobs, mensagens, locks, eventos ou apoio de execucao.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "runtime_analytics_cache",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "analytics",
+            "columnCount": 15,
+            "explanation": "Tabela operacional de BI, pipelines semanticos, datasets publicados ou materializacao de analytics.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "runtime_async_job",
+            "entityCode": "runtime_async_job",
+            "entityName": "Job Assincrono",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 21,
+            "explanation": "Tabela da entidade `runtime_async_job` (Job Assincrono). Tipo `persistence`, 21 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "runtime-jobs",
+                    "title": "Jobs Assincronos",
+                    "screenId": "admin.jobs",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "runtime_endpoint",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "runtime",
+            "columnCount": 7,
+            "explanation": "Tabela operacional do runtime para transacoes, jobs, mensagens, locks, eventos ou apoio de execucao.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "runtime_entity_record_version",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "runtime",
+            "columnCount": 8,
+            "explanation": "Tabela operacional do runtime para transacoes, jobs, mensagens, locks, eventos ou apoio de execucao.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "runtime_event",
+            "entityCode": "runtime_event",
+            "entityName": "Eventos Runtime",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 20,
+            "explanation": "Tabela da entidade `runtime_event` (Eventos Runtime). Tipo `persistence`, 20 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-eventos-runtime",
+                    "title": "Eventos Runtime",
+                    "screenId": "admin.eventos-runtime",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "runtime_event_delivery",
+            "entityCode": "runtime_event_delivery",
+            "entityName": "Entregas de Eventos",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 14,
+            "explanation": "Tabela da entidade `runtime_event_delivery` (Entregas de Eventos). Tipo `persistence`, 14 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-evento-entregas",
+                    "title": "Entregas de Eventos",
+                    "screenId": "admin.evento-entregas",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "runtime_event_subscription",
+            "entityCode": "runtime_event_subscription",
+            "entityName": "Assinaturas de Eventos",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 15,
+            "explanation": "Tabela da entidade `runtime_event_subscription` (Assinaturas de Eventos). Tipo `persistence`, 15 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-evento-assinaturas",
+                    "title": "Assinaturas de Eventos",
+                    "screenId": "admin.evento-assinaturas",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "runtime_lock_policy",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "runtime",
+            "columnCount": 14,
+            "explanation": "Tabela operacional do runtime para transacoes, jobs, mensagens, locks, eventos ou apoio de execucao.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "runtime_notification",
+            "entityCode": "runtime_notification",
+            "entityName": "Notificacoes",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 0,
+            "explanation": "Tabela da entidade `runtime_notification` (Notificacoes). Tipo `persistence`, 0 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-notificacoes",
+                    "title": "Notificacoes",
+                    "screenId": "admin.notificacoes",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "runtime_notification_recipient",
+            "entityCode": "runtime_notification_recipient",
+            "entityName": "Destinatarios de Notificacoes",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 0,
+            "explanation": "Tabela da entidade `runtime_notification_recipient` (Destinatarios de Notificacoes). Tipo `persistence`, 0 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-notificacao-destinatarios",
+                    "title": "Destinatarios de Notificacoes",
+                    "screenId": "admin.notificacao-destinatarios",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "runtime_record_lock",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "runtime",
+            "columnCount": 18,
+            "explanation": "Tabela operacional do runtime para transacoes, jobs, mensagens, locks, eventos ou apoio de execucao.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "runtime_transaction",
+            "entityCode": "runtime_transaction",
+            "entityName": "Transacoes",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 15,
+            "explanation": "Tabela da entidade `runtime_transaction` (Transacoes). Tipo `persistence`, 15 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-transacoes",
+                    "title": "Transacoes",
+                    "screenId": "admin.transacoes",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "runtime_transaction_log",
+            "entityCode": "runtime_transaction_log",
+            "entityName": "Logs de Transacoes",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 9,
+            "explanation": "Tabela da entidade `runtime_transaction_log` (Logs de Transacoes). Tipo `persistence`, 9 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-logs-transacoes",
+                    "title": "Logs de Transacoes",
+                    "screenId": "admin.logs-transacoes",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "runtime_user_message",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "runtime",
+            "columnCount": 17,
+            "explanation": "Tabela operacional do runtime para transacoes, jobs, mensagens, locks, eventos ou apoio de execucao.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "runtime_user_session",
+            "entityCode": "runtime_user_session",
+            "entityName": "Sessoes",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 21,
+            "explanation": "Tabela da entidade `runtime_user_session` (Sessoes). Tipo `persistence`, 21 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-sessoes",
+                    "title": "Sessoes",
+                    "screenId": "admin.sessoes",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "screen_definition",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "mixed",
+            "category": "geral",
+            "columnCount": 9,
+            "explanation": "Tabela catalogada automaticamente a partir do banco atual, sem classificacao especifica adicional.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "system_literal_translation",
+            "entityCode": "system_literal_translation",
+            "entityName": "Literais e Traducoes",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 9,
+            "explanation": "Tabela da entidade `system_literal_translation` (Literais e Traducoes). Tipo `persistence`, 9 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-literais",
+                    "title": "Literais e Traducoes",
+                    "screenId": "admin.literais",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "system_option",
+            "entityCode": "system_option",
+            "entityName": "Opcoes",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 9,
+            "explanation": "Tabela da entidade `system_option` (Opcoes). Tipo `persistence`, 9 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-opcoes",
+                    "title": "Opcoes",
+                    "screenId": "admin.opcoes",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "system_option_list",
+            "entityCode": "system_option_list",
+            "entityName": "Listas de Opcoes",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 7,
+            "explanation": "Tabela da entidade `system_option_list` (Listas de Opcoes). Tipo `persistence`, 7 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-listas-opcoes",
+                    "title": "Listas de Opcoes",
+                    "screenId": "admin.listas-opcoes",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "system_parameter",
+            "entityCode": "system_parameter",
+            "entityName": "Parametros",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 11,
+            "explanation": "Tabela da entidade `system_parameter` (Parametros). Tipo `persistence`, 11 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-parametros",
+                    "title": "Parametros",
+                    "screenId": "admin.parametros",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "system_parameter_value",
+            "entityCode": "system_parameter_value",
+            "entityName": "Valores de Parametros",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 9,
+            "explanation": "Tabela da entidade `system_parameter_value` (Valores de Parametros). Tipo `persistence`, 9 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-parametro-valores",
+                    "title": "Valores de Parametros",
+                    "screenId": "admin.parametro-valores",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "system_record_integrity",
+            "entityCode": "system_record_integrity",
+            "entityName": "Integridade Estrutural",
+            "entityType": "persistence",
+            "scope": "global",
+            "category": "cadastro",
+            "columnCount": 12,
+            "explanation": "Tabela da entidade `system_record_integrity` (Integridade Estrutural). Tipo `persistence`, 12 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [
+                {
+                    "programCode": "admin-integridade",
+                    "title": "Integridade Estrutural",
+                    "screenId": "admin.integridade",
+                    "relationType": "primary"
+                }
+            ],
+            "programCount": 1
+        },
+        {
+            "tableName": "system_update_consent",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "sistema",
+            "columnCount": 11,
+            "explanation": "Tabela global de configuracao, parametros, literais, opcoes ou integridade do sistema.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "system_update_execution",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "sistema",
+            "columnCount": 23,
+            "explanation": "Tabela global de configuracao, parametros, literais, opcoes ou integridade do sistema.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "system_update_release",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "sistema",
+            "columnCount": 22,
+            "explanation": "Tabela global de configuracao, parametros, literais, opcoes ou integridade do sistema.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "system_update_tenant_activation",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "global",
+            "category": "sistema",
+            "columnCount": 11,
+            "explanation": "Tabela global de configuracao, parametros, literais, opcoes ou integridade do sistema.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "t3300",
+            "entityCode": "e2e_ent_3300",
+            "entityName": "Entidade E2E 3300",
+            "entityType": "persistence",
+            "scope": "mixed",
+            "category": "cadastro",
+            "columnCount": 4,
+            "explanation": "Tabela da entidade `e2e_ent_3300` (Entidade E2E 3300). Tipo `persistence`, 4 colunas catalogadas e 0 relacoes declaradas.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "user_filter_preference",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "mixed",
+            "category": "geral",
+            "columnCount": 10,
+            "explanation": "Tabela catalogada automaticamente a partir do banco atual, sem classificacao especifica adicional.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "user_grid_layout_preference",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "mixed",
+            "category": "geral",
+            "columnCount": 20,
+            "explanation": "Tabela catalogada automaticamente a partir do banco atual, sem classificacao especifica adicional.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "user_group_preference",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "mixed",
+            "category": "geral",
+            "columnCount": 11,
+            "explanation": "Tabela catalogada automaticamente a partir do banco atual, sem classificacao especifica adicional.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "user_layout_preference",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "mixed",
+            "category": "geral",
+            "columnCount": 11,
+            "explanation": "Tabela catalogada automaticamente a partir do banco atual, sem classificacao especifica adicional.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "user_mobile_grid_template_preference",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "mixed",
+            "category": "geral",
+            "columnCount": 15,
+            "explanation": "Tabela catalogada automaticamente a partir do banco atual, sem classificacao especifica adicional.",
+            "relatedPrograms": [],
+            "programCount": 0
+        },
+        {
+            "tableName": "user_sort_preference",
+            "entityCode": null,
+            "entityName": null,
+            "entityType": null,
+            "scope": "mixed",
+            "category": "geral",
+            "columnCount": 10,
+            "explanation": "Tabela catalogada automaticamente a partir do banco atual, sem classificacao especifica adicional.",
+            "relatedPrograms": [],
+            "programCount": 0
+        }
+    ],
+    "relations": [
+        {
+            "programCode": "admin-evento-assinaturas",
+            "title": "Assinaturas de Eventos",
+            "screenId": "admin.evento-assinaturas",
+            "tableName": "runtime_event_subscription",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-evento-entregas",
+            "title": "Entregas de Eventos",
+            "screenId": "admin.evento-entregas",
+            "tableName": "runtime_event_delivery",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-eventos-runtime",
+            "title": "Eventos Runtime",
+            "screenId": "admin.eventos-runtime",
+            "tableName": "runtime_event",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-instalacao-licencas",
+            "title": "Licencas de Instalacao",
+            "screenId": "admin.instalacao-licencas",
+            "tableName": "installer_activation_license",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-instalacao-tokens",
+            "title": "Tokens Internos de Instalacao",
+            "screenId": "admin.instalacao-tokens",
+            "tableName": "installer_activation_service_token",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-integridade",
+            "title": "Integridade Estrutural",
+            "screenId": "admin.integridade",
+            "tableName": "system_record_integrity",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-lgpd-evidencias",
+            "title": "Evidencias LGPD",
+            "screenId": "admin.lgpd-evidencias",
+            "tableName": "privacy_subject_request_evidence",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-lgpd-retencao",
+            "title": "Politicas LGPD",
+            "screenId": "admin.lgpd-retencao",
+            "tableName": "privacy_retention_policy",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-lgpd-solicitacoes",
+            "title": "Solicitacoes LGPD",
+            "screenId": "admin.lgpd-solicitacoes",
+            "tableName": "privacy_subject_request",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-listas-opcoes",
+            "title": "Listas de Opcoes",
+            "screenId": "admin.listas-opcoes",
+            "tableName": "system_option_list",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-literais",
+            "title": "Literais e Traducoes",
+            "screenId": "admin.literais",
+            "tableName": "system_literal_translation",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-logs-transacoes",
+            "title": "Logs de Transacoes",
+            "screenId": "admin.logs-transacoes",
+            "tableName": "runtime_transaction_log",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-notificacao-destinatarios",
+            "title": "Destinatarios de Notificacoes",
+            "screenId": "admin.notificacao-destinatarios",
+            "tableName": "runtime_notification_recipient",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-notificacoes",
+            "title": "Notificacoes",
+            "screenId": "admin.notificacoes",
+            "tableName": "runtime_notification",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-opcoes",
+            "title": "Opcoes",
+            "screenId": "admin.opcoes",
+            "tableName": "system_option",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-parametro-valores",
+            "title": "Valores de Parametros",
+            "screenId": "admin.parametro-valores",
+            "tableName": "system_parameter_value",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-parametros",
+            "title": "Parametros",
+            "screenId": "admin.parametros",
+            "tableName": "system_parameter",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-permissoes",
+            "title": "Permissoes",
+            "screenId": "admin.permissoes",
+            "tableName": "auth_user",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-programa-aprovacoes",
+            "title": "Aprovacoes de Publicacao",
+            "screenId": "admin.programa-aprovacoes",
+            "tableName": "program_publication_approval",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-programa-grants",
+            "title": "Autorizacoes de Alteracao",
+            "screenId": "admin.programa-grants",
+            "tableName": "program_change_grant",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-programa-overlay-versoes",
+            "title": "Versoes de Overlay",
+            "screenId": "admin.programa-overlay-versoes",
+            "tableName": "builder_program_overlay_version",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-programa-overlays",
+            "title": "Overlays de Programa",
+            "screenId": "admin.programa-overlays",
+            "tableName": "builder_program_overlay",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-programa-solicitacoes",
+            "title": "Solicitacoes de Alteracao",
+            "screenId": "admin.programa-solicitacoes",
+            "tableName": "program_change_request",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-programa-testes",
+            "title": "Execucoes de Teste",
+            "screenId": "admin.programa-testes",
+            "tableName": "program_test_execution",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-sessoes",
+            "title": "Sessoes",
+            "screenId": "admin.sessoes",
+            "tableName": "runtime_user_session",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-transacoes",
+            "title": "Transacoes",
+            "screenId": "admin.transacoes",
+            "tableName": "runtime_transaction",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-usuario-assinantes",
+            "title": "Usuarios por Assinante",
+            "screenId": "admin.usuario-assinantes",
+            "tableName": "auth_user_subscriber",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "admin-usuarios",
+            "title": "Usuarios",
+            "screenId": "admin.usuarios",
+            "tableName": "auth_user",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "analytics-clientes",
+            "title": "BI de Clientes",
+            "screenId": "analytics.clientes",
+            "tableName": "cliente",
+            "relationType": "source",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela auxiliar relacionada pela propria definicao do programa."
+        },
+        {
+            "programCode": "cadastros.clientes",
+            "title": "Clientes",
+            "screenId": "cadastros.clientes",
+            "tableName": "cliente",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "documento-especial-base",
+            "title": "Documento especial base",
+            "screenId": "documentos.especiais-base",
+            "tableName": "cliente",
+            "relationType": "source",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela auxiliar relacionada pela propria definicao do programa."
+        },
+        {
+            "programCode": "documento-regulado-bancario-base",
+            "title": "Documento regulado bancario base",
+            "screenId": "documentos.regulados-bancario-base",
+            "tableName": "cliente",
+            "relationType": "source",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela auxiliar relacionada pela propria definicao do programa."
+        },
+        {
+            "programCode": "documento-regulado-fiscal-base",
+            "title": "Documento regulado fiscal base",
+            "screenId": "documentos.regulados-fiscal-base",
+            "tableName": "cliente",
+            "relationType": "source",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela auxiliar relacionada pela propria definicao do programa."
+        },
+        {
+            "programCode": "documento-regulado-logistico-base",
+            "title": "Documento regulado logistico base",
+            "screenId": "documentos.regulados-logistico-base",
+            "tableName": "cliente",
+            "relationType": "source",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela auxiliar relacionada pela propria definicao do programa."
+        },
+        {
+            "programCode": "produto-builder-programa",
+            "title": "Produtos Builder",
+            "screenId": "cadastros.produto-builder",
+            "tableName": "produto_builder",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "relatorio-clientes-operacional",
+            "title": "Relatorio operacional de clientes",
+            "screenId": "relatorios.clientes-operacional",
+            "tableName": "cliente",
+            "relationType": "source",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela auxiliar relacionada pela propria definicao do programa."
+        },
+        {
+            "programCode": "runtime-jobs",
+            "title": "Jobs Assincronos",
+            "screenId": "admin.jobs",
+            "tableName": "runtime_async_job",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        },
+        {
+            "programCode": "teste-builder-clientes",
+            "title": "Clientes Builder",
+            "screenId": "cadastros.clientes-builder",
+            "tableName": "cliente",
+            "relationType": "primary",
+            "fieldCode": "",
+            "fieldLabel": "",
+            "notes": "Tabela principal da entidade publicada para o programa."
+        }
+    ]
+}

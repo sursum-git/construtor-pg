@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Catalogo de programas e tabelas</title>
+  <link id="kendo-theme-link" rel="stylesheet" href="../../kendo/styles/default-urban.css">
+  <link rel="stylesheet" href="../../src/styles/crud-engine.css">
+  <link rel="stylesheet" href="../../src/styles/examples-guide.css">
+  <style>
+    .catalog-layout {
+      display: grid;
+      gap: 16px;
+    }
+
+    .catalog-summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .catalog-card,
+    .catalog-panel {
+      padding: 16px;
+      border: 1px solid var(--crud-border);
+      border-radius: 6px;
+      background: var(--crud-surface);
+      box-shadow: 0 1px 2px var(--crud-shadow);
+    }
+
+    .catalog-card strong {
+      display: block;
+      color: var(--crud-title);
+      font-size: 22px;
+      margin-bottom: 4px;
+    }
+
+    .catalog-card span {
+      color: var(--crud-muted);
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .catalog-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: end;
+      justify-content: space-between;
+    }
+
+    .catalog-toolbar .example-config-field {
+      flex: 1 1 320px;
+      min-width: 220px;
+    }
+
+    .catalog-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .catalog-grid-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
+      gap: 12px;
+      align-items: start;
+    }
+
+    .catalog-detail-card h3,
+    .catalog-linked h4 {
+      margin: 0 0 10px;
+      color: var(--crud-title);
+    }
+
+    .catalog-definition {
+      margin: 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .catalog-definition div {
+      display: grid;
+      gap: 2px;
+    }
+
+    .catalog-definition dt {
+      margin: 0;
+      color: var(--crud-muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .catalog-definition dd {
+      margin: 0;
+      color: var(--crud-text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .catalog-empty,
+    .catalog-linked p,
+    .catalog-linked li {
+      color: var(--crud-text);
+      line-height: 1.45;
+    }
+
+    .catalog-linked ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    @media (max-width: 980px) {
+      .catalog-summary,
+      .catalog-grid-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="example-page-shell">
+    <header class="example-page-header">
+      <div>
+        <p class="example-kicker">Catalogo tecnico</p>
+        <h1>Catalogo de programas e tabelas</h1>
+        <p>Indice de busca dos programas publicados, tabelas relacionadas e explicacoes operacionais extraidas do proprio ambiente.</p>
+      </div>
+      <nav class="example-page-actions" aria-label="Navegacao do exemplo">
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../exemplos.html">Indice</a>
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="manual-programas.html">Manual de programas</a>
+      </nav>
+    </header>
+
+    <section class="catalog-layout">
+      <section class="catalog-summary">
+        <div class="catalog-card"><strong id="catalog-program-count">0</strong><span>Programas</span></div>
+        <div class="catalog-card"><strong id="catalog-table-count">0</strong><span>Tabelas</span></div>
+        <div class="catalog-card"><strong id="catalog-relation-count">0</strong><span>Relacoes</span></div>
+        <div class="catalog-card"><strong id="catalog-generated-at">-</strong><span>Gerado em</span></div>
+      </section>
+
+      <section class="catalog-panel catalog-toolbar">
+        <label class="example-config-field" for="catalog-search">
+          <span>Buscar</span>
+          <input id="catalog-search">
+        </label>
+        <div class="catalog-links">
+          <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../public/catalog/program-table-catalog.sqlite">Baixar SQLite</a>
+          <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../public/catalog/program-table-catalog.json">Baixar JSON</a>
+        </div>
+      </section>
+
+      <section id="catalog-tabs" class="catalog-panel">
+        <ul>
+          <li class="k-active">Programas</li>
+          <li>Tabelas</li>
+          <li>Relacoes</li>
+        </ul>
+        <div>
+          <div class="catalog-grid-layout">
+            <div id="catalog-program-grid"></div>
+            <div id="catalog-program-details" class="catalog-panel"></div>
+          </div>
+        </div>
+        <div>
+          <div class="catalog-grid-layout">
+            <div id="catalog-table-grid"></div>
+            <div id="catalog-table-details" class="catalog-panel"></div>
+          </div>
+        </div>
+        <div>
+          <div class="catalog-grid-layout">
+            <div id="catalog-relation-grid"></div>
+            <div id="catalog-relation-details" class="catalog-panel"></div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="../../vendor/jquery/jquery-4.0.0.min.js"></script>
+  <script src="../../kendo/js/kendo.all.min.js"></script>
+  <script src="../../kendo/js/cultures/kendo.culture.pt-BR.min.js"></script>
+  <script src="../../kendo/js/messages/kendo.messages.pt-BR.min.js"></script>
+  <script src="../../public/catalog/program-table-catalog-data.js"></script>
+  <script src="../../src/examples/program-table-catalog-page.js"></script>
+  <script>
+    kendo.culture("pt-BR");
+  </script>
+</body>
+</html>

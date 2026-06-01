@@ -1116,6 +1116,14 @@
       page: pagePath + "manual-programas.html",
       code: {}
     },
+    {
+      id: "catalogo-programas-tabelas",
+      category: "Documentacao",
+      title: "Catalogo de programas e tabelas",
+      summary: "Pagina de busca dos programas publicados, tabelas relacionadas e relacoes catalogadas a partir do ambiente atual, com download em SQLite e JSON.",
+      page: pagePath + "catalogo-programas-tabelas.html",
+      code: {}
+    },
       {
         id: "import-export-mappings",
         category: "Integracao",
