@@ -647,12 +647,34 @@ body .k-notification:has(.crud-toast) .k-svg-icon {
   gap: 12px;
 }
 
+.crud-filter-lookup-section {
+  display: grid;
+  gap: 4px;
+}
+
+.crud-filter-lookup-title {
+  color: var(--crud-title);
+  font-size: 13px;
+}
+
+.crud-filter-lookup-note {
+  color: var(--crud-muted);
+  font-size: 12px;
+}
+
 .crud-filter-lookup-list {
   max-height: min(48vh, 360px);
   overflow: auto;
   padding: 4px;
   border: 1px solid var(--crud-border);
   border-radius: 6px;
+}
+
+.crud-filter-lookup-badge {
+  margin-left: auto;
+  color: var(--crud-accent);
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .crud-field {

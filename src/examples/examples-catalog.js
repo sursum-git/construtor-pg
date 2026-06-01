@@ -2269,6 +2269,7 @@
     option("Filtro", "crud.filter.tabs.enabled", "true | false", "false", "Divide os campos de filtro em abas."),
     option("Filtro", "crud.filter.fields[].type", "search | text | enum | lookup | dateRange | date | datetime | time | number | integer | decimal | boolean", "por campo", "Tipo do filtro renderizado."),
     option("Filtro", "crud.filter.fields[].editor", "dropdown | dropdownList | multiselect | dropdowntree | checkbox | checkboxgroup | searchWindow", "por tipo", "Editor opcional para filtros de opcoes/lookup."),
+    option("Filtro", "crud.filter.fields[].frequentLimit", "0..10 | false", "5 no searchWindow", "Quando o editor for `searchWindow`, prioriza no topo os registros mais usados pelo usuario nesta tela. Use `0` ou `false` para desligar."),
     option("Filtro", "crud.filter.fields[].operator", "eq | neq | startsWith | contains | notContains | isEmpty | isNotEmpty | isNull | isNotNull | between | in | notIn | gt | gte | lt | lte | relative", "por tipo", "Operador inicial do filtro."),
     option("Filtro", "crud.filter.fields[].operators[]", "eq | neq | startsWith | contains | notContains | isEmpty | isNotEmpty | isNull | isNotNull | between | in | notIn | gt | gte | lt | lte | relative", "por tipo", "Lista de operadores permitidos para o usuario."),
     option("Filtro", "relativeDate.defaultPreset", "yesterday | today | tomorrow | days | weeks | fortnights | months | years", "today", "Opcoes de data relativa."),
