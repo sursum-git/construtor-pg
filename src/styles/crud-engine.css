@@ -647,6 +647,18 @@ body .k-notification:has(.crud-toast) .k-svg-icon {
   gap: 12px;
 }
 
+.crud-filter-lookup-mode {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.crud-filter-lookup-mode-active.k-button {
+  border-color: var(--crud-accent-border);
+  background: var(--crud-accent-soft);
+  color: var(--crud-title);
+}
+
 .crud-filter-lookup-section {
   display: grid;
   gap: 4px;

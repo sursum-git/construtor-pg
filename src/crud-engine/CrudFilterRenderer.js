@@ -4,12 +4,15 @@
   class CrudFilterRenderer {
     constructor(options) {
       this.definition = options.definition;
+      this.httpClient = options.httpClient || null;
+      this.securityPolicy = options.securityPolicy || null;
       this.onApply = options.onApply || function() {};
       this.onClear = options.onClear || function() {};
       this.onSavePreset = options.onSavePreset || function() {};
       this.onDeletePreset = options.onDeletePreset || function() {};
       this.inputs = {};
       this.lookupUsageStateVersion = 1;
+      this.lookupFrequentCache = {};
     }
 
     render() {
@@ -825,30 +828,71 @@
 
     openSearchWindow(item, state, multiple) {
       const options = this.getOptionData(item.filter);
+      const optionMap = options.reduce(function(acc, option) {
+        acc[String(option.value)] = option;
+        return acc;
+      }, {});
       const wrapper = $("<div></div>").appendTo(document.body);
       const content = $("<div class=\"crud-filter-lookup-window\"></div>").appendTo(wrapper);
       const search = $("<input>").appendTo(content);
+      const modeBar = $("<div class=\"crud-filter-lookup-mode\"></div>").appendTo(content);
+      const allButton = $("<button type=\"button\">Todos</button>").appendTo(modeBar);
+      const frequentButton = $("<button type=\"button\">Mais usados</button>").appendTo(modeBar);
       const frequentSection = $("<div class=\"crud-filter-lookup-section\" hidden></div>").appendTo(content);
       const list = $("<div class=\"crud-filter-lookup-list\"></div>").appendTo(content);
       const actions = $("<div class=\"crud-form-actions\"></div>").appendTo(content);
       const selectButton = $("<button type=\"button\">Selecionar</button>").appendTo(actions);
       const closeButton = $("<button type=\"button\">Cancelar</button>").appendTo(actions);
       let selected = multiple ? global.CrudUtils.ensureArray(state.selected).slice() : state.selected;
+      const view = {
+        mode: "all",
+        backendFrequent: null,
+        loading: false
+      };
 
       search.kendoTextBox({ placeholder: "Buscar" });
+      allButton.kendoButton({ icon: "list-bulleted" });
+      frequentButton.kendoButton({ icon: "star-outline" });
+      const syncModeButtons = () => {
+        allButton.toggleClass("crud-filter-lookup-mode-active", view.mode === "all");
+        frequentButton.toggleClass("crud-filter-lookup-mode-active", view.mode === "frequent");
+      };
+      const currentSourceOptions = () => {
+        if (view.mode !== "frequent") {
+          return options;
+        }
+        if (Array.isArray(view.backendFrequent)) {
+          return view.backendFrequent;
+        }
+        return this.rankLookupOptions(item.filter, options, "").frequent;
+      };
       const renderList = () => {
         const searchWidget = search.data("kendoTextBox");
         const text = String(searchWidget ? searchWidget.value() : search.val() || "").toLowerCase();
-        const ranked = this.rankLookupOptions(item.filter, options, text);
+        const sourceOptions = currentSourceOptions();
+        const ranked = view.mode === "frequent"
+          ? {
+              frequent: sourceOptions.filter(function(option) {
+                return !text || String(option.text || "").toLowerCase().indexOf(text) !== -1;
+              }),
+              remaining: [],
+              frequentKeys: sourceOptions.map(function(option) { return String(option.value); })
+            }
+          : this.rankLookupOptions(item.filter, sourceOptions, text);
         list.empty();
+        syncModeButtons();
         frequentSection.empty().prop("hidden", ranked.frequent.length === 0);
         if (ranked.frequent.length) {
           $("<strong class=\"crud-filter-lookup-title\"></strong>").text("Mais usados").appendTo(frequentSection);
-          $("<span class=\"crud-filter-lookup-note\"></span>").text("Baseado nas selecoes mais frequentes deste usuario nesta tela.").appendTo(frequentSection);
+          $("<span class=\"crud-filter-lookup-note\"></span>").text(view.mode === "frequent" && Array.isArray(view.backendFrequent)
+            ? "Lista carregada por endpoint fechado do backend."
+            : "Baseado nas selecoes mais frequentes deste usuario nesta tela.").appendTo(frequentSection);
         }
         const visibleOptions = ranked.frequent.concat(ranked.remaining);
         if (!visibleOptions.length) {
-          $("<div class=\"crud-filter-static\"></div>").text("Nenhum registro encontrado para o filtro atual.").appendTo(list);
+          $("<div class=\"crud-filter-static\"></div>").text(view.loading
+            ? "Carregando registros frequentes..."
+            : "Nenhum registro encontrado para o filtro atual.").appendTo(list);
           return;
         }
         visibleOptions.forEach(function(option, index) {
@@ -881,6 +925,29 @@
       };
 
       search.on("input", renderList);
+      allButton.on("click", () => {
+        view.mode = "all";
+        renderList();
+      });
+      frequentButton.on("click", () => {
+        view.mode = "frequent";
+        const endpoint = this.resolveLookupFrequentEndpoint(item.filter);
+        if (!endpoint) {
+          renderList();
+          return;
+        }
+        view.loading = true;
+        renderList();
+        this.fetchLookupFrequentOptions(item.filter).then((items) => {
+          view.backendFrequent = this.mergeLookupFrequentOptions(items, optionMap);
+          view.loading = false;
+          renderList();
+        }).catch(() => {
+          view.backendFrequent = [];
+          view.loading = false;
+          renderList();
+        });
+      });
       selectButton.kendoButton({ themeColor: "primary", icon: "check" });
       closeButton.kendoButton();
       wrapper.kendoWindow({
@@ -897,8 +964,11 @@
 
       const windowWidget = wrapper.data("kendoWindow");
       selectButton.on("click", () => {
-        const chosenOptions = options.filter(function(option) {
+        const currentOptions = currentSourceOptions();
+        const chosenOptions = currentOptions.filter(function(option) {
           return multiple ? selected.map(String).indexOf(String(option.value)) !== -1 : String(option.value) === String(selected);
+        }).map(function(option) {
+          return optionMap[String(option.value)] || option;
         });
         state.selected = multiple ? selected.slice() : selected;
         state.selectedText = chosenOptions.map(function(option) { return option.text; }).join(", ");
@@ -912,6 +982,66 @@
 
       renderList();
       windowWidget.center().open();
+    }
+
+    resolveLookupFrequentEndpoint(filter) {
+      const endpoint = filter && filter.frequentEndpoint;
+      if (!endpoint || !this.httpClient) {
+        return null;
+      }
+      const screenId = global.CrudUtils.getDefinitionScreenId(this.definition);
+      const fallbackEndpointId = typeof endpoint === "string"
+        ? endpoint
+        : String(endpoint.endpointId || endpoint.actionId || endpoint.id || "lookup.frequent").trim();
+      return global.CrudUtils.resolveEndpointForPolicy(endpoint, fallbackEndpointId, screenId, this.securityPolicy);
+    }
+
+    fetchLookupFrequentOptions(filter) {
+      const endpoint = this.resolveLookupFrequentEndpoint(filter);
+      if (!endpoint) {
+        return Promise.resolve([]);
+      }
+      const cacheKey = this.getLookupUsageStorageKey(filter) + ".backend";
+      if (Array.isArray(this.lookupFrequentCache[cacheKey])) {
+        return Promise.resolve(this.lookupFrequentCache[cacheKey]);
+      }
+      const request = Object.assign({}, endpoint, {
+        method: String(endpoint.method || "POST").toUpperCase(),
+        data: Object.assign({}, endpoint.data || {}, {
+          filterId: String(filter && filter.id || ""),
+          field: String(filter && filter.field || ""),
+          limit: this.getLookupFrequentLimit(filter)
+        })
+      });
+      return this.httpClient.request(request).then((response) => {
+        const items = this.normalizeLookupFrequentResponse(response);
+        this.lookupFrequentCache[cacheKey] = items;
+        return items;
+      });
+    }
+
+    normalizeLookupFrequentResponse(response) {
+      const source = response && Array.isArray(response.items)
+        ? response.items
+        : response && Array.isArray(response.data)
+          ? response.data
+          : Array.isArray(response)
+            ? response
+            : [];
+      return source.filter(function(item) {
+        return item && item.value != null;
+      }).map(function(item) {
+        return {
+          value: item.value,
+          text: item.text || item.label || String(item.value)
+        };
+      });
+    }
+
+    mergeLookupFrequentOptions(items, optionMap) {
+      return global.CrudUtils.ensureArray(items).map(function(item) {
+        return optionMap[String(item.value)] || item;
+      });
     }
 
     rankLookupOptions(filter, options, searchText) {

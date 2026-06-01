@@ -92,6 +92,8 @@
       if (!this.definition.features || this.definition.features.filterPanel !== false) {
         this.filterRenderer = new global.CrudFilterRenderer({
           definition: this.definition,
+          httpClient: this.httpClient,
+          securityPolicy: this.securityPolicy,
           onApply: (filters) => this.applyFilters(filters),
           onClear: () => this.applyFilters([]),
           onSavePreset: (preset) => this.layoutManager.saveFilterPreset(preset),
@@ -2351,7 +2353,11 @@
       });
       const wrapper = $("<div></div>").appendTo(document.body);
       const content = $("<div class=\"crud-filter-edit-window\"></div>").appendTo(wrapper);
-      const editor = new global.CrudFilterRenderer({ definition: this.definition });
+      const editor = new global.CrudFilterRenderer({
+        definition: this.definition,
+        httpClient: this.httpClient,
+        securityPolicy: this.securityPolicy
+      });
       const grid = $("<div class=\"crud-filter-grid crud-filter-edit-grid\"></div>").appendTo(content);
       editor.renderFilter(grid, filterDefinition, {
         idPrefix: "filter-edit-" + filterId + "-" + Date.now() + "-"
