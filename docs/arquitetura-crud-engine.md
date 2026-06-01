@@ -1121,6 +1121,64 @@ A precedencia aplicada pelo runtime e:
 O escopo global usa `tenant_id="__global__"` nas mesmas tabelas de preferencia.
 Ao retornar o JSON, cada preset informa `scope`, `tenantId` e `inherited`.
 
+### Frequencia de busca em filtros lookup
+
+O `CrudFilterRenderer` agora suporta prioridade e persistencia de registros mais usados em filtros `lookup` com `editor="searchWindow"`.
+
+Contrato atual do filtro:
+
+- `frequentLimit`: quantidade maxima de itens frequentes mostrados na janela; `0` ou `false` desliga o recurso;
+- `frequentEndpoint`: endpoint fechado opcional para buscar a lista frequente no backend;
+- `frequentRecordEndpoint`: endpoint fechado opcional para gravar o uso no backend; quando nao vier preenchido, o frontend tenta usar `dataSource.api.recordLookupUsage` se existir.
+
+Comportamento:
+
+- a janela mostra botoes `Todos` e `Mais usados`;
+- sem backend, continua funcionando por `localStorage`, separado por `screenId`, `runtimeUserId` e `filterId`;
+- com backend, o runtime pode persistir e consultar a frequencia por usuario/tela/filtro, sem URL livre.
+
+Persistencia backend atual:
+
+- migration `Version20260531113000`;
+- tabela `user_lookup_usage`;
+- handlers runtime:
+  - `layout.recordLookupUsage`
+  - `layout.lookupFrequent`
+
+Payloads fechados:
+
+- gravacao:
+
+```json
+{
+  "filterId": "clienteId",
+  "field": "clienteId",
+  "items": [
+    { "value": "123", "text": "Cliente Acme" }
+  ]
+}
+```
+
+- consulta:
+
+```json
+{
+  "filterId": "clienteId",
+  "field": "clienteId",
+  "limit": 5
+}
+```
+
+Retorno esperado da consulta:
+
+```json
+{
+  "items": [
+    { "value": "123", "text": "Cliente Acme" }
+  ]
+}
+```
+
 ### Situacao de entidade
 
 Uma entidade pode ter ou nao fluxo de situacao.

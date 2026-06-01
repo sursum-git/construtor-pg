@@ -1247,6 +1247,71 @@
       }
     },
     {
+      id: "filtro-busca-frequente",
+      category: "Filtros",
+      title: "Busca frequente em lookup",
+      summary: "Mostra o botao `Mais usados` no `searchWindow`, gravando selecoes por usuario/tela/filtro e consultando a lista frequente por endpoint fechado do backend.",
+      initialAction: "openFilter",
+      code: {
+        screenId: "cadastros.clientes.busca-frequente",
+        dataSource: {
+          api: {
+            recordLookupUsage: { endpointId: "recordLookupUsage", method: "POST" }
+          }
+        },
+        crud: {
+          filter: {
+            tabs: {
+              enabled: true,
+              items: [
+                { id: "geral", title: "Geral", fields: ["busca", "cliente_frequente", "nome_operador", "status"] },
+                { id: "periodo", title: "Periodo", fields: ["periodo_cadastro"] },
+                { id: "metricas", title: "Metricas", fields: ["valor_total_filtro", "qtde_pedidos_filtro"] }
+              ]
+            },
+            fields: [
+              {
+                id: "cliente_frequente",
+                field: "nome",
+                label: "Cliente frequente",
+                type: "lookup",
+                editor: "searchWindow",
+                operator: "eq",
+                frequentLimit: 5,
+                frequentEndpoint: { endpointId: "lookupFrequent", method: "POST" },
+                searchTitle: "Buscar cliente por frequencia",
+                options: [
+                  { value: "Acme Comercio", text: "Acme Comercio" },
+                  { value: "Beta Servicos", text: "Beta Servicos" },
+                  { value: "Casa Norte", text: "Casa Norte" },
+                  { value: "Delta Atacado", text: "Delta Atacado" },
+                  { value: "Escola Horizonte", text: "Escola Horizonte" },
+                  { value: "Farma Popular", text: "Farma Popular" },
+                  { value: "Grupo Solar", text: "Grupo Solar" },
+                  { value: "Hotel Central", text: "Hotel Central" },
+                  { value: "Industria Vale", text: "Industria Vale" },
+                  { value: "Jardins Office", text: "Jardins Office" },
+                  { value: "Kronos Logistica", text: "Kronos Logistica" },
+                  { value: "Litoral Foods", text: "Litoral Foods" }
+                ],
+                technicalProperties: [
+                  { section: "Busca", label: "Editor", value: "searchWindow" },
+                  { section: "Busca", label: "Endpoint frequente", value: "lookupFrequent" },
+                  { section: "Busca", label: "Persistencia", value: "user_lookup_usage" }
+                ]
+              }
+            ]
+          }
+        }
+      },
+      apply: function(definition, source) {
+        definition.screenId = "cadastros.clientes.busca-frequente";
+        definition.dataSource.api.recordLookupUsage = { endpointId: "recordLookupUsage", method: "POST" };
+        definition.crud.filter.tabs = clone(source.crud.filter.tabs);
+        definition.crud.filter.tabs.items[0].fields = ["busca", "cliente_frequente", "nome_operador", "status"];
+      }
+    },
+    {
       id: "grid-mobile-colunas",
       category: "Grid",
       title: "Mobile mantendo grid",

@@ -823,6 +823,7 @@ Implementado ate agora, em nivel demo/frontend:
 - Agrupamento com contagem/soma.
 - Congelamento de colunas opcional para desktop.
 - Mobile com modo colunas e modo template/card seguro.
+- Filtros `lookup/searchWindow` agora podem priorizar e consultar registros mais usados por usuario, com botoes `Todos` e `Mais usados`, fallback local em `localStorage` e persistencia backend opcional em `user_lookup_usage`.
 - Formulario popup com abas, etapas, situacao, eventos seguros, aviso de concorrencia, logs, impressao e outras acoes.
 - Botoes e eventos do formulario enviam os valores atuais em `values`; o backend runtime normaliza somente campos permitidos da entidade.
 - Consistencias do backend usam contrato `validation` + `effects`, com modal Kendo, marcacao de campo e confirmacao por token quando necessario.
@@ -912,6 +913,12 @@ Implementado ate agora, em nivel demo/frontend:
   - a administracao recebeu o endpoint `/api/admin/analytics-pipelines/impact` para relacionar datasets consumidores, views analytics e reports impactados pelo publish.
   - o pipeline agora aceita `having` explicito, operacoes de conjunto `union|union_all|intersect|except` e campos calculados fechados adicionais como `add`, `subtract`, `multiply`, `divide`, `upper`, `lower`, `trim`, `substring`, `length` e `date_bucket`;
   - o publish pode validar compatibilidade com a versao ativa e bloquear quebra de contrato quando chamado com `strictCompatibility=true` ou quando o pipeline usar `publishConfig.compatibilityMode=block`.
+- Persistencia backend da frequencia de lookup:
+  - migration `backend/migrations/Version20260531113000.php`;
+  - tabela `user_lookup_usage`;
+  - endpoints runtime `layout.recordLookupUsage` e `layout.lookupFrequent`;
+  - CRUDs gerados/admin passam a expor `recordLookupUsage` e `lookupFrequent` no metadata publicado;
+  - exemplo local em `examples/pages/filtro-busca-frequente.html`.
 - Camada `reports` v1 nativa:
   - `pageType=report` com `ReportEngine` em `src/report-engine/ReportEngine.js`;
   - schema em `public/metadata/schemas/report-definition-v1.schema.json`;

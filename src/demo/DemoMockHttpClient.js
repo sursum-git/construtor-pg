@@ -12,6 +12,7 @@
       this.adminStorageKey = "crud-demo-admin-runtime-v1" + storageSuffix;
       this.processJobsStorageKey = "crud-demo-process-jobs-v1" + storageSuffix;
       this.analyticsPipelineStorageKey = "crud-demo-analytics-pipelines-v1" + storageSuffix;
+      this.lookupUsageStorageKey = "crud-demo-lookup-usage-v1" + storageSuffix;
       this.externalApiCrudProductsStorageKey = "crud-demo-external-api-crud-products-v1" + storageSuffix;
       this.records = this.loadInitialRecords();
       this.nextId = this.records.reduce(function(max, record) {
@@ -50,6 +51,7 @@
         versions: [],
         activeVersionNo: 0
       };
+      this.lookupUsage = this.loadJson(this.lookupUsageStorageKey) || {};
       this.regulatedDocumentsStorageKey = "crud-demo-regulated-documents-v1" + storageSuffix;
       this.regulatedDocumentEventsStorageKey = "crud-demo-regulated-document-events-v1" + storageSuffix;
       this.regulatedDocuments = this.loadJson(this.regulatedDocumentsStorageKey) || [];
@@ -149,6 +151,10 @@
 
     persistAnalyticsPipelineState() {
       this.saveJson(this.analyticsPipelineStorageKey, this.analyticsPipelineState);
+    }
+
+    persistLookupUsage() {
+      this.saveJson(this.lookupUsageStorageKey, this.lookupUsage);
     }
 
     analyticsPipelineColumns() {
@@ -1586,6 +1592,10 @@
           return this.saveMobileTemplate(data || {});
         case "deleteMobileTemplate":
           return this.deleteMobileTemplate(data && data.id);
+        case "recordLookupUsage":
+          return this.recordLookupUsageRuntime(screenId, data || {});
+        case "lookupFrequent":
+          return this.lookupFrequentRuntime(screenId, data || {});
         case "help.markAsRead":
           return this.saveHelpSeen(data || {});
         default:
@@ -6015,6 +6025,107 @@
       }).filter(function(id) {
         return Number.isFinite(id);
       });
+    }
+
+    getLookupUsageBucket(screenId, filterId) {
+      const tenantId = String(this.tenantId || "principal");
+      const userId = String(this.userId || "demo");
+      const safeScreenId = String(screenId || "crud").trim() || "crud";
+      const safeFilterId = String(filterId || "lookup").trim() || "lookup";
+      const key = [tenantId, userId, safeScreenId, safeFilterId].join("|");
+      if (!this.lookupUsage[key]) {
+        this.lookupUsage[key] = {};
+      }
+      return this.lookupUsage[key];
+    }
+
+    seedLookupUsageIfNeeded(screenId, filterId, fieldName, bucket) {
+      if (Object.keys(bucket || {}).length || String(screenId || "") !== "cadastros.clientes.busca-frequente") {
+        return;
+      }
+      if (String(filterId || "") !== "cliente_frequente" || String(fieldName || "") !== "nome") {
+        return;
+      }
+      const now = new Date().toISOString();
+      [
+        { value: "Acme Comercio", text: "Acme Comercio", hits: 7 },
+        { value: "Beta Servicos", text: "Beta Servicos", hits: 5 },
+        { value: "Hotel Central", text: "Hotel Central", hits: 3 }
+      ].forEach((item, index) => {
+        bucket[String(item.value)] = {
+          value: item.value,
+          text: item.text,
+          hits: item.hits,
+          lastUsedAt: new Date(Date.now() - index * 60000).toISOString(),
+          field: fieldName,
+          seededAt: now
+        };
+      });
+      this.persistLookupUsage();
+    }
+
+    recordLookupUsageRuntime(screenId, data) {
+      const filterId = String(data && data.filterId || data && data.field || "lookup").trim() || "lookup";
+      const fieldName = String(data && data.field || "").trim();
+      const items = global.CrudUtils.ensureArray(data && data.items).filter(function(item) {
+        return item && item.value != null;
+      });
+      const bucket = this.getLookupUsageBucket(screenId, filterId);
+      const now = new Date().toISOString();
+      items.forEach(function(item) {
+        const key = String(item.value);
+        const current = bucket[key] || {
+          value: item.value,
+          text: item.text || String(item.value),
+          hits: 0,
+          lastUsedAt: ""
+        };
+        current.value = item.value;
+        current.text = item.text || String(item.value);
+        current.field = fieldName;
+        current.hits = Number(current.hits || 0) + 1;
+        current.lastUsedAt = now;
+        bucket[key] = current;
+      });
+      this.persistLookupUsage();
+      return {
+        ok: true,
+        screenId: screenId,
+        filterId: filterId,
+        updated: items.length
+      };
+    }
+
+    lookupFrequentRuntime(screenId, data) {
+      const filterId = String(data && data.filterId || data && data.field || "lookup").trim() || "lookup";
+      const fieldName = String(data && data.field || "").trim();
+      const limit = Math.max(1, Math.min(10, Number(data && data.limit) || 5));
+      const bucket = this.getLookupUsageBucket(screenId, filterId);
+      this.seedLookupUsageIfNeeded(screenId, filterId, fieldName, bucket);
+      const items = Object.keys(bucket).map(function(key) {
+        return bucket[key];
+      }).filter(function(item) {
+        return !fieldName || !item.field || String(item.field) === fieldName;
+      }).sort(function(left, right) {
+        const hitDiff = Number(right.hits || 0) - Number(left.hits || 0);
+        if (hitDiff !== 0) {
+          return hitDiff;
+        }
+        return String(right.lastUsedAt || "").localeCompare(String(left.lastUsedAt || ""));
+      }).slice(0, limit).map(function(item) {
+        return {
+          value: item.value,
+          text: item.text,
+          hits: Number(item.hits || 0),
+          lastUsedAt: item.lastUsedAt || ""
+        };
+      });
+      return {
+        ok: true,
+        screenId: screenId,
+        filterId: filterId,
+        items: items
+      };
     }
 
     applyCustomFilters(rows, filters) {

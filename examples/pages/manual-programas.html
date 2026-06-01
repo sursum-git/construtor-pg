@@ -341,6 +341,57 @@
             notes: ["Documento: ../../docs/manual-instalacao.md", "Licencas: ../../production/app.html?screenId=admin.instalacao-licencas", "Pagina real: ../../production/install.html", "Pagina demo: ../../examples/pages/system-install.html", "Fonte dos executaveis: ../../installer/"]
           }
         },
+        "filtro-busca-frequente": {
+          title: "Busca frequente em filtros",
+          module: "Documentacao",
+          type: "Exemplo funcional",
+          route: "../../examples/pages/filtro-busca-frequente.html",
+          screenId: "cadastros.clientes.busca-frequente",
+          summary: "Exemplo do `searchWindow` com botao `Mais usados`, persistencia de selecoes por usuario/tela/filtro e consulta opcional ao backend por endpoint fechado.",
+          functional: {
+            objective: "Reduzir buscas repetidas em filtros de cadastro, destacando os registros mais usados pelo proprio usuario.",
+            scope: [
+              "Filtro `lookup` com `editor=searchWindow`.",
+              "Prioridade local por `screenId + runtimeUserId + filterId`.",
+              "Persistencia backend em `user_lookup_usage` por usuario, tenant, tela e filtro.",
+              "Leitura opcional por `lookupFrequent` e gravacao por `recordLookupUsage`."
+            ],
+            outputs: [
+              "Janela com botoes `Todos` e `Mais usados`.",
+              "Ranking de registros frequentes por usuario.",
+              "Menos consultas desnecessarias ao backend para selecoes recorrentes."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Migration `Version20260531113000` aplicada no backend real.",
+              "Tela publicada com endpointIds `lookupFrequent` e `recordLookupUsage` quando a persistencia backend for desejada.",
+              "Filtro configurado com `frequentLimit` e, opcionalmente, `frequentEndpoint`."
+            ],
+            steps: [
+              "Abrir a janela de filtros da tela CRUD.",
+              "No campo `searchWindow`, clicar em `Buscar`.",
+              "Selecionar um ou mais registros e confirmar em `Selecionar`.",
+              "Reabrir a janela e usar `Mais usados` para revisar o ranking local ou backend.",
+              "Se quiser lista backend explicita, configurar `frequentEndpoint` no filtro."
+            ],
+            cautions: [
+              "Sem endpoint backend, o recurso continua funcionando por `localStorage` no navegador.",
+              "A gravacao backend so acontece quando a selecao e confirmada; abrir a janela ou digitar nao contam uso.",
+              "A UI continua fechada, sem URL livre, sem `eval` e sem JavaScript vindo do JSON."
+            ]
+          },
+          references: {
+            permissions: ["crud.read"],
+            relatedPrograms: ["Cadastro de clientes"],
+            notes: [
+              "Exemplo local: ../../examples/pages/filtro-busca-frequente.html",
+              "Migration: ../../backend/migrations/Version20260531113000.php",
+              "Tabela: user_lookup_usage",
+              "Handlers runtime: layout.lookupFrequent e layout.recordLookupUsage"
+            ]
+          }
+        },
         "admin-instalacao-licencas": {
           title: "Licencas de instalacao",
           module: "Administracao",
@@ -2350,7 +2401,7 @@
       };
 
       const treeData = [
-        { text: "Roteiro inicial", expanded: true, items: [{ id: "roteiro-analista-funcional", text: "Roteiro do analista funcional" }, { id: "manual-instalacao", text: "Manual de instalacao" }] },
+        { text: "Roteiro inicial", expanded: true, items: [{ id: "roteiro-analista-funcional", text: "Roteiro do analista funcional" }, { id: "manual-instalacao", text: "Manual de instalacao" }, { id: "filtro-busca-frequente", text: "Busca frequente em filtros" }] },
         { text: "Acesso e navegacao", expanded: true, items: [{ id: "login", text: "Login" }, { id: "home", text: "Home" }] },
         { text: "Operacional", expanded: true, items: [{ id: "clientes", text: "Cadastro de clientes" }, { id: "processamento-clientes", text: "Processamento de clientes" }, { id: "report-operacional", text: "Relatorio operacional" }, { id: "report-analitico", text: "Relatorio analitico" }, { id: "special-document-base", text: "Documento especial base" }, { id: "regulated-document-base", text: "Documento regulado base" }, { id: "jobs", text: "Meus Jobs / Jobs" }] },
         { text: "Administracao", expanded: true, items: [
