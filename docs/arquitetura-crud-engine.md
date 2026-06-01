@@ -111,6 +111,36 @@ No backend:
 - o runtime publica endpoints `read`, `get` e, quando configurado, `create`, `update` e `delete`;
 - o handler usado passa a ser `entity.api.crud`, separado do `entity.crud`;
 - quando a fonte vinculada usa `providerType=odoo`, o runtime muda para `entity.api.odoo.readonly`, com `search_read`, `search_count` e `read` montados internamente, sem expor `create`, `update` ou `delete`.
+- campos de entidade API agora tambem podem usar `options.api.lookupResolver` para enriquecer a linha com outra operacao cadastrada da mesma `apiSource`, com memoizacao por request e batch por ids distintos quando `mode=batch`.
+
+### Lookup resolver em entidade API
+
+Contrato fechado:
+
+```json
+{
+  "api": {
+    "jsonPath": "cliente_nome",
+    "lookupResolver": {
+      "operationCode": "clientes_batch",
+      "sourceField": "cliente_id",
+      "requestParam": "ids",
+      "mode": "batch",
+      "responseItemsPath": "items",
+      "matchField": "id",
+      "valuePath": "nome"
+    }
+  }
+}
+```
+
+Regras:
+
+- `operationCode` precisa existir no cadastro reutilizavel da API;
+- `sourceField` aponta para um campo ja mapeado da linha principal;
+- `mode=batch` espera array em `responseItemsPath` e exige `matchField`;
+- `mode=per_value` usa `responseItemPath` e resolve um registro por id distinto;
+- o cache atual fica restrito ao request do backend, sem persistencia global nesta fase.
 
 ## Isolamento por assinante na entidade persistente
 

@@ -2694,6 +2694,7 @@ class ProgramBuilderService
                 'apiShowInGrid' => !is_array($options['api'] ?? null) || ($options['api']['showInGrid'] ?? true) !== false,
                 'apiShowInForm' => !is_array($options['api'] ?? null) || ($options['api']['showInForm'] ?? true) !== false,
                 'apiShowInFilter' => is_array($options['api'] ?? null) && ($options['api']['showInFilter'] ?? false) === true,
+                'apiLookupResolver' => is_array($options['api'] ?? null) && is_array($options['api']['lookupResolver'] ?? null) ? $options['api']['lookupResolver'] : null,
             ];
         }
 
@@ -2986,6 +2987,7 @@ class ProgramBuilderService
             $apiShowInGrid = ($item['apiShowInGrid'] ?? true) !== false;
             $apiShowInForm = ($item['apiShowInForm'] ?? true) !== false;
             $apiShowInFilter = ($item['apiShowInFilter'] ?? false) === true;
+            $apiLookupResolver = $this->normalizeApiLookupResolverConfig(($item['apiLookupResolver'] ?? null) ?? (is_array($options['api'] ?? null) ? ($options['api']['lookupResolver'] ?? null) : null));
             if ($entityType === 'api' && $apiJsonPath === '') {
                 throw new RuntimeHttpException('ENTITY_API_FIELD_JSON_PATH_REQUIRED', 'Campo de entidade API precisa informar JSON path.', 422, [
                     'field' => $fieldCode,
@@ -3033,13 +3035,14 @@ class ProgramBuilderService
                 unset($options['virtual']);
             }
             if ($entityType === 'api') {
-                $options['api'] = [
+                $options['api'] = array_filter([
                     'jsonPath' => $apiJsonPath,
                     'writePath' => $apiWritePath !== '' ? $apiWritePath : $apiJsonPath,
                     'showInGrid' => $apiShowInGrid,
                     'showInForm' => $apiShowInForm,
                     'showInFilter' => $apiShowInFilter,
-                ];
+                    'lookupResolver' => $apiLookupResolver,
+                ], static fn (mixed $entry): bool => $entry !== null);
                 $defaultValue = null;
                 $unique = false;
                 $foreignKeyTable = '';
@@ -5011,6 +5014,16 @@ class ProgramBuilderService
             if ($apiJsonPath !== '') {
                 $properties[] = ['section' => 'API', 'label' => 'JSON Path', 'value' => $apiJsonPath, 'critical' => true];
             }
+            $lookupResolver = is_array($options['api']['lookupResolver'] ?? null) ? $options['api']['lookupResolver'] : null;
+            if ($lookupResolver) {
+                $properties[] = ['section' => 'API', 'label' => 'Lookup operacao', 'value' => (string) ($lookupResolver['operationCode'] ?? ''), 'critical' => true];
+                if (($lookupResolver['sourceField'] ?? '') !== '') {
+                    $properties[] = ['section' => 'API', 'label' => 'Lookup origem', 'value' => (string) $lookupResolver['sourceField']];
+                }
+                if (($lookupResolver['mode'] ?? '') !== '') {
+                    $properties[] = ['section' => 'API', 'label' => 'Lookup modo', 'value' => (string) $lookupResolver['mode']];
+                }
+            }
             $apiSourceCode = trim((string) ($entity->getMetadata()['apiSourceCode'] ?? ''));
             if ($apiSourceCode !== '') {
                 $properties[] = ['section' => 'API', 'label' => 'API cadastrada', 'value' => $apiSourceCode];
@@ -5827,6 +5840,7 @@ class ProgramBuilderService
                 'apiShowInGrid' => !is_array($field['options']['api'] ?? null) || ($field['options']['api']['showInGrid'] ?? true) !== false,
                 'apiShowInForm' => !is_array($field['options']['api'] ?? null) || ($field['options']['api']['showInForm'] ?? true) !== false,
                 'apiShowInFilter' => is_array($field['options']['api'] ?? null) && ($field['options']['api']['showInFilter'] ?? false) === true,
+                'apiLookupResolver' => is_array($field['options']['api'] ?? null) && is_array($field['options']['api']['lookupResolver'] ?? null) ? $field['options']['api']['lookupResolver'] : null,
             ];
         }, $config['fields']);
 
@@ -6546,6 +6560,60 @@ class ProgramBuilderService
                 'queryParams' => is_array($deleteOperation['queryParams'] ?? null) ? $deleteOperation['queryParams'] : [],
                 'bodyTemplate' => $deleteOperation['bodyTemplate'] ?? null,
             ] : null,
+            'operations' => array_values(array_filter(array_map(static function (mixed $operation): ?array {
+                if (!is_array($operation) || trim((string) ($operation['code'] ?? '')) === '') {
+                    return null;
+                }
+
+                return [
+                    'code' => (string) $operation['code'],
+                    'type' => (string) ($operation['type'] ?? 'custom'),
+                    'method' => strtoupper((string) ($operation['method'] ?? 'GET')),
+                    'path' => (string) ($operation['path'] ?? ''),
+                    'headers' => is_array($operation['headers'] ?? null) ? $operation['headers'] : [],
+                    'queryParams' => is_array($operation['queryParams'] ?? null) ? $operation['queryParams'] : [],
+                    'bodyTemplate' => $operation['bodyTemplate'] ?? null,
+                    'itemsPath' => $operation['itemsPath'] ?? null,
+                    'itemPath' => $operation['itemPath'] ?? null,
+                    'totalPath' => $operation['totalPath'] ?? null,
+                ];
+            }, $operations))),
+        ];
+    }
+
+    private function normalizeApiLookupResolverConfig(mixed $value): ?array
+    {
+        if (!is_array($value)) {
+            return null;
+        }
+
+        $operationCode = $this->safeCode((string) ($value['operationCode'] ?? ''));
+        $sourceField = $this->safeSqlIdentifier((string) ($value['sourceField'] ?? ''));
+        $requestParam = $this->safeCode((string) ($value['requestParam'] ?? ''));
+        $mode = strtolower(trim((string) ($value['mode'] ?? 'batch')));
+        $valuePath = $this->normalizeApiJsonPath((string) ($value['valuePath'] ?? '$'));
+        $responseItemsPath = $this->normalizeApiJsonPath((string) ($value['responseItemsPath'] ?? ($value['itemsPath'] ?? '$')));
+        $responseItemPath = $this->normalizeApiJsonPath((string) ($value['responseItemPath'] ?? ($value['itemPath'] ?? '$')));
+        $matchField = $this->normalizeApiJsonPath((string) ($value['matchField'] ?? ''));
+        if ($operationCode === '' || $sourceField === '' || $requestParam === '') {
+            return null;
+        }
+        if (!in_array($mode, ['batch', 'per_value'], true)) {
+            $mode = 'batch';
+        }
+        if ($mode === 'batch' && $matchField === '') {
+            return null;
+        }
+
+        return [
+            'operationCode' => $operationCode,
+            'sourceField' => $sourceField,
+            'requestParam' => $requestParam,
+            'mode' => $mode,
+            'valuePath' => $valuePath !== '' ? $valuePath : '$',
+            'responseItemsPath' => $responseItemsPath !== '' ? $responseItemsPath : '$',
+            'responseItemPath' => $responseItemPath !== '' ? $responseItemPath : '$',
+            'matchField' => $matchField,
         ];
     }
 

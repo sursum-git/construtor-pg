@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Enriquecimento API com cache por request</title>
+  <link id="kendo-theme-link" rel="stylesheet" href="../../kendo/styles/default-urban.css">
+  <link rel="stylesheet" href="../../src/styles/crud-engine.css">
+  <link rel="stylesheet" href="../../src/styles/examples-guide.css">
+  <style>
+    .doc-layout { display: grid; gap: 16px; }
+    .doc-card {
+      padding: 16px;
+      border: 1px solid var(--crud-border);
+      border-radius: 6px;
+      background: var(--crud-surface);
+      box-shadow: 0 1px 2px var(--crud-shadow);
+    }
+    .doc-card h2, .doc-card h3 { margin: 0 0 10px; color: var(--crud-title); }
+    .doc-card p, .doc-card li { line-height: 1.5; color: var(--crud-text); }
+    .doc-card pre {
+      margin: 0;
+      padding: 14px;
+      overflow: auto;
+      border-radius: 6px;
+      background: var(--crud-readonly-bg);
+      border: 1px solid var(--crud-border);
+    }
+    .doc-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    @media (max-width: 960px) {
+      .doc-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body data-example-id="consulta-api-enriquecimento">
+  <main class="example-page-shell">
+    <header class="example-page-header">
+      <div>
+        <p class="example-kicker">Documentacao</p>
+        <h1>Enriquecimento API com cache por request</h1>
+        <p>Contrato fechado para listar pedidos e resolver dados de cliente, produto ou outro relacionamento externo sem repetir chamada para o mesmo identificador dentro da mesma leitura.</p>
+      </div>
+      <nav class="example-page-actions" aria-label="Navegacao do exemplo">
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="../../exemplos.html">Indice</a>
+        <a class="k-button k-button-md k-rounded-md k-button-solid k-button-solid-base" href="manual-programas.html">Manual</a>
+      </nav>
+    </header>
+
+    <section class="doc-layout">
+      <article class="doc-card">
+        <h2>Quando usar</h2>
+        <p>Use em entidades <code>api</code> quando a listagem vem de uma operacao externa e um ou mais campos dependem de outra operacao da mesma fonte.</p>
+        <ul>
+          <li>Pedido retorna <code>cliente_id</code>, mas nao retorna <code>cliente_nome</code>.</li>
+          <li>Mesmo cliente aparece em varias linhas.</li>
+          <li>O runtime precisa buscar cada cliente uma vez por request e reaproveitar o resultado.</li>
+        </ul>
+      </article>
+
+      <section class="doc-grid">
+        <article class="doc-card">
+          <h3>Modo batch</h3>
+<pre><code>{
+  "api": {
+    "jsonPath": "cliente_nome",
+    "lookupResolver": {
+      "operationCode": "clientes_batch",
+      "sourceField": "cliente_id",
+      "requestParam": "ids",
+      "mode": "batch",
+      "responseItemsPath": "items",
+      "matchField": "id",
+      "valuePath": "nome"
+    }
+  }
+}</code></pre>
+        </article>
+
+        <article class="doc-card">
+          <h3>Modo por valor</h3>
+<pre><code>{
+  "api": {
+    "jsonPath": "cliente_nome",
+    "lookupResolver": {
+      "operationCode": "cliente_detalhe",
+      "sourceField": "cliente_id",
+      "requestParam": "id",
+      "mode": "per_value",
+      "responseItemPath": "$",
+      "valuePath": "nome"
+    }
+  }
+}</code></pre>
+        </article>
+      </section>
+
+      <article class="doc-card">
+        <h2>Como o runtime trabalha</h2>
+        <ol>
+          <li>Executa a operacao principal da entidade API.</li>
+          <li>Mapeia os campos base da linha.</li>
+          <li>Agrupa os identificadores distintos do <code>sourceField</code>.</li>
+          <li>Chama a operacao de lookup uma vez por conjunto ou uma vez por valor distinto.</li>
+          <li>Reaproveita o resultado nas linhas repetidas antes de filtrar e ordenar.</li>
+        </ol>
+      </article>
+
+      <article class="doc-card">
+        <h2>Limites</h2>
+        <ul>
+          <li>So funciona com operacoes cadastradas na propria fonte API.</li>
+          <li>Nao aceita URL livre, SQL, template ou JavaScript vindo do metadado.</li>
+          <li>O cache atual e por request do backend, nao um cache global persistente.</li>
+        </ul>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

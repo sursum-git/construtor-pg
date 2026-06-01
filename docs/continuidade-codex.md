@@ -13,6 +13,16 @@ Use este arquivo para retomar o trabalho em outra sessao.
 7. Nao reverta alteracoes existentes sem pedido explicito do usuario.
 8. Quando o usuario pedir pendencias operacionais ou o que falta fazer fora do codigo, consultar `docs/pendencias-operacionais.md`.
 
+## Lookup resolver para entidade API
+
+- `RuntimeApiEntityActionService` aceita `options.api.lookupResolver` por campo.
+- O lookup sempre referencia uma operacao cadastrada na mesma `apiSource`.
+- Modos atuais:
+  - `batch`
+  - `per_value`
+- O runtime enriquece antes de filtrar e ordenar, para permitir uso do campo resolvido no grid.
+- Exemplo navegavel: `examples/pages/consulta-api-enriquecimento.html`.
+
 ## Provisionamento operacional
 
 - existe agora uma camada de automacao, sem alterar o modelo atual de tenant/runtime/programas:

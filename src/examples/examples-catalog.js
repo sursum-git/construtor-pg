@@ -1109,6 +1109,14 @@
       }
     },
     {
+      id: "consulta-api-enriquecimento",
+      category: "Documentacao",
+      title: "Enriquecimento API com cache por request",
+      summary: "Mostra o contrato fechado de `lookupResolver` para reutilizar registros relacionados em leituras repetidas sem repetir chamada externa para o mesmo identificador.",
+      page: pagePath + "consulta-api-enriquecimento.html",
+      code: {}
+    },
+    {
       id: "manual-programas",
       category: "Documentacao",
       title: "Manual por programa",
@@ -2329,6 +2337,7 @@
     option("Dados/API", "dataSource.api.*.method", "GET | POST | PUT | PATCH | DELETE", "GET", "Metodo usado pelo mock/backend."),
     option("Dados/API", "dataModel.fields[].type", "string | text | integer | decimal | number | boolean | date | datetime | email | enum | lookup | hidden", "Obrigatorio", "Tipo base usado por grid, filtros e formulario."),
     option("Dados/API", "dataModel.fields[].format", "currency | date | datetime | number", "por tipo", "Atalhos implementados para formatacao Kendo."),
+    option("Dados/API", "dataModel.fields[].api.lookupResolver", "{ operationCode, sourceField, requestParam, mode, responseItemsPath|responseItemPath, matchField, valuePath }", "vazio", "No runtime de entidade API, permite enriquecer um campo a partir de outra operacao cadastrada da mesma fonte, com memoizacao por request e batch por ids distintos."),
     option("Dados/API", "dataModel.fields[].technicalProperties[]", "lista de { label, value }", "vazio", "Exibe um icone tecnico ao lado do nome do campo no grid, filtro e formulario."),
     option("Grid", "crud.grid.columns[].technicalProperties[]", "lista de { section, label, value }", "fallback do campo", "Permite sobrescrever ou complementar as propriedades tecnicas mostradas no cabecalho do grid."),
     option("Filtro", "crud.filter.fields[].technicalProperties[]", "lista de { section, label, value }", "fallback do campo", "Permite sobrescrever ou complementar as propriedades tecnicas mostradas no filtro."),

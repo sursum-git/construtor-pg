@@ -59,6 +59,11 @@ class ProgramBuilderServiceTechnicalPropertiesTest extends TestCase
                 'readonly' => true,
                 'api' => [
                     'jsonPath' => 'name',
+                    'lookupResolver' => [
+                        'operationCode' => 'parceiro_lookup',
+                        'sourceField' => 'partner_id',
+                        'mode' => 'batch',
+                    ],
                 ],
             ]);
 
@@ -70,6 +75,9 @@ class ProgramBuilderServiceTechnicalPropertiesTest extends TestCase
 
         self::assertSame('name', $this->findPropertyValue($properties, 'JSON Path'));
         self::assertTrue($this->findPropertyCritical($properties, 'JSON Path'));
+        self::assertSame('parceiro_lookup', $this->findPropertyValue($properties, 'Lookup operacao'));
+        self::assertSame('partner_id', $this->findPropertyValue($properties, 'Lookup origem'));
+        self::assertSame('batch', $this->findPropertyValue($properties, 'Lookup modo'));
         self::assertSame('odoo_mock', $this->findPropertyValue($properties, 'API cadastrada'));
         self::assertSame('odoo_list', $this->findPropertyValue($properties, 'Operacao de lista'));
         self::assertSame('odoo_detail', $this->findPropertyValue($properties, 'Operacao de detalhe'));

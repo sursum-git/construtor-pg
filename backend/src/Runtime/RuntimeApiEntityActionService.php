@@ -10,6 +10,7 @@ class RuntimeApiEntityActionService
     public function __construct(
         private readonly BuilderEntityRepository $entities,
         private readonly RuntimeTransactionService $transactions,
+        private readonly RuntimeExternalJsonClient $externalJsonClient,
     ) {
     }
 
@@ -40,6 +41,7 @@ class RuntimeApiEntityActionService
         $response = $this->requestEndpoint($definition, $definition['apiSource']['listEndpoint'], $definition['apiSource']['authHeaders']);
         $items = $this->extractItems($response['body'], (string) $definition['apiSource']['listResponse']['itemsPath']);
         $data = array_map(fn (mixed $item): array => $this->mapItem($definition, is_array($item) ? $item : []), $items);
+        $data = $this->enrichRows($definition, $data);
         $data = $this->applyFilter($data, $payload['filter'] ?? null);
         $data = $this->applySort($data, $payload['sort'] ?? []);
         $totalPath = (string) ($definition['apiSource']['listResponse']['totalPath'] ?? '');
@@ -83,7 +85,7 @@ class RuntimeApiEntityActionService
                     'itemPath' => $path,
                 ]);
             }
-            $mapped = $this->mapItem($definition, $item);
+            $mapped = $this->enrichRows($definition, [$this->mapItem($definition, $item)])[0] ?? [];
             $this->transactions->log($definition['entityCode'] . '.api.get', 'Detalhe de entidade API consultado.', after: $mapped, metadata: [
                 'entityCode' => $definition['entityCode'],
                 'endpoint' => $detailEndpoint['url'],
@@ -96,6 +98,7 @@ class RuntimeApiEntityActionService
 
         if (is_array($payload['record'] ?? null)) {
             $record = $payload['record'];
+            $record = $this->enrichRows($definition, [$record])[0] ?? $record;
             $this->transactions->log($definition['entityCode'] . '.api.get', 'Detalhe de entidade API reaproveitado da listagem.', after: $record, metadata: [
                 'entityCode' => $definition['entityCode'],
                 'source' => 'grid-record',
@@ -238,6 +241,7 @@ class RuntimeApiEntityActionService
                 'jsonPath' => $jsonPath,
                 'writePath' => trim((string) ($apiField['writePath'] ?? $jsonPath)),
                 'readonly' => ($options['readonly'] ?? false) === true || ($options['writable'] ?? true) === false,
+                'lookupResolver' => $this->normalizeLookupResolver($apiField['lookupResolver'] ?? null),
             ];
             if ($field->isPrimaryKey()) {
                 $primaryKey = $field->getCode();
@@ -279,76 +283,20 @@ class RuntimeApiEntityActionService
                 $bodyTemplate[$key] = $bodyTemplate[$key] ?? $value;
             }
         }
-
-        $ch = curl_init($url);
-        if ($ch === false) {
-            throw new RuntimeHttpException('ENTITY_API_REQUEST_INIT_FAILED', 'Nao foi possivel iniciar a chamada da API externa.', 500, [
-                'entityCode' => $definition['entityCode'],
-                'url' => $url,
-            ]);
-        }
-
-        $httpHeaders = [];
-        foreach ($headers as $key => $value) {
-            $httpHeaders[] = $key . ': ' . $value;
-        }
         $payload = null;
         if (in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
             $payloadValue = $this->mergeRequestPayload($bodyTemplate, $requestData);
-            if ($payloadValue !== null) {
-                $payload = is_scalar($payloadValue) ? (string) $payloadValue : json_encode($payloadValue, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-                $httpHeaders[] = 'Content-Type: application/json';
-            }
+            $payload = $payloadValue;
         }
 
-        try {
-            curl_setopt_array($ch, [
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_FOLLOWLOCATION => false,
-                CURLOPT_TIMEOUT => max(1, (int) ($definition['apiSource']['timeoutSeconds'] ?? 20)),
-                CURLOPT_CUSTOMREQUEST => $method,
-                CURLOPT_HTTPHEADER => $httpHeaders,
-            ]);
-            if ($payload !== null) {
-                curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
-            }
-
-            $raw = curl_exec($ch);
-            $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            if ($raw === false) {
-                throw new RuntimeHttpException('ENTITY_API_REQUEST_FAILED', 'Falha ao consultar a API externa.', 502, [
-                    'entityCode' => $definition['entityCode'],
-                    'url' => $url,
-                    'curlError' => curl_error($ch),
-                ]);
-            }
-            $decoded = json_decode((string) $raw, true);
-            if ((string) $raw === '' || $raw === null) {
-                $decoded = [];
-            }
-            if (!is_array($decoded)) {
-                throw new RuntimeHttpException('ENTITY_API_RESPONSE_INVALID', 'A API externa nao retornou um JSON/array valido.', 422, [
-                    'entityCode' => $definition['entityCode'],
-                    'url' => $url,
-                    'status' => $status,
-                ]);
-            }
-            if ($status < 200 || $status >= 300) {
-                throw new RuntimeHttpException('ENTITY_API_HTTP_ERROR', 'A API externa respondeu com erro.', 502, [
-                    'entityCode' => $definition['entityCode'],
-                    'url' => $url,
-                    'status' => $status,
-                    'response' => $decoded,
-                ]);
-            }
-
-            return [
-                'status' => $status,
-                'body' => $decoded,
-            ];
-        } finally {
-            curl_close($ch);
-        }
+        return $this->externalJsonClient->request(
+            $url,
+            $method,
+            $headers,
+            $payload,
+            max(1, (int) ($definition['apiSource']['timeoutSeconds'] ?? 20)),
+            ['entityCode' => $definition['entityCode']]
+        );
     }
 
     private function mergeHeaders(array $authHeaders, array $endpointHeaders): array
@@ -398,6 +346,181 @@ class RuntimeApiEntityActionService
         }
 
         return $mapped;
+    }
+
+    private function enrichRows(array $definition, array $rows): array
+    {
+        if ($rows === []) {
+            return $rows;
+        }
+
+        $groups = [];
+        foreach ($definition['fields'] as $field) {
+            $resolver = is_array($field['lookupResolver'] ?? null) ? $field['lookupResolver'] : null;
+            if (!$resolver) {
+                continue;
+            }
+            $groupKey = json_encode([
+                'operationCode' => $resolver['operationCode'],
+                'sourceField' => $resolver['sourceField'],
+                'mode' => $resolver['mode'],
+                'requestParam' => $resolver['requestParam'],
+                'responseItemsPath' => $resolver['responseItemsPath'],
+                'responseItemPath' => $resolver['responseItemPath'],
+                'matchField' => $resolver['matchField'],
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if (!is_string($groupKey) || $groupKey === '') {
+                continue;
+            }
+            if (!isset($groups[$groupKey])) {
+                $groups[$groupKey] = [
+                    'resolver' => $resolver,
+                    'fields' => [],
+                ];
+            }
+            $groups[$groupKey]['fields'][] = $field;
+        }
+
+        if ($groups === []) {
+            return $rows;
+        }
+
+        $resolvedByGroup = [];
+        foreach ($groups as $groupKey => $group) {
+            $sourceField = (string) $group['resolver']['sourceField'];
+            $values = [];
+            foreach ($rows as $row) {
+                $value = $row[$sourceField] ?? null;
+                if ($value === null || $value === '') {
+                    continue;
+                }
+                $values[(string) $value] = $value;
+            }
+            if ($values === []) {
+                continue;
+            }
+            $resolvedByGroup[$groupKey] = $this->resolveLookupItems($definition, $group['resolver'], array_values($values));
+        }
+
+        if ($resolvedByGroup === []) {
+            return $rows;
+        }
+
+        foreach ($rows as $rowIndex => $row) {
+            foreach ($groups as $groupKey => $group) {
+                $sourceValue = $row[$group['resolver']['sourceField']] ?? null;
+                if ($sourceValue === null || $sourceValue === '') {
+                    continue;
+                }
+                $resolvedItem = $resolvedByGroup[$groupKey][(string) $sourceValue] ?? null;
+                if (!is_array($resolvedItem)) {
+                    continue;
+                }
+                foreach ($group['fields'] as $field) {
+                    $valuePath = (string) ($field['lookupResolver']['valuePath'] ?? '$');
+                    $rows[$rowIndex][$field['code']] = $this->extractByPath($resolvedItem, $valuePath);
+                }
+            }
+        }
+
+        return $rows;
+    }
+
+    private function resolveLookupItems(array $definition, array $resolver, array $values): array
+    {
+        $operation = $this->findOperation($definition, (string) $resolver['operationCode']);
+        $resolved = [];
+        if ((string) $resolver['mode'] === 'per_value') {
+            foreach ($values as $value) {
+                $response = $this->requestEndpoint($definition, $operation, $definition['apiSource']['authHeaders'], [
+                    (string) $resolver['requestParam'] => $value,
+                ]);
+                $item = $this->extractByPath($response['body'], (string) $resolver['responseItemPath']);
+                $resolved[(string) $value] = is_array($item) ? $item : null;
+            }
+
+            return $resolved;
+        }
+
+        $response = $this->requestEndpoint($definition, $operation, $definition['apiSource']['authHeaders'], [], [
+            (string) $resolver['requestParam'] => array_values($values),
+        ]);
+        $items = $this->extractByPath($response['body'], (string) $resolver['responseItemsPath']);
+        if (!is_array($items)) {
+            throw new RuntimeHttpException('ENTITY_API_LOOKUP_ITEMS_INVALID', 'A operacao de lookup nao retornou um array valido.', 422, [
+                'entityCode' => $definition['entityCode'],
+                'operationCode' => $resolver['operationCode'],
+                'responseItemsPath' => $resolver['responseItemsPath'],
+            ]);
+        }
+
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $matchValue = $this->extractByPath($item, (string) $resolver['matchField']);
+            if ($matchValue === null || $matchValue === '') {
+                continue;
+            }
+            $resolved[(string) $matchValue] = $item;
+        }
+
+        return $resolved;
+    }
+
+    private function findOperation(array $definition, string $operationCode): array
+    {
+        foreach ($definition['apiSource']['operations'] ?? [] as $operation) {
+            if (is_array($operation) && (string) ($operation['code'] ?? '') === $operationCode) {
+                return [
+                    'url' => (string) ($operation['path'] ?? ''),
+                    'method' => strtoupper((string) ($operation['method'] ?? 'GET')),
+                    'headers' => is_array($operation['headers'] ?? null) ? $operation['headers'] : [],
+                    'queryParams' => is_array($operation['queryParams'] ?? null) ? $operation['queryParams'] : [],
+                    'bodyTemplate' => $operation['bodyTemplate'] ?? null,
+                ];
+            }
+        }
+
+        throw new RuntimeHttpException('ENTITY_API_LOOKUP_OPERATION_NOT_FOUND', 'Operacao de lookup nao cadastrada para a entidade API.', 422, [
+            'entityCode' => $definition['entityCode'],
+            'operationCode' => $operationCode,
+        ]);
+    }
+
+    private function normalizeLookupResolver(mixed $value): ?array
+    {
+        if (!is_array($value)) {
+            return null;
+        }
+        $operationCode = trim((string) ($value['operationCode'] ?? ''));
+        $sourceField = trim((string) ($value['sourceField'] ?? ''));
+        $requestParam = trim((string) ($value['requestParam'] ?? ''));
+        $mode = strtolower(trim((string) ($value['mode'] ?? 'batch')));
+        $valuePath = trim((string) ($value['valuePath'] ?? '$'));
+        $responseItemsPath = trim((string) ($value['responseItemsPath'] ?? ($value['itemsPath'] ?? '$')));
+        $responseItemPath = trim((string) ($value['responseItemPath'] ?? ($value['itemPath'] ?? '$')));
+        $matchField = trim((string) ($value['matchField'] ?? ''));
+        if ($operationCode === '' || $sourceField === '' || $requestParam === '') {
+            return null;
+        }
+        if (!in_array($mode, ['batch', 'per_value'], true)) {
+            $mode = 'batch';
+        }
+        if ($mode === 'batch' && $matchField === '') {
+            return null;
+        }
+
+        return [
+            'operationCode' => $operationCode,
+            'sourceField' => $sourceField,
+            'requestParam' => $requestParam,
+            'mode' => $mode,
+            'valuePath' => $valuePath !== '' ? $valuePath : '$',
+            'responseItemsPath' => $responseItemsPath !== '' ? $responseItemsPath : '$',
+            'responseItemPath' => $responseItemPath !== '' ? $responseItemPath : '$',
+            'matchField' => $matchField,
+        ];
     }
 
     private function applySort(array $rows, mixed $sortConfig): array
