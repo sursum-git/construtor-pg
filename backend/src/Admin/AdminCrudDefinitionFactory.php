@@ -751,6 +751,8 @@ final class AdminCrudDefinitionFactory
             'deleteGroup' => ['endpointId' => 'deleteGroup', 'method' => 'POST'],
             'saveFilter' => ['endpointId' => 'saveFilter', 'method' => 'POST'],
             'deleteFilter' => ['endpointId' => 'deleteFilter', 'method' => 'POST'],
+            'lookupFrequent' => ['endpointId' => 'lookupFrequent', 'method' => 'POST'],
+            'recordLookupUsage' => ['endpointId' => 'recordLookupUsage', 'method' => 'POST'],
             'saveMobileTemplate' => ['endpointId' => 'saveMobileTemplate', 'method' => 'POST'],
             'deleteMobileTemplate' => ['endpointId' => 'deleteMobileTemplate', 'method' => 'POST'],
             'runtime.messages.poll' => ['endpointId' => 'runtime.messages.poll', 'method' => 'POST'],

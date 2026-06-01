@@ -5103,6 +5103,8 @@ class ProgramBuilderService
             'deleteGroup' => 'layout.deleteGroup',
             'saveFilter' => 'layout.saveFilter',
             'deleteFilter' => 'layout.deleteFilter',
+            'lookupFrequent' => 'layout.lookupFrequent',
+            'recordLookupUsage' => 'layout.recordLookupUsage',
             'saveMobileTemplate' => 'layout.saveMobileTemplate',
             'deleteMobileTemplate' => 'layout.deleteMobileTemplate',
         ];
@@ -5327,6 +5329,8 @@ class ProgramBuilderService
             'deleteGroup',
             'saveFilter',
             'deleteFilter',
+            'lookupFrequent',
+            'recordLookupUsage',
             'saveMobileTemplate',
             'deleteMobileTemplate',
             'runtime.lock.acquire',
@@ -5529,6 +5533,8 @@ class ProgramBuilderService
             'deleteGroup' => ['endpointId' => 'deleteGroup', 'method' => 'POST'],
             'saveFilter' => ['endpointId' => 'saveFilter', 'method' => 'POST'],
             'deleteFilter' => ['endpointId' => 'deleteFilter', 'method' => 'POST'],
+            'lookupFrequent' => ['endpointId' => 'lookupFrequent', 'method' => 'POST'],
+            'recordLookupUsage' => ['endpointId' => 'recordLookupUsage', 'method' => 'POST'],
             'saveMobileTemplate' => ['endpointId' => 'saveMobileTemplate', 'method' => 'POST'],
             'deleteMobileTemplate' => ['endpointId' => 'deleteMobileTemplate', 'method' => 'POST'],
         ];

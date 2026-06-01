@@ -5,11 +5,13 @@ namespace App\Runtime;
 use App\Entity\UserFilterPreference;
 use App\Entity\UserGridLayoutPreference;
 use App\Entity\UserGroupPreference;
+use App\Entity\UserLookupUsage;
 use App\Entity\UserMobileGridTemplatePreference;
 use App\Entity\UserSortPreference;
 use App\Repository\UserFilterPreferenceRepository;
 use App\Repository\UserGridLayoutPreferenceRepository;
 use App\Repository\UserGroupPreferenceRepository;
+use App\Repository\UserLookupUsageRepository;
 use App\Repository\UserMobileGridTemplatePreferenceRepository;
 use App\Repository\UserSortPreferenceRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -23,6 +25,7 @@ class UserLayoutService
         private readonly UserSortPreferenceRepository $sorts,
         private readonly UserGroupPreferenceRepository $groups,
         private readonly UserFilterPreferenceRepository $filters,
+        private readonly UserLookupUsageRepository $lookupUsages,
         private readonly UserMobileGridTemplatePreferenceRepository $mobileTemplates,
         private readonly EntityManagerInterface $entityManager,
         private readonly PermissionResolver $permissions,
@@ -89,6 +92,70 @@ class UserLayoutService
             'ok' => true,
             'mobileTemplatePreset' => $this->formatMobileTemplate($preference),
             'userLayout' => $this->buildUserLayout($screenId),
+        ];
+    }
+
+    public function recordLookupUsage(string $screenId, array $payload): array
+    {
+        $filterId = trim((string) ($payload['filterId'] ?? ''));
+        if ($filterId === '') {
+            throw new RuntimeHttpException('LOOKUP_FILTER_ID_REQUIRED', 'Informe o filtro do lookup.', 422);
+        }
+
+        $items = $this->normalizeLookupUsageItems($payload);
+        if (!$items) {
+            return [
+                'ok' => true,
+                'recorded' => 0,
+                'items' => [],
+            ];
+        }
+
+        $tenantId = $this->tenantId();
+        $userId = $this->userId();
+        $fieldName = $this->optionalString($payload['field'] ?? null, 120);
+        $recorded = [];
+        foreach ($items as $item) {
+            $usage = $this->lookupUsages->findOneForUserValue($tenantId, $userId, $screenId, $filterId, $item['value']) ?? new UserLookupUsage();
+            $usage
+                ->setTenantId($tenantId)
+                ->setUserId($userId)
+                ->setScreenId($screenId)
+                ->setFilterId($filterId)
+                ->setFieldName($fieldName)
+                ->setLookupValue($item['value'])
+                ->setLookupText($item['text'])
+                ->incrementHits();
+            $this->entityManager->persist($usage);
+            $recorded[] = $this->formatLookupUsage($usage);
+        }
+        $this->entityManager->flush();
+
+        return [
+            'ok' => true,
+            'recorded' => count($recorded),
+            'items' => $recorded,
+        ];
+    }
+
+    public function lookupFrequent(string $screenId, array $payload): array
+    {
+        $filterId = trim((string) ($payload['filterId'] ?? ''));
+        if ($filterId === '') {
+            throw new RuntimeHttpException('LOOKUP_FILTER_ID_REQUIRED', 'Informe o filtro do lookup.', 422);
+        }
+
+        $fieldName = $this->optionalString($payload['field'] ?? null, 120);
+        $limit = max(1, min(10, (int) ($payload['limit'] ?? 5)));
+        $items = array_map(
+            fn (UserLookupUsage $item): array => $this->formatLookupUsage($item),
+            $this->lookupUsages->findFrequentForUser($this->tenantId(), $this->userId(), $screenId, $filterId, $fieldName, $limit)
+        );
+
+        return [
+            'ok' => true,
+            'items' => $items,
+            'total' => count($items),
         ];
     }
 
@@ -388,6 +455,59 @@ class UserLayoutService
             'inherited' => $this->isInherited($preference->getTenantId()),
             'filters' => $preference->getFilters(),
         ];
+    }
+
+    /**
+     * @return list<array{value: string, text: string}>
+     */
+    private function normalizeLookupUsageItems(array $payload): array
+    {
+        $items = $payload['items'] ?? null;
+        if (is_array($items) && $items !== []) {
+            $normalized = [];
+            foreach ($items as $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $value = trim((string) ($item['value'] ?? ''));
+                if ($value === '') {
+                    continue;
+                }
+                $text = trim((string) ($item['text'] ?? $item['label'] ?? $value));
+                $normalized[] = ['value' => mb_substr($value, 0, 160), 'text' => mb_substr($text, 0, 255)];
+            }
+            return $normalized;
+        }
+
+        $value = trim((string) ($payload['value'] ?? ''));
+        if ($value === '') {
+            return [];
+        }
+
+        $text = trim((string) ($payload['text'] ?? $payload['label'] ?? $value));
+        return [[
+            'value' => mb_substr($value, 0, 160),
+            'text' => mb_substr($text, 0, 255),
+        ]];
+    }
+
+    /**
+     * @return array{value: string, text: string, hits: int, lastUsedAt: string}
+     */
+    private function formatLookupUsage(UserLookupUsage $usage): array
+    {
+        return [
+            'value' => $usage->getLookupValue(),
+            'text' => $usage->getLookupText(),
+            'hits' => $usage->getHits(),
+            'lastUsedAt' => $usage->getLastUsedAt()->format(DATE_ATOM),
+        ];
+    }
+
+    private function optionalString(mixed $value, int $limit): ?string
+    {
+        $normalized = trim((string) $value);
+        return $normalized !== '' ? mb_substr($normalized, 0, $limit) : null;
     }
 
     private function formatMobileTemplate(UserMobileGridTemplatePreference $preference): array

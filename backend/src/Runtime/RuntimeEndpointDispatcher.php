@@ -111,6 +111,8 @@ class RuntimeEndpointDispatcher
             'layout.deleteGroup' => $this->layouts->deletePreference($screenId, 'group', $payload['id'] ?? null, $payload),
             'layout.saveFilter' => $this->layouts->saveFilter($screenId, $payload),
             'layout.deleteFilter' => $this->layouts->deletePreference($screenId, 'filter', $payload['id'] ?? null, $payload),
+            'layout.recordLookupUsage' => $this->layouts->recordLookupUsage($screenId, $payload),
+            'layout.lookupFrequent' => $this->layouts->lookupFrequent($screenId, $payload),
             'layout.saveMobileTemplate' => $this->layouts->saveMobileTemplate($screenId, $payload),
             'layout.deleteMobileTemplate' => $this->layouts->deleteMobileTemplate($screenId, $payload['id'] ?? null, $payload),
             'help.markAsRead' => ['ok' => true],

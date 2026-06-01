@@ -985,7 +985,7 @@
     }
 
     resolveLookupFrequentEndpoint(filter) {
-      const endpoint = filter && filter.frequentEndpoint;
+      const endpoint = filter && filter.frequentEndpoint || this.resolveLookupApiEndpoint("lookupFrequent", "lookupFrequent");
       if (!endpoint || !this.httpClient) {
         return null;
       }
@@ -994,6 +994,32 @@
         ? endpoint
         : String(endpoint.endpointId || endpoint.actionId || endpoint.id || "lookup.frequent").trim();
       return global.CrudUtils.resolveEndpointForPolicy(endpoint, fallbackEndpointId, screenId, this.securityPolicy);
+    }
+
+    resolveLookupRecordEndpoint(filter) {
+      const endpoint = filter && filter.frequentRecordEndpoint || this.resolveLookupApiEndpoint("recordLookupUsage", "recordLookupUsage");
+      if (!endpoint || !this.httpClient) {
+        return null;
+      }
+      const screenId = global.CrudUtils.getDefinitionScreenId(this.definition);
+      const fallbackEndpointId = typeof endpoint === "string"
+        ? endpoint
+        : String(endpoint.endpointId || endpoint.actionId || endpoint.id || "recordLookupUsage").trim();
+      return global.CrudUtils.resolveEndpointForPolicy(endpoint, fallbackEndpointId, screenId, this.securityPolicy);
+    }
+
+    resolveLookupApiEndpoint(apiKey, fallbackEndpointId) {
+      const api = this.definition && this.definition.dataSource && this.definition.dataSource.api
+        || this.definition && this.definition.api
+        || {};
+      const endpoint = api && api[apiKey];
+      if (!endpoint) {
+        return null;
+      }
+      if (typeof endpoint === "string") {
+        return endpoint;
+      }
+      return Object.assign({ endpointId: fallbackEndpointId, method: "POST" }, endpoint);
     }
 
     fetchLookupFrequentOptions(filter) {
@@ -1117,6 +1143,29 @@
       global.CrudUtils.saveLocalStateValue(this.getLookupUsageStorageKey(filter), usage, {
         version: this.lookupUsageStateVersion
       });
+      delete this.lookupFrequentCache[this.getLookupUsageStorageKey(filter) + ".backend"];
+      this.recordLookupUsageBackend(filter, values).catch(function() {});
+    }
+
+    recordLookupUsageBackend(filter, selectedOptions) {
+      const endpoint = this.resolveLookupRecordEndpoint(filter);
+      if (!endpoint || !this.httpClient) {
+        return Promise.resolve();
+      }
+      const request = Object.assign({}, endpoint, {
+        method: String(endpoint.method || "POST").toUpperCase(),
+        data: Object.assign({}, endpoint.data || {}, {
+          filterId: String(filter && (filter.id || filter.field || "") || "").trim(),
+          field: String(filter && filter.field || "").trim(),
+          items: global.CrudUtils.ensureArray(selectedOptions).filter(Boolean).map(function(option) {
+            return {
+              value: option.value,
+              text: option.text || option.label || String(option.value)
+            };
+          })
+        })
+      });
+      return this.httpClient.request(request);
     }
 
     readLookupUsage(filter) {
