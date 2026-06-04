@@ -325,9 +325,17 @@
 
   function initializeMasterDetailEngine(example, catalog, state, root) {
     $(root).removeClass("home-app-root crud-app-shell").addClass("master-detail-root");
+    const config = catalog.buildConfig(example.id, {
+      assetPrefix: EXAMPLE_ASSET_PREFIX
+    });
+    const httpClient = new global.DemoMockHttpClient({
+      storageSuffix: "examples-" + example.id
+    });
     const engine = new global.MasterDetailEngine({
       root: "#example-render-root",
-      definition: clone(state.currentPatch || example.code || {})
+      definition: clone(state.currentPatch || example.code || {}),
+      config,
+      httpClient
     });
 
     return engine.init().then(function(instance) {

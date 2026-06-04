@@ -62,6 +62,7 @@
     definition.master.fields = ensureArray(definition.master.fields);
     definition.master.grid = definition.master.grid || {};
     definition.master.api = this.resolveSectionApi(definition.master, "master");
+    definition.createFlow = this.resolveCreateFlow(definition.createFlow);
     definition.details = ensureArray(definition.details).filter(function(detail) {
       return detail && typeof detail === "object";
     });
@@ -113,6 +114,28 @@
       api[operation] = this.resolveEndpoint(source, endpointId);
     });
     return api;
+  };
+
+  MasterDetailEngine.prototype.resolveCreateFlow = function(source) {
+    const flow = Object.assign({
+      mode: "parentFirst",
+      api: {}
+    }, source || {});
+    const api = Object.assign({}, flow.api || {});
+    const dataSourceApi = this.definition && this.definition.dataSource && this.definition.dataSource.api || {};
+    const shorthand = flow.endpoint || flow.createGraph || (flow.endpointId || flow.actionId ? {
+      endpointId: flow.endpointId,
+      actionId: flow.actionId,
+      method: flow.method || "POST"
+    } : null);
+    const createGraph = api.createGraph || shorthand || dataSourceApi["masterDetail.createGraph"] || dataSourceApi["createGraph"] || null;
+
+    flow.mode = normalizeCreateFlowMode(flow.mode);
+    if (createGraph) {
+      api.createGraph = this.resolveEndpoint(createGraph, "masterDetail.createGraph");
+    }
+    flow.api = api;
+    return flow;
   };
 
   MasterDetailEngine.prototype.resolveEndpoint = function(endpoint, fallbackEndpointId) {
@@ -195,6 +218,7 @@
     const badges = $("<div class=\"master-detail-badges\"></div>").appendTo(header);
     $("<span></span>").text("Kendo Grid").appendTo(badges);
     $("<span></span>").text(String(this.definition.details.length) + " filho(s)").appendTo(badges);
+    $("<span></span>").text(this.getCreateFlowMode() === "draftWithChildren" ? "Inclusao conjunta" : "Pai primeiro").appendTo(badges);
   };
 
   MasterDetailEngine.prototype.renderMasterPanel = function(panel) {
@@ -556,6 +580,10 @@
   };
 
   MasterDetailEngine.prototype.openMasterWindow = function(mode, record) {
+    if (mode === "create" && this.getCreateFlowMode() === "draftWithChildren") {
+      this.openCreateGraphWindow();
+      return;
+    }
     const master = this.definition.master;
     const values = mode === "create" ? this.createDefaultRecord(master) : clone(toPlainRecord(record));
     this.openRecordWindow({
@@ -612,7 +640,7 @@
       title: options.title,
       modal: true,
       visible: false,
-      width: "min(760px, 94vw)",
+      width: responsiveWindowWidth(760, 0.94),
       close: function() {
         wrapper.data("kendoWindow").destroy();
       }
@@ -646,6 +674,335 @@
     cancelButton.bind("click", () => windowWidget.close());
 
     windowWidget.center().open();
+  };
+
+  MasterDetailEngine.prototype.openCreateGraphWindow = function() {
+    const master = this.definition.master;
+    const wrapper = $("<div class=\"master-detail-window master-detail-create-graph-window\"></div>").appendTo(document.body);
+    const form = $("<div class=\"master-detail-draft-form\"></div>").appendTo(wrapper);
+    const masterEditors = {};
+    const draftDetails = {};
+    const draftGrids = {};
+    const draftSummaries = {};
+
+    const masterSection = $("<section class=\"master-detail-draft-section\"></section>").appendTo(form);
+    $("<div class=\"master-detail-draft-heading\"><h3></h3><p></p></div>").appendTo(masterSection)
+      .find("h3").text(master.singularTitle ? "Dados do " + master.singularTitle : "Dados do pai").end()
+      .find("p").text("Preencha o pai e os filhos antes de confirmar a inclusao.");
+
+    const fields = $("<div class=\"master-detail-draft-fields\"></div>").appendTo(masterSection);
+    const masterValues = this.createDefaultRecord(master);
+    ensureArray(master.fields).forEach((field) => {
+      const id = field.id || field.code;
+      if (!id || field.hidden === true) {
+        return;
+      }
+      const row = $("<label class=\"master-detail-field\"></label>").appendTo(fields);
+      $("<span></span>").text((field.label || id) + (field.required ? " *" : "")).appendTo(row);
+      masterEditors[id] = this.createEditor(row, field, masterValues[id], "create");
+    });
+
+    const detailsSection = $("<section class=\"master-detail-draft-section\"></section>").appendTo(form);
+    $("<div class=\"master-detail-draft-heading\"><h3>Filhos em rascunho</h3><p>Estes registros so serao gravados quando a inclusao conjunta for confirmada.</p></div>").appendTo(detailsSection);
+    const tabs = $("<div class=\"master-detail-draft-tabs\"><ul></ul></div>").appendTo(detailsSection);
+
+    this.definition.details.forEach((detail) => {
+      draftDetails[detail.id] = [];
+      tabs.children("ul").append($("<li></li>").text(detail.title || detail.id));
+      const content = $("<div></div>").appendTo(tabs);
+      const toolbar = $("<div class=\"master-detail-detail-toolbar\"></div>").appendTo(content);
+      this.createButton(toolbar, "Incluir", "plus", "primary", () => {
+        this.openDraftDetailWindow(detail, "create", null, draftDetails[detail.id], () => {
+          this.refreshDraftDetailGrid(detail, draftDetails, draftGrids, draftSummaries);
+        });
+      });
+      this.createButton(toolbar, "Alterar", "pencil", null, () => {
+        const record = this.getSelectedDraftDetailRecord(detail, draftGrids);
+        if (record) {
+          this.openDraftDetailWindow(detail, "edit", record, draftDetails[detail.id], () => {
+            this.refreshDraftDetailGrid(detail, draftDetails, draftGrids, draftSummaries);
+          });
+        }
+      });
+      this.createButton(toolbar, "Remover", "trash", null, () => {
+        const record = this.getSelectedDraftDetailRecord(detail, draftGrids);
+        if (record) {
+          this.removeDraftDetailRecord(detail, record, draftDetails[detail.id], () => {
+            this.refreshDraftDetailGrid(detail, draftDetails, draftGrids, draftSummaries);
+          });
+        }
+      });
+
+      draftSummaries[detail.id] = $("<div class=\"master-detail-summary\"></div>").appendTo(content);
+      const gridElement = $("<div class=\"master-detail-grid master-detail-detail-grid master-detail-draft-grid\"></div>").appendTo(content);
+      gridElement.kendoGrid({
+        dataSource: this.createDataSource(draftDetails[detail.id], detail),
+        selectable: "row",
+        sortable: true,
+        pageable: false,
+        resizable: true,
+        columns: this.buildGridColumns(detail, {
+          edit: (record) => this.openDraftDetailWindow(detail, "edit", record, draftDetails[detail.id], () => {
+            this.refreshDraftDetailGrid(detail, draftDetails, draftGrids, draftSummaries);
+          }),
+          remove: (record) => this.removeDraftDetailRecord(detail, record, draftDetails[detail.id], () => {
+            this.refreshDraftDetailGrid(detail, draftDetails, draftGrids, draftSummaries);
+          })
+        })
+      });
+      draftGrids[detail.id] = gridElement.data("kendoGrid");
+      this.refreshDraftDetailGrid(detail, draftDetails, draftGrids, draftSummaries);
+    });
+
+    tabs.kendoTabStrip({ animation: false });
+    const tabStrip = tabs.data("kendoTabStrip");
+    if (tabStrip) {
+      tabStrip.select(0);
+    }
+
+    const validation = $("<div class=\"master-detail-validation\"></div>").appendTo(form);
+    const actions = $("<div class=\"master-detail-window-actions\"></div>").appendTo(form);
+    const saveButton = $("<button type=\"button\"></button>").text("Confirmar inclusao").appendTo(actions).kendoButton({
+      icon: "check",
+      themeColor: "primary"
+    }).data("kendoButton");
+    const cancelButton = $("<button type=\"button\"></button>").text("Cancelar").appendTo(actions).kendoButton({
+      icon: "cancel"
+    }).data("kendoButton");
+
+    wrapper.kendoWindow({
+      title: "Incluir " + (master.singularTitle || master.title || "pai") + " com filhos",
+      modal: true,
+      visible: false,
+      width: responsiveWindowWidth(1120, 0.96),
+      height: responsiveWindowHeight(760, 0.92),
+      close: function() {
+        wrapper.data("kendoWindow").destroy();
+      }
+    });
+    const windowWidget = wrapper.data("kendoWindow");
+
+    saveButton.bind("click", () => {
+      validation.empty();
+      const values = Object.assign({}, masterValues, this.collectEditorValues(master, masterEditors));
+      const errors = this.validateCreateGraph(values, draftDetails);
+      if (errors.length) {
+        validation.text(errors.join(" "));
+        showMessage(errors.join("\n"), "warning");
+        return;
+      }
+      setWindowButtonsEnabled(saveButton, cancelButton, false);
+      this.saveCreateGraph(values, draftDetails)
+        .then(() => {
+          windowWidget.close();
+        })
+        .catch((error) => {
+          const message = this.errorMessage(error, "Nao foi possivel salvar pai e filhos.");
+          validation.text(message);
+          showMessage(message, "error");
+          setWindowButtonsEnabled(saveButton, cancelButton, true);
+        });
+    });
+    cancelButton.bind("click", () => windowWidget.close());
+
+    windowWidget.center().open();
+  };
+
+  MasterDetailEngine.prototype.openDraftDetailWindow = function(detail, mode, record, draftRows, afterSave) {
+    const values = mode === "create" ? this.createDefaultRecord(detail) : clone(toPlainRecord(record));
+    this.openRecordWindow({
+      title: (mode === "create" ? "Incluir " : "Alterar ") + (detail.singularTitle || detail.title || "filho"),
+      section: detail,
+      mode: mode,
+      values: values,
+      save: (nextValues) => {
+        const idField = detail.idField;
+        const rows = draftRows || [];
+        const saved = clone(nextValues);
+        if (mode === "create") {
+          saved[idField] = saved[idField] || this.nextId(rows, idField);
+          rows.push(saved);
+        } else {
+          const originalId = record && record[idField];
+          const index = rows.findIndex(function(item) {
+            return String(item[idField]) === String(originalId);
+          });
+          if (index !== -1) {
+            rows[index] = saved;
+          }
+        }
+        afterSave();
+      }
+    });
+  };
+
+  MasterDetailEngine.prototype.getSelectedDraftDetailRecord = function(detail, draftGrids) {
+    const grid = draftGrids && draftGrids[detail.id];
+    if (!grid) {
+      return null;
+    }
+    return grid.dataItem(grid.select()) || null;
+  };
+
+  MasterDetailEngine.prototype.removeDraftDetailRecord = function(detail, record, draftRows, afterRemove) {
+    confirmAction("Remover este registro filho do rascunho?", () => {
+      const idField = detail.idField;
+      const id = record[idField];
+      const index = draftRows.findIndex(function(item) {
+        return String(item[idField]) === String(id);
+      });
+      if (index !== -1) {
+        draftRows.splice(index, 1);
+        afterRemove();
+      }
+    });
+  };
+
+  MasterDetailEngine.prototype.refreshDraftDetailGrid = function(detail, draftDetails, draftGrids, draftSummaries) {
+    const rows = draftDetails[detail.id] || [];
+    const grid = draftGrids[detail.id];
+    if (grid) {
+      grid.setDataSource(this.createDataSource(rows, detail));
+      grid.refresh();
+    }
+
+    const host = draftSummaries[detail.id];
+    if (!host) {
+      return;
+    }
+    host.empty();
+    if (!rows.length) {
+      $("<span></span>").text("Nenhum filho no rascunho.").appendTo(host);
+      return;
+    }
+    $("<span></span>").text(rows.length + " rascunho(s)").appendTo(host);
+    detail.totals.forEach((total) => {
+      const fieldId = String(total.field || "");
+      const field = this.getField(detail, fieldId);
+      const value = rows.reduce(function(sum, row) {
+        return sum + Number(row[fieldId] || 0);
+      }, 0);
+      $("<span></span>").text((total.label || field.label || fieldId) + ": " + formatValue(value, Object.assign({}, field, total))).appendTo(host);
+    });
+  };
+
+  MasterDetailEngine.prototype.validateCreateGraph = function(masterValues, detailValues) {
+    const errors = this.validateRecord(this.definition.master, masterValues);
+    this.definition.details.forEach((detail) => {
+      ensureArray(detailValues[detail.id]).forEach((record, index) => {
+        this.validateRecord(detail, record).forEach(function(error) {
+          errors.push((detail.title || detail.id) + " #" + (index + 1) + ": " + error);
+        });
+      });
+    });
+    return errors;
+  };
+
+  MasterDetailEngine.prototype.saveCreateGraph = function(masterValues, detailValues) {
+    const payload = this.createGraphPayload(masterValues, detailValues);
+    if (this.hasCreateGraphEndpoint()) {
+      return this.requestCreateGraph(payload).then((response) => {
+        const saved = this.extractCreateGraphResponse(response, payload);
+        this.storeCreateGraphRecords(saved.master, saved.details);
+        showMessage("Pai e filhos salvos.", "success");
+        return saved;
+      });
+    }
+    if (this.requiresCreateGraphEndpoint()) {
+      return Promise.reject(new Error("Endpoint transacional nao configurado para incluir pai e filhos juntos."));
+    }
+    const saved = {
+      master: clone(payload.master),
+      details: clone(payload.details)
+    };
+    this.storeCreateGraphRecords(saved.master, saved.details);
+    showMessage("Pai e filhos salvos.", "success");
+    return Promise.resolve(saved);
+  };
+
+  MasterDetailEngine.prototype.createGraphPayload = function(masterValues, detailValues) {
+    return {
+      screenId: this.definition.screenId || "",
+      mode: "draftWithChildren",
+      master: clone(masterValues),
+      values: clone(masterValues),
+      details: clone(detailValues || {})
+    };
+  };
+
+  MasterDetailEngine.prototype.requestCreateGraph = function(payload) {
+    const endpoint = this.definition.createFlow && this.definition.createFlow.api && this.definition.createFlow.api.createGraph;
+    if (!endpoint || !endpoint.url || !this.httpClient) {
+      return Promise.reject(new Error("Endpoint transacional nao configurado."));
+    }
+    return this.httpClient.request({
+      url: endpoint.url,
+      method: endpoint.method || "POST",
+      data: payload || {}
+    });
+  };
+
+  MasterDetailEngine.prototype.extractCreateGraphResponse = function(response, fallback) {
+    const source = response && response.data && !Array.isArray(response.data) ? response.data : (response || {});
+    return {
+      master: clone(source.master || source.parent || source.record || fallback.master || fallback.values || {}),
+      details: clone(source.details || source.children || fallback.details || {})
+    };
+  };
+
+  MasterDetailEngine.prototype.storeCreateGraphRecords = function(masterValues, detailValues) {
+    const master = this.definition.master;
+    const idField = master.idField;
+    const savedMaster = clone(masterValues || {});
+    savedMaster[idField] = savedMaster[idField] || this.nextId(this.masterRecords, idField);
+    this.masterRecords.push(savedMaster);
+    this.selectedMasterId = savedMaster[idField];
+
+    this.definition.details.forEach((detail) => {
+      const records = this.detailRecords[detail.id] || [];
+      const incoming = ensureArray(detailValues && detailValues[detail.id]);
+      incoming.forEach((record) => {
+        const saved = clone(record);
+        saved[detail.parentField] = this.selectedMasterId;
+        if (!saved[detail.idField] || records.some(function(item) {
+          return String(item[detail.idField]) === String(saved[detail.idField]);
+        })) {
+          saved[detail.idField] = this.nextId(records, detail.idField);
+        }
+        records.push(saved);
+      });
+      this.detailRecords[detail.id] = records;
+    });
+
+    this.refreshMasterGrid();
+    this.setSelectedMaster(this.selectedMasterId);
+  };
+
+  MasterDetailEngine.prototype.getCreateFlowMode = function() {
+    return normalizeCreateFlowMode(this.definition && this.definition.createFlow && this.definition.createFlow.mode);
+  };
+
+  MasterDetailEngine.prototype.hasCreateGraphEndpoint = function() {
+    const endpoint = this.definition.createFlow && this.definition.createFlow.api && this.definition.createFlow.api.createGraph;
+    return Boolean(endpoint && endpoint.url && this.httpClient && typeof this.httpClient.request === "function");
+  };
+
+  MasterDetailEngine.prototype.requiresCreateGraphEndpoint = function() {
+    const flow = this.definition.createFlow || {};
+    if (flow.requireEndpoint === true) {
+      return true;
+    }
+    if (flow.api && flow.api.createGraph && !this.hasCreateGraphEndpoint()) {
+      return true;
+    }
+    const sections = [this.definition.master].concat(this.definition.details || []);
+    return sections.some(function(section) {
+      const api = section && section.api || {};
+      return ["create", "update", "delete"].some(function(operation) {
+        const endpoint = api[operation];
+        return Boolean(endpoint && (endpoint.url || endpoint.endpointId || endpoint.actionId));
+      });
+    });
   };
 
   MasterDetailEngine.prototype.createEditor = function(row, field, value, mode) {
@@ -1056,6 +1413,21 @@
       return "boolean";
     }
     return "string";
+  }
+
+  function normalizeCreateFlowMode(mode) {
+    const value = String(mode || "parentFirst").replace(/[-_\s]+/g, "").toLowerCase();
+    return value === "draftwithchildren" ? "draftWithChildren" : "parentFirst";
+  }
+
+  function responsiveWindowWidth(maxWidth, ratio) {
+    const viewport = global.innerWidth || maxWidth;
+    return Math.max(320, Math.min(maxWidth, Math.floor(viewport * ratio)));
+  }
+
+  function responsiveWindowHeight(maxHeight, ratio) {
+    const viewport = global.innerHeight || maxHeight;
+    return Math.max(420, Math.min(maxHeight, Math.floor(viewport * ratio)));
   }
 
   function normalizeOptions(options) {

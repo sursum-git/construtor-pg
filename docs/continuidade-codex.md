@@ -34,6 +34,11 @@ Use este arquivo para retomar o trabalho em outra sessao.
 - A migration estrutural e `backend/migrations/Version20260604103000.php`.
 - O seed `php backend/bin/console app:seed-runtime-metadata --no-interaction` publica a tela, os endpointIds `master.*`, `detail.itens.*`, `detail.parcelas.*`, as entidades do builder e uma massa inicial se `pedido_venda` estiver vazia.
 - A producao carrega `src/master-detail/MasterDetailEngine.js` em `production/app.html`; a demo local continua funcionando com arrays em memoria quando nao houver endpoints.
+- `createFlow.mode=parentFirst` e o padrao: salva o pai primeiro e libera filhos depois.
+- `createFlow.mode=draftWithChildren` abre inclusao conjunta de pai e filhos; em producao precisa de endpoint transacional em `createFlow.api.createGraph` para gravar tudo junto no backend.
+- Exemplos locais:
+  - `examples/pages/pedido-venda-master-detail.html` para `parentFirst`;
+  - `examples/pages/pedido-venda-master-detail-rascunho.html` para `draftWithChildren`.
 
 ## Provisionamento operacional
 

@@ -41,6 +41,31 @@ Em producao, a tela `vendas.pedido-master-detail` usa:
 
 O frontend continua apenas renderizando. Ao selecionar um pedido, o `MasterDetailEngine` recarrega cada filha enviando filtro fechado `pedido_id = id do pedido selecionado`. Ao incluir filho, a engine injeta o mesmo `pedido_id` antes de chamar o backend.
 
+### Fluxo de inclusao no mestre-detalhe
+
+O contrato aceita `createFlow.mode` para decidir como a inclusao se comporta:
+
+- `parentFirst`: padrao atual. O usuario preenche e salva o pai primeiro; depois a area de filhos fica habilitada e cada filho e salvo pelo endpoint da propria entidade filha.
+- `draftWithChildren`: abre uma janela unica para digitar pai e filhos em rascunho. Ao confirmar, o frontend envia `master` e `details` para `createFlow.api.createGraph` em uma unica chamada. Em producao, esse endpoint deve criar tudo em transacao no backend.
+
+Exemplo:
+
+```json
+{
+  "createFlow": {
+    "mode": "draftWithChildren",
+    "api": {
+      "createGraph": {
+        "endpointId": "masterDetail.createGraph",
+        "method": "POST"
+      }
+    }
+  }
+}
+```
+
+Quando `draftWithChildren` for usado com endpoints reais de mestre/filho, nao deve haver gravacao sequencial no frontend. Se o endpoint transacional nao estiver configurado, a engine bloqueia a inclusao conjunta. O fallback local sem endpoint existe apenas para demo em memoria.
+
 O contrato publico fica em `public/metadata/schemas/master-detail-definition-v1.schema.json`.
 
 ### Paginas ligadas em abas do CRUD

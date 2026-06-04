@@ -582,6 +582,57 @@
             notes: ["Tela local: ../../index.html", "Entrada de producao: ../../production/app.html?screenId=cadastros.clientes"]
           }
         },
+        "pedido-venda-master-detail": {
+          title: "Pedido de venda mestre-detalhe",
+          module: "Operacional",
+          type: "MasterDetailEngine",
+          route: "../../examples/pages/pedido-venda-master-detail.html",
+          screenId: "vendas.pedido-master-detail",
+          summary: "Tela dedicada para uma entidade pai e filhos em abas. Demonstra o modo pai primeiro e o modo de inclusao conjunta por endpoint transacional.",
+          functional: {
+            objective: "Manter registros compostos quando pai e filhos sao entidades distintas, mas precisam ser operados na mesma tela.",
+            scope: [
+              "Grid do pai com selecao do registro principal.",
+              "Abas Kendo para filhos filtrados pelo pai selecionado.",
+              "`createFlow.mode=parentFirst` para salvar o pai antes dos filhos.",
+              "`createFlow.mode=draftWithChildren` para digitar pai e filhos antes da gravacao transacional."
+            ],
+            outputs: [
+              "Pai salvo e selecionado.",
+              "Filhos vinculados pelo campo `details[].parentField`.",
+              "Payload unico `{ master, details }` quando o modo de inclusao conjunta estiver ativo."
+            ]
+          },
+          operational: {
+            preconditions: [
+              "Definicao `pageType=master_detail` publicada.",
+              "Entidade mestre e entidades filhas cadastradas.",
+              "Endpoints `master.*` e `detail.*` configurados para o modo pai primeiro.",
+              "Endpoint `createFlow.api.createGraph` configurado quando usar inclusao conjunta em backend real."
+            ],
+            steps: [
+              "No modo `parentFirst`, clicar em `Incluir`, preencher o pai e confirmar.",
+              "Selecionar o pai salvo e usar as abas de filhos para incluir itens, parcelas ou outros detalhes.",
+              "No modo `draftWithChildren`, clicar em `Incluir`, preencher o pai, adicionar filhos nas abas de rascunho e confirmar a inclusao conjunta.",
+              "Validar se o backend criou tudo em uma unica transacao quando houver endpoint real."
+            ],
+            cautions: [
+              "O frontend nao deve fazer gravacao sequencial de pai e filhos quando `draftWithChildren` estiver ligado com backend real.",
+              "Sem endpoint transacional, o fallback local serve apenas para demo em memoria.",
+              "Use `linkedPage` no formulario CRUD quando a pagina filha deve continuar sendo uma tela separada ligada por `screenId`."
+            ]
+          },
+          references: {
+            permissions: ["vendas.pedido.read", "vendas.pedido.create", "vendas.pedido.edit", "vendas.pedido.delete"],
+            relatedPrograms: ["Cadastro de clientes", "Meus Jobs"],
+            notes: [
+              "Exemplo pai primeiro: ../../examples/pages/pedido-venda-master-detail.html",
+              "Exemplo inclusao conjunta: ../../examples/pages/pedido-venda-master-detail-rascunho.html",
+              "Entrada de producao atual: ../../production/app.html?screenId=vendas.pedido-master-detail",
+              "Schema: ../../public/metadata/schemas/master-detail-definition-v1.schema.json"
+            ]
+          }
+        },
         "processamento-clientes": {
           title: "Processamento de clientes",
           module: "Operacional",
@@ -2363,12 +2414,14 @@
           { name: "CrudEngine", role: "Renderiza grid, filtro, formulario, acoes de linha, runtime de lock, mensagens e preferencias do usuario." },
           { name: "HomeEngine", role: "Monta o shell global com appbar, menu lateral, favoritos, notificacoes, jobs, suporte e abertura de programas." },
           { name: "ProcessEngine", role: "Executa processos por parametros, acompanha status e mostra grid, mensagem, documento ou job." },
+          { name: "MasterDetailEngine", role: "Renderiza uma tela dedicada com entidade pai, filhos em abas e fluxos de inclusao pai primeiro ou conjunta." },
           { name: "CustomPageEngine", role: "Abre programas manuais/custom registrados no catalogo runtime." },
           { name: "Program Builder", role: "Editor visual para modulos, entidades, programas, APIs, Odoo, IA, import/export, literais, reports e publicacao." },
           { name: "ReportEngine", role: "Renderiza relatorios nativos v1 com blocos fechados, filtros, totais, impressao e exportacao tabular." }
         ],
         supportedToday: [
           "CRUD de entidades `persistence` com grid e formulario.",
+          "Telas `master_detail` com pai e filhos em abas, incluindo inclusao pai primeiro e inclusao conjunta por endpoint transacional.",
           "Programas `process` por parametros.",
           "Programas `custom` e `iframe` controlados.",
           "Entidades `api` em modo consulta e CRUD basico para APIs JSON previsiveis.",
@@ -2403,7 +2456,7 @@
       const treeData = [
         { text: "Roteiro inicial", expanded: true, items: [{ id: "roteiro-analista-funcional", text: "Roteiro do analista funcional" }, { id: "manual-instalacao", text: "Manual de instalacao" }, { id: "filtro-busca-frequente", text: "Busca frequente em filtros" }] },
         { text: "Acesso e navegacao", expanded: true, items: [{ id: "login", text: "Login" }, { id: "home", text: "Home" }] },
-        { text: "Operacional", expanded: true, items: [{ id: "clientes", text: "Cadastro de clientes" }, { id: "processamento-clientes", text: "Processamento de clientes" }, { id: "report-operacional", text: "Relatorio operacional" }, { id: "report-analitico", text: "Relatorio analitico" }, { id: "special-document-base", text: "Documento especial base" }, { id: "regulated-document-base", text: "Documento regulado base" }, { id: "jobs", text: "Meus Jobs / Jobs" }] },
+        { text: "Operacional", expanded: true, items: [{ id: "clientes", text: "Cadastro de clientes" }, { id: "pedido-venda-master-detail", text: "Pedido mestre-detalhe" }, { id: "processamento-clientes", text: "Processamento de clientes" }, { id: "report-operacional", text: "Relatorio operacional" }, { id: "report-analitico", text: "Relatorio analitico" }, { id: "special-document-base", text: "Documento especial base" }, { id: "regulated-document-base", text: "Documento regulado base" }, { id: "jobs", text: "Meus Jobs / Jobs" }] },
         { text: "Administracao", expanded: true, items: [
           { id: "admin-parametros", text: "Parametros" },
           { id: "admin-parametro-valores", text: "Valores de parametros" },

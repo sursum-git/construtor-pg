@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pedido de venda com filhos em abas</title>
+  <title>Pedido de venda com inclusao conjunta</title>
   <link id="kendo-theme-link" rel="stylesheet" href="../../kendo/styles/default-urban.css">
   <link rel="stylesheet" href="../../src/styles/crud-engine.css">
   <link rel="stylesheet" href="../../src/styles/examples-guide.css">
   <link rel="stylesheet" href="../../src/styles/master-detail-engine.css">
 </head>
-<body data-example-id="pedido-venda-master-detail">
+<body data-example-id="pedido-venda-master-detail-rascunho">
   <main class="example-page-shell">
     <header class="example-page-header">
       <div>
@@ -31,13 +31,13 @@
         </ul>
         <div>
           <div class="example-render-frame">
-            <p class="example-tab-note">Renderizacao real usando Kendo Grid, Kendo TabStrip e Kendo Window. Os filhos ficam em abas e sao filtrados pelo pai selecionado.</p>
+            <p class="example-tab-note">Renderizacao real do modo `draftWithChildren`: pai e filhos sao digitados em rascunho e enviados em uma unica confirmacao.</p>
             <main id="example-render-root" class="example-render-root master-detail-root"></main>
           </div>
         </div>
         <div>
           <div class="example-code-panel">
-            <p class="example-tab-note">Contrato declarativo do exemplo mestre-detalhe. O JSON nao carrega template ou JavaScript.</p>
+            <p class="example-tab-note">Contrato declarativo do fluxo de inclusao conjunta. O endpoint transacional e referenciado por endpointId.</p>
             <pre><code id="example-code"></code></pre>
           </div>
         </div>

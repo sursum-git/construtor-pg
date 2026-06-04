@@ -52,6 +52,7 @@
       "type": "object",
       "additionalProperties": true
     },
+    "createFlow": { "$ref": "#/$defs/createFlow" },
     "master": { "$ref": "#/$defs/section" },
     "details": {
       "type": "array",
@@ -86,6 +87,29 @@
           "additionalProperties": true
         }
       ]
+    },
+    "createFlow": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["parentFirst", "draftWithChildren"]
+        },
+        "endpointId": { "type": "string" },
+        "actionId": { "type": "string" },
+        "method": { "type": "string", "enum": ["POST", "PUT", "PATCH"] },
+        "requireEndpoint": { "type": "boolean" },
+        "endpoint": { "$ref": "#/$defs/endpointRef" },
+        "createGraph": { "$ref": "#/$defs/endpointRef" },
+        "api": {
+          "type": "object",
+          "properties": {
+            "createGraph": { "$ref": "#/$defs/endpointRef" }
+          },
+          "additionalProperties": { "$ref": "#/$defs/endpointRef" }
+        }
+      },
+      "additionalProperties": true
     },
     "section": {
       "type": "object",

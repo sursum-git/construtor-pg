@@ -1515,6 +1515,9 @@
       if (["documentos.regulados-fiscal-base", "documentos.regulados-fiscal-base.producao", "documentos.regulados-bancario-base", "documentos.regulados-logistico-base", "documentos.especiais-base-regulado"].indexOf(normalizedScreenId) >= 0) {
         return this.routeRegulatedDocumentEndpoint(normalizedScreenId, endpointId, data || {});
       }
+      if (normalizedScreenId.indexOf("vendas.pedido-master-detail") === 0 && endpointId === "masterDetail.createGraph") {
+        return this.createMasterDetailGraph(data || {});
+      }
       if (this.isSessionRevoked()) {
         throw global.CrudUtils.makeError("SESSION_REVOKED", "Sua sessao foi encerrada.", {
           reason: "Sessao encerrada no mock."
@@ -1601,6 +1604,40 @@
         default:
           throw global.CrudUtils.makeError("RUNTIME_ENDPOINT_NOT_FOUND", "Endpoint runtime mock nao encontrado.", { screenId, endpointId });
       }
+    }
+
+    createMasterDetailGraph(data) {
+      const master = global.CrudUtils.clone(data.master || data.values || {});
+      const details = global.CrudUtils.clone(data.details || {});
+      const issuedId = Number(master.id) || Math.max(9000, Date.now() % 100000);
+      master.id = issuedId;
+
+      const itens = Array.isArray(details.itens) ? details.itens : [];
+      if (itens.length) {
+        master.valor_total = itens.reduce(function(sum, item) {
+          return sum + Number(item.valor_total || 0);
+        }, 0);
+      }
+
+      Object.keys(details).forEach(function(detailId) {
+        const rows = Array.isArray(details[detailId]) ? details[detailId] : [];
+        rows.forEach(function(row, index) {
+          if (!row.id) {
+            row.id = issuedId * 100 + index + 1;
+          }
+          if (row.pedido_id == null || row.pedido_id === "") {
+            row.pedido_id = issuedId;
+          }
+        });
+      });
+
+      return {
+        ok: true,
+        data: {
+          master: master,
+          details: details
+        }
+      };
     }
 
     routeAnalyticsClientesEndpoint(screenId, endpointId, data) {

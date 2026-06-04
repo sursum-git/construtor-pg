@@ -2583,6 +2583,43 @@
     }
   ];
 
+  const pedidoVendaMasterDetailExample = examples.find(function(example) {
+    return example.id === "pedido-venda-master-detail";
+  });
+  if (pedidoVendaMasterDetailExample) {
+    pedidoVendaMasterDetailExample.code.createFlow = {
+      mode: "parentFirst"
+    };
+    const draftWithChildrenCode = clone(pedidoVendaMasterDetailExample.code);
+    draftWithChildrenCode.screenId = "vendas.pedido-master-detail-rascunho";
+    draftWithChildrenCode.program = Object.assign({}, draftWithChildrenCode.program, {
+      title: "Pedido de venda com inclusao conjunta",
+      subtitle: "Pai e filhos digitados antes da gravacao transacional"
+    });
+    draftWithChildrenCode.master = Object.assign({}, draftWithChildrenCode.master, {
+      subtitle: "Use Incluir para preencher o pedido e os filhos antes de gravar."
+    });
+    draftWithChildrenCode.createFlow = {
+      mode: "draftWithChildren",
+      api: {
+        createGraph: {
+          endpointId: "masterDetail.createGraph",
+          method: "POST"
+        }
+      }
+    };
+    examples.splice(examples.indexOf(pedidoVendaMasterDetailExample) + 1, 0, {
+      id: "pedido-venda-master-detail-rascunho",
+      engine: "master-detail",
+      category: "Cadastro",
+      title: "Pedido de venda com inclusao conjunta",
+      summary: "Tela mestre-detalhe onde a inclusao permite digitar pai e filhos em rascunho e confirmar tudo em um endpoint transacional.",
+      page: pagePath + "pedido-venda-master-detail-rascunho.html",
+      maturity: "contrato demo",
+      code: draftWithChildrenCode
+    });
+  }
+
   const propertyOptions = [
     option("Raiz", "schemaVersion", "\"1.0\"", "Obrigatorio", "Versao atual do contrato."),
     option("Raiz", "pageType", "\"crud\" | \"home\" | \"process\" | \"custom\" | \"master_detail\"", "Obrigatorio", "Define qual motor fechado renderiza a pagina."),
@@ -2614,6 +2651,9 @@
     option("Dados/API", "dataModel.fields[].technicalProperties[]", "lista de { label, value }", "vazio", "Exibe um icone tecnico ao lado do nome do campo no grid, filtro e formulario."),
     option("Mestre-detalhe", "master.idField", "campo chave do pai", "id", "Identifica o registro pai usado para filtrar todos os filhos."),
     option("Mestre-detalhe", "master.fields[]", "{ id, label, type, required, readonly }", "vazio", "Campos renderizados na janela Kendo de inclusao/alteracao do pai."),
+    option("Mestre-detalhe", "createFlow.mode", "\"parentFirst\" | \"draftWithChildren\"", "parentFirst", "`parentFirst` exige salvar o pai antes de incluir filhos; `draftWithChildren` permite montar pai e filhos no frontend e confirmar junto."),
+    option("Mestre-detalhe", "createFlow.api.createGraph", "endpointId/actionId seguro", "obrigatorio com backend real no modo draftWithChildren", "Endpoint transacional chamado para gravar pai e filhos no mesmo payload."),
+    option("Mestre-detalhe", "createFlow.requireEndpoint", "true | false", "false", "Quando true, bloqueia fallback local e exige endpoint transacional configurado."),
     option("Mestre-detalhe", "details[].parentField", "campo FK do filho", "id_pai", "Campo do filho comparado com `master.idField` para filtrar a aba selecionada."),
     option("Mestre-detalhe", "details[].fields[]", "{ id, label, type, required, hidden }", "vazio", "Campos renderizados na janela Kendo de inclusao/alteracao do filho."),
     option("Mestre-detalhe", "details[].totals[]", "{ field, label, type }", "vazio", "Totais exibidos no resumo da aba filha."),

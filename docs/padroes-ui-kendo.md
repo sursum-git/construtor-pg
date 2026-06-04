@@ -150,6 +150,8 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - Quando o backend retornar semaforo de registro, o formulario deve respeitar `block`, avisar em `warn`, renovar heartbeat e liberar o lock ao salvar, cancelar ou fechar.
 - Botoes configurados do formulario podem abrir pagina do backend em janela/nova aba e enviar valores atuais do formulario por `query` ou `post`, usando apenas campos declarados no JSON.
 - Abas `crud.form.tabs[].type=linkedPage` devem injetar outra pagina CRUD no proprio DOM por `screenId`, com botao Kendo de Atualizar, sem iframe e sem URL livre.
+- Em `pageType=master_detail`, `createFlow.mode=parentFirst` mantem os filhos bloqueados ate o pai estar salvo e selecionado.
+- Em `pageType=master_detail`, `createFlow.mode=draftWithChildren` deve abrir janela Kendo unica para pai e filhos em rascunho, com tabs para cada filho e confirmacao unica por endpoint transacional.
 
 ## Editor administrativo
 
