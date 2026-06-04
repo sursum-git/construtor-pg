@@ -960,6 +960,7 @@ Implementado ate agora, em nivel demo/frontend:
   - `pedido_item_hist` com `produto_version_id` preenchido automaticamente a partir de `produto_id`;
   - `produto_nome_historico` como campo virtual lendo `nome` do snapshot;
   - item antigo continuou exibindo `Produto A` e item novo exibiu `Produto A Atualizado` apos alteracao do cadastro mestre.
+- O formulario CRUD agora aceita aba `type="linkedPage"` para injetar outra pagina CRUD por `screenId` no proprio DOM, sem iframe. A aba monta outro `CrudEngine` com `hideHeader=true` e `initialFilters` derivados do registro pai; o exemplo local e `examples/pages/mestre-detalhe-paginas-ligadas.html`.
 - Existe um MVP desktop separado em `desktop-wpf/`, focado em arvore, propriedades contextuais e preview JSON em memoria. Nesta maquina nao ha SDK do .NET instalado, entao a estrutura foi preparada, mas o build local precisa ser validado em ambiente com SDK 8.
 
 ## Pontos conhecidos para atencao

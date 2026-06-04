@@ -43,6 +43,34 @@ O frontend continua apenas renderizando. Ao selecionar um pedido, o `MasterDetai
 
 O contrato publico fica em `public/metadata/schemas/master-detail-definition-v1.schema.json`.
 
+### Paginas ligadas em abas do CRUD
+
+Quando o objetivo for manter a pagina filha separada, use o formulario CRUD com aba `type="linkedPage"`.
+
+Nesse modelo nao existe iframe: o `CrudKendoFormRenderer` cria um container na aba e instancia outro `CrudEngine` dentro dele. A pagina filha continua sendo uma tela propria, carregada por `screenId`, e recebe filtros iniciais vindos do registro pai.
+
+Exemplo:
+
+```json
+{
+  "id": "jobs_cliente",
+  "title": "Jobs do cliente",
+  "type": "linkedPage",
+  "linkedPage": {
+    "engine": "crud",
+    "screenId": "runtime.jobs.mine",
+    "hideHeader": true,
+    "requireRecord": true,
+    "filters": [
+      { "field": "entity_code", "value": "cliente", "operator": "eq" },
+      { "field": "record_id", "sourceField": "id", "operator": "eq" }
+    ]
+  }
+}
+```
+
+Use `pageType=master_detail` quando a tela inteira for um mestre-detalhe dedicado. Use `linkedPage` quando as paginas mestre e filha devem continuar evoluindo separadamente e apenas serem ligadas no formulario.
+
 ## Instalacao inicial
 
 A instalacao inicial tambem segue o principio "backend decide, frontend renderiza".
@@ -742,7 +770,8 @@ new CrudEngine({
   definition,
   config,
   configUrl,
-  hideThemeSwitch,
+  hideHeader,
+  initialFilters,
   httpClient
 }).init()
 ```
@@ -760,7 +789,7 @@ new ProcessEngine({
 }).init()
 ```
 
-`hideThemeSwitch=true` desativa o seletor claro/escuro do CRUD quando a tela e aberta dentro de um shell que ja possui controle global de tema.
+`hideHeader=true` remove o cabecalho da pagina CRUD quando ela e aberta dentro de outro shell ou aba. `initialFilters` aplica filtros iniciais, como no caso de paginas ligadas ao registro pai.
 
 Em modo `security.mode="production"`, a inicializacao recomendada e:
 

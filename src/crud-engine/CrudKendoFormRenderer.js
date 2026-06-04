@@ -21,6 +21,7 @@
       this.getNavigationState = options.getNavigationState || function() {
         return { previous: false, next: false };
       };
+      this.linkedPageEngines = {};
     }
 
     open(mode, data) {
@@ -36,6 +37,7 @@
         steps: {}
       };
       this.customCodeState = {};
+      this.linkedPageEngines = {};
 
       const wrapper = $("<div></div>").appendTo(document.body);
       const content = $("<form class=\"crud-form\"></form>").appendTo(wrapper);
@@ -70,6 +72,7 @@
             });
             return;
           }
+          this.destroyLinkedPageEngines();
           this.onClosed();
           wrapper.data("kendoWindow").destroy();
           wrapper.remove();
@@ -103,6 +106,7 @@
       if (!this.formElement) {
         return;
       }
+      this.destroyLinkedPageEngines();
       kendo.destroy(this.formElement);
       this.formElement.empty();
       this.formElement
@@ -1232,7 +1236,11 @@
           const tabContent = $("<div class=\"crud-form-tab-content\"></div>")
             .attr("data-tab-id", tab.id || "")
             .appendTo(tabStrip);
-          this.renderSections(tabContent, tab.sections);
+          if (this.isLinkedPageTab(tab)) {
+            this.renderLinkedPageTab(tabContent, tab);
+          } else {
+            this.renderSections(tabContent, this.getTabSections(tab));
+          }
         });
         tabStrip.kendoTabStrip({
           animation: false
@@ -1245,6 +1253,306 @@
       }
 
       this.renderSections(container, this.definition.form.sections || []);
+    }
+
+    isLinkedPageTab(tab) {
+      const type = String(tab && (tab.type || tab.kind || "") || "").toLowerCase();
+      return type === "linkedpage" || type === "linked_page" || Boolean(tab && tab.linkedPage);
+    }
+
+    renderLinkedPageTab(container, tab) {
+      const config = this.normalizeLinkedPageConfig(tab);
+      const key = this.getLinkedPageKey(tab, config);
+      const host = $("<section class=\"crud-linked-page-tab\"></section>").appendTo(container);
+      const header = $("<div class=\"crud-linked-page-header\"></div>").appendTo(host);
+      const titleGroup = $("<div class=\"crud-linked-page-title-group\"></div>").appendTo(header);
+      $("<h3></h3>").text(config.title || tab.title || "Pagina ligada").appendTo(titleGroup);
+      if (config.description) {
+        $("<p></p>").text(config.description).appendTo(titleGroup);
+      }
+      const actions = $("<div class=\"crud-linked-page-actions\"></div>").appendTo(header);
+
+      if (config.requireRecord !== false && !this.hasCurrentRecord()) {
+        $("<div class=\"crud-linked-page-empty\"></div>")
+          .text(config.emptyMessage || "Salve ou selecione um registro antes de abrir esta pagina.")
+          .appendTo(host);
+        return;
+      }
+
+      if (String(config.engine || "crud").toLowerCase() !== "crud") {
+        $("<div class=\"crud-linked-page-empty crud-linked-page-error\"></div>")
+          .text("Pagina ligada suporta apenas engine CRUD nesta versao.")
+          .appendTo(host);
+        return;
+      }
+
+      if (!config.screenId && !config.definition) {
+        $("<div class=\"crud-linked-page-empty crud-linked-page-error\"></div>")
+          .text("Pagina ligada sem screenId configurado.")
+          .appendTo(host);
+        return;
+      }
+
+      const refreshButton = $("<button type=\"button\"></button>").text("Atualizar").appendTo(actions);
+      refreshButton.kendoButton({ icon: "arrow-rotate-cw" });
+
+      const pageHost = $("<div class=\"crud-linked-page-host\"></div>")
+        .css("min-height", this.normalizeLinkedPageHeight(config.height))
+        .appendTo(host);
+      refreshButton.on("click", () => {
+        this.mountLinkedPageEngine(key, pageHost, config);
+      });
+      this.mountLinkedPageEngine(key, pageHost, config);
+    }
+
+    normalizeLinkedPageConfig(tab) {
+      const source = Object.assign({}, tab && tab.linkedPage || {});
+      if (tab && tab.screenId && !source.screenId) {
+        source.screenId = tab.screenId;
+      }
+      if (tab && tab.definition && !source.definition) {
+        source.definition = tab.definition;
+      }
+      return Object.assign({
+        title: tab && tab.title,
+        engine: "crud",
+        hideHeader: true,
+        requireRecord: true,
+        filters: [],
+        params: [],
+        runtimeMessages: false
+      }, source);
+    }
+
+    getLinkedPageKey(tab, config) {
+      return "linked-page:" + String(tab && tab.id || config && config.screenId || config && config.title || "tab");
+    }
+
+    mountLinkedPageEngine(key, host, config) {
+      this.destroyLinkedPageEngine(key);
+      if (typeof global.CrudEngine !== "function") {
+        this.renderLinkedPageError(host, "CrudEngine nao esta carregado para renderizar a pagina ligada.");
+        return Promise.resolve(null);
+      }
+      const values = this.collectAllValues();
+      const initialFilters = this.buildLinkedPageInitialFilters(config, values);
+      const options = {
+        root: host,
+        config: this.config || {},
+        httpClient: this.httpClient,
+        hideHeader: config.hideHeader !== false,
+        initialFilters,
+        runtimeMessages: config.runtimeMessages === true,
+        contextPayload: {
+          parentScreenId: this.definition.screenId || this.definition.program && this.definition.program.screenId || "",
+          parentRecordId: this.getCurrentRecordId(),
+          parentValues: values,
+          params: this.buildLinkedPageParams(config, values)
+        }
+      };
+      if (config.screenId) {
+        options.screenId = String(config.screenId);
+      }
+      if (config.definition) {
+        options.definition = config.definition;
+      }
+
+      if (global.kendo && typeof global.kendo.destroy === "function") {
+        global.kendo.destroy(host);
+      }
+      host.empty();
+      $("<div class=\"crud-loading\"></div>").text("Carregando pagina ligada...").appendTo(host);
+
+      const engine = new global.CrudEngine(options);
+      const entry = { engine, host };
+      this.linkedPageEngines[key] = entry;
+
+      return engine.init().then((instance) => {
+        if (this.linkedPageEngines[key] !== entry) {
+          this.destroyInjectedLinkedPageEngine(instance);
+          return null;
+        }
+        this.resizeLinkedPageEngine(instance);
+        return instance;
+      }).catch((error) => {
+        if (this.linkedPageEngines[key] !== entry) {
+          return null;
+        }
+        const normalized = global.CrudUtils.unwrapError(error, "Nao foi possivel carregar a pagina ligada.");
+        this.renderLinkedPageError(host, normalized.message);
+        return null;
+      });
+    }
+
+    buildLinkedPageInitialFilters(config, values) {
+      return global.CrudUtils.ensureArray(config.filters || config.parentFilters)
+        .map((filter) => this.normalizeLinkedPageFilter(filter, values))
+        .filter(Boolean);
+    }
+
+    normalizeLinkedPageFilter(filter, values) {
+      if (!filter || typeof filter !== "object") {
+        return null;
+      }
+      const field = filter.field || filter.targetField;
+      if (!field) {
+        return null;
+      }
+      const value = this.resolveLinkedPageValue(filter, values);
+      if ((value == null || value === "") && filter.includeEmpty !== true) {
+        return null;
+      }
+      const result = {
+        id: filter.id || field,
+        field,
+        operator: filter.operator || "eq",
+        value,
+        displayValue: filter.displayValue != null ? filter.displayValue : value
+      };
+      if (filter.label) {
+        result.label = filter.label;
+      }
+      if (filter.dataType || filter.type) {
+        result.dataType = filter.dataType || filter.type;
+      }
+      return result;
+    }
+
+    buildLinkedPageParams(config, values) {
+      const result = {};
+      this.appendLinkedPageParams(result, config.params, values);
+      this.appendLinkedPageParams(result, config.query, values);
+      return result;
+    }
+
+    destroyLinkedPageEngines() {
+      Object.keys(this.linkedPageEngines || {}).forEach((key) => {
+        this.destroyLinkedPageEngine(key);
+      });
+    }
+
+    destroyLinkedPageEngine(key) {
+      const entry = this.linkedPageEngines && this.linkedPageEngines[key];
+      if (!entry) {
+        return;
+      }
+      delete this.linkedPageEngines[key];
+      this.destroyInjectedLinkedPageEngine(entry.engine);
+      if (entry.host) {
+        if (global.kendo && typeof global.kendo.destroy === "function") {
+          global.kendo.destroy(entry.host);
+        }
+        entry.host.empty();
+      }
+    }
+
+    destroyInjectedLinkedPageEngine(engine) {
+      if (!engine) {
+        return;
+      }
+      if (typeof engine.destroy === "function") {
+        engine.destroy();
+        return;
+      }
+      if (engine.gridRenderer && typeof engine.gridRenderer.destroy === "function") {
+        engine.gridRenderer.destroy();
+      }
+      if (engine.filterRenderer && typeof engine.filterRenderer.destroy === "function") {
+        engine.filterRenderer.destroy();
+      }
+    }
+
+    resizeLinkedPageEngine(engine) {
+      global.setTimeout(function() {
+        if (engine && engine.gridRenderer && engine.gridRenderer.grid && typeof engine.gridRenderer.grid.resize === "function") {
+          engine.gridRenderer.grid.resize();
+        }
+      }, 0);
+    }
+
+    renderLinkedPageError(host, message) {
+      if (global.kendo && typeof global.kendo.destroy === "function") {
+        global.kendo.destroy(host);
+      }
+      host.empty();
+      $("<div class=\"crud-linked-page-empty crud-linked-page-error\"></div>")
+        .text(message)
+        .appendTo(host);
+    }
+
+    getCurrentRecordId() {
+      const primaryKey = this.definition.dataModel && this.definition.dataModel.primaryKey;
+      if (!primaryKey) {
+        return null;
+      }
+      const values = this.collectAllValues();
+      return values[primaryKey] != null ? values[primaryKey] : null;
+    }
+
+    appendLinkedPageParams(target, params, values) {
+      if (!params) {
+        return;
+      }
+      if (!Array.isArray(params) && typeof params === "object") {
+        Object.keys(params).forEach((key) => {
+          this.appendLinkedPageParam(target, key, params[key], values);
+        });
+        return;
+      }
+      global.CrudUtils.ensureArray(params).forEach((param) => {
+        if (!param) {
+          return;
+        }
+        const name = param.name || param.param || param.key;
+        if (!name) {
+          return;
+        }
+        this.appendLinkedPageParam(target, name, param, values);
+      });
+    }
+
+    appendLinkedPageParam(target, name, source, values) {
+      const value = this.resolveLinkedPageValue(source, values);
+      if (value == null || value === "") {
+        return;
+      }
+      target[String(name)] = value;
+    }
+
+    resolveLinkedPageValue(source, values) {
+      if (source == null) {
+        return undefined;
+      }
+      if (typeof source !== "object") {
+        return source;
+      }
+      if (source.value != null) {
+        return source.value;
+      }
+      const sourceField = source.sourceField || source.fieldValue || source.fromField;
+      if (sourceField) {
+        return values[sourceField];
+      }
+      const path = source.sourcePath || source.path || source.valueFrom;
+      if (path) {
+        return this.resolveContextPath(path, {
+          values,
+          data: this.data || {},
+          mode: this.mode,
+          actionMode: this.actionMode
+        });
+      }
+      return undefined;
+    }
+
+    normalizeLinkedPageHeight(height) {
+      if (height == null || height === "") {
+        return "520px";
+      }
+      if (typeof height === "number") {
+        return Math.max(260, height) + "px";
+      }
+      return String(height);
     }
 
     renderStepLayout(container) {
@@ -1316,6 +1624,22 @@
         id: (step && step.id || "step") + "-section",
         title: "",
         columns: step && step.columns || 1,
+        fields
+      }] : [];
+    }
+
+    getTabSections(tab) {
+      const sections = global.CrudUtils.ensureArray(tab && tab.sections);
+      if (sections.length) {
+        return sections;
+      }
+      const fields = global.CrudUtils.ensureArray(tab && tab.fields).map(function(item) {
+        return typeof item === "string" ? { field: item } : item;
+      });
+      return fields.length ? [{
+        id: (tab && tab.id || "tab") + "-section",
+        title: "",
+        columns: tab && tab.columns || 1,
         fields
       }] : [];
     }

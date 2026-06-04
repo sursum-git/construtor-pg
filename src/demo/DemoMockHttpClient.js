@@ -3983,17 +3983,7 @@
       if (data && data.onlyMine) {
         rows = rows.filter((row) => String(row.user_id || "") === String(this.userId || "demo"));
       }
-      const filters = Array.isArray(data && data.filters) ? data.filters : [];
-      filters.forEach(function(filter) {
-        const field = filter && filter.field;
-        const value = filter && filter.value;
-        if (!field || value == null || value === "") {
-          return;
-        }
-        rows = rows.filter(function(row) {
-          return String(row[field] || "").toLowerCase().indexOf(String(value).toLowerCase()) !== -1;
-        });
-      });
+      rows = this.applyCustomFilters(rows, data && data.filters || []);
 
       const sort = Array.isArray(data && data.sort) && data.sort[0] || { field: "created_at", dir: "desc" };
       rows = rows.slice().sort(function(left, right) {

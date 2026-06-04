@@ -1286,7 +1286,7 @@
     },
     "formTab": {
       "type": "object",
-      "required": ["id", "title", "sections"],
+      "required": ["id", "title"],
       "properties": {
         "id": {
           "type": "string"
@@ -1294,11 +1294,236 @@
         "title": {
           "type": "string"
         },
+        "type": {
+          "type": "string",
+          "enum": ["fields", "linkedPage", "linked_page"]
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["fields", "linkedPage", "linked_page"]
+        },
+        "screenId": {
+          "type": "string"
+        },
+        "definition": {
+          "type": "object"
+        },
+        "linkedPage": {
+          "$ref": "#/$defs/linkedPageTabConfig"
+        },
+        "columns": {
+          "type": "integer"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "$ref": "#/$defs/formField"
+              }
+            ]
+          }
+        },
         "sections": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/formSection"
           }
+        }
+      },
+      "additionalProperties": false
+    },
+    "linkedPageTabConfig": {
+      "type": "object",
+      "properties": {
+        "engine": {
+          "type": "string",
+          "enum": ["crud"]
+        },
+        "screenId": {
+          "type": "string"
+        },
+        "definition": {
+          "type": "object"
+        },
+        "title": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "height": {
+          "type": ["integer", "string"]
+        },
+        "hideHeader": {
+          "type": "boolean",
+          "default": true
+        },
+        "requireRecord": {
+          "type": "boolean",
+          "default": true
+        },
+        "runtimeMessages": {
+          "type": "boolean",
+          "default": false
+        },
+        "emptyMessage": {
+          "type": "string"
+        },
+        "filters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/linkedPageFilter"
+          }
+        },
+        "parentFilters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/linkedPageFilter"
+          }
+        },
+        "params": {
+          "$ref": "#/$defs/linkedPageParams"
+        },
+        "query": {
+          "$ref": "#/$defs/linkedPageParams"
+        }
+      },
+      "additionalProperties": false
+    },
+    "linkedPageFilter": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "targetField": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "operator": {
+          "type": "string",
+          "enum": ["eq", "neq", "startsWith", "contains", "notContains", "isEmpty", "isNotEmpty", "isNull", "isNotNull", "between", "in", "notIn", "gt", "gte", "lt", "lte", "relative"]
+        },
+        "value": {},
+        "displayValue": {},
+        "sourceField": {
+          "type": "string"
+        },
+        "fieldValue": {
+          "type": "string"
+        },
+        "fromField": {
+          "type": "string"
+        },
+        "sourcePath": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "valueFrom": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "dataType": {
+          "type": "string"
+        },
+        "includeEmpty": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "linkedPageParams": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/linkedPageParam"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": ["string", "number", "boolean"]
+              },
+              {
+                "$ref": "#/$defs/linkedPageSource"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "linkedPageParam": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "param": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string"
+        },
+        "value": {},
+        "sourceField": {
+          "type": "string"
+        },
+        "fieldValue": {
+          "type": "string"
+        },
+        "fromField": {
+          "type": "string"
+        },
+        "sourcePath": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "valueFrom": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "linkedPageSource": {
+      "type": "object",
+      "properties": {
+        "value": {},
+        "sourceField": {
+          "type": "string"
+        },
+        "fieldValue": {
+          "type": "string"
+        },
+        "fromField": {
+          "type": "string"
+        },
+        "sourcePath": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "valueFrom": {
+          "type": "string"
         }
       },
       "additionalProperties": false

@@ -620,7 +620,21 @@
 
       if (form.layout !== "steps") {
         global.CrudUtils.ensureArray(form.tabs).forEach((tab) => {
-          global.CrudUtils.ensureArray(tab.sections).forEach((section) => {
+          if (!tab || !tab.id || !tab.title) {
+            errors.push(this.path(definition, "form.tabs") + " precisa ter id e title.");
+            return;
+          }
+          if (this.isLinkedPageFormTab(tab)) {
+            this.validateLinkedPageFormTab(definition, tab, errors);
+            return;
+          }
+          const tabSections = global.CrudUtils.ensureArray(tab.sections);
+          const tabFields = this.getStepFieldItems(tab);
+          if (!tabSections.length && !tabFields.length) {
+            errors.push(this.path(definition, "form.tabs") + " precisa informar sections ou fields.");
+          }
+          tabFields.forEach(inspectField);
+          tabSections.forEach((section) => {
             global.CrudUtils.ensureArray(section.fields).forEach(inspectField);
           });
         });
@@ -673,6 +687,85 @@
       this.validateFormSituation(definition, form, errors);
       this.validatePrintConfig(definition, form.print, this.path(definition, "form.print"), true, errors);
       this.validateFormEvents(definition, form, errors);
+    }
+
+    isLinkedPageFormTab(tab) {
+      const type = String(tab && (tab.type || tab.kind || "") || "").toLowerCase();
+      return type === "linkedpage" || type === "linked_page" || Boolean(tab && tab.linkedPage);
+    }
+
+    validateLinkedPageFormTab(definition, tab, errors) {
+      const config = Object.assign({}, tab && tab.linkedPage || {});
+      if (tab && tab.screenId && !config.screenId) {
+        config.screenId = tab.screenId;
+      }
+      if (tab && tab.definition && !config.definition) {
+        config.definition = tab.definition;
+      }
+
+      const label = this.path(definition, "form.tabs.linkedPage");
+      const engine = String(config.engine || "crud").toLowerCase();
+      if (engine !== "crud") {
+        errors.push(label + ".engine suporta apenas crud nesta versao.");
+      }
+      if (config.url || config.entryUrl) {
+        errors.push(label + " nao usa url ou iframe. Configure screenId para injetar a pagina.");
+      }
+      if (!config.screenId && !config.definition) {
+        errors.push(label + ".screenId e obrigatorio para aba de pagina ligada.");
+      }
+      ["hideHeader", "requireRecord", "runtimeMessages"].forEach(function(property) {
+        if (config[property] != null && typeof config[property] !== "boolean") {
+          errors.push(label + "." + property + " precisa ser booleano.");
+        }
+      });
+
+      global.CrudUtils.ensureArray(config.filters || config.parentFilters).forEach((filter) => {
+        if (!filter || typeof filter !== "object") {
+          errors.push(label + ".filters deve conter objetos.");
+          return;
+        }
+        if (!filter.field && !filter.targetField) {
+          errors.push(label + ".filters[].field e obrigatorio.");
+        }
+        this.validateLinkedPageSource(definition, filter, label + ".filters", errors);
+      });
+
+      const validateParam = (param, context) => {
+        if (!param || typeof param !== "object") {
+          errors.push(context + " deve conter objetos.");
+          return;
+        }
+        if (!param.name && !param.param && !param.key) {
+          errors.push(context + "[].name e obrigatorio.");
+        }
+        this.validateLinkedPageSource(definition, param, context, errors);
+      };
+
+      if (config.params && !Array.isArray(config.params) && typeof config.params === "object") {
+        Object.keys(config.params).forEach((key) => {
+          this.validateLinkedPageSource(definition, config.params[key], label + ".params." + key, errors);
+        });
+      } else {
+        global.CrudUtils.ensureArray(config.params).forEach((param) => validateParam(param, label + ".params"));
+      }
+      if (config.query && !Array.isArray(config.query) && typeof config.query === "object") {
+        Object.keys(config.query).forEach((key) => {
+          this.validateLinkedPageSource(definition, config.query[key], label + ".query." + key, errors);
+        });
+      } else {
+        global.CrudUtils.ensureArray(config.query).forEach((param) => validateParam(param, label + ".query"));
+      }
+    }
+
+    validateLinkedPageSource(definition, source, context, errors) {
+      if (source == null || typeof source !== "object") {
+        return;
+      }
+      const sourceField = source.sourceField || source.fieldValue || source.fromField;
+      if (sourceField) {
+        this.validateFieldReference(definition, sourceField, context + ".sourceField", errors);
+      }
     }
 
     validateFormConcurrencyWarning(definition, form, errors) {

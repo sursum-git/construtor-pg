@@ -1121,6 +1121,71 @@
       }
     },
     {
+      id: "mestre-detalhe-paginas-ligadas",
+      category: "Cadastro",
+      title: "Mestre-detalhe por paginas ligadas",
+      summary: "Formulario do mestre injeta uma pagina CRUD filha em uma aba, usando screenId e filtros do registro pai, sem iframe.",
+      page: pagePath + "mestre-detalhe-paginas-ligadas.html",
+      maturity: "operacional",
+      initialAction: "openView",
+      code: {
+        crud: {
+          form: {
+            layout: "tabs",
+            tabs: [
+              {
+                id: "jobs_cliente",
+                title: "Jobs do cliente",
+                type: "linkedPage",
+                linkedPage: {
+                  engine: "crud",
+                  screenId: "runtime.jobs.mine",
+                  title: "Jobs deste cliente",
+                  description: "A pagina de jobs e mantida separada e renderizada dentro desta aba.",
+                  hideHeader: true,
+                  requireRecord: true,
+                  filters: [
+                    { field: "entity_code", value: "cliente", operator: "eq" },
+                    { field: "record_id", sourceField: "id", operator: "eq" }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      },
+      apply: function(definition, source) {
+        definition.screenId = "cadastros.clientes-paginas-ligadas";
+        definition.program.id = "clientes-paginas-ligadas";
+        definition.program.title = "Clientes com pagina ligada";
+        definition.program.subtitle = "Formulario injeta tela filha por screenId";
+        definition.program.subtitleTooltip = "A aba ligada usa outro CrudEngine no proprio DOM, filtrado pelos valores do registro pai.";
+        definition.runtime.messages = { enabled: false, pollIntervalSeconds: 30, events: { enabled: false } };
+        definition.crud.form.layout = "tabs";
+        definition.crud.form.steps = [];
+        definition.crud.form.width = 1100;
+        definition.crud.form.tabs = clone(source.crud.form.tabs).concat([
+          {
+            id: "jobs_cliente",
+            title: "Jobs do cliente",
+            type: "linkedPage",
+            linkedPage: {
+              engine: "crud",
+              screenId: "runtime.jobs.mine",
+              title: "Jobs deste cliente",
+              description: "A pagina de jobs e mantida separada e renderizada dentro desta aba.",
+              hideHeader: true,
+              requireRecord: true,
+              filters: [
+                { field: "entity_code", value: "cliente", operator: "eq" },
+                { field: "record_id", sourceField: "id", operator: "eq" }
+              ]
+            }
+          }
+        ]);
+      }
+    },
+    {
       id: "consulta-api-readonly",
       category: "Consulta",
       title: "Consulta externa por API",
@@ -2552,6 +2617,9 @@
     option("Mestre-detalhe", "details[].parentField", "campo FK do filho", "id_pai", "Campo do filho comparado com `master.idField` para filtrar a aba selecionada."),
     option("Mestre-detalhe", "details[].fields[]", "{ id, label, type, required, hidden }", "vazio", "Campos renderizados na janela Kendo de inclusao/alteracao do filho."),
     option("Mestre-detalhe", "details[].totals[]", "{ field, label, type }", "vazio", "Totais exibidos no resumo da aba filha."),
+    option("Formulario", "crud.form.tabs[].type", "linkedPage", "vazio", "Quando linkedPage, a aba injeta outra pagina CRUD por screenId dentro do proprio DOM."),
+    option("Formulario", "crud.form.tabs[].linkedPage.screenId", "screenId seguro", "obrigatorio em linkedPage", "Identifica a pagina filha carregada pelo mesmo motor, sem iframe e sem URL livre."),
+    option("Formulario", "crud.form.tabs[].linkedPage.filters[]", "{ field, sourceField|value, operator }", "[]", "Filtros iniciais enviados para a pagina filha a partir do registro pai."),
     option("Grid", "crud.grid.columns[].technicalProperties[]", "lista de { section, label, value }", "fallback do campo", "Permite sobrescrever ou complementar as propriedades tecnicas mostradas no cabecalho do grid."),
     option("Filtro", "crud.filter.fields[].technicalProperties[]", "lista de { section, label, value }", "fallback do campo", "Permite sobrescrever ou complementar as propriedades tecnicas mostradas no filtro."),
     option("Consulta", "crud.query.defaultSort[].dir", "asc | desc", "vazio", "Direcao da ordenacao inicial."),
