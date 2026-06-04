@@ -26,7 +26,7 @@ class ScreenDefinitionService
                     'screen_definition' => [
                         'screenId' => $screenId,
                         'status' => 'draft ou published',
-                        'pageType' => 'crud, home, process, analytics, report, special_document ou regulated_document',
+                        'pageType' => 'crud, home, process, analytics, report, special_document, regulated_document ou master_detail',
                         'definition' => 'JSON declarativo da tela autorizado pelo backend.',
                     ],
                 ],

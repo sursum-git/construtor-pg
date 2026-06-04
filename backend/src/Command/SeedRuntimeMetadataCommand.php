@@ -179,6 +179,24 @@ class SeedRuntimeMetadataCommand extends Command
         'process' => 'process.customCode.pdm',
     ];
 
+    private const MASTER_DETAIL_ENDPOINTS = [
+        'master.read' => 'entity.crud',
+        'master.get' => 'entity.crud',
+        'master.create' => 'entity.crud',
+        'master.update' => 'entity.crud',
+        'master.delete' => 'entity.crud',
+        'detail.itens.read' => 'entity.crud',
+        'detail.itens.get' => 'entity.crud',
+        'detail.itens.create' => 'entity.crud',
+        'detail.itens.update' => 'entity.crud',
+        'detail.itens.delete' => 'entity.crud',
+        'detail.parcelas.read' => 'entity.crud',
+        'detail.parcelas.get' => 'entity.crud',
+        'detail.parcelas.create' => 'entity.crud',
+        'detail.parcelas.update' => 'entity.crud',
+        'detail.parcelas.delete' => 'entity.crud',
+    ];
+
     public function __construct(
         private readonly KernelInterface $kernel,
         private readonly EntityManagerInterface $entityManager,
@@ -362,6 +380,7 @@ class SeedRuntimeMetadataCommand extends Command
         $regulatedLogisticsDefinition['regulatedDocument']['layout']['title'] = 'Documento regulado logistico base';
         $regulatedLogisticsDefinition['regulatedDocument']['layout']['subtitle'] = 'Base geral para impressao logistica de alto rigor';
         $customCodePdmDefinition = $this->readJson($projectRoot . '/examples/codificacao-assistente-pdm.process.json');
+        $pedidoMasterDetailDefinition = $this->pedidoVendaMasterDetailDefinition();
         $importExportAdminDefinition = [
             'pageType' => 'custom',
             'screenId' => 'admin.integracoes',
@@ -676,10 +695,13 @@ class SeedRuntimeMetadataCommand extends Command
         $regulatedLogisticsDefinition['program']['screenId'] = 'documentos.regulados-logistico-base';
         $customCodePdmDefinition['screenId'] = 'assistente.codificacao.produto-pdm';
         $customCodePdmDefinition['program']['screenId'] = 'assistente.codificacao.produto-pdm';
+        $pedidoMasterDetailDefinition['screenId'] = 'vendas.pedido-master-detail';
+        $pedidoMasterDetailDefinition['program']['screenId'] = 'vendas.pedido-master-detail';
         $homeDefinition['screenId'] = 'home';
         $homeDefinition['app']['id'] = 'home';
         $adminScreens = AdminCrudDefinitionFactory::screens();
         $this->attachRuntimeJobsProgramToHome($homeDefinition);
+        $this->attachMasterDetailProgramToHome($homeDefinition);
         $this->attachAdminProgramsToHome($homeDefinition, $adminScreens);
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-integracoes', 'Integracoes', 'Administracao de integracoes', 'admin.integracoes');
         $this->attachCustomAdminProgramToHome($homeDefinition, 'admin-programa-governanca', 'Governanca de programas', 'Governanca de alteracao, grant, testes e aprovacao', 'admin.programa-governanca');
@@ -741,6 +763,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertProgram('documento-regulado-fiscal-base', 'Documento regulado fiscal base', 'documentos', 'regulated_document', 'documentos.regulados-fiscal-base');
         $this->upsertProgram('documento-regulado-bancario-base', 'Documento regulado bancario base', 'documentos', 'regulated_document', 'documentos.regulados-bancario-base');
         $this->upsertProgram('documento-regulado-logistico-base', 'Documento regulado logistico base', 'documentos', 'regulated_document', 'documentos.regulados-logistico-base');
+        $this->upsertProgram('pedido-venda-master-detail', 'Pedido de venda', 'vendas', 'master_detail', 'vendas.pedido-master-detail');
         $this->upsertProgram('admin-documentos-regulados', 'Documentos regulados', 'administracao', 'custom', 'admin.documentos-regulados');
         $this->upsertProgram('home', 'Home', 'global', 'home', 'home');
         foreach ($adminScreens as $screen) {
@@ -748,6 +771,7 @@ class SeedRuntimeMetadataCommand extends Command
         }
         $this->upsertBuilderEntityFromDefinition($clientesDefinition);
         $this->upsertRuntimeJobBuilderEntityFromDefinition($jobsDefinition);
+        $this->upsertMasterDetailBuilderEntities($pedidoMasterDetailDefinition);
         foreach ($adminScreens as $screen) {
             $this->upsertAdminBuilderEntityFromDefinition($screen);
         }
@@ -780,6 +804,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertScreen('documentos.regulados-bancario-base', 'regulated_document', $regulatedBankingDefinition);
         $this->upsertScreen('documentos.regulados-logistico-base', 'regulated_document', $regulatedLogisticsDefinition);
         $this->upsertScreen('assistente.codificacao.produto-pdm', 'process', $customCodePdmDefinition);
+        $this->upsertScreen('vendas.pedido-master-detail', 'master_detail', $pedidoMasterDetailDefinition);
         foreach ($adminScreens as $screen) {
             $this->upsertScreen((string) $screen['screenId'], 'crud', $screen['definition']);
         }
@@ -795,6 +820,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertEndpoints('documentos.regulados-bancario-base', self::REGULATED_DOCUMENT_ENDPOINTS);
         $this->upsertEndpoints('documentos.regulados-logistico-base', self::REGULATED_DOCUMENT_ENDPOINTS);
         $this->upsertEndpoints('assistente.codificacao.produto-pdm', self::CUSTOM_CODE_PDM_ENDPOINTS);
+        $this->upsertEndpoints('vendas.pedido-master-detail', self::MASTER_DETAIL_ENDPOINTS);
         foreach ($adminScreens as $screen) {
             $this->upsertEndpoints((string) $screen['screenId'], $this->adminEndpointHandlers($screen));
         }
@@ -807,6 +833,7 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertBuilderModuleDefaults();
         $this->seedClientes();
         $this->seedClienteTelefones();
+        $this->seedPedidoVendaMasterDetailData();
 
         $this->entityManager->flush();
         $this->integrity->backfillAll();
@@ -828,6 +855,185 @@ class SeedRuntimeMetadataCommand extends Command
         }
 
         return $payload;
+    }
+
+    private function pedidoVendaMasterDetailDefinition(): array
+    {
+        $api = [];
+        foreach (array_keys(self::MASTER_DETAIL_ENDPOINTS) as $endpointId) {
+            $api[$endpointId] = ['endpointId' => $endpointId, 'method' => 'POST'];
+        }
+
+        return [
+            'schemaVersion' => '1.0',
+            'pageType' => 'master_detail',
+            'screenId' => 'vendas.pedido-master-detail',
+            'program' => [
+                'id' => 'pedido-venda-master-detail',
+                'title' => 'Pedido de venda',
+                'subtitle' => 'Cabecalho com abas filhas para itens e parcelas',
+                'module' => 'Vendas',
+                'version' => '1.0.0',
+                'screenId' => 'vendas.pedido-master-detail',
+                'entity' => 'pedido_venda',
+                'permission' => 'vendas.pedidos.read',
+            ],
+            'permissions' => [
+                'read' => 'vendas.pedidos.read',
+                'create' => 'vendas.pedidos.create',
+                'edit' => 'vendas.pedidos.edit',
+                'delete' => 'vendas.pedidos.delete',
+            ],
+            'runtime' => [
+                'screenId' => 'vendas.pedido-master-detail',
+                'mode' => 'master_detail',
+                'entityCode' => 'pedido_venda',
+                'lock' => ['enabled' => false, 'modes' => []],
+                'messages' => ['enabled' => false],
+            ],
+            'dataSource' => [
+                'api' => $api,
+            ],
+            'master' => [
+                'id' => 'pedido',
+                'entity' => 'pedido_venda',
+                'title' => 'Pedidos',
+                'singularTitle' => 'pedido',
+                'subtitle' => 'Selecione um pedido para editar os filhos.',
+                'idField' => 'id',
+                'displayField' => 'numero',
+                'api' => [
+                    'read' => $api['master.read'],
+                    'get' => $api['master.get'],
+                    'create' => $api['master.create'],
+                    'update' => $api['master.update'],
+                    'delete' => $api['master.delete'],
+                ],
+                'query' => [
+                    'sort' => [
+                        ['field' => 'numero', 'dir' => 'asc'],
+                    ],
+                ],
+                'fields' => [
+                    ['id' => 'id', 'label' => 'ID', 'type' => 'integer', 'readonlyOnEdit' => true, 'hidden' => true],
+                    ['id' => 'numero', 'label' => 'Numero', 'type' => 'string', 'required' => true],
+                    ['id' => 'cliente', 'label' => 'Cliente', 'type' => 'string', 'required' => true],
+                    ['id' => 'data_emissao', 'label' => 'Data de emissao', 'type' => 'date', 'required' => true],
+                    [
+                        'id' => 'status',
+                        'label' => 'Status',
+                        'type' => 'enum',
+                        'required' => true,
+                        'options' => [
+                            ['value' => 'ABERTO', 'text' => 'Aberto'],
+                            ['value' => 'APROVADO', 'text' => 'Aprovado'],
+                            ['value' => 'FATURADO', 'text' => 'Faturado'],
+                            ['value' => 'CANCELADO', 'text' => 'Cancelado'],
+                        ],
+                    ],
+                    ['id' => 'valor_total', 'label' => 'Valor total', 'type' => 'currency', 'readonly' => true],
+                ],
+                'grid' => [
+                    'columns' => [
+                        ['field' => 'numero', 'title' => 'Numero', 'width' => 120],
+                        ['field' => 'cliente', 'title' => 'Cliente', 'width' => 180],
+                        ['field' => 'data_emissao', 'title' => 'Emissao', 'width' => 120],
+                        ['field' => 'status', 'title' => 'Status', 'width' => 110],
+                        ['field' => 'valor_total', 'title' => 'Total', 'width' => 120, 'align' => 'right'],
+                    ],
+                ],
+            ],
+            'details' => [
+                [
+                    'id' => 'itens',
+                    'entity' => 'pedido_venda_item',
+                    'title' => 'Itens',
+                    'singularTitle' => 'item',
+                    'parentField' => 'pedido_id',
+                    'idField' => 'id',
+                    'api' => [
+                        'read' => $api['detail.itens.read'],
+                        'get' => $api['detail.itens.get'],
+                        'create' => $api['detail.itens.create'],
+                        'update' => $api['detail.itens.update'],
+                        'delete' => $api['detail.itens.delete'],
+                    ],
+                    'query' => [
+                        'sort' => [
+                            ['field' => 'id', 'dir' => 'asc'],
+                        ],
+                    ],
+                    'fields' => [
+                        ['id' => 'id', 'label' => 'ID', 'type' => 'integer', 'readonlyOnEdit' => true, 'hidden' => true],
+                        ['id' => 'pedido_id', 'label' => 'Pedido', 'type' => 'integer', 'required' => true, 'hidden' => true],
+                        ['id' => 'produto', 'label' => 'Produto', 'type' => 'string', 'required' => true],
+                        ['id' => 'quantidade', 'label' => 'Quantidade', 'type' => 'decimal', 'required' => true, 'decimals' => 3],
+                        ['id' => 'valor_unitario', 'label' => 'Valor unitario', 'type' => 'currency', 'required' => true],
+                        ['id' => 'valor_total', 'label' => 'Valor total', 'type' => 'currency', 'required' => true],
+                    ],
+                    'grid' => [
+                        'columns' => [
+                            ['field' => 'produto', 'title' => 'Produto', 'width' => 190],
+                            ['field' => 'quantidade', 'title' => 'Qtde.', 'width' => 100, 'align' => 'right'],
+                            ['field' => 'valor_unitario', 'title' => 'Unitario', 'width' => 110, 'align' => 'right'],
+                            ['field' => 'valor_total', 'title' => 'Total', 'width' => 110, 'align' => 'right'],
+                        ],
+                    ],
+                    'totals' => [
+                        ['field' => 'valor_total', 'label' => 'Total dos itens', 'type' => 'currency'],
+                    ],
+                ],
+                [
+                    'id' => 'parcelas',
+                    'entity' => 'pedido_venda_parcela',
+                    'title' => 'Parcelas',
+                    'singularTitle' => 'parcela',
+                    'parentField' => 'pedido_id',
+                    'idField' => 'id',
+                    'api' => [
+                        'read' => $api['detail.parcelas.read'],
+                        'get' => $api['detail.parcelas.get'],
+                        'create' => $api['detail.parcelas.create'],
+                        'update' => $api['detail.parcelas.update'],
+                        'delete' => $api['detail.parcelas.delete'],
+                    ],
+                    'query' => [
+                        'sort' => [
+                            ['field' => 'numero', 'dir' => 'asc'],
+                        ],
+                    ],
+                    'fields' => [
+                        ['id' => 'id', 'label' => 'ID', 'type' => 'integer', 'readonlyOnEdit' => true, 'hidden' => true],
+                        ['id' => 'pedido_id', 'label' => 'Pedido', 'type' => 'integer', 'required' => true, 'hidden' => true],
+                        ['id' => 'numero', 'label' => 'Parcela', 'type' => 'integer', 'required' => true],
+                        ['id' => 'vencimento', 'label' => 'Vencimento', 'type' => 'date', 'required' => true],
+                        ['id' => 'valor', 'label' => 'Valor', 'type' => 'currency', 'required' => true],
+                        [
+                            'id' => 'situacao',
+                            'label' => 'Situacao',
+                            'type' => 'enum',
+                            'required' => true,
+                            'options' => [
+                                ['value' => 'ABERTA', 'text' => 'Aberta'],
+                                ['value' => 'PAGA', 'text' => 'Paga'],
+                                ['value' => 'ATRASADA', 'text' => 'Atrasada'],
+                            ],
+                        ],
+                    ],
+                    'grid' => [
+                        'columns' => [
+                            ['field' => 'numero', 'title' => 'Parcela', 'width' => 95, 'align' => 'right'],
+                            ['field' => 'vencimento', 'title' => 'Vencimento', 'width' => 125],
+                            ['field' => 'valor', 'title' => 'Valor', 'width' => 120, 'align' => 'right'],
+                            ['field' => 'situacao', 'title' => 'Situacao', 'width' => 120],
+                        ],
+                    ],
+                    'totals' => [
+                        ['field' => 'valor', 'label' => 'Total das parcelas', 'type' => 'currency'],
+                    ],
+                ],
+            ],
+        ];
     }
 
     private function upsertProgram(string $code, string $title, string $module, string $type, string $screenId): void
@@ -1144,11 +1350,124 @@ class SeedRuntimeMetadataCommand extends Command
         }
     }
 
+    private function upsertMasterDetailBuilderEntities(array $definition): void
+    {
+        $master = is_array($definition['master'] ?? null) ? $definition['master'] : [];
+        $masterEntityCode = (string) ($master['entity'] ?? 'pedido_venda');
+        $this->upsertMasterDetailBuilderEntity(
+            $master,
+            $masterEntityCode,
+            (string) ($master['title'] ?? 'Pedido de venda'),
+            'master',
+            null,
+            null,
+            (string) ($definition['screenId'] ?? 'vendas.pedido-master-detail'),
+        );
+
+        foreach (is_array($definition['details'] ?? null) ? $definition['details'] : [] as $detail) {
+            if (!is_array($detail)) {
+                continue;
+            }
+            $detailEntityCode = (string) ($detail['entity'] ?? $detail['id'] ?? '');
+            if ($detailEntityCode === '') {
+                continue;
+            }
+            $this->upsertMasterDetailBuilderEntity(
+                $detail,
+                $detailEntityCode,
+                (string) ($detail['title'] ?? $detailEntityCode),
+                'detail',
+                $masterEntityCode,
+                (string) ($detail['parentField'] ?? 'pedido_id'),
+                (string) ($definition['screenId'] ?? 'vendas.pedido-master-detail'),
+            );
+        }
+    }
+
+    private function upsertMasterDetailBuilderEntity(
+        array $section,
+        string $entityCode,
+        string $name,
+        string $role,
+        ?string $masterEntityCode,
+        ?string $parentField,
+        string $screenId,
+    ): void {
+        $entity = $this->builderEntities->findOneBy(['code' => $entityCode]) ?? new BuilderEntity();
+        $primaryKey = (string) ($section['idField'] ?? 'id');
+        $entity
+            ->setCode($entityCode)
+            ->setName($name)
+            ->setEntityType('persistence')
+            ->setTableName($entityCode)
+            ->setStatus('published')
+            ->setSituationEnabled(false)
+            ->setSituationFieldCode(null)
+            ->setMetadata([
+                'screenId' => $screenId,
+                'primaryKey' => $primaryKey,
+                'masterDetail' => [
+                    'role' => $role,
+                    'masterEntityCode' => $masterEntityCode,
+                    'parentField' => $parentField,
+                ],
+                'subscriberIsolation' => [
+                    'mode' => 'none',
+                    'globalTable' => true,
+                ],
+                'audit' => [
+                    'enabled' => false,
+                ],
+                'versioning' => [
+                    'enabled' => false,
+                ],
+            ]);
+
+        $this->entityManager->persist($entity);
+        $this->entityManager->flush();
+
+        $position = 0;
+        $configuredCodes = [];
+        foreach (is_array($section['fields'] ?? null) ? $section['fields'] : [] as $fieldConfig) {
+            if (!is_array($fieldConfig)) {
+                continue;
+            }
+            $code = (string) ($fieldConfig['id'] ?? $fieldConfig['code'] ?? '');
+            if ($code === '') {
+                continue;
+            }
+            $configuredCodes[$code] = true;
+            $field = $this->builderFields->findOneBy([
+                'builderEntity' => $entity,
+                'code' => $code,
+            ]) ?? new BuilderField();
+            $field
+                ->setBuilderEntity($entity)
+                ->setCode($code)
+                ->setLabel((string) ($fieldConfig['label'] ?? $code))
+                ->setDataType((string) ($fieldConfig['type'] ?? $fieldConfig['dataType'] ?? 'string'))
+                ->setDatabaseType($this->guessDatabaseType((string) ($fieldConfig['type'] ?? $fieldConfig['dataType'] ?? 'string')))
+                ->setRequired(($fieldConfig['required'] ?? false) === true)
+                ->setPrimaryKey($code === $primaryKey)
+                ->setPosition($position++)
+                ->setOptions(array_merge($fieldConfig, [
+                    'columnName' => $code,
+                ]));
+
+            $this->entityManager->persist($field);
+        }
+        foreach ($entity->getFields() as $existingField) {
+            if (!isset($configuredCodes[$existingField->getCode()])) {
+                $this->entityManager->remove($existingField);
+            }
+        }
+    }
+
     private function guessDatabaseType(string $type): string
     {
         return match ($type) {
             'integer' => 'integer',
-            'decimal', 'number' => 'numeric',
+            'currency', 'decimal', 'number' => 'numeric',
             'date' => 'date',
             'datetime' => 'timestamp',
             'json' => 'json',
@@ -1207,6 +1526,62 @@ class SeedRuntimeMetadataCommand extends Command
                 'icon' => 'gear',
                 'permission' => 'jobs.read',
                 'screenId' => 'admin.jobs',
+            ];
+        }
+        $homeDefinition['programs'] = $programs;
+    }
+
+    private function attachMasterDetailProgramToHome(array &$homeDefinition): void
+    {
+        $navigation = is_array($homeDefinition['navigation'] ?? null) ? $homeDefinition['navigation'] : [];
+        $modules = is_array($navigation['modules'] ?? null) ? $navigation['modules'] : [];
+        if (!$this->containsById($modules, 'vendas')) {
+            $modules[] = [
+                'id' => 'vendas',
+                'title' => 'Vendas',
+            ];
+        }
+
+        $groups = is_array($navigation['groups'] ?? null) ? $navigation['groups'] : [];
+        $groupIndex = null;
+        foreach ($groups as $index => $group) {
+            if (($group['id'] ?? '') === 'pedidos') {
+                $groupIndex = $index;
+                break;
+            }
+        }
+        if ($groupIndex === null) {
+            $groups[] = [
+                'id' => 'pedidos',
+                'title' => 'Pedidos',
+                'moduleId' => 'vendas',
+                'items' => [],
+            ];
+            $groupIndex = count($groups) - 1;
+        }
+
+        $items = is_array($groups[$groupIndex]['items'] ?? null) ? $groups[$groupIndex]['items'] : [];
+        if (!$this->containsByProgramId($items, 'pedido-venda-master-detail')) {
+            $items[] = [
+                'programId' => 'pedido-venda-master-detail',
+                'title' => 'Pedido de venda',
+            ];
+        }
+        $groups[$groupIndex]['items'] = $items;
+        $navigation['modules'] = $modules;
+        $navigation['groups'] = $groups;
+        $homeDefinition['navigation'] = $navigation;
+
+        $programs = is_array($homeDefinition['programs'] ?? null) ? $homeDefinition['programs'] : [];
+        if (!$this->containsById($programs, 'pedido-venda-master-detail')) {
+            $programs[] = [
+                'id' => 'pedido-venda-master-detail',
+                'title' => 'Pedido de venda',
+                'subtitle' => 'Cabecalho com itens e parcelas',
+                'type' => 'master_detail',
+                'icon' => 'cart',
+                'permission' => 'vendas.pedidos.read',
+                'screenId' => 'vendas.pedido-master-detail',
             ];
         }
         $homeDefinition['programs'] = $programs;
@@ -1399,6 +1774,15 @@ class SeedRuntimeMetadataCommand extends Command
                 default => null,
             };
         }
+        if ($screenId === 'vendas.pedido-master-detail') {
+            return match (substr($endpointId, (int) strrpos($endpointId, '.') + 1)) {
+                'read', 'get' => 'vendas.pedidos.read',
+                'create' => 'vendas.pedidos.create',
+                'update' => 'vendas.pedidos.edit',
+                'delete' => 'vendas.pedidos.delete',
+                default => null,
+            };
+        }
         if ($screenId === 'admin.jobs') {
             return in_array($endpointId, ['read', 'get'], true) ? 'runtime.jobs.read' : null;
         }
@@ -1463,6 +1847,22 @@ class SeedRuntimeMetadataCommand extends Command
                 'operation' => $endpointId,
                 'actionId' => $endpointId,
                 'programId' => 'runtime-jobs',
+            ];
+        }
+        if ($screenId === 'vendas.pedido-master-detail' && $handler === 'entity.crud') {
+            $entityCode = match (true) {
+                str_starts_with($endpointId, 'detail.itens.') => 'pedido_venda_item',
+                str_starts_with($endpointId, 'detail.parcelas.') => 'pedido_venda_parcela',
+                default => 'pedido_venda',
+            };
+            $operation = substr($endpointId, (int) strrpos($endpointId, '.') + 1);
+
+            return [
+                'entityCode' => $entityCode,
+                'operation' => $operation,
+                'actionId' => $endpointId,
+                'programId' => 'pedido-venda-master-detail',
+                'permissionPrefix' => 'vendas.pedidos',
             ];
         }
         if ($screenId === 'processamento.relatorio-clientes') {
@@ -1582,11 +1982,90 @@ class SeedRuntimeMetadataCommand extends Command
         }
     }
 
+    private function seedPedidoVendaMasterDetailData(): void
+    {
+        $connection = $this->entityManager->getConnection();
+        try {
+            if (!$connection->createSchemaManager()->tablesExist(['pedido_venda', 'pedido_venda_item', 'pedido_venda_parcela'])) {
+                return;
+            }
+            if ((int) $connection->fetchOne('SELECT COUNT(*) FROM pedido_venda') > 0) {
+                return;
+            }
+        } catch (\Throwable) {
+            return;
+        }
+
+        $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
+        $pedidos = [
+            ['id' => 1001, 'numero' => 'PV-0001', 'cliente' => 'Acme Comercio', 'data_emissao' => '2026-06-03', 'status' => 'ABERTO', 'valor_total' => '2450.50'],
+            ['id' => 1002, 'numero' => 'PV-0002', 'cliente' => 'Delta Atacado', 'data_emissao' => '2026-06-04', 'status' => 'APROVADO', 'valor_total' => '3890.00'],
+            ['id' => 1003, 'numero' => 'PV-0003', 'cliente' => 'Litoral Foods', 'data_emissao' => '2026-06-05', 'status' => 'FATURADO', 'valor_total' => '1260.75'],
+        ];
+        foreach ($pedidos as $pedido) {
+            $connection->insert('pedido_venda', array_merge($pedido, [
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]));
+        }
+
+        $itens = [
+            ['id' => 1, 'pedido_id' => 1001, 'produto' => 'Notebook operacional', 'quantidade' => '2.000', 'valor_unitario' => '980.25', 'valor_total' => '1960.50'],
+            ['id' => 2, 'pedido_id' => 1001, 'produto' => 'Suporte monitor', 'quantidade' => '5.000', 'valor_unitario' => '98.00', 'valor_total' => '490.00'],
+            ['id' => 3, 'pedido_id' => 1002, 'produto' => 'Terminal PDV', 'quantidade' => '3.000', 'valor_unitario' => '740.00', 'valor_total' => '2220.00'],
+            ['id' => 4, 'pedido_id' => 1002, 'produto' => 'Impressora termica', 'quantidade' => '2.000', 'valor_unitario' => '845.00', 'valor_total' => '1690.00'],
+            ['id' => 5, 'pedido_id' => 1003, 'produto' => 'Leitor codigo de barras', 'quantidade' => '3.000', 'valor_unitario' => '420.25', 'valor_total' => '1260.75'],
+        ];
+        foreach ($itens as $item) {
+            $connection->insert('pedido_venda_item', array_merge($item, [
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]));
+        }
+
+        $parcelas = [
+            ['id' => 1, 'pedido_id' => 1001, 'numero' => 1, 'vencimento' => '2026-06-20', 'valor' => '1225.25', 'situacao' => 'ABERTA'],
+            ['id' => 2, 'pedido_id' => 1001, 'numero' => 2, 'vencimento' => '2026-07-20', 'valor' => '1225.25', 'situacao' => 'ABERTA'],
+            ['id' => 3, 'pedido_id' => 1002, 'numero' => 1, 'vencimento' => '2026-06-25', 'valor' => '1296.67', 'situacao' => 'ABERTA'],
+            ['id' => 4, 'pedido_id' => 1002, 'numero' => 2, 'vencimento' => '2026-07-25', 'valor' => '1296.67', 'situacao' => 'ABERTA'],
+            ['id' => 5, 'pedido_id' => 1002, 'numero' => 3, 'vencimento' => '2026-08-25', 'valor' => '1296.66', 'situacao' => 'ABERTA'],
+            ['id' => 6, 'pedido_id' => 1003, 'numero' => 1, 'vencimento' => '2026-06-15', 'valor' => '1260.75', 'situacao' => 'PAGA'],
+        ];
+        foreach ($parcelas as $parcela) {
+            $connection->insert('pedido_venda_parcela', array_merge($parcela, [
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]));
+        }
+
+        $this->resetIdentitySequence($connection, 'pedido_venda', 'id');
+        $this->resetIdentitySequence($connection, 'pedido_venda_item', 'id');
+        $this->resetIdentitySequence($connection, 'pedido_venda_parcela', 'id');
+    }
+
+    private function resetIdentitySequence(\Doctrine\DBAL\Connection $connection, string $tableName, string $columnName): void
+    {
+        try {
+            $connection->executeStatement(sprintf(
+                "SELECT setval(pg_get_serial_sequence('%s', '%s'), COALESCE((SELECT MAX(%s) FROM %s), 1), true)",
+                $tableName,
+                $columnName,
+                $columnName,
+                $tableName,
+            ));
+        } catch (\Throwable) {
+        }
+    }
+
     private function upsertDefaultLockPolicies(): void
     {
         $this->upsertLockPolicy('cliente', null, null, 'block', 'block', 300, 60);
         $this->upsertLockPolicy('cliente', 'clientes-crud', 'update', 'block', 'block', 300, 60);
         $this->upsertLockPolicy('cliente', 'clientes-crud', 'delete', 'block', 'block', 300, 60);
+        foreach (['pedido_venda', 'pedido_venda_item', 'pedido_venda_parcela'] as $entityCode) {
+            $this->upsertLockPolicy($entityCode, 'pedido-venda-master-detail', 'update', 'block', 'block', 300, 60);
+            $this->upsertLockPolicy($entityCode, 'pedido-venda-master-detail', 'delete', 'block', 'block', 300, 60);
+        }
     }
 
     private function upsertAuthDefaults(): void
@@ -1995,6 +2474,7 @@ class SeedRuntimeMetadataCommand extends Command
     {
         $this->upsertBuilderModule('cadastros', 'Cadastros', 'cd', 1, 999);
         $this->upsertBuilderModule('operacional', 'Operacional', 'op', 1000, 1999);
+        $this->upsertBuilderModule('vendas', 'Vendas', 'vd', 3000, 3499);
         $this->upsertBuilderModule('administracao', 'Administracao', 'ad', 2000, 2999);
     }
 

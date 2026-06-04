@@ -2,8 +2,17 @@
   "use strict";
 
   function MasterDetailEngine(options) {
-    this.root = $(options && options.root ? options.root : "body");
-    this.definition = clone(options && options.definition ? options.definition : {});
+    const settings = options || {};
+    this.root = $(settings.root || "body");
+    this.screenId = String(settings.screenId || "");
+    this.config = settings.config || {};
+    this.securityPolicy = global.CrudUtils && typeof global.CrudUtils.normalizeSecurityPolicy === "function"
+      ? global.CrudUtils.normalizeSecurityPolicy(this.config, settings)
+      : {};
+    this.httpClient = settings.httpClient || (global.CrudHttpClient ? new global.CrudHttpClient() : null);
+    this.productionErrors = settings.productionErrors === true;
+    this.hideHeader = settings.hideHeader === true;
+    this.definition = clone(settings.definition || {});
     this.masterRecords = [];
     this.detailRecords = {};
     this.detailGrids = {};
@@ -22,8 +31,15 @@
     }
 
     this.normalizeDefinition();
-    this.render();
-    return Promise.resolve(this);
+    return this.loadData()
+      .then(() => {
+        this.render();
+        return this;
+      })
+      .catch((error) => {
+        this.renderFatal(this.errorMessage(error, "Falha ao carregar mestre-detalhe."));
+        return this;
+      });
   };
 
   MasterDetailEngine.prototype.destroy = function() {
@@ -45,6 +61,7 @@
     definition.master.idField = definition.master.idField || "id";
     definition.master.fields = ensureArray(definition.master.fields);
     definition.master.grid = definition.master.grid || {};
+    definition.master.api = this.resolveSectionApi(definition.master, "master");
     definition.details = ensureArray(definition.details).filter(function(detail) {
       return detail && typeof detail === "object";
     });
@@ -57,6 +74,7 @@
       detail.fields = ensureArray(detail.fields);
       detail.grid = detail.grid || {};
       detail.totals = ensureArray(detail.totals);
+      detail.api = this.resolveSectionApi(detail, "detail." + detail.id);
       this.detailRecords[detail.id] = clone(ensureArray(detail.records));
     });
 
@@ -70,7 +88,9 @@
     this.root.addClass("master-detail-root").removeClass("crud-app-shell");
 
     const screen = $("<section class=\"master-detail-screen\"></section>").appendTo(this.root);
-    this.renderHeader(screen);
+    if (!this.hideHeader) {
+      this.renderHeader(screen);
+    }
 
     const layout = $("<div class=\"master-detail-layout\"></div>").appendTo(screen);
     const masterPanel = $("<section class=\"master-detail-panel master-detail-parent-panel\"></section>").appendTo(layout);
@@ -79,6 +99,88 @@
     this.renderMasterPanel(masterPanel);
     this.renderDetailPanel(detailPanel);
     this.setSelectedMaster(this.selectedMasterId);
+  };
+
+  MasterDetailEngine.prototype.resolveSectionApi = function(section, prefix) {
+    const api = Object.assign({}, section.api || {});
+    const dataSourceApi = this.definition && this.definition.dataSource && this.definition.dataSource.api || {};
+    ["read", "get", "create", "update", "delete"].forEach((operation) => {
+      const endpointId = prefix + "." + operation;
+      const source = api[operation] || dataSourceApi[endpointId] || null;
+      if (!source) {
+        return;
+      }
+      api[operation] = this.resolveEndpoint(source, endpointId);
+    });
+    return api;
+  };
+
+  MasterDetailEngine.prototype.resolveEndpoint = function(endpoint, fallbackEndpointId) {
+    const screenId = this.screenId || this.definition.screenId || this.definition.program && this.definition.program.screenId || "screen";
+    if (global.CrudUtils && typeof global.CrudUtils.resolveEndpointForPolicy === "function") {
+      return global.CrudUtils.resolveEndpointForPolicy(endpoint, fallbackEndpointId, screenId, this.securityPolicy);
+    }
+    if (typeof endpoint === "string") {
+      return { endpointId: endpoint, method: "POST" };
+    }
+    return Object.assign({}, endpoint || {});
+  };
+
+  MasterDetailEngine.prototype.loadData = function() {
+    return this.loadMasterRecords().then(() => this.loadDetailRecordsForSelected());
+  };
+
+  MasterDetailEngine.prototype.loadMasterRecords = function() {
+    const master = this.definition.master;
+    if (!this.hasEndpoint(master, "read")) {
+      return Promise.resolve(this.masterRecords);
+    }
+    return this.requestSection(master, "read", {
+      skip: 0,
+      take: 500,
+      pageSize: 500,
+      sort: ensureArray(master.query && master.query.sort)
+    }).then((response) => {
+      this.masterRecords = this.extractResponseRows(response);
+      if (this.masterRecords.length) {
+        this.selectedMasterId = this.masterRecords[0][master.idField];
+      } else {
+        this.selectedMasterId = null;
+      }
+      return this.masterRecords;
+    });
+  };
+
+  MasterDetailEngine.prototype.loadDetailRecordsForSelected = function() {
+    const tasks = this.definition.details.map((detail) => this.loadDetailRecords(detail));
+    return Promise.all(tasks);
+  };
+
+  MasterDetailEngine.prototype.loadDetailRecords = function(detail) {
+    if (!this.hasEndpoint(detail, "read")) {
+      return Promise.resolve(this.detailRecords[detail.id] || []);
+    }
+    if (this.selectedMasterId == null) {
+      this.detailRecords[detail.id] = [];
+      return Promise.resolve(this.detailRecords[detail.id]);
+    }
+    return this.requestSection(detail, "read", {
+      skip: 0,
+      take: 500,
+      pageSize: 500,
+      filters: [
+        {
+          id: detail.parentField,
+          field: detail.parentField,
+          operator: "eq",
+          value: this.selectedMasterId
+        }
+      ],
+      sort: ensureArray(detail.query && detail.query.sort)
+    }).then((response) => {
+      this.detailRecords[detail.id] = this.extractResponseRows(response);
+      return this.detailRecords[detail.id];
+    });
   };
 
   MasterDetailEngine.prototype.renderHeader = function(screen) {
@@ -346,7 +448,20 @@
     }
     this.selectedMasterId = id;
     this.refreshMasterContext();
+    if (this.hasRemoteDetails()) {
+      return this.loadDetailRecordsForSelected()
+        .then(() => {
+          this.refreshDetailGrids();
+          this.refreshMasterContext();
+          return this;
+        })
+        .catch((error) => {
+          showMessage(this.errorMessage(error, "Falha ao carregar filhos."), "error");
+          return this;
+        });
+    }
     this.refreshDetailGrids();
+    return Promise.resolve(this);
   };
 
   MasterDetailEngine.prototype.refreshMasterGrid = function() {
@@ -513,7 +628,19 @@
         showMessage(errors.join("\n"), "warning");
         return;
       }
-      options.save(values);
+      const result = options.save(values);
+      if (result && typeof result.then === "function") {
+        setWindowButtonsEnabled(saveButton, cancelButton, false);
+        result.then(() => {
+          windowWidget.close();
+        }).catch((error) => {
+          const message = this.errorMessage(error, "Nao foi possivel salvar o registro.");
+          validation.text(message);
+          showMessage(message, "error");
+          setWindowButtonsEnabled(saveButton, cancelButton, true);
+        });
+        return;
+      }
       windowWidget.close();
     });
     cancelButton.bind("click", () => windowWidget.close());
@@ -611,6 +738,22 @@
   };
 
   MasterDetailEngine.prototype.saveMaster = function(mode, originalRecord, values) {
+    const master = this.definition.master;
+    const operation = mode === "create" ? "create" : "update";
+    if (this.hasEndpoint(master, operation)) {
+      return this.requestSection(master, operation, this.writePayload(master, values, originalRecord))
+        .then((response) => {
+          const saved = this.extractResponseRecord(response, values);
+          this.storeMasterRecord(mode, originalRecord, saved);
+          showMessage("Registro pai salvo.", "success");
+          return saved;
+        });
+    }
+    this.storeMasterRecord(mode, originalRecord, values);
+    showMessage("Registro pai salvo.", "success");
+  };
+
+  MasterDetailEngine.prototype.storeMasterRecord = function(mode, originalRecord, values) {
     const idField = this.definition.master.idField;
     if (mode === "create") {
       values[idField] = values[idField] || this.nextId(this.masterRecords, idField);
@@ -628,10 +771,28 @@
     }
     this.refreshMasterGrid();
     this.setSelectedMaster(this.selectedMasterId);
-    showMessage("Registro pai salvo.", "success");
   };
 
   MasterDetailEngine.prototype.saveDetail = function(detail, mode, originalRecord, values) {
+    const operation = mode === "create" ? "create" : "update";
+    values[detail.parentField] = this.selectedMasterId;
+    if (this.hasEndpoint(detail, operation)) {
+      return this.requestSection(detail, operation, this.writePayload(detail, values, originalRecord))
+        .then((response) => {
+          const saved = this.extractResponseRecord(response, values);
+          if (saved[detail.parentField] == null || saved[detail.parentField] === "") {
+            saved[detail.parentField] = this.selectedMasterId;
+          }
+          this.storeDetailRecord(detail, mode, originalRecord, saved);
+          showMessage("Registro filho salvo.", "success");
+          return saved;
+        });
+    }
+    this.storeDetailRecord(detail, mode, originalRecord, values);
+    showMessage("Registro filho salvo.", "success");
+  };
+
+  MasterDetailEngine.prototype.storeDetailRecord = function(detail, mode, originalRecord, values) {
     const idField = detail.idField;
     values[detail.parentField] = this.selectedMasterId;
     const records = this.detailRecords[detail.id] || [];
@@ -650,7 +811,6 @@
     this.detailRecords[detail.id] = records;
     this.refreshDetailGrids();
     this.refreshMasterContext();
-    showMessage("Registro filho salvo.", "success");
   };
 
   MasterDetailEngine.prototype.deleteSelectedMaster = function() {
@@ -664,18 +824,27 @@
     const idField = this.definition.master.idField;
     const id = record[idField];
     confirmAction("Excluir o registro pai tambem remove os filhos vinculados nesta tela. Deseja continuar?", () => {
-      this.masterRecords = this.masterRecords.filter(function(item) {
-        return String(item[idField]) !== String(id);
-      });
-      this.definition.details.forEach((detail) => {
-        this.detailRecords[detail.id] = (this.detailRecords[detail.id] || []).filter(function(item) {
-          return String(item[detail.parentField]) !== String(id);
+      const removeLocal = () => {
+        this.masterRecords = this.masterRecords.filter(function(item) {
+          return String(item[idField]) !== String(id);
         });
-      });
-      this.selectedMasterId = this.masterRecords.length ? this.masterRecords[0][idField] : null;
-      this.refreshMasterGrid();
-      this.setSelectedMaster(this.selectedMasterId);
-      showMessage("Registro pai excluido.", "success");
+        this.definition.details.forEach((detail) => {
+          this.detailRecords[detail.id] = (this.detailRecords[detail.id] || []).filter(function(item) {
+            return String(item[detail.parentField]) !== String(id);
+          });
+        });
+        this.selectedMasterId = this.masterRecords.length ? this.masterRecords[0][idField] : null;
+        this.refreshMasterGrid();
+        this.setSelectedMaster(this.selectedMasterId);
+        showMessage("Registro pai excluido.", "success");
+      };
+      if (this.hasEndpoint(this.definition.master, "delete")) {
+        this.requestSection(this.definition.master, "delete", this.deletePayload(this.definition.master, record))
+          .then(removeLocal)
+          .catch((error) => showMessage(this.errorMessage(error, "Nao foi possivel excluir o registro pai."), "error"));
+        return;
+      }
+      removeLocal();
     });
   };
 
@@ -690,13 +859,107 @@
     const idField = detail.idField;
     const id = record[idField];
     confirmAction("Excluir este registro filho?", () => {
-      this.detailRecords[detail.id] = (this.detailRecords[detail.id] || []).filter(function(item) {
-        return String(item[idField]) !== String(id);
-      });
-      this.refreshDetailGrids();
-      this.refreshMasterContext();
-      showMessage("Registro filho excluido.", "success");
+      const removeLocal = () => {
+        this.detailRecords[detail.id] = (this.detailRecords[detail.id] || []).filter(function(item) {
+          return String(item[idField]) !== String(id);
+        });
+        this.refreshDetailGrids();
+        this.refreshMasterContext();
+        showMessage("Registro filho excluido.", "success");
+      };
+      if (this.hasEndpoint(detail, "delete")) {
+        this.requestSection(detail, "delete", this.deletePayload(detail, record))
+          .then(removeLocal)
+          .catch((error) => showMessage(this.errorMessage(error, "Nao foi possivel excluir o registro filho."), "error"));
+        return;
+      }
+      removeLocal();
     });
+  };
+
+  MasterDetailEngine.prototype.hasEndpoint = function(section, operation) {
+    const endpoint = section && section.api && section.api[operation];
+    return Boolean(endpoint && endpoint.url && this.httpClient && typeof this.httpClient.request === "function");
+  };
+
+  MasterDetailEngine.prototype.hasRemoteDetails = function() {
+    return this.definition.details.some((detail) => this.hasEndpoint(detail, "read"));
+  };
+
+  MasterDetailEngine.prototype.requestSection = function(section, operation, payload) {
+    const endpoint = section.api && section.api[operation];
+    if (!endpoint || !endpoint.url || !this.httpClient) {
+      return Promise.reject(new Error("Endpoint nao configurado."));
+    }
+    return this.httpClient.request({
+      url: endpoint.url,
+      method: endpoint.method || "POST",
+      data: payload || {}
+    });
+  };
+
+  MasterDetailEngine.prototype.extractResponseRows = function(response) {
+    if (Array.isArray(response)) {
+      return clone(response);
+    }
+    if (response && Array.isArray(response.data)) {
+      return clone(response.data);
+    }
+    if (response && Array.isArray(response.items)) {
+      return clone(response.items);
+    }
+    if (response && Array.isArray(response.rows)) {
+      return clone(response.rows);
+    }
+    return [];
+  };
+
+  MasterDetailEngine.prototype.extractResponseRecord = function(response, fallback) {
+    if (response && response.data && !Array.isArray(response.data)) {
+      return clone(response.data);
+    }
+    if (response && response.record) {
+      return clone(response.record);
+    }
+    if (response && typeof response === "object" && !Array.isArray(response)) {
+      return clone(response);
+    }
+    return clone(fallback || {});
+  };
+
+  MasterDetailEngine.prototype.writePayload = function(section, values, originalRecord) {
+    const idField = section.idField || "id";
+    const plainValues = clone(values || {});
+    const original = toPlainRecord(originalRecord);
+    const id = original && original[idField] != null ? original[idField] : plainValues[idField];
+    const payload = {
+      values: plainValues
+    };
+    if (id != null && id !== "") {
+      payload.id = id;
+      payload[idField] = id;
+    }
+    return payload;
+  };
+
+  MasterDetailEngine.prototype.deletePayload = function(section, record) {
+    const idField = section.idField || "id";
+    const plainRecord = toPlainRecord(record);
+    const id = plainRecord[idField];
+    const payload = {
+      id: id,
+      values: {}
+    };
+    payload[idField] = id;
+    return payload;
+  };
+
+  MasterDetailEngine.prototype.errorMessage = function(error, fallback) {
+    if (global.CrudUtils && typeof global.CrudUtils.unwrapError === "function") {
+      const unwrapped = global.CrudUtils.unwrapError(error, fallback || "Falha na operacao.");
+      return unwrapped && unwrapped.message ? unwrapped.message : fallback;
+    }
+    return error && (error.message || error.error && error.error.message) || fallback || "Falha na operacao.";
   };
 
   MasterDetailEngine.prototype.createDefaultRecord = function(section) {
@@ -814,6 +1077,14 @@
       return;
     }
     input.prop("disabled", true);
+  }
+
+  function setWindowButtonsEnabled(saveButton, cancelButton, enabled) {
+    [saveButton, cancelButton].forEach(function(button) {
+      if (button && typeof button.enable === "function") {
+        button.enable(enabled);
+      }
+    });
   }
 
   function formatDate(value) {

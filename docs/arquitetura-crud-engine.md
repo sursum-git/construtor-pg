@@ -20,6 +20,29 @@ Na producao inicial, o backend Symfony ja entrega telas por `screenId`, endpoint
 Para uma primeira versao de producao, o motor tambem aceita carregar a tela por `screenId`.
 Nesse modo o frontend nao recebe uma URL livre de JSON: ele pede ao backend uma tela conhecida, e o backend devolve somente a definicao autorizada para o usuario.
 
+## Mestre-detalhe
+
+O tipo fechado `pageType=master_detail` cobre uma entidade mestre e uma ou mais entidades filhas distintas.
+
+Contrato atual:
+
+- `master.entity` aponta para a entidade persistente do cabecalho.
+- cada item de `details[]` aponta para uma entidade persistente filha.
+- `master.idField` e o identificador do mestre.
+- `details[].parentField` e a coluna da filha que referencia o mestre.
+- cada secao possui endpoints fechados `read`, `get`, `create`, `update` e `delete`.
+
+Em producao, a tela `vendas.pedido-master-detail` usa:
+
+- tabela mestre `pedido_venda`;
+- filha `pedido_venda_item` vinculada por `pedido_id`;
+- filha `pedido_venda_parcela` vinculada por `pedido_id`;
+- endpoints runtime `master.*`, `detail.itens.*` e `detail.parcelas.*`, todos resolvidos pelo handler generico `entity.crud`.
+
+O frontend continua apenas renderizando. Ao selecionar um pedido, o `MasterDetailEngine` recarrega cada filha enviando filtro fechado `pedido_id = id do pedido selecionado`. Ao incluir filho, a engine injeta o mesmo `pedido_id` antes de chamar o backend.
+
+O contrato publico fica em `public/metadata/schemas/master-detail-definition-v1.schema.json`.
+
 ## Instalacao inicial
 
 A instalacao inicial tambem segue o principio "backend decide, frontend renderiza".

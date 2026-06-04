@@ -106,6 +106,17 @@
         httpClient: options.httpClient
       }).init();
     }
+    if (pageType === "master_detail") {
+      return new global.MasterDetailEngine({
+        root: options.root,
+        screenId: options.screenId,
+        definition: definition,
+        config: options.config,
+        hideHeader: options.hideHeader,
+        productionErrors: true,
+        httpClient: options.httpClient
+      }).init();
+    }
     if (pageType === "special_document") {
       return new global.SpecialDocumentEngine({
         root: options.root,

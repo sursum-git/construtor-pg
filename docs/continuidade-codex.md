@@ -23,6 +23,18 @@ Use este arquivo para retomar o trabalho em outra sessao.
 - O runtime enriquece antes de filtrar e ordenar, para permitir uso do campo resolvido no grid.
 - Exemplo navegavel: `examples/pages/consulta-api-enriquecimento.html`.
 
+## Mestre-detalhe em producao
+
+- A tela `vendas.pedido-master-detail` publica `pageType=master_detail`.
+- A URL de producao e `production/app.html?screenId=vendas.pedido-master-detail`.
+- O backend usa tres entidades persistentes distintas:
+  - `pedido_venda`;
+  - `pedido_venda_item`;
+  - `pedido_venda_parcela`.
+- A migration estrutural e `backend/migrations/Version20260604103000.php`.
+- O seed `php backend/bin/console app:seed-runtime-metadata --no-interaction` publica a tela, os endpointIds `master.*`, `detail.itens.*`, `detail.parcelas.*`, as entidades do builder e uma massa inicial se `pedido_venda` estiver vazia.
+- A producao carrega `src/master-detail/MasterDetailEngine.js` em `production/app.html`; a demo local continua funcionando com arrays em memoria quando nao houver endpoints.
+
 ## Provisionamento operacional
 
 - existe agora uma camada de automacao, sem alterar o modelo atual de tenant/runtime/programas:

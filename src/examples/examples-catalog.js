@@ -984,7 +984,8 @@
       title: "Pedido de venda com filhos em abas",
       summary: "Tela Kendo mestre-detalhe com pedido de venda como pai e multiplos filhos em abas, incluindo itens e parcelas.",
       page: pagePath + "pedido-venda-master-detail.html",
-      maturity: "demo",
+      maturity: "operacional",
+      productionUrl: "production/app.html?screenId=vendas.pedido-master-detail",
       code: {
         pageType: "master_detail",
         schemaVersion: "1.0",
