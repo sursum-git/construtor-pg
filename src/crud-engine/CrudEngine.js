@@ -5,6 +5,10 @@
     constructor(options) {
       this.options = options || {};
       this.root = $(this.options.root);
+      this.uiMode = this.resolveUiMode();
+      if (this.isLiteMode() && global.CrudLiteUiService && typeof global.CrudLiteUiService.activate === "function") {
+        global.CrudLiteUiService.activate();
+      }
       this.httpClient = this.options.httpClient || new global.CrudHttpClient();
       this.configLoader = new global.CrudConfigLoader();
       this.loader = new global.CrudDefinitionLoader({ httpClient: this.httpClient });
@@ -20,6 +24,15 @@
       this.runtimeEventFallbackTimer = null;
       this.sessionRevoked = false;
       this.applyTheme(this.currentTheme, { persist: false });
+    }
+
+    resolveUiMode() {
+      const value = String(this.options.uiMode || this.options.rendererMode || "").toLowerCase();
+      return value === "lite" ? "lite" : "kendo";
+    }
+
+    isLiteMode() {
+      return this.uiMode === "lite";
     }
 
     init() {
@@ -55,9 +68,13 @@
       if (this.filterRenderer) {
         this.filterRenderer.destroy();
       }
-      kendo.destroy(this.root);
+      if (global.kendo && typeof global.kendo.destroy === "function") {
+        global.kendo.destroy(this.root);
+      }
       this.root.empty();
-      const screen = $("<div class=\"crud-screen\"></div>").appendTo(this.root);
+      const screen = $("<div class=\"crud-screen\"></div>")
+        .toggleClass("crud-lite", this.isLiteMode())
+        .appendTo(this.root);
       if (this.options.hideHeader !== true) {
         this.renderHeader(screen);
       }
@@ -78,9 +95,9 @@
           create: () => this.openCreate(),
           refresh: () => this.refresh(),
           filters: () => this.openFilters(),
-          sort: () => this.openSortWindow(),
-          group: () => this.openGroupWindow(),
-          layout: () => this.openLayoutWindow(),
+          sort: () => this.isLiteMode() ? this.showLiteUnsupported("ordenacao", "Use o clique no cabecalho da coluna para ordenar na v1 Lite.") : this.openSortWindow(),
+          group: () => this.isLiteMode() ? this.showLiteUnsupported("agrupamento", "Agrupamento salvo fica fora da v1 Lite.") : this.openGroupWindow(),
+          layout: () => this.isLiteMode() ? this.showLiteUnsupported("leiaute", "Leiautes salvos ficam fora da v1 Lite.") : this.openLayoutWindow(),
           applyLayout: (layoutId) => this.applyLayout(layoutId),
           bulkAction: (action) => this.executeBulkAction(action),
           print: (format, option) => this.exportGrid(format, option)
@@ -90,7 +107,8 @@
       this.activeFiltersPanel = $("<section class=\"crud-active-filters\" hidden></section>").appendTo(screen);
 
       if (!this.definition.features || this.definition.features.filterPanel !== false) {
-        this.filterRenderer = new global.CrudFilterRenderer({
+        const FilterRenderer = this.getFilterRendererClass();
+        this.filterRenderer = new FilterRenderer({
           definition: this.definition,
           httpClient: this.httpClient,
           securityPolicy: this.securityPolicy,
@@ -102,7 +120,8 @@
         this.filterRenderer.render();
       }
 
-      this.formRenderer = new global.CrudKendoFormRenderer({
+      const FormRenderer = this.getFormRendererClass();
+      this.formRenderer = new FormRenderer({
         definition: this.definition,
         httpClient: this.httpClient,
         config: this.config,
@@ -130,7 +149,8 @@
         ? (this.filterRenderer ? this.filterRenderer.getValues() : queryFilters)
         : queryFilters;
       this.currentFilters = initialFilters;
-      this.gridRenderer = new global.CrudKendoGridRenderer({
+      const GridRenderer = this.getGridRendererClass();
+      this.gridRenderer = new GridRenderer({
         definition: this.definition,
         httpClient: this.httpClient,
         deferInitialRead: shouldDeferInitialRead,
@@ -166,6 +186,40 @@
           this.renderActiveFilters(initialFilters);
         }
       }
+    }
+
+    getGridRendererClass() {
+      if (this.isLiteMode()) {
+        if (!global.CrudLiteGridRenderer) {
+          throw global.CrudUtils.makeError("CRUD_LITE_GRID_MISSING", "Renderizador de grid Lite nao carregado.");
+        }
+        return global.CrudLiteGridRenderer;
+      }
+      return global.CrudKendoGridRenderer;
+    }
+
+    getFormRendererClass() {
+      if (this.isLiteMode()) {
+        if (!global.CrudLiteFormRenderer) {
+          throw global.CrudUtils.makeError("CRUD_LITE_FORM_MISSING", "Renderizador de formulario Lite nao carregado.");
+        }
+        return global.CrudLiteFormRenderer;
+      }
+      return global.CrudKendoFormRenderer;
+    }
+
+    getFilterRendererClass() {
+      if (this.isLiteMode()) {
+        if (!global.CrudLiteFilterRenderer) {
+          throw global.CrudUtils.makeError("CRUD_LITE_FILTER_MISSING", "Renderizador de filtros Lite nao carregado.");
+        }
+        return global.CrudLiteFilterRenderer;
+      }
+      return global.CrudFilterRenderer;
+    }
+
+    showLiteUnsupported(feature, detail) {
+      global.CrudUtils.showMessage("Recurso de " + feature + " fora da v1 Lite. " + (detail || ""), "info");
     }
 
     exportGrid(format, option) {

@@ -111,6 +111,18 @@
         if (regulatedDocumentEngine && regulatedDocumentEngine.currentPreview) {
           regulatedDocumentEngine.renderPreview();
         }
+        const masterDetailEngine = global.currentMasterDetailExampleEngine;
+        if (masterDetailEngine) {
+          if (masterDetailEngine.masterGrid) {
+            masterDetailEngine.masterGrid.resize();
+          }
+          Object.keys(masterDetailEngine.detailGrids || {}).forEach(function(key) {
+            const grid = masterDetailEngine.detailGrids[key];
+            if (grid) {
+              grid.resize();
+            }
+          });
+        }
       }
     });
     const widget = tabs.data("kendoTabStrip");
@@ -143,6 +155,9 @@
     }
     if (example.engine === "regulated-document") {
       return initializeRegulatedDocumentEngine(example, catalog, state, root);
+    }
+    if (example.engine === "master-detail") {
+      return initializeMasterDetailEngine(example, catalog, state, root);
     }
     return initializeCrudEngine(example, catalog, state, root);
   }
@@ -308,6 +323,22 @@
     });
   }
 
+  function initializeMasterDetailEngine(example, catalog, state, root) {
+    $(root).removeClass("home-app-root crud-app-shell").addClass("master-detail-root");
+    const engine = new global.MasterDetailEngine({
+      root: "#example-render-root",
+      definition: clone(state.currentPatch || example.code || {})
+    });
+
+    return engine.init().then(function(instance) {
+      global.currentMasterDetailExampleEngine = instance;
+      return instance;
+    }).catch(function(error) {
+      console.error("Falha ao renderizar exemplo mestre-detalhe.", error);
+      throw error;
+    });
+  }
+
   function destroyCurrentEngine(root) {
     const engine = global.currentCrudExampleEngine;
     if (engine && engine.gridRenderer && typeof engine.gridRenderer.destroy === "function") {
@@ -327,6 +358,9 @@
       if (global.currentRegulatedDocumentExampleEngine && typeof global.currentRegulatedDocumentExampleEngine.destroy === "function") {
         global.currentRegulatedDocumentExampleEngine.destroy();
       }
+      if (global.currentMasterDetailExampleEngine && typeof global.currentMasterDetailExampleEngine.destroy === "function") {
+        global.currentMasterDetailExampleEngine.destroy();
+      }
       global.kendo.destroy($(root));
     }
     $(root).empty();
@@ -337,6 +371,7 @@
     global.currentReportExampleEngine = null;
     global.currentSpecialDocumentExampleEngine = null;
     global.currentRegulatedDocumentExampleEngine = null;
+    global.currentMasterDetailExampleEngine = null;
   }
 
   function destroyHomeExampleEngine() {

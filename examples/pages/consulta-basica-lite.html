@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CRUD Lite sem Kendo</title>
+  <link rel="stylesheet" href="../../src/styles/crud-lite.css">
+</head>
+<body data-example-id="consulta-basica-lite">
+  <main class="crud-lite-app-shell">
+    <header class="crud-header">
+      <div class="crud-title-group">
+        <div class="crud-title-line">
+          <h1 class="crud-title">CRUD Lite sem Kendo</h1>
+          <span class="crud-program-version">v1</span>
+        </div>
+        <p class="crud-subtitle">Engine alternativa com CSS puro, sem Bootstrap e sem Kendo UI.</p>
+      </div>
+      <nav class="crud-header-meta" aria-label="Navegacao do exemplo">
+        <a class="crud-lite-button" href="../../exemplos.html">Indice</a>
+        <a class="crud-lite-button" href="../../production/app-lite.html?screenId=cadastros.clientes">Entrada Lite</a>
+      </nav>
+    </header>
+
+    <section id="crud-lite-example-root" class="crud-lite"></section>
+
+    <section class="crud-message">
+      <strong>Configuracao aplicada no exemplo</strong>
+      <pre><code id="crud-lite-example-code"></code></pre>
+    </section>
+  </main>
+
+  <script src="../../vendor/jquery/jquery-4.0.0.min.js"></script>
+  <script src="../../src/crud-engine/CrudUtils.js"></script>
+  <script src="../../src/crud-lite/CrudLiteUiService.js"></script>
+  <script src="../../src/page-engine/PageDefinitionNormalizer.js"></script>
+  <script src="../../src/crud-engine/CrudHttpClient.js"></script>
+  <script src="../../src/crud-engine/CrudConfigLoader.js"></script>
+  <script src="../../src/crud-engine/CrudDefinitionLoader.js"></script>
+  <script src="../../src/crud-engine/CrudDefinitionValidator.js"></script>
+  <script src="../../src/crud-engine/CrudLayoutManager.js"></script>
+  <script src="../../src/crud-engine/CrudToolbarRenderer.js"></script>
+  <script src="../../src/crud-lite/CrudLiteFilterRenderer.js"></script>
+  <script src="../../src/crud-lite/CrudLiteGridRenderer.js"></script>
+  <script src="../../src/crud-lite/CrudLiteFormRenderer.js"></script>
+  <script src="../../src/crud-engine/CrudEngine.js"></script>
+  <script src="../../src/demo/demo-embedded-data.js"></script>
+  <script src="../../src/demo/DemoMockHttpClient.js"></script>
+  <script src="../../src/examples/examples-catalog.js"></script>
+  <script src="../../src/examples/examples-crud-lite-page.js"></script>
+</body>
+</html>

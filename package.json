@@ -29,6 +29,7 @@
     "test:admin-system-update-subscriber-log": "node tests/frontend/admin-system-update-subscriber-log-smoke.mjs",
     "test:home-notifications": "node tests/frontend/home-notifications-smoke.mjs",
     "test:login-demo": "node tests/frontend/login-demo-smoke.mjs",
+    "test:crud-lite": "node tests/frontend/crud-lite-smoke.mjs",
     "test:analytics-demo": "node tests/frontend/analytics-demo-smoke.mjs",
     "test:reports-demo": "node tests/frontend/reports-demo-smoke.mjs",
     "test:report-authenticity": "node tests/frontend/report-authenticity-smoke.mjs",

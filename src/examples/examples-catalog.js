@@ -913,6 +913,213 @@
       apply: function() {}
     },
     {
+      id: "consulta-basica-lite",
+      engine: "crud-lite",
+      category: "Consulta",
+      title: "Consulta basica Lite",
+      summary: "Renderiza CRUD standalone sem Kendo, sem Bootstrap e sem build, usando CSS puro e os mesmos endpoints da demo.",
+      page: pagePath + "consulta-basica-lite.html",
+      code: {
+        uiMode: "lite",
+        crud: {
+          query: {
+            defaultPageSize: 10,
+            pageSizes: [10, 20, 50],
+            defaultSort: [{ field: "nome", dir: "asc" }]
+          },
+          grid: {
+            pageable: true,
+            sortable: true,
+            filterable: true,
+            groupable: false,
+            resizable: false,
+            reorderable: false,
+            columnMenu: false,
+            print: {
+              enabled: true,
+              options: ["csv"]
+            },
+            toolbar: [
+              { id: "create", label: "Novo", icon: "plus", action: "create", permission: "create" },
+              { id: "filters", label: "Filtros", icon: "filter", action: "filters", permission: "read" },
+              { id: "refresh", label: "Atualizar", icon: "arrow-rotate-cw", action: "refresh", permission: "read" }
+            ]
+          }
+        }
+      },
+      apply: function(definition) {
+        definition.program.title = "Clientes Lite";
+        definition.program.subtitle = "CRUD standalone sem Kendo";
+        definition.program.subtitleTooltip = "Primeira versao da engine alternativa com CSS puro.";
+        definition.runtime.messages = { enabled: false, pollIntervalSeconds: 30, events: { enabled: false } };
+        definition.crud.grid.groupable = false;
+        definition.crud.grid.resizable = false;
+        definition.crud.grid.reorderable = false;
+        definition.crud.grid.columnMenu = false;
+        definition.crud.grid.ai = { enabled: false };
+        definition.crud.grid.print = {
+          enabled: true,
+          label: "Exportar",
+          icon: "print",
+          fileName: "clientes-lite",
+          options: ["csv"]
+        };
+        definition.crud.grid.toolbar = [
+          { id: "create", label: "Novo", icon: "plus", action: "create", permission: "create" },
+          { id: "filters", label: "Filtros", icon: "filter", action: "filters", permission: "read" },
+          { id: "refresh", label: "Atualizar", icon: "arrow-rotate-cw", action: "refresh", permission: "read" }
+        ];
+        definition.crud.form.layout = "tabs";
+        definition.crud.form.steps = [];
+        definition.crud.form.logs = { enabled: false };
+        definition.crud.form.print = { enabled: false, options: [] };
+        definition.crud.form.otherActions = { enabled: false, actions: [] };
+        definition.crud.form.situation = { enabled: false };
+      }
+    },
+    {
+      id: "pedido-venda-master-detail",
+      engine: "master-detail",
+      category: "Cadastro",
+      title: "Pedido de venda com filhos em abas",
+      summary: "Tela Kendo mestre-detalhe com pedido de venda como pai e multiplos filhos em abas, incluindo itens e parcelas.",
+      page: pagePath + "pedido-venda-master-detail.html",
+      maturity: "demo",
+      code: {
+        pageType: "master_detail",
+        schemaVersion: "1.0",
+        screenId: "vendas.pedido-master-detail",
+        program: {
+          title: "Pedido de venda",
+          subtitle: "Cabecalho com abas filhas para itens e parcelas",
+          module: "Vendas",
+          version: "1.0.0"
+        },
+        master: {
+          id: "pedido",
+          title: "Pedidos",
+          singularTitle: "pedido",
+          subtitle: "Selecione um pedido para editar os filhos.",
+          idField: "id",
+          displayField: "numero",
+          fields: [
+            { id: "id", label: "ID", type: "integer", readonlyOnEdit: true, hidden: true },
+            { id: "numero", label: "Numero", type: "string", required: true },
+            { id: "cliente", label: "Cliente", type: "string", required: true },
+            { id: "data_emissao", label: "Data de emissao", type: "date", required: true },
+            {
+              id: "status",
+              label: "Status",
+              type: "enum",
+              required: true,
+              options: [
+                { value: "ABERTO", text: "Aberto" },
+                { value: "APROVADO", text: "Aprovado" },
+                { value: "FATURADO", text: "Faturado" },
+                { value: "CANCELADO", text: "Cancelado" }
+              ]
+            },
+            { id: "valor_total", label: "Valor total", type: "currency", readonly: true }
+          ],
+          grid: {
+            columns: [
+              { field: "numero", title: "Numero", width: 120 },
+              { field: "cliente", title: "Cliente", width: 180 },
+              { field: "data_emissao", title: "Emissao", width: 120 },
+              { field: "status", title: "Status", width: 110 },
+              { field: "valor_total", title: "Total", width: 120, align: "right" }
+            ]
+          },
+          records: [
+            { id: 1001, numero: "PV-0001", cliente: "Acme Comercio", data_emissao: "2026-06-03", status: "ABERTO", valor_total: 2450.50 },
+            { id: 1002, numero: "PV-0002", cliente: "Delta Atacado", data_emissao: "2026-06-04", status: "APROVADO", valor_total: 3890.00 },
+            { id: 1003, numero: "PV-0003", cliente: "Litoral Foods", data_emissao: "2026-06-05", status: "FATURADO", valor_total: 1260.75 }
+          ]
+        },
+        details: [
+          {
+            id: "itens",
+            entity: "pedido_item",
+            title: "Itens",
+            singularTitle: "item",
+            parentField: "pedido_id",
+            idField: "id",
+            fields: [
+              { id: "id", label: "ID", type: "integer", readonlyOnEdit: true, hidden: true },
+              { id: "pedido_id", label: "Pedido", type: "integer", hidden: true },
+              { id: "produto", label: "Produto", type: "string", required: true },
+              { id: "quantidade", label: "Quantidade", type: "decimal", required: true, decimals: 3 },
+              { id: "valor_unitario", label: "Valor unitario", type: "currency", required: true },
+              { id: "valor_total", label: "Valor total", type: "currency", required: true }
+            ],
+            grid: {
+              columns: [
+                { field: "produto", title: "Produto", width: 190 },
+                { field: "quantidade", title: "Qtde.", width: 100, align: "right" },
+                { field: "valor_unitario", title: "Unitario", width: 110, align: "right" },
+                { field: "valor_total", title: "Total", width: 110, align: "right" }
+              ]
+            },
+            totals: [
+              { field: "valor_total", label: "Total dos itens", type: "currency" }
+            ],
+            records: [
+              { id: 1, pedido_id: 1001, produto: "Notebook operacional", quantidade: 2, valor_unitario: 980.25, valor_total: 1960.50 },
+              { id: 2, pedido_id: 1001, produto: "Suporte monitor", quantidade: 5, valor_unitario: 98.00, valor_total: 490.00 },
+              { id: 3, pedido_id: 1002, produto: "Terminal PDV", quantidade: 3, valor_unitario: 740.00, valor_total: 2220.00 },
+              { id: 4, pedido_id: 1002, produto: "Impressora termica", quantidade: 2, valor_unitario: 845.00, valor_total: 1690.00 },
+              { id: 5, pedido_id: 1003, produto: "Leitor codigo de barras", quantidade: 3, valor_unitario: 420.25, valor_total: 1260.75 }
+            ]
+          },
+          {
+            id: "parcelas",
+            entity: "pedido_parcela",
+            title: "Parcelas",
+            singularTitle: "parcela",
+            parentField: "pedido_id",
+            idField: "id",
+            fields: [
+              { id: "id", label: "ID", type: "integer", readonlyOnEdit: true, hidden: true },
+              { id: "pedido_id", label: "Pedido", type: "integer", hidden: true },
+              { id: "numero", label: "Parcela", type: "integer", required: true },
+              { id: "vencimento", label: "Vencimento", type: "date", required: true },
+              { id: "valor", label: "Valor", type: "currency", required: true },
+              {
+                id: "situacao",
+                label: "Situacao",
+                type: "enum",
+                required: true,
+                options: [
+                  { value: "ABERTA", text: "Aberta" },
+                  { value: "PAGA", text: "Paga" },
+                  { value: "ATRASADA", text: "Atrasada" }
+                ]
+              }
+            ],
+            grid: {
+              columns: [
+                { field: "numero", title: "Parcela", width: 95, align: "right" },
+                { field: "vencimento", title: "Vencimento", width: 125 },
+                { field: "valor", title: "Valor", width: 120, align: "right" },
+                { field: "situacao", title: "Situacao", width: 120 }
+              ]
+            },
+            totals: [
+              { field: "valor", label: "Total das parcelas", type: "currency" }
+            ],
+            records: [
+              { id: 1, pedido_id: 1001, numero: 1, vencimento: "2026-06-20", valor: 1225.25, situacao: "ABERTA" },
+              { id: 2, pedido_id: 1001, numero: 2, vencimento: "2026-07-20", valor: 1225.25, situacao: "ABERTA" },
+              { id: 3, pedido_id: 1002, numero: 1, vencimento: "2026-06-25", valor: 1296.67, situacao: "ABERTA" },
+              { id: 4, pedido_id: 1002, numero: 2, vencimento: "2026-07-25", valor: 1296.67, situacao: "ABERTA" },
+              { id: 5, pedido_id: 1002, numero: 3, vencimento: "2026-08-25", valor: 1296.66, situacao: "ABERTA" },
+              { id: 6, pedido_id: 1003, numero: 1, vencimento: "2026-06-15", valor: 1260.75, situacao: "PAGA" }
+            ]
+          }
+        ]
+      }
+    },
+    {
       id: "consulta-api-readonly",
       category: "Consulta",
       title: "Consulta externa por API",
@@ -2312,7 +2519,7 @@
 
   const propertyOptions = [
     option("Raiz", "schemaVersion", "\"1.0\"", "Obrigatorio", "Versao atual do contrato."),
-    option("Raiz", "pageType", "\"crud\" | \"home\" | \"process\" | \"custom\"", "Obrigatorio", "Define qual motor fechado renderiza a pagina."),
+    option("Raiz", "pageType", "\"crud\" | \"home\" | \"process\" | \"custom\" | \"master_detail\"", "Obrigatorio", "Define qual motor fechado renderiza a pagina."),
     option("Programa", "program.help.kind", "text | link | video", "text", "Define o conteudo principal da ajuda da tela."),
     option("Programa", "program.help.items[].kind", "text | link | video", "text", "Itens adicionais exibidos na janela de ajuda/novidades."),
     option("Programa", "program.logs.url", "URL relativa | http | https", "vazio", "Se vazio, o botao de log da tela nao aparece."),
@@ -2339,6 +2546,11 @@
     option("Dados/API", "dataModel.fields[].format", "currency | date | datetime | number", "por tipo", "Atalhos implementados para formatacao Kendo."),
     option("Dados/API", "dataModel.fields[].api.lookupResolver", "{ operationCode, sourceField, requestParam, mode, responseItemsPath|responseItemPath, matchField, valuePath }", "vazio", "No runtime de entidade API, permite enriquecer um campo a partir de outra operacao cadastrada da mesma fonte, com memoizacao por request e batch por ids distintos."),
     option("Dados/API", "dataModel.fields[].technicalProperties[]", "lista de { label, value }", "vazio", "Exibe um icone tecnico ao lado do nome do campo no grid, filtro e formulario."),
+    option("Mestre-detalhe", "master.idField", "campo chave do pai", "id", "Identifica o registro pai usado para filtrar todos os filhos."),
+    option("Mestre-detalhe", "master.fields[]", "{ id, label, type, required, readonly }", "vazio", "Campos renderizados na janela Kendo de inclusao/alteracao do pai."),
+    option("Mestre-detalhe", "details[].parentField", "campo FK do filho", "id_pai", "Campo do filho comparado com `master.idField` para filtrar a aba selecionada."),
+    option("Mestre-detalhe", "details[].fields[]", "{ id, label, type, required, hidden }", "vazio", "Campos renderizados na janela Kendo de inclusao/alteracao do filho."),
+    option("Mestre-detalhe", "details[].totals[]", "{ field, label, type }", "vazio", "Totais exibidos no resumo da aba filha."),
     option("Grid", "crud.grid.columns[].technicalProperties[]", "lista de { section, label, value }", "fallback do campo", "Permite sobrescrever ou complementar as propriedades tecnicas mostradas no cabecalho do grid."),
     option("Filtro", "crud.filter.fields[].technicalProperties[]", "lista de { section, label, value }", "fallback do campo", "Permite sobrescrever ou complementar as propriedades tecnicas mostradas no filtro."),
     option("Consulta", "crud.query.defaultSort[].dir", "asc | desc", "vazio", "Direcao da ordenacao inicial."),
