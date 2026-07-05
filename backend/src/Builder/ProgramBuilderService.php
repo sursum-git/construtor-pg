@@ -4238,6 +4238,7 @@ class ProgramBuilderService
         $permissionPrefix = $config['permissionPrefix'];
 
         $groups = array_values(array_filter((array) ($reportConfig['groups'] ?? []), 'is_array'));
+        $groupField = (string) ($reportConfig['groupField'] ?? '');
         $hasGroups = $groups || $groupField !== '';
 
         return [

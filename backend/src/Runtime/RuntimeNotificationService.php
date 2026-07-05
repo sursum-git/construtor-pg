@@ -4,6 +4,7 @@ namespace App\Runtime;
 
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Types\Types;
 
 class RuntimeNotificationService
 {
@@ -109,7 +110,7 @@ class RuntimeNotificationService
                 'expires_at' => $this->normalizeDateTime($options['expiresAt'] ?? null),
                 'published_at' => $now,
                 'updated_at' => $now,
-            ], ['id' => (int) $existingId]);
+            ], ['id' => (int) $existingId], ['action_required' => Types::BOOLEAN]);
             $this->syncRecipients((int) $existingId);
             return (int) $existingId;
         }
@@ -133,7 +134,7 @@ class RuntimeNotificationService
             'created_by' => $this->permissions->getUserId(),
             'created_at' => $now,
             'updated_at' => $now,
-        ]);
+        ], ['action_required' => Types::BOOLEAN]);
 
         $notificationId = (int) $this->connection->lastInsertId();
         $this->syncRecipients($notificationId);

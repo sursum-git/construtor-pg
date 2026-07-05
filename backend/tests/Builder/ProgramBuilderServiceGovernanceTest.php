@@ -467,6 +467,97 @@ class ProgramBuilderServiceGovernanceTest extends TestCase
         self::assertSame(['sign_entity', 'sign_field', 'sign_field', 'sign_version', 'flush'], array_slice($events, -5));
     }
 
+    public function testCrudPreviewWithoutReportConfigDoesNotTriggerGroupFieldNotice(): void
+    {
+        $entity = (new BuilderEntity())
+            ->setCode('tipo_produto')
+            ->setName('Tipo de Produto')
+            ->setEntityType('persistence')
+            ->setTableName('t990')
+            ->setStatus('published');
+        $entity->addField((new BuilderField())
+            ->setCode('id')
+            ->setLabel('ID')
+            ->setDataType('integer')
+            ->setRequired(true)
+            ->setPrimaryKey(true)
+            ->setPosition(0)
+            ->setOptions(['columnName' => 'id']));
+        $entity->addField((new BuilderField())
+            ->setCode('descricao')
+            ->setLabel('Descricao')
+            ->setDataType('string')
+            ->setRequired(true)
+            ->setPosition(1)
+            ->setOptions(['columnName' => 'descricao']));
+
+        $entities = $this->createStub(BuilderEntityRepository::class);
+        $entities->method('findOneBy')->willReturnCallback(
+            static fn (array $criteria): ?BuilderEntity => $criteria === ['code' => 'tipo_produto'] ? $entity : null
+        );
+
+        $module = (new BuilderModule())
+            ->setCode('cadastros')
+            ->setName('Cadastros')
+            ->setAbbreviation('cd')
+            ->setNumberStart(1)
+            ->setNumberEnd(999);
+        $modules = $this->createStub(BuilderModuleRepository::class);
+        $modules->method('findOneBy')->willReturnCallback(
+            static fn (array $criteria): ?BuilderModule => $criteria === ['code' => 'cadastros'] ? $module : null
+        );
+
+        $permissions = $this->createStub(PermissionResolver::class);
+        $permissions->method('hasPermission')->willReturn(true);
+
+        $service = new ProgramBuilderService(
+            $entities,
+            $this->createStub(BuilderApiSourceRepository::class),
+            $this->createStub(BuilderEditorLockRepository::class),
+            $modules,
+            $this->createStub(BuilderFieldRepository::class),
+            $this->createStub(BuilderEntityVersionRepository::class),
+            $this->createStub(BuilderProgramVersionRepository::class),
+            $this->createStub(ProgramRepository::class),
+            $this->createStub(ScreenDefinitionRepository::class),
+            $this->createStub(RuntimeEndpointRepository::class),
+            $this->createStub(EntityManagerInterface::class),
+            $this->createStub(StructuralIntegrityService::class),
+            $this->createStub(ProgramGovernanceService::class),
+            $this->createStub(ProgramOverlayService::class),
+            $this->createStub(RuntimeNotificationService::class),
+            $this->createStub(RuntimeEnvironmentIdentityResolver::class),
+            $permissions,
+            $this->createStub(RuntimeSessionGuard::class),
+            $this->createStub(OdooClient::class),
+            $this->createStub(RuntimeEventService::class),
+        );
+
+        set_error_handler(static function (int $severity, string $message, string $file, int $line): bool {
+            throw new \ErrorException($message, 0, $severity, $file, $line);
+        });
+
+        try {
+            $result = $service->previewDraft([
+                'programCode' => 'cd0990',
+                'programTitle' => 'Tipo de Produto',
+                'module' => 'cadastros',
+                'pageType' => 'crud',
+                'builderEntityCode' => 'tipo_produto',
+                'screenId' => 'cadastros.tipo-produto',
+                'version' => '1.0.0',
+                'permissionPrefix' => 'cd0990',
+                'allowCreate' => true,
+                'allowUpdate' => true,
+                'allowDelete' => true,
+            ]);
+        } finally {
+            restore_error_handler();
+        }
+
+        self::assertSame('cadastros.tipo-produto', $result['generatedDefinition']['screenId']);
+    }
+
     private function service(RuntimeEnvironmentIdentityResolver $environment): ProgramBuilderService
     {
         return new ProgramBuilderService(
