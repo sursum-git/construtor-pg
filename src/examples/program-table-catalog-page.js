@@ -1,6 +1,10 @@
 (function(global, $) {
   "use strict";
 
+  if (global.kendo) {
+    global.kendo.culture("pt-BR");
+  }
+
   function escapeHtml(value) {
     return $("<div>").text(value == null ? "" : String(value)).html();
   }

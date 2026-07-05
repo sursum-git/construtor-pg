@@ -287,7 +287,8 @@ Cria ou atualiza o assinante e opcionalmente prepara o administrador inicial.
 Exemplo:
 
 ```powershell
-php backend/bin/console app:subscriber:create --code=cliente-x --name="Cliente X" --document="00.000.000/0001-00" --admin-username=admin --admin-password="Senha@123"
+$env:CONSTRUTOR_PG_ADMIN_PASSWORD = "Senha forte definida fora do historico"
+php backend/bin/console app:subscriber:create --code=cliente-x --name="Cliente X" --document="00.000.000/0001-00" --admin-username=admin --admin-password-env=CONSTRUTOR_PG_ADMIN_PASSWORD
 ```
 
 Opcoes principais:
@@ -297,6 +298,7 @@ Opcoes principais:
 - `--user-tenant-id`
 - `--admin-display-name`
 - `--admin-email`
+- `--admin-password-env`
 - `--no-admin-default`
 - `--force-password-change`
 
@@ -321,8 +323,12 @@ php backend/bin/console app:runtime:publish-defaults --refresh --fail-on-missing
 Script:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\provision-saas-subscriber.ps1 -SubscriberCode cliente-x -SubscriberName "Cliente X" -AdminPassword "Senha@123"
+$env:CONSTRUTOR_PG_DATABASE_PASSWORD = "Senha forte do banco"
+$env:CONSTRUTOR_PG_ADMIN_PASSWORD = "Senha forte do admin"
+powershell -ExecutionPolicy Bypass -File .\scripts\provision-saas-subscriber.ps1 -SubscriberCode cliente-x -SubscriberName "Cliente X"
 ```
+
+Os scripts falham se `CONSTRUTOR_PG_DATABASE_PASSWORD` ou `CONSTRUTOR_PG_ADMIN_PASSWORD` nao estiverem definidos. Nao passe esses segredos por argumento de processo.
 
 O script:
 
@@ -375,8 +381,12 @@ O `install.sh` da raiz valida o ambiente e delega a instalacao completa para `sc
 Script:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\install-onprem.ps1 -InstanceCode cliente-x -DatabaseIdentity "onprem:cliente-x" -AdminPassword "Senha@123"
+$env:CONSTRUTOR_PG_DATABASE_PASSWORD = "Senha forte do banco"
+$env:CONSTRUTOR_PG_ADMIN_PASSWORD = "Senha forte do admin"
+powershell -ExecutionPolicy Bypass -File .\scripts\install-onprem.ps1 -InstanceCode cliente-x -DatabaseIdentity "onprem:cliente-x"
 ```
+
+Para Docker Compose local/produção, defina tambem `POSTGRES_PASSWORD` e `APP_SECRET` no ambiente ou em arquivo local nao versionado antes de subir a stack.
 
 O script:
 

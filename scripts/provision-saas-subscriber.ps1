@@ -4,13 +4,13 @@ param(
     [string]$SubscriberName,
     [string]$SubscriberDocument = "",
     [string]$DatabaseUser = "app",
-    [string]$DatabasePassword = "!ChangeMe!",
+    [string]$DatabasePasswordEnv = "CONSTRUTOR_PG_DATABASE_PASSWORD",
     [string]$DatabaseHost = "127.0.0.1",
     [int]$DatabasePort = 5432,
     [string]$AppEnv = "prod",
     [string]$DatabaseEnvironment = "prod",
     [string]$AdminUsername = "admin",
-    [string]$AdminPassword = "",
+    [string]$AdminPasswordEnv = "CONSTRUTOR_PG_ADMIN_PASSWORD",
     [switch]$StartDatabaseContainer = $true,
     [string]$OnlyStep = ""
 )
@@ -23,8 +23,13 @@ if ([string]::IsNullOrWhiteSpace($SubscriberCode)) {
 if ([string]::IsNullOrWhiteSpace($SubscriberName)) {
     throw "Informe -SubscriberName."
 }
-if ([string]::IsNullOrWhiteSpace($AdminPassword)) {
-    throw "Informe -AdminPassword."
+$databasePassword = [Environment]::GetEnvironmentVariable($DatabasePasswordEnv)
+$adminPassword = [Environment]::GetEnvironmentVariable($AdminPasswordEnv)
+if ([string]::IsNullOrWhiteSpace($databasePassword)) {
+    throw "Informe -DatabasePasswordEnv apontando para uma variavel de ambiente com a senha do banco."
+}
+if ([string]::IsNullOrWhiteSpace($adminPassword)) {
+    throw "Informe -AdminPasswordEnv apontando para uma variavel de ambiente com a senha do administrador."
 }
 
 function New-DatabaseUrl {
@@ -70,7 +75,7 @@ $projectDir = Split-Path $BackendDir -Parent
 $databaseName = "construtor_pg_" + ($SubscriberCode -replace "[^a-zA-Z0-9_\\-]", "_" ).ToLowerInvariant()
 $databaseIdentity = "saas:$SubscriberCode"
 $composeProject = "construtor-pg-$($SubscriberCode.ToLowerInvariant())"
-$databaseUrl = New-DatabaseUrl -User $DatabaseUser -Password $DatabasePassword -DatabaseHostName $DatabaseHost -Port $DatabasePort -Name $databaseName
+$databaseUrl = New-DatabaseUrl -User $DatabaseUser -Password $databasePassword -DatabaseHostName $DatabaseHost -Port $DatabasePort -Name $databaseName
 $envLocalPath = Join-Path $BackendDir ".env.local"
 
 Write-BackendEnvLocal -TargetPath $envLocalPath -DatabaseUrl $databaseUrl -AppEnvValue $AppEnv -EnvironmentValue $DatabaseEnvironment -IdentityValue $databaseIdentity
@@ -92,7 +97,7 @@ function Invoke-Step {
             try {
                 $env:POSTGRES_DB = $databaseName
                 $env:POSTGRES_USER = $DatabaseUser
-                $env:POSTGRES_PASSWORD = $DatabasePassword
+                $env:POSTGRES_PASSWORD = $databasePassword
                 docker compose -p $composeProject up -d database
             } finally {
                 Pop-Location
@@ -111,8 +116,10 @@ function Invoke-Step {
         "create_subscriber" {
             Push-Location $BackendDir
             try {
-                php bin/console app:subscriber:create --code=$SubscriberCode --name="$SubscriberName" --document="$SubscriberDocument" --admin-username=$AdminUsername --admin-password="$AdminPassword" --admin-display-name="Administrador $SubscriberName"
+                $env:CONSTRUTOR_PG_ADMIN_PASSWORD = $adminPassword
+                php bin/console app:subscriber:create --code=$SubscriberCode --name="$SubscriberName" --document="$SubscriberDocument" --admin-username=$AdminUsername --admin-password-env=CONSTRUTOR_PG_ADMIN_PASSWORD --admin-display-name="Administrador $SubscriberName"
             } finally {
+                Remove-Item Env:\CONSTRUTOR_PG_ADMIN_PASSWORD -ErrorAction SilentlyContinue
                 Pop-Location
             }
             return

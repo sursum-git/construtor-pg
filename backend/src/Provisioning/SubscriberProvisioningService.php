@@ -2,6 +2,7 @@
 
 namespace App\Provisioning;
 
+use App\Auth\PasswordPolicy;
 use App\Entity\AuthSubscriber;
 use App\Entity\RuntimeAsyncJob;
 use App\Repository\AuthSubscriberRepository;
@@ -764,27 +765,7 @@ class SubscriberProvisioningService
             ];
         }
 
-        $checks = [
-            preg_match('/[a-z]/', $password) === 1,
-            preg_match('/[A-Z]/', $password) === 1,
-            preg_match('/\d/', $password) === 1,
-            preg_match('/[^a-zA-Z0-9]/', $password) === 1,
-            mb_strlen($password) >= 14,
-            stripos($password, $subscriberCode) === false,
-            stripos($password, $adminUsername) === false,
-        ];
-
-        if (in_array(false, $checks, true)) {
-            return [
-                'status' => 'error',
-                'message' => 'A senha inicial precisa ter pelo menos 14 caracteres, maiuscula, minuscula, numero, simbolo e nao pode repetir usuario ou codigo do assinante.',
-            ];
-        }
-
-        return [
-            'status' => 'ok',
-            'message' => 'Credencial inicial atende a politica minima de provisionamento.',
-        ];
+        return PasswordPolicy::evaluateInitialAdminPassword($password, $subscriberCode, $adminUsername);
     }
 
     private function checklistItem(string $code, string $label, string $status, string $message): array

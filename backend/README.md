@@ -128,15 +128,16 @@ Se houver provedores `oauth`/`oidc` habilitados, eles aparecem como botoes exter
 O seed cria o provedor `local` habilitado e um usuario tecnico:
 
 - usuario: `admin`
-- senha inicial: `admin123`
+- senha inicial: valor de `APP_SEED_ADMIN_PASSWORD` quando forte, ou uma senha aleatoria gerada no seed
 - tenant: `default`
 
-Troque essa senha antes de usar fora do ambiente local.
+O usuario tecnico fica marcado para troca obrigatoria de senha.
 O login retorna um token Bearer e um `sessionId`; o frontend grava esses dados em `localStorage` e envia nas chamadas runtime.
 O token fica salvo no banco apenas como hash em `runtime_user_session.sessionProperties.authTokenHash`.
 Quando `remember=true`, o backend tambem cria um token persistente em `auth_remember_token`, salvo apenas como hash e com validade de 30 dias.
 Ao abrir `production/login.html`, o frontend usa `/api/auth/remember` para criar uma nova sessao runtime sem pedir senha.
 O logout e a derrubada administrativa de usuario revogam esse token persistente.
+Na recuperacao de senha, o e-mail aponta para `production/login.html?reset=1` e envia o codigo de recuperacao no corpo da mensagem; o token nao deve ir em querystring. `APP_AUTH_EXPOSE_RESET_TOKEN=1` existe apenas para teste local/controlado.
 
 ## Minimo para CRUD generico
 

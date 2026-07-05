@@ -6,7 +6,7 @@ SUBSCRIBER_CODE="${SUBSCRIBER_CODE:-}"
 SUBSCRIBER_NAME="${SUBSCRIBER_NAME:-}"
 SUBSCRIBER_DOCUMENT="${SUBSCRIBER_DOCUMENT:-}"
 DATABASE_USER="${DATABASE_USER:-app}"
-DATABASE_PASSWORD="${DATABASE_PASSWORD:-!ChangeMe!}"
+DATABASE_PASSWORD_ENV="${DATABASE_PASSWORD_ENV:-CONSTRUTOR_PG_DATABASE_PASSWORD}"
 DATABASE_HOST="${DATABASE_HOST:-127.0.0.1}"
 DATABASE_PORT="${DATABASE_PORT:-5432}"
 APP_ENV_VALUE="${APP_ENV_VALUE:-prod}"
@@ -14,7 +14,7 @@ DATABASE_ENVIRONMENT="${DATABASE_ENVIRONMENT:-prod}"
 DATABASE_IDENTITY="${DATABASE_IDENTITY:-}"
 DATABASE_NAME="${DATABASE_NAME:-}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
-ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin123}"
+ADMIN_PASSWORD_ENV="${ADMIN_PASSWORD_ENV:-CONSTRUTOR_PG_ADMIN_PASSWORD}"
 START_DATABASE_CONTAINER="${START_DATABASE_CONTAINER:-1}"
 ONLY_STEP="${ONLY_STEP:-}"
 
@@ -25,7 +25,7 @@ while [[ $# -gt 0 ]]; do
     --subscriber-name=*) SUBSCRIBER_NAME="${1#*=}" ;;
     --subscriber-document=*) SUBSCRIBER_DOCUMENT="${1#*=}" ;;
     --database-user=*) DATABASE_USER="${1#*=}" ;;
-    --database-password=*) DATABASE_PASSWORD="${1#*=}" ;;
+    --database-password-env=*) DATABASE_PASSWORD_ENV="${1#*=}" ;;
     --database-host=*) DATABASE_HOST="${1#*=}" ;;
     --database-port=*) DATABASE_PORT="${1#*=}" ;;
     --app-env=*) APP_ENV_VALUE="${1#*=}" ;;
@@ -33,7 +33,7 @@ while [[ $# -gt 0 ]]; do
     --database-identity=*) DATABASE_IDENTITY="${1#*=}" ;;
     --database-name=*) DATABASE_NAME="${1#*=}" ;;
     --admin-username=*) ADMIN_USERNAME="${1#*=}" ;;
-    --admin-password=*) ADMIN_PASSWORD="${1#*=}" ;;
+    --admin-password-env=*) ADMIN_PASSWORD_ENV="${1#*=}" ;;
     --no-database-container) START_DATABASE_CONTAINER="0" ;;
     --only-step=*) ONLY_STEP="${1#*=}" ;;
     *) echo "Parametro nao suportado: $1" >&2; exit 1 ;;
@@ -46,8 +46,14 @@ if [[ -z "${SUBSCRIBER_CODE}" || -z "${SUBSCRIBER_NAME}" ]]; then
   exit 1
 fi
 
+DATABASE_PASSWORD="${!DATABASE_PASSWORD_ENV:-}"
+ADMIN_PASSWORD="${!ADMIN_PASSWORD_ENV:-}"
+if [[ -z "${DATABASE_PASSWORD}" ]]; then
+  echo "Informe database-password-env apontando para uma variavel de ambiente com a senha do banco." >&2
+  exit 1
+fi
 if [[ -z "${ADMIN_PASSWORD}" ]]; then
-  echo "Informe admin-password." >&2
+  echo "Informe admin-password-env apontando para uma variavel de ambiente com a senha do administrador." >&2
   exit 1
 fi
 
@@ -102,7 +108,7 @@ run_step() {
     create_subscriber)
       (
         cd "${BACKEND_DIR}"
-        php bin/console app:subscriber:create --code="${SUBSCRIBER_CODE}" --name="${SUBSCRIBER_NAME}" --document="${SUBSCRIBER_DOCUMENT}" --admin-username="${ADMIN_USERNAME}" --admin-password="${ADMIN_PASSWORD}" --admin-display-name="Administrador ${SUBSCRIBER_NAME}"
+        CONSTRUTOR_PG_ADMIN_PASSWORD="${ADMIN_PASSWORD}" php bin/console app:subscriber:create --code="${SUBSCRIBER_CODE}" --name="${SUBSCRIBER_NAME}" --document="${SUBSCRIBER_DOCUMENT}" --admin-username="${ADMIN_USERNAME}" --admin-password-env=CONSTRUTOR_PG_ADMIN_PASSWORD --admin-display-name="Administrador ${SUBSCRIBER_NAME}"
       )
       return 0
       ;;

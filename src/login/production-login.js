@@ -215,7 +215,7 @@
     function skipRememberLogin() {
       const params = new URLSearchParams(global.location.search || "");
       const flag = String(params.get("noRemember") || params.get("forceLogin") || params.get("logout") || "").toLowerCase();
-      return flag === "1" || flag === "true" || flag === "yes" || Boolean(params.get("resetToken"));
+      return flag === "1" || flag === "true" || flag === "yes" || isResetRequested(params);
     }
 
     function openSubscriberSelection(response) {
@@ -421,10 +421,14 @@
 
     function openResetFromQuery() {
       const params = new URLSearchParams(global.location.search || "");
-      const resetToken = params.get("resetToken") || "";
-      if (resetToken) {
-        openPasswordResetWindow(resetToken);
+      if (isResetRequested(params)) {
+        openPasswordResetWindow("");
       }
+    }
+
+    function isResetRequested(params) {
+      const reset = String(params.get("reset") || "").toLowerCase();
+      return reset === "1" || reset === "true" || reset === "yes";
     }
 
     function finishLogin(response, options) {

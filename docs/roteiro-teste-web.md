@@ -32,7 +32,7 @@ URLs esperadas:
 ## 2. Credenciais e condições de teste
 
 - usuário inicial criado pelo seed: `admin`
-- senha inicial: `admin123`
+- senha inicial: definida por `APP_SEED_ADMIN_PASSWORD` quando forte, ou gerada automaticamente pelo seed
 - e-mail do usuário inicial: `admin@example.com`
 - `subscriber.enabled=false` por padrão
 
@@ -78,7 +78,7 @@ Se quiser testar seleção de assinante:
 ### Produção
 
 1. abrir `production/login.html`
-2. entrar com `admin / admin123`
+2. entrar com `admin` e a senha operacional definida para o ambiente; se o seed gerou senha automatica, redefinir a credencial antes do teste
 3. validar redirecionamento para Home
 4. repetir com `manter logado` marcado
 5. fechar e abrir a tela novamente para validar `/api/auth/remember`
@@ -88,7 +88,7 @@ Resultado esperado:
 
 - login cria sessão
 - manter logado grava token local e reabre sessão
-- recuperação de senha responde sem erro
+- recuperação de senha responde sem erro e nao coloca token na URL
 
 ## 4.2 Home
 
@@ -266,7 +266,8 @@ Resultado esperado:
 Resultado esperado:
 
 - o backend aceita a solicitação
-- em dev, o token pode voltar na resposta
+- em dev controlado, o token pode voltar na resposta apenas com `APP_AUTH_EXPOSE_RESET_TOKEN=1`
+- a URL de reset deve ser `production/login.html?reset=1`, sem `resetToken`
 - a nova senha passa a autenticar
 
 ## 4.8 Lembrar acesso

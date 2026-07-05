@@ -388,7 +388,7 @@
       return;
     }
     const verification = entry.verification || {};
-    const path = String(verification.publicPath || "regulated-document-authenticity.html");
+    const path = String(verification.publicPath || "../regulated-document-authenticity.html");
     global.open(path + "?hash=" + encodeURIComponent(String(entry.hash || "")), "_blank", "noopener");
   };
 

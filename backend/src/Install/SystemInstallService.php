@@ -2,6 +2,7 @@
 
 namespace App\Install;
 
+use App\Auth\PasswordPolicy;
 use App\Runtime\RuntimeHttpException;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\HttpKernel\KernelInterface;
@@ -412,7 +413,7 @@ class SystemInstallService
             '--name=' . (string) $payload['subscriberName'],
             '--user-tenant-id=' . (string) $payload['userTenantId'],
             '--admin-username=' . (string) $payload['adminUsername'],
-            '--admin-password=' . (string) $payload['adminPassword'],
+            '--admin-password-env=CONSTRUTOR_PG_ADMIN_PASSWORD',
             '--admin-display-name=' . (string) $payload['adminDisplayName'],
         ];
         if ((string) $payload['subscriberDocument'] !== '') {
@@ -452,6 +453,9 @@ class SystemInstallService
         }
         if ((string) $payload['mailerDsn'] !== '') {
             $env['MAILER_DSN'] = (string) $payload['mailerDsn'];
+        }
+        if ((string) $payload['adminPassword'] !== '') {
+            $env['CONSTRUTOR_PG_ADMIN_PASSWORD'] = (string) $payload['adminPassword'];
         }
 
         return $env;
@@ -528,27 +532,7 @@ class SystemInstallService
 
     private function evaluatePassword(string $password, string $subscriberCode, string $adminUsername): array
     {
-        $checks = [
-            preg_match('/[a-z]/', $password) === 1,
-            preg_match('/[A-Z]/', $password) === 1,
-            preg_match('/\d/', $password) === 1,
-            preg_match('/[^a-zA-Z0-9]/', $password) === 1,
-            mb_strlen($password) >= 14,
-            $subscriberCode === '' || stripos($password, $subscriberCode) === false,
-            $adminUsername === '' || stripos($password, $adminUsername) === false,
-        ];
-
-        if (in_array(false, $checks, true)) {
-            return [
-                'status' => 'error',
-                'message' => 'A senha inicial precisa ter pelo menos 14 caracteres, maiuscula, minuscula, numero, simbolo e nao pode repetir usuario ou codigo do assinante.',
-            ];
-        }
-
-        return [
-            'status' => 'ok',
-            'message' => 'Credencial inicial atende a politica minima.',
-        ];
+        return PasswordPolicy::evaluateInitialAdminPassword($password, $subscriberCode, $adminUsername);
     }
 
     private function evaluateInstallerPassword(string $password): array

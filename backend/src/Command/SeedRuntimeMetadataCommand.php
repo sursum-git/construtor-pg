@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Admin\AdminCrudDefinitionFactory;
+use App\Auth\PasswordPolicy;
 use App\Entity\AuthProviderConfig;
 use App\Entity\AuthSubscriber;
 use App\Entity\AuthUser;
@@ -2111,9 +2112,13 @@ class SeedRuntimeMetadataCommand extends Command
             ->setGroups(['admin'])
             ->setPermissions(['*'])
             ->setAuthSource('local')
-            ->setForcePasswordChange(false);
+            ->setForcePasswordChange(true);
         if (!$admin->getPasswordHash()) {
-            $admin->setPasswordHash(password_hash('admin123', PASSWORD_DEFAULT));
+            $password = trim((string) ($_SERVER['APP_SEED_ADMIN_PASSWORD'] ?? $_ENV['APP_SEED_ADMIN_PASSWORD'] ?? getenv('APP_SEED_ADMIN_PASSWORD') ?: ''));
+            if ($password === '' || PasswordPolicy::evaluateInitialAdminPassword($password, 'default', 'admin')['status'] === 'error') {
+                $password = bin2hex(random_bytes(16)) . 'Aa1!';
+            }
+            $admin->setPasswordHash(password_hash($password, PASSWORD_DEFAULT));
         }
         $this->entityManager->persist($admin);
     }
@@ -2476,22 +2481,66 @@ class SeedRuntimeMetadataCommand extends Command
         $this->upsertBuilderModule('operacional', 'Operacional', 'op', 1000, 1999);
         $this->upsertBuilderModule('vendas', 'Vendas', 'vd', 3000, 3499);
         $this->upsertBuilderModule('administracao', 'Administracao', 'ad', 2000, 2999);
+        $this->resetIdentitySequence($this->entityManager->getConnection(), 'builder_module', 'id');
     }
 
     private function upsertBuilderModule(string $code, string $name, string $abbreviation, int $start, int $end): void
     {
-        $module = $this->builderModules->findOneBy(['code' => $code]) ?? new BuilderModule();
-        $module
-            ->setCode($code)
-            ->setName($name)
-            ->setAbbreviation($abbreviation)
-            ->setNumberStart($start)
-            ->setNumberEnd($end)
-            ->setEnabled(true)
-            ->setMetadata([
-                'source' => 'seed-runtime-metadata',
-            ]);
+        $now = (new \DateTimeImmutable())->format('Y-m-d H:i:s');
+        $metadata = json_encode([
+            'source' => 'seed-runtime-metadata',
+        ], JSON_THROW_ON_ERROR);
 
-        $this->entityManager->persist($module);
+        $this->entityManager->getConnection()->executeStatement(
+            <<<'SQL'
+WITH next_id AS (
+    SELECT COALESCE(MAX(id), 0) + 1 AS id
+    FROM builder_module
+)
+INSERT INTO builder_module (
+    id,
+    code,
+    name,
+    abbreviation,
+    number_start,
+    number_end,
+    enabled,
+    metadata,
+    created_at,
+    updated_at
+)
+SELECT
+    next_id.id,
+    :code,
+    :name,
+    :abbreviation,
+    :numberStart,
+    :numberEnd,
+    TRUE,
+    CAST(:metadata AS JSON),
+    :createdAt,
+    :updatedAt
+FROM next_id
+ON CONFLICT (code) DO UPDATE
+SET
+    name = EXCLUDED.name,
+    abbreviation = EXCLUDED.abbreviation,
+    number_start = EXCLUDED.number_start,
+    number_end = EXCLUDED.number_end,
+    enabled = EXCLUDED.enabled,
+    metadata = EXCLUDED.metadata,
+    updated_at = EXCLUDED.updated_at
+SQL,
+            [
+                'code' => $code,
+                'name' => $name,
+                'abbreviation' => $abbreviation,
+                'numberStart' => $start,
+                'numberEnd' => $end,
+                'metadata' => $metadata,
+                'createdAt' => $now,
+                'updatedAt' => $now,
+            ],
+        );
     }
 }

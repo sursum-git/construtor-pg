@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Auth\PasswordPolicy;
 use App\Entity\AuthSubscriber;
 use App\Entity\AuthUser;
 use App\Entity\AuthUserSubscriber;
@@ -41,6 +42,7 @@ class CreateSubscriberCommand extends Command
             ->addOption('user-tenant-id', null, InputOption::VALUE_REQUIRED, 'Tenant do usuario administrativo.', 'default')
             ->addOption('admin-username', null, InputOption::VALUE_REQUIRED, 'Usuario administrador inicial.')
             ->addOption('admin-password', null, InputOption::VALUE_REQUIRED, 'Senha do usuario administrador inicial.')
+            ->addOption('admin-password-env', null, InputOption::VALUE_REQUIRED, 'Nome da variavel de ambiente com a senha do administrador inicial.')
             ->addOption('admin-display-name', null, InputOption::VALUE_REQUIRED, 'Nome de exibicao do administrador.')
             ->addOption('admin-email', null, InputOption::VALUE_REQUIRED, 'Email do administrador.')
             ->addOption('no-admin-default', null, InputOption::VALUE_NONE, 'Nao marca este assinante como padrao do administrador.')
@@ -112,17 +114,17 @@ class CreateSubscriberCommand extends Command
     private function upsertAdmin(InputInterface $input, AuthSubscriber $subscriber, string $adminUsername, array &$changedLinks): ?string
     {
         $tenantId = trim((string) $input->getOption('user-tenant-id')) ?: 'default';
-        $password = $this->nullableTrimmedOption($input, 'admin-password');
+        $password = $this->resolveAdminPassword($input);
         $displayName = $this->nullableTrimmedOption($input, 'admin-display-name');
         $email = $this->nullableTrimmedOption($input, 'admin-email');
         $defaultSubscriber = $input->getOption('no-admin-default') !== true;
         $forcePasswordChange = $input->getOption('force-password-change') === true;
 
-        $user = $this->users->findOneByTenantAndUsername($tenantId, $adminUsername);
+            $user = $this->users->findOneByTenantAndUsername($tenantId, $adminUsername);
         $isNewUser = $user === null;
         if ($user === null) {
             if ($password === null) {
-                return 'Informe --admin-password para criar um novo administrador.';
+                return 'Informe --admin-password-env para criar um novo administrador sem expor a senha nos argumentos do processo.';
             }
 
             $user = new AuthUser();
@@ -142,11 +144,17 @@ class CreateSubscriberCommand extends Command
             $user->setEmail($email);
         }
         if ($password !== null) {
+            $passwordPolicy = PasswordPolicy::evaluateInitialAdminPassword($password, $subscriber->getCode(), $adminUsername);
+            if ($passwordPolicy['status'] === 'error') {
+                return $passwordPolicy['message'];
+            }
             $user->setPasswordHash(password_hash($password, PASSWORD_DEFAULT));
         } elseif ($isNewUser) {
             return 'Nao foi possivel criar administrador sem senha inicial.';
         }
-        $user->setForcePasswordChange($forcePasswordChange);
+        if ($forcePasswordChange || $isNewUser) {
+            $user->setForcePasswordChange(true);
+        }
         $this->entityManager->persist($user);
 
         $access = $this->userSubscribers->findOneBy([
@@ -212,5 +220,23 @@ class CreateSubscriberCommand extends Command
     {
         $value = trim((string) $input->getOption($name));
         return $value === '' ? null : $value;
+    }
+
+    private function resolveAdminPassword(InputInterface $input): ?string
+    {
+        $password = $this->nullableTrimmedOption($input, 'admin-password');
+        if ($password !== null) {
+            return $password;
+        }
+
+        $envName = $this->nullableTrimmedOption($input, 'admin-password-env');
+        if ($envName === null) {
+            return null;
+        }
+
+        $envValue = $_SERVER[$envName] ?? $_ENV[$envName] ?? getenv($envName) ?: '';
+        $envValue = trim((string) $envValue);
+
+        return $envValue === '' ? null : $envValue;
     }
 }

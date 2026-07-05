@@ -9,13 +9,13 @@ services:
         condition: service_healthy
     environment:
       APP_ENV: prod
-      APP_SECRET: ${APP_SECRET:-change-this-secret}
+      APP_SECRET: ${APP_SECRET:?Defina APP_SECRET antes de subir a stack.}
       APP_SHARE_DIR: /srv/app-state/share
       APP_INSTALLATION_SESSION_FILE: /srv/app-state/install/activation-session.json
       APP_INSTALLATION_SESSION_REQUIRED: ${APP_INSTALLATION_SESSION_REQUIRED:-1}
       APP_INSTALLATION_SESSION_SIGNING_KEY: ${APP_INSTALLATION_SESSION_SIGNING_KEY:-}
       AUTH_REQUIRED: ${AUTH_REQUIRED:-1}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:-ChangeMe_123}@database:5432/${POSTGRES_DB:-construtor_pg}?serverVersion=16&charset=utf8
+      DATABASE_URL: postgresql://${POSTGRES_USER:-app}:${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD antes de subir a stack.}@database:5432/${POSTGRES_DB:-construtor_pg}?serverVersion=16&charset=utf8
       MESSENGER_TRANSPORT_DSN: doctrine://default?queue_name=async&auto_setup=0
       MAILER_DSN: ${MAILER_DSN:-null://null}
     ports:
@@ -30,7 +30,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-construtor_pg}
       POSTGRES_USER: ${POSTGRES_USER:-app}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ChangeMe_123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD antes de subir o banco.}
     healthcheck:
       test: ["CMD", "pg_isready", "-d", "${POSTGRES_DB:-construtor_pg}", "-U", "${POSTGRES_USER:-app}"]
       timeout: 5s

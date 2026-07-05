@@ -538,10 +538,6 @@ class AuthService
         if ($tokenValue === '' || $password === '') {
             throw new RuntimeHttpException('PASSWORD_RESET_TOKEN_REQUIRED', 'Informe token e nova senha.', 422);
         }
-        if (mb_strlen($password) < 8) {
-            throw new RuntimeHttpException('PASSWORD_TOO_SHORT', 'A senha deve ter pelo menos 8 caracteres.', 422);
-        }
-
         $token = $this->passwordResetTokens->findActiveByToken($tokenValue);
         if (!$token || $token->getExpiresAt() < new \DateTimeImmutable()) {
             throw new RuntimeHttpException('PASSWORD_RESET_TOKEN_INVALID', 'Token de recuperacao invalido ou expirado.', 401);
@@ -552,6 +548,10 @@ class AuthService
             $token->revoke();
             $this->entityManager->flush();
             throw new RuntimeHttpException('PASSWORD_RESET_TOKEN_INVALID', 'Token de recuperacao invalido ou expirado.', 401);
+        }
+        $passwordPolicy = PasswordPolicy::evaluateInitialAdminPassword($password, $user->getTenantId(), $user->getUsername());
+        if ($passwordPolicy['status'] === 'error') {
+            throw new RuntimeHttpException('PASSWORD_POLICY_WEAK', $passwordPolicy['message'], 422);
         }
 
         $user
@@ -1085,7 +1085,7 @@ class AuthService
 
     private function sendPasswordResetEmail(AuthUser $user, string $token, \DateTimeImmutable $expiresAt, Request $request): void
     {
-        $resetUrl = rtrim($request->getSchemeAndHttpHost(), '/') . '/production/login.html?resetToken=' . rawurlencode($token);
+        $resetUrl = rtrim($request->getSchemeAndHttpHost(), '/') . '/production/login.html?reset=1';
         $email = (new Email())
             ->from('nao-responda@construtor.local')
             ->to((string) $user->getEmail())
@@ -1093,6 +1093,7 @@ class AuthService
             ->text(
                 "Foi solicitada a recuperacao de senha.\n\n"
                 . "Acesse: " . $resetUrl . "\n"
+                . "Codigo de recuperacao: " . $token . "\n"
                 . "Validade: " . $expiresAt->format('d/m/Y H:i') . "\n\n"
                 . "Se voce nao solicitou, ignore esta mensagem."
             );
@@ -1103,8 +1104,9 @@ class AuthService
     private function shouldExposeDevToken(): bool
     {
         $env = $_SERVER['APP_ENV'] ?? $_ENV['APP_ENV'] ?? 'dev';
+        $flag = strtolower(trim((string) ($_SERVER['APP_AUTH_EXPOSE_RESET_TOKEN'] ?? $_ENV['APP_AUTH_EXPOSE_RESET_TOKEN'] ?? getenv('APP_AUTH_EXPOSE_RESET_TOKEN') ?: '')));
 
-        return $env !== 'prod';
+        return $env !== 'prod' && in_array($flag, ['1', 'true', 'yes', 'on'], true);
     }
 
     private function createRememberToken(AuthenticatedUser $user, Request $request, array $device, string $providerCode): array

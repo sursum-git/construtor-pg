@@ -89,7 +89,7 @@ class OnPremPackageBuilderService
             'APP_ENV="prod"',
             'APP_DATABASE_ENVIRONMENT="' . $this->escapeEnv((string) ($context['databaseEnvironment'] ?? 'prod')) . '"',
             'APP_DATABASE_IDENTITY="' . $this->escapeEnv((string) ($context['databaseIdentity'] ?? 'onprem:cliente')) . '"',
-            'DATABASE_URL="postgresql://app:!ChangeMe!@127.0.0.1:5432/' . $this->escapeEnv((string) ($context['databaseName'] ?? 'construtor_pg')) . '?serverVersion=16&charset=utf8"',
+            'DATABASE_URL="postgresql://app:__DEFINA_SENHA_FORTE_DO_BANCO__@127.0.0.1:5432/' . $this->escapeEnv((string) ($context['databaseName'] ?? 'construtor_pg')) . '?serverVersion=16&charset=utf8"',
             '',
         ]) . "\n";
     }
@@ -107,9 +107,10 @@ class OnPremPackageBuilderService
             'Passos:',
             '1. extraia o zip em um diretorio de trabalho no Ubuntu 24.04;',
             '2. ajuste .env.template ou deixe o install.sh gerar backend/.env.local;',
-            '3. rode ./install.sh;',
-            '4. acompanhe a saida ate o bootstrap concluir.',
-            '5. para atualizacoes futuras, use ./update.sh com o manifesto adequado.',
+            '3. exporte CONSTRUTOR_PG_DATABASE_PASSWORD e CONSTRUTOR_PG_ADMIN_PASSWORD com segredos fortes;',
+            '4. rode ./install.sh;',
+            '5. acompanhe a saida ate o bootstrap concluir.',
+            '6. para atualizacoes futuras, use ./update.sh com o manifesto adequado.',
             '',
             'Referencia completa: docs/provisionamento-saas-onprem.md',
         ]) . "\n";

@@ -152,7 +152,7 @@
       "Demo de instalacao concluida.",
       "Comandos reais equivalentes:",
       "php backend/bin/console app:install:bootstrap --create-database --database-environment=" + payload.databaseEnvironment + " --database-identity=" + payload.databaseIdentity,
-      "php backend/bin/console app:subscriber:create --code=" + payload.subscriberCode + " --name=\"" + payload.subscriberName + "\" --principal --admin-username=" + payload.adminUsername + " --admin-password=********",
+      "php backend/bin/console app:subscriber:create --code=" + payload.subscriberCode + " --name=\"" + payload.subscriberName + "\" --principal --admin-username=" + payload.adminUsername + " --admin-password-env=CONSTRUTOR_PG_ADMIN_PASSWORD",
       "php backend/bin/console app:runtime:publish-defaults --refresh --fail-on-missing",
       "backend/.env.local receberia APP_SYSTEM_INSTALLED=1 e APP_INSTALLER_PASSWORD_HASH=<hash>"
     ].join("\n");

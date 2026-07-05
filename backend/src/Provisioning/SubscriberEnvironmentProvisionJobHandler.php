@@ -77,7 +77,7 @@ class SubscriberEnvironmentProvisionJobHandler implements RuntimeJobHandlerInter
             ]);
 
             $stepStartedAt = microtime(true);
-            $process = new Process($this->buildCommand($script, $backendDir, $stepPayload, $stepCode), $projectRoot, null, null, 7200);
+            $process = new Process($this->buildCommand($script, $backendDir, $stepPayload, $stepCode), $projectRoot, $this->buildProcessEnvironment($stepPayload), null, 7200);
             $stepOutput = '';
             $stepErrorOutput = '';
             $process->run(function (string $type, string $buffer) use (&$stepOutput, &$stepErrorOutput, &$output, $job, &$steps, $stepCode, &$report): void {
@@ -174,8 +174,8 @@ class SubscriberEnvironmentProvisionJobHandler implements RuntimeJobHandlerInter
                 (string) ($payload['databaseName'] ?? ''),
                 '-AdminUsername',
                 (string) ($payload['adminUsername'] ?? 'admin'),
-                '-AdminPassword',
-                (string) ($payload['adminPassword'] ?? ''),
+                '-AdminPasswordEnv',
+                'CONSTRUTOR_PG_ADMIN_PASSWORD',
                 '-OnlyStep',
                 $onlyStep,
             ];
@@ -192,9 +192,24 @@ class SubscriberEnvironmentProvisionJobHandler implements RuntimeJobHandlerInter
             '--database-identity=' . (string) ($payload['databaseIdentity'] ?? ''),
             '--database-name=' . (string) ($payload['databaseName'] ?? ''),
             '--admin-username=' . (string) ($payload['adminUsername'] ?? 'admin'),
-            '--admin-password=' . (string) ($payload['adminPassword'] ?? ''),
+            '--admin-password-env=CONSTRUTOR_PG_ADMIN_PASSWORD',
             '--only-step=' . $onlyStep,
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, string>
+     */
+    private function buildProcessEnvironment(array $payload): array
+    {
+        $env = [];
+        if ((string) ($payload['adminPassword'] ?? '') !== '') {
+            $env['CONSTRUTOR_PG_ADMIN_PASSWORD'] = (string) $payload['adminPassword'];
+        }
+
+        return $env;
     }
 
     private function touchProgress(RuntimeAsyncJob $job, string $phase, string $message, array $extra = []): void

@@ -5,14 +5,14 @@ BACKEND_DIR="${BACKEND_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../backend" && 
 INSTANCE_CODE="${INSTANCE_CODE:-construtor-pg-onprem}"
 DATABASE_NAME="${DATABASE_NAME:-construtor_pg}"
 DATABASE_USER="${DATABASE_USER:-app}"
-DATABASE_PASSWORD="${DATABASE_PASSWORD:-!ChangeMe!}"
+DATABASE_PASSWORD_ENV="${DATABASE_PASSWORD_ENV:-CONSTRUTOR_PG_DATABASE_PASSWORD}"
 DATABASE_HOST="${DATABASE_HOST:-127.0.0.1}"
 DATABASE_PORT="${DATABASE_PORT:-5432}"
 APP_ENV_VALUE="${APP_ENV_VALUE:-prod}"
 DATABASE_ENVIRONMENT="${DATABASE_ENVIRONMENT:-prod}"
 DATABASE_IDENTITY="${DATABASE_IDENTITY:-onprem:construtor-pg}"
 ADMIN_USERNAME="${ADMIN_USERNAME:-admin}"
-ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin123}"
+ADMIN_PASSWORD_ENV="${ADMIN_PASSWORD_ENV:-CONSTRUTOR_PG_ADMIN_PASSWORD}"
 SUBSCRIBER_CODE="${SUBSCRIBER_CODE:-default}"
 SUBSCRIBER_NAME="${SUBSCRIBER_NAME:-Principal}"
 SUBSCRIBER_DOCUMENT="${SUBSCRIBER_DOCUMENT:-}"
@@ -24,14 +24,14 @@ while [[ $# -gt 0 ]]; do
     --instance-code=*) INSTANCE_CODE="${1#*=}" ;;
     --database-name=*) DATABASE_NAME="${1#*=}" ;;
     --database-user=*) DATABASE_USER="${1#*=}" ;;
-    --database-password=*) DATABASE_PASSWORD="${1#*=}" ;;
+    --database-password-env=*) DATABASE_PASSWORD_ENV="${1#*=}" ;;
     --database-host=*) DATABASE_HOST="${1#*=}" ;;
     --database-port=*) DATABASE_PORT="${1#*=}" ;;
     --app-env=*) APP_ENV_VALUE="${1#*=}" ;;
     --database-environment=*) DATABASE_ENVIRONMENT="${1#*=}" ;;
     --database-identity=*) DATABASE_IDENTITY="${1#*=}" ;;
     --admin-username=*) ADMIN_USERNAME="${1#*=}" ;;
-    --admin-password=*) ADMIN_PASSWORD="${1#*=}" ;;
+    --admin-password-env=*) ADMIN_PASSWORD_ENV="${1#*=}" ;;
     --subscriber-code=*) SUBSCRIBER_CODE="${1#*=}" ;;
     --subscriber-name=*) SUBSCRIBER_NAME="${1#*=}" ;;
     --subscriber-document=*) SUBSCRIBER_DOCUMENT="${1#*=}" ;;
@@ -56,6 +56,17 @@ command -v php >/dev/null 2>&1 || { echo "PHP CLI nao encontrado." >&2; exit 1; 
 command -v docker >/dev/null 2>&1 || { echo "Docker nao encontrado." >&2; exit 1; }
 docker compose version >/dev/null 2>&1 || { echo "Docker Compose plugin nao encontrado." >&2; exit 1; }
 
+DATABASE_PASSWORD="${!DATABASE_PASSWORD_ENV:-}"
+ADMIN_PASSWORD="${!ADMIN_PASSWORD_ENV:-}"
+if [[ -z "${DATABASE_PASSWORD}" ]]; then
+  echo "Informe database-password-env apontando para uma variavel de ambiente com a senha do banco." >&2
+  exit 1
+fi
+if [[ -z "${ADMIN_PASSWORD}" ]]; then
+  echo "Informe admin-password-env apontando para uma variavel de ambiente com a senha do administrador." >&2
+  exit 1
+fi
+
 ENCODED_PASSWORD="$(php -r 'echo rawurlencode($argv[1]);' "$DATABASE_PASSWORD")"
 DATABASE_URL="postgresql://${DATABASE_USER}:${ENCODED_PASSWORD}@${DATABASE_HOST}:${DATABASE_PORT}/${DATABASE_NAME}?serverVersion=16&charset=utf8"
 
@@ -77,7 +88,7 @@ fi
 (
   cd "${BACKEND_DIR}"
   php bin/console app:install:bootstrap --create-database --database-environment="${DATABASE_ENVIRONMENT}" --database-identity="${DATABASE_IDENTITY}"
-  php bin/console app:subscriber:create --code="${SUBSCRIBER_CODE}" --name="${SUBSCRIBER_NAME}" --document="${SUBSCRIBER_DOCUMENT}" --principal --admin-username="${ADMIN_USERNAME}" --admin-password="${ADMIN_PASSWORD}" --admin-display-name="Administrador"
+  CONSTRUTOR_PG_ADMIN_PASSWORD="${ADMIN_PASSWORD}" php bin/console app:subscriber:create --code="${SUBSCRIBER_CODE}" --name="${SUBSCRIBER_NAME}" --document="${SUBSCRIBER_DOCUMENT}" --principal --admin-username="${ADMIN_USERNAME}" --admin-password-env=CONSTRUTOR_PG_ADMIN_PASSWORD --admin-display-name="Administrador"
   php bin/console app:runtime:publish-defaults --fail-on-missing
 )
 
