@@ -33,6 +33,7 @@
     "test:login-demo": "node tests/frontend/login-demo-smoke.mjs",
     "test:crud-lite": "node tests/frontend/crud-lite-smoke.mjs",
     "test:crud-form-submit-guard": "node tests/frontend/crud-form-submit-guard-smoke.mjs",
+    "test:crud-row-delete-confirm": "node tests/frontend/crud-row-delete-confirm-smoke.mjs",
     "test:linked-page-form-tab": "node tests/frontend/linked-page-form-tab-smoke.mjs",
     "test:master-detail-create-flow": "node tests/frontend/master-detail-create-flow-smoke.mjs",
     "test:analytics-demo": "node tests/frontend/analytics-demo-smoke.mjs",

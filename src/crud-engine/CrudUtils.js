@@ -644,27 +644,42 @@
         }
         return Promise.resolve(false);
       }
+      const resolveConfirmLiteral = (explicitKey, params, explicitValue, fallbackKey, fallbackValue) => {
+        if (explicitKey) {
+          return this.resolveLiteral(explicitKey, params, explicitValue || fallbackValue);
+        }
+        if (explicitValue != null && String(explicitValue) !== "") {
+          return this.formatLiteral(String(explicitValue), params);
+        }
+        return this.resolveLiteral(fallbackKey, params, fallbackValue);
+      };
 
       const wrapper = $("<div></div>").appendTo(global.document.body);
       const content = $("<div class=\"crud-confirm-content\"></div>").appendTo(wrapper);
-      $("<p></p>").text(this.resolveLiteral(
-        settings.messageKey || "validation.message.confirm_default",
+      $("<p></p>").text(resolveConfirmLiteral(
+        settings.messageKey,
         settings.messageParams,
-        message || "Deseja continuar?"
+        message,
+        "validation.message.confirm_default",
+        "Deseja continuar?"
       )).appendTo(content);
       const actions = $("<div class=\"crud-form-actions\"></div>").appendTo(content);
       const confirmButton = $("<button type=\"button\"></button>")
-        .text(this.resolveLiteral(
-          settings.confirmTextKey || "literal.button.confirm",
+        .text(resolveConfirmLiteral(
+          settings.confirmTextKey,
           settings.confirmTextParams,
-          settings.confirmText || "Confirmar"
+          settings.confirmText,
+          "literal.button.confirm",
+          "Confirmar"
         ))
         .appendTo(actions);
       const cancelButton = $("<button type=\"button\"></button>")
-        .text(this.resolveLiteral(
-          settings.cancelTextKey || "literal.button.cancel",
+        .text(resolveConfirmLiteral(
+          settings.cancelTextKey,
           settings.cancelTextParams,
-          settings.cancelText || "Cancelar"
+          settings.cancelText,
+          "literal.button.cancel",
+          "Cancelar"
         ))
         .appendTo(actions);
       let resolved = false;
@@ -677,7 +692,7 @@
 
       return new Promise((resolve) => {
         wrapper.kendoWindow({
-          title: this.resolveLiteral(settings.titleKey || "literal.title.confirm", settings.titleParams, settings.title || "Confirmar"),
+          title: resolveConfirmLiteral(settings.titleKey, settings.titleParams, settings.title, "literal.title.confirm", "Confirmar"),
           modal: true,
           width: Math.min(settings.width || 420, Math.max(300, global.innerWidth - 24)),
           visible: false,
