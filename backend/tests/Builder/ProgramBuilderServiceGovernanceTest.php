@@ -3,6 +3,9 @@
 namespace App\Tests\Builder;
 
 use App\Builder\ProgramBuilderService;
+use App\Entity\BuilderEntity;
+use App\Entity\BuilderEntityVersion;
+use App\Entity\BuilderField;
 use App\Entity\BuilderModule;
 use App\Entity\Program;
 use App\Odoo\OdooClient;
@@ -201,6 +204,269 @@ class ProgramBuilderServiceGovernanceTest extends TestCase
         self::assertTrue($result['subscriberIsolation']['globalTable']);
     }
 
+    public function testSaveEntityFlushesStructuralSignatures(): void
+    {
+        $module = (new BuilderModule())
+            ->setCode('cadastros')
+            ->setName('Cadastros')
+            ->setAbbreviation('cd')
+            ->setNumberStart(1)
+            ->setNumberEnd(999);
+
+        $modules = $this->createStub(BuilderModuleRepository::class);
+        $modules->method('findOneBy')->willReturnCallback(
+            static fn (array $criteria): ?BuilderModule => $criteria === ['code' => 'cadastros'] ? $module : null
+        );
+
+        $entities = $this->createStub(BuilderEntityRepository::class);
+        $entities->method('findOneBy')->willReturn(null);
+
+        $fields = $this->createStub(BuilderFieldRepository::class);
+        $fields->method('findOneBy')->willReturn(null);
+
+        $entityVersions = $this->createStub(BuilderEntityVersionRepository::class);
+        $entityVersions->method('findByEntityCodeOrdered')->willReturn([]);
+        $entityVersions->method('nextRevision')->willReturn(1);
+
+        $persistedFields = [];
+        $flushes = 0;
+        $events = [];
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->method('persist')->willReturnCallback(function (object $entity) use (&$persistedFields): void {
+            if ($entity instanceof BuilderEntity && $entity->getId() === null) {
+                $this->setEntityId($entity, 52);
+            }
+            if ($entity instanceof BuilderField && $entity->getId() === null) {
+                $this->setEntityId($entity, 700 + count($persistedFields));
+                $persistedFields[] = $entity;
+            }
+            if ($entity instanceof BuilderEntityVersion && $entity->getId() === null) {
+                $this->setEntityId($entity, 19);
+            }
+        });
+        $entityManager->method('refresh')->willReturnCallback(function (object $entity) use (&$persistedFields): void {
+            if ($entity instanceof BuilderEntity) {
+                foreach ($persistedFields as $field) {
+                    $entity->addField($field);
+                }
+            }
+        });
+        $entityManager->expects(self::exactly(4))
+            ->method('flush')
+            ->willReturnCallback(function () use (&$flushes, &$events): void {
+                ++$flushes;
+                $events[] = 'flush';
+            });
+
+        $integrity = $this->createMock(StructuralIntegrityService::class);
+        $integrity->expects(self::once())
+            ->method('signBuilderEntity')
+            ->with(self::callback(static fn (BuilderEntity $entity): bool => $entity->getCode() === 'tipo_produto'))
+            ->willReturnCallback(function () use (&$events): void {
+                $events[] = 'sign_entity';
+            });
+        $integrity->expects(self::exactly(2))
+            ->method('signBuilderField')
+            ->with(self::callback(static fn (BuilderField $field): bool => in_array($field->getCode(), ['id', 'descricao'], true)))
+            ->willReturnCallback(function () use (&$events): void {
+                $events[] = 'sign_field';
+            });
+        $integrity->expects(self::once())
+            ->method('signBuilderEntityVersion')
+            ->with(self::isInstanceOf(BuilderEntityVersion::class))
+            ->willReturnCallback(function () use (&$events): void {
+                $events[] = 'sign_version';
+            });
+
+        $governance = $this->createStub(ProgramGovernanceService::class);
+        $governance->method('assertCanEditEntity')->willReturn(null);
+
+        $permissions = $this->createStub(PermissionResolver::class);
+        $permissions->method('hasPermission')->willReturn(true);
+        $permissions->method('getTenantId')->willReturn('default');
+        $permissions->method('getUserId')->willReturn('tester');
+
+        $service = new ProgramBuilderService(
+            $entities,
+            $this->createStub(BuilderApiSourceRepository::class),
+            $this->createStub(BuilderEditorLockRepository::class),
+            $modules,
+            $fields,
+            $entityVersions,
+            $this->createStub(BuilderProgramVersionRepository::class),
+            $this->createStub(ProgramRepository::class),
+            $this->createStub(ScreenDefinitionRepository::class),
+            $this->createStub(RuntimeEndpointRepository::class),
+            $entityManager,
+            $integrity,
+            $governance,
+            $this->createStub(ProgramOverlayService::class),
+            $this->createStub(RuntimeNotificationService::class),
+            $this->createStub(RuntimeEnvironmentIdentityResolver::class),
+            $permissions,
+            $this->createStub(RuntimeSessionGuard::class),
+            $this->createStub(OdooClient::class),
+            $this->createStub(RuntimeEventService::class),
+        );
+
+        $service->saveEntity([
+            'code' => 'tipo_produto',
+            'name' => 'Tipo de Produto',
+            'entityType' => 'persistence',
+            'tableName' => 't990',
+            'originalTableName' => 't990',
+            'structureModuleCode' => 'cadastros',
+            'structureType' => 'main',
+            'structureBaseNumber' => 990,
+            'subscriberIsolationMode' => 'none',
+            'subscriberGlobalTable' => true,
+            'createPhysicalTable' => false,
+            'fields' => [
+                ['code' => 'id', 'columnName' => 'id', 'label' => 'ID', 'dataType' => 'integer', 'primaryKey' => true],
+                ['code' => 'descricao', 'columnName' => 'descricao', 'label' => 'Descricao', 'dataType' => 'string', 'required' => true],
+            ],
+        ]);
+
+        self::assertSame(4, $flushes);
+        self::assertSame(['sign_entity', 'sign_field', 'sign_field', 'sign_version', 'flush'], array_slice($events, -5));
+    }
+
+    public function testRestoreEntityVersionFlushesStructuralSignatures(): void
+    {
+        $sourceVersion = (new BuilderEntityVersion())
+            ->setBuilderEntityCode('tipo_produto')
+            ->setEntityName('Tipo de Produto')
+            ->setEntityType('persistence')
+            ->setTableName('t990')
+            ->setRevision(1)
+            ->setSnapshot([
+                'code' => 'tipo_produto',
+                'name' => 'Tipo de Produto',
+                'entityType' => 'persistence',
+                'tableName' => 't990',
+                'originalTableName' => 't990',
+                'structureModuleCode' => 'cadastros',
+                'structureType' => 'main',
+                'structureBaseNumber' => 990,
+                'subscriberIsolationMode' => 'none',
+                'subscriberGlobalTable' => true,
+                'createPhysicalTable' => false,
+                'fields' => [
+                    ['code' => 'id', 'columnName' => 'id', 'label' => 'ID', 'dataType' => 'integer', 'primaryKey' => true],
+                    ['code' => 'descricao', 'columnName' => 'descricao', 'label' => 'Descricao', 'dataType' => 'string', 'required' => true],
+                ],
+            ]);
+        $this->setEntityId($sourceVersion, 19);
+
+        $module = (new BuilderModule())
+            ->setCode('cadastros')
+            ->setName('Cadastros')
+            ->setAbbreviation('cd')
+            ->setNumberStart(1)
+            ->setNumberEnd(999);
+
+        $modules = $this->createStub(BuilderModuleRepository::class);
+        $modules->method('findOneBy')->willReturnCallback(
+            static fn (array $criteria): ?BuilderModule => $criteria === ['code' => 'cadastros'] ? $module : null
+        );
+
+        $entities = $this->createStub(BuilderEntityRepository::class);
+        $entities->method('findOneBy')->willReturn(null);
+
+        $fields = $this->createStub(BuilderFieldRepository::class);
+        $fields->method('findOneBy')->willReturn(null);
+
+        $entityVersions = $this->createStub(BuilderEntityVersionRepository::class);
+        $entityVersions->method('find')->willReturnCallback(
+            static fn (int $id): ?BuilderEntityVersion => $id === 19 ? $sourceVersion : null
+        );
+        $entityVersions->method('findByEntityCodeOrdered')->willReturn([]);
+        $entityVersions->method('nextRevision')->willReturn(2);
+
+        $persistedFields = [];
+        $flushes = 0;
+        $events = [];
+        $entityManager = $this->createMock(EntityManagerInterface::class);
+        $entityManager->method('persist')->willReturnCallback(function (object $entity) use (&$persistedFields): void {
+            if ($entity instanceof BuilderEntity && $entity->getId() === null) {
+                $this->setEntityId($entity, 52);
+            }
+            if ($entity instanceof BuilderField && $entity->getId() === null) {
+                $this->setEntityId($entity, 700 + count($persistedFields));
+                $persistedFields[] = $entity;
+            }
+            if ($entity instanceof BuilderEntityVersion && $entity->getId() === null) {
+                $this->setEntityId($entity, 20);
+            }
+        });
+        $entityManager->method('refresh')->willReturnCallback(function (object $entity) use (&$persistedFields): void {
+            if ($entity instanceof BuilderEntity) {
+                foreach ($persistedFields as $field) {
+                    $entity->addField($field);
+                }
+            }
+        });
+        $entityManager->expects(self::exactly(4))
+            ->method('flush')
+            ->willReturnCallback(function () use (&$flushes, &$events): void {
+                ++$flushes;
+                $events[] = 'flush';
+            });
+
+        $integrity = $this->createMock(StructuralIntegrityService::class);
+        $integrity->expects(self::once())
+            ->method('signBuilderEntity')
+            ->with(self::callback(static fn (BuilderEntity $entity): bool => $entity->getCode() === 'tipo_produto'))
+            ->willReturnCallback(function () use (&$events): void {
+                $events[] = 'sign_entity';
+            });
+        $integrity->expects(self::exactly(2))
+            ->method('signBuilderField')
+            ->with(self::callback(static fn (BuilderField $field): bool => in_array($field->getCode(), ['id', 'descricao'], true)))
+            ->willReturnCallback(function () use (&$events): void {
+                $events[] = 'sign_field';
+            });
+        $integrity->expects(self::once())
+            ->method('signBuilderEntityVersion')
+            ->with(self::isInstanceOf(BuilderEntityVersion::class))
+            ->willReturnCallback(function () use (&$events): void {
+                $events[] = 'sign_version';
+            });
+
+        $permissions = $this->createStub(PermissionResolver::class);
+        $permissions->method('hasPermission')->willReturn(true);
+        $permissions->method('getTenantId')->willReturn('default');
+        $permissions->method('getUserId')->willReturn('tester');
+
+        $service = new ProgramBuilderService(
+            $entities,
+            $this->createStub(BuilderApiSourceRepository::class),
+            $this->createStub(BuilderEditorLockRepository::class),
+            $modules,
+            $fields,
+            $entityVersions,
+            $this->createStub(BuilderProgramVersionRepository::class),
+            $this->createStub(ProgramRepository::class),
+            $this->createStub(ScreenDefinitionRepository::class),
+            $this->createStub(RuntimeEndpointRepository::class),
+            $entityManager,
+            $integrity,
+            $this->createStub(ProgramGovernanceService::class),
+            $this->createStub(ProgramOverlayService::class),
+            $this->createStub(RuntimeNotificationService::class),
+            $this->createStub(RuntimeEnvironmentIdentityResolver::class),
+            $permissions,
+            $this->createStub(RuntimeSessionGuard::class),
+            $this->createStub(OdooClient::class),
+            $this->createStub(RuntimeEventService::class),
+        );
+
+        $service->restoreEntityVersion(19);
+
+        self::assertSame(4, $flushes);
+        self::assertSame(['sign_entity', 'sign_field', 'sign_field', 'sign_version', 'flush'], array_slice($events, -5));
+    }
+
     private function service(RuntimeEnvironmentIdentityResolver $environment): ProgramBuilderService
     {
         return new ProgramBuilderService(
@@ -274,5 +540,12 @@ class ProgramBuilderServiceGovernanceTest extends TestCase
             $this->createStub(OdooClient::class),
             $this->createStub(RuntimeEventService::class),
         );
+    }
+
+    private function setEntityId(object $entity, int $id): void
+    {
+        $reflection = new \ReflectionProperty($entity, 'id');
+        $reflection->setAccessible(true);
+        $reflection->setValue($entity, $id);
     }
 }

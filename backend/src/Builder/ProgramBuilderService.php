@@ -35,6 +35,7 @@ use App\Runtime\RuntimeNotificationService;
 use App\Runtime\RuntimeSessionGuard;
 use App\Runtime\StructuralIntegrityService;
 use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\Schema\Index\IndexType;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
@@ -1746,6 +1747,7 @@ class ProgramBuilderService
         $this->integrity->signBuilderEntity($entity, ['source' => 'saveEntity']);
         $this->signEntityFields($entity, 'saveEntity');
         $this->integrity->signBuilderEntityVersion($version, ['source' => 'saveEntity']);
+        $this->entityManager->flush();
 
         return [
             'entity' => $this->entityPayload($entity),
@@ -1790,6 +1792,7 @@ class ProgramBuilderService
         $this->integrity->signBuilderEntity($entity, ['source' => 'restoreEntityVersion']);
         $this->signEntityFields($entity, 'restoreEntityVersion');
         $this->integrity->signBuilderEntityVersion($restored, ['source' => 'restoreEntityVersion']);
+        $this->entityManager->flush();
 
         return [
             'entity' => $this->entityPayload($entity),
@@ -8115,7 +8118,7 @@ class ProgramBuilderService
     {
         $schemaManager = $connection->createSchemaManager();
         foreach ($schemaManager->listTableForeignKeys($tableName) as $foreignKey) {
-            $name = (string) $foreignKey->getName();
+            $name = $foreignKey->getObjectName()?->toString() ?? '';
             if (str_starts_with($name, 'uniq_' . $tableName . '_')) {
                 $this->executeSchemaStatement(
                     $connection,
@@ -8125,8 +8128,8 @@ class ProgramBuilderService
             }
         }
         foreach ($schemaManager->listTableIndexes($tableName) as $index) {
-            $name = (string) $index->getName();
-            if (!$index->isUnique() || !str_starts_with($name, 'uniq_' . $tableName . '_')) {
+            $name = $index->getObjectName()->toString();
+            if ($index->getType() !== IndexType::UNIQUE || !str_starts_with($name, 'uniq_' . $tableName . '_')) {
                 continue;
             }
             $this->executeSchemaStatement(
