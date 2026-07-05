@@ -22,6 +22,8 @@
         return { previous: false, next: false };
       };
       this.linkedPageEngines = {};
+      this.submitInProgress = false;
+      this.submitButton = null;
     }
 
     open(mode, data) {
@@ -2397,7 +2399,7 @@
       }
     }
 
-    handleBackendValidationResponse(payload, retryCallback) {
+    handleBackendValidationResponse(payload, retryCallback, completionCallback) {
       const normalized = global.CrudUtils.normalizeBackendValidation(payload, "Existem inconsistencias no formulario.");
       if (!normalized.hasValidation) {
         return false;
@@ -2417,6 +2419,10 @@
       }).then((confirmed) => {
         if (confirmed && validation.requiresConfirmation && validation.confirmationToken && typeof retryCallback === "function") {
           retryCallback(validation.confirmationToken);
+          return;
+        }
+        if (typeof completionCallback === "function") {
+          completionCallback();
         }
       });
 
@@ -2869,17 +2875,17 @@
       const confirmButtonConfig = this.getFormButton("confirm") || this.getFormButton("save");
       const cancelButtonConfig = this.getFormButton("cancel");
       if (canConfirm) {
-        $("<button type=\"button\"></button>")
+        const confirmButton = $("<button type=\"button\"></button>")
           .text(confirmButtonConfig && confirmButtonConfig.label ? confirmButtonConfig.label : "Confirmar")
           .appendTo(actions)
           .kendoButton({
             themeColor: "primary",
             icon: confirmButtonConfig && confirmButtonConfig.icon || "check",
             enable: true
-          })
-          .on("click", () => {
-            this.confirmAction(confirmButtonConfig);
           });
+        confirmButton.on("click", () => {
+          this.confirmAction(confirmButtonConfig, confirmButton);
+        });
       }
       $("<button type=\"button\"></button>")
         .text(cancelButtonConfig && cancelButtonConfig.label ? cancelButtonConfig.label : "Cancelar")
@@ -2945,8 +2951,14 @@
       return !steps.length || this.currentStepIndex >= steps.length - 1;
     }
 
-    confirmAction(buttonConfig) {
+    confirmAction(buttonConfig, confirmButton) {
+      if (this.submitInProgress) {
+        return;
+      }
       if (this.actionMode === "delete") {
+        if (!this.beginSubmit(confirmButton)) {
+          return;
+        }
         const deleteButtonConfig = this.getFormButton("delete");
         Promise.resolve(this.onDelete(global.CrudUtils.clone(this.data), {
           confirm: false,
@@ -2956,19 +2968,31 @@
         })).then((deleted) => {
           if (deleted) {
             this.close();
+          } else {
+            this.finishSubmit();
           }
+        }).catch((error) => {
+          this.finishSubmit();
+          const normalized = global.CrudUtils.unwrapError(error, "Erro ao excluir registro.");
+          global.CrudUtils.showMessage(normalized.message, "error");
         });
         return;
       }
-      this.save(buttonConfig);
+      this.save(buttonConfig, confirmButton);
     }
 
-    save(buttonConfig) {
+    save(buttonConfig, confirmButton) {
+      if (this.submitInProgress) {
+        return;
+      }
       const payload = this.collectValues();
       payload._runtime = Object.assign({}, this.data && this.data._runtime || {}, payload._runtime || {});
       const validationErrors = this.validatePayload(payload);
       if (validationErrors.length) {
         global.CrudUtils.showMessage(validationErrors.join("\n"), "error");
+        return;
+      }
+      if (!this.beginSubmit(confirmButton)) {
         return;
       }
       const primaryKey = this.definition.dataModel.primaryKey;
@@ -2991,7 +3015,7 @@
             validationConfirmationToken: token
           });
           return send(retryPayload);
-        })) {
+        }, () => this.finishSubmit())) {
           return;
         }
         const savedMode = this.mode;
@@ -3003,6 +3027,7 @@
           effects: response && response.effects || []
         });
         this.resetDirtyState();
+        this.finishSubmit();
         if (this.shouldCloseOnSave()) {
           this.close(true);
         } else {
@@ -3021,14 +3046,44 @@
             validationConfirmationToken: token
           });
           return send(retryPayload);
-        })) {
+        }, () => this.finishSubmit())) {
           return;
         }
         const normalized = global.CrudUtils.unwrapError(error, "Erro ao salvar.");
         global.CrudUtils.showMessage(normalized.message, "error");
+        this.finishSubmit();
       });
 
       send(payload);
+    }
+
+    beginSubmit(confirmButton) {
+      if (this.submitInProgress) {
+        return false;
+      }
+      this.submitInProgress = true;
+      this.submitButton = confirmButton || null;
+      this.setSubmitButtonEnabled(false);
+      return true;
+    }
+
+    finishSubmit() {
+      this.submitInProgress = false;
+      this.setSubmitButtonEnabled(true);
+      this.submitButton = null;
+    }
+
+    setSubmitButtonEnabled(enabled) {
+      const button = this.submitButton;
+      if (!button || !button.length) {
+        return;
+      }
+      const widget = button.data("kendoButton");
+      if (widget && typeof widget.enable === "function") {
+        widget.enable(enabled);
+      }
+      button.prop("disabled", enabled === false);
+      button.attr("aria-disabled", enabled === false ? "true" : "false");
     }
 
     resolveButtonEndpoint(buttonConfig, mode) {

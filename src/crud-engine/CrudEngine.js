@@ -20,6 +20,7 @@
       this.currentRuntimeLock = null;
       this.runtimeHeartbeatTimer = null;
       this.runtimeMessageTimer = null;
+      this.runtimeMessageStartupTimer = null;
       this.runtimeEventSource = null;
       this.runtimeEventFallbackTimer = null;
       this.sessionRevoked = false;
@@ -2016,24 +2017,36 @@
       }
       this.stopRuntimeMessagePolling();
       const seconds = Math.max(10, Number(messages.pollIntervalSeconds || 30));
-      if (this.startRuntimeMessageEvents(messages, seconds)) {
-        return;
-      }
-      this.startRuntimeMessageTimer(seconds);
+      this.runtimeMessageStartupTimer = window.setTimeout(() => {
+        this.runtimeMessageStartupTimer = null;
+        if (this.sessionRevoked) {
+          return;
+        }
+        if (this.startRuntimeMessageEvents(messages, seconds)) {
+          return;
+        }
+        this.startRuntimeMessageTimer(seconds, { pollImmediately: true });
+      }, seconds * 1000);
     }
 
-    startRuntimeMessageTimer(seconds) {
+    startRuntimeMessageTimer(seconds, options) {
       const endpoint = this.getRuntimeApiEndpoint("runtime.messages.poll");
       if (!endpoint || !endpoint.url || this.sessionRevoked) {
         return;
       }
-      this.pollRuntimeMessages();
+      if (options && options.pollImmediately === true) {
+        this.pollRuntimeMessages();
+      }
       this.runtimeMessageTimer = window.setInterval(() => {
         this.pollRuntimeMessages();
       }, seconds * 1000);
     }
 
     stopRuntimeMessagePolling() {
+      if (this.runtimeMessageStartupTimer) {
+        window.clearTimeout(this.runtimeMessageStartupTimer);
+        this.runtimeMessageStartupTimer = null;
+      }
       if (this.runtimeMessageTimer) {
         window.clearInterval(this.runtimeMessageTimer);
         this.runtimeMessageTimer = null;
@@ -2084,7 +2097,7 @@
         this.runtimeEventFallbackTimer = window.setTimeout(() => {
           if (this.runtimeEventSource === source && source.readyState !== global.EventSource.OPEN && !this.sessionRevoked) {
             this.stopRuntimeMessageEvents();
-            this.startRuntimeMessageTimer(fallbackSeconds);
+            this.startRuntimeMessageTimer(fallbackSeconds, { pollImmediately: true });
           }
         }, 10000);
       };
