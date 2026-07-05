@@ -329,7 +329,7 @@ class RuntimeAnalyticsPipelineServiceTest extends TestCase
             ->setStatus('published')
             ->setDefinition($definition);
 
-        $screens = $this->createMock(ScreenDefinitionRepository::class);
+        $screens = $this->createStub(ScreenDefinitionRepository::class);
         $screens->method('findPublishedByScreenId')->willReturn($screen);
         $screens->method('findBy')->willReturnCallback(function (array $criteria) use ($screen): array {
             if (($criteria['pageType'] ?? null) === 'report') {

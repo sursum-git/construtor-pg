@@ -249,7 +249,7 @@ class RuntimeEntityActionServiceSubscriberIsolationTest extends TestCase
         $rules = $this->createStub(RuntimeBusinessRuleRegistry::class);
         $configuredRules = new RuntimeConfiguredRuleExecutor($transactions);
 
-        $situations = $this->createMock(RuntimeSituationService::class);
+        $situations = $this->createStub(RuntimeSituationService::class);
         $situations->method('applyCreateDefaults')->willReturnCallback(static fn (array $definition, array $values): array => $values);
         $situations->method('validateCreate')->willReturn(null);
         $situations->method('validateUpdate')->willReturn(null);

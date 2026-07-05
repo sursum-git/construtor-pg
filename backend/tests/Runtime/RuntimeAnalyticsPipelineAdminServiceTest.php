@@ -73,8 +73,10 @@ class RuntimeAnalyticsPipelineAdminServiceTest extends TestCase
                 ],
             ]);
 
-        $screens = $this->createMock(ScreenDefinitionRepository::class);
-        $screens->method('findPublishedByScreenId')->with('analytics.clientes')->willReturn($analyticsScreen);
+        $screens = $this->createStub(ScreenDefinitionRepository::class);
+        $screens->method('findPublishedByScreenId')->willReturnCallback(
+            static fn (string $screenId): ?ScreenDefinition => $screenId === 'analytics.clientes' ? $analyticsScreen : null,
+        );
         $screens->method('findBy')->willReturnCallback(function (array $criteria) use ($analyticsScreen, $reportScreen): array {
             if (($criteria['pageType'] ?? null) === 'report') {
                 return [$reportScreen];
