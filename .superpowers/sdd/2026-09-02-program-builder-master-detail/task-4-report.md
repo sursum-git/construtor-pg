@@ -51,3 +51,29 @@ git diff --check
 
 - A fixture é intencionalmente de teste e depende das dependências de desenvolvimento do backend (PHPUnit); ela não cria ou publica dados persistentes no runtime real.
 - A futura ligação a um endpoint Symfony real para `createGraph` permanece fora do escopo desta Task; o contrato visual e transacional é protegido pelo runtime mock fechado.
+
+## Correção da revisão
+
+### RED
+
+O smoke passou a chamar o cliente do runtime mock com quatro variações indevidas: origem externa, `screenId` diferente, querystring adicional e método `GET` em `master.read`. Antes da correção, a execução falhou como esperado:
+
+```text
+Error: O runtime mock aceitou URL, caminho ou metodo fora da lista fechada.
+```
+
+O mesmo smoke agora verifica que, após os cliques, a aba ativa e o painel visível correspondem a `Itens`/`Produto publicado` e `Parcelas`/`120,00`.
+
+### GREEN
+
+`ClosedBuilderRuntimeMock.request()` passou a aceitar exclusivamente os caminhos relativos fechados da definição publicada, com origem igual à da página, sem query/hash e com método esperado. Qualquer URL externa, caminho não listado ou método diferente retorna `RUNTIME_ENDPOINT_NOT_FOUND`.
+
+Validação após a correção:
+
+```text
+npm run test:program-builder-master-detail
+node tests/frontend/master-detail-smoke.mjs
+node tests/frontend/master-detail-create-flow-smoke.mjs
+```
+
+Todos concluíram com código 0.

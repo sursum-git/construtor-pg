@@ -14,6 +14,35 @@ function assert(condition, message) {
   }
 }
 
+async function assertActiveDetailTab(page, title, contentText) {
+  await page.getByText(title, { exact: true }).click();
+  const state = await page.locator(".master-detail-tabs").evaluate((element, expectedTitle) => {
+    const activeTab = Array.from(element.querySelectorAll(".k-tabstrip-items li")).find((tab) =>
+      tab.classList.contains("k-active") || tab.getAttribute("aria-selected") === "true"
+    );
+    const activeContent = Array.from(element.querySelectorAll(".k-tabstrip-content")).find((panel) =>
+      panel.classList.contains("k-active") || panel.getAttribute("aria-hidden") === "false"
+    );
+    return {
+      activeTitle: activeTab?.textContent?.trim() || "",
+      activeContent: activeContent?.textContent || ""
+    };
+  }, title);
+  assert(state.activeTitle === title, "A aba ativa deveria ser " + title + ".");
+  assert(state.activeContent.includes(contentText), "O painel ativo de " + title + " nao mostrou seu conteudo.");
+}
+
+async function closedRuntimeErrorCode(page, requestUrl, method = "POST") {
+  return page.evaluate(async ({ url, requestMethod }) => {
+    try {
+      await window.productionCrudEngine.httpClient.request({ url, method: requestMethod });
+      return "REQUEST_ACCEPTED";
+    } catch (error) {
+      return error?.error?.code || error?.code || "UNKNOWN_ERROR";
+    }
+  }, { url: requestUrl, requestMethod: method });
+}
+
 function loadPublishedDefinition() {
   const output = execFileSync("php", [fixturePath], {
     cwd: root,
@@ -85,21 +114,31 @@ await page.addInitScript(({ runtimeDefinition, runtimeScreenId }) => {
       }
 
       request(request) {
-        const url = new URL(request.url, window.location.href);
-        if (request.method === "GET" && url.pathname.endsWith("/api/runtime/screens/" + runtimeScreenId)) {
+        let url;
+        try {
+          url = new URL(request?.url || "", window.location.href);
+        } catch (_) {
+          return Promise.reject({ error: { code: "RUNTIME_ENDPOINT_NOT_FOUND", message: "Endpoint fechado nao encontrado." } });
+        }
+        const runtimePath = "/api/runtime/screens/" + encodeURIComponent(runtimeScreenId);
+        const endpointPath = runtimePath + "/endpoints/";
+        const method = String(request?.method || "GET").toUpperCase();
+        if (url.origin !== window.location.origin || url.search || url.hash) {
+          return Promise.reject({ error: { code: "RUNTIME_ENDPOINT_NOT_FOUND", message: "Endpoint fechado nao encontrado." } });
+        }
+        if (method === "GET" && url.pathname === runtimePath) {
           return Promise.resolve(runtimeDefinition);
         }
-        const endpoint = url.pathname.split("/").pop();
-        if (endpoint === "master.read") {
+        if (method === "POST" && url.pathname === endpointPath + "master.read") {
           return Promise.resolve({ data: this.masterRecords });
         }
-        if (endpoint === "detail.pedido_item.read") {
+        if (method === "POST" && url.pathname === endpointPath + "detail.pedido_item.read") {
           return Promise.resolve({ data: this.detailRecords.pedido_item });
         }
-        if (endpoint === "detail.pedido_parcela.read") {
+        if (method === "POST" && url.pathname === endpointPath + "detail.pedido_parcela.read") {
           return Promise.resolve({ data: this.detailRecords.pedido_parcela });
         }
-        if (endpoint === "createGraph") {
+        if (method === "POST" && url.pathname === endpointPath + "createGraph") {
           window.__programBuilderMasterDetailCreateGraphCalls += 1;
           return Promise.reject({
             error: {
@@ -123,8 +162,16 @@ try {
   await page.waitForSelector(".master-detail-screen");
   await page.waitForSelector(".master-detail-parent-panel");
   await page.waitForSelector(".master-detail-child-panel");
-  await page.getByText("Itens", { exact: true }).click();
-  await page.getByText("Parcelas", { exact: true }).click();
+  await assertActiveDetailTab(page, "Itens", "Produto publicado");
+  await assertActiveDetailTab(page, "Parcelas", "120,00");
+
+  const rejectedRoutes = await Promise.all([
+    closedRuntimeErrorCode(page, "https://nao-confiavel.test/api/runtime/screens/" + screenId + "/endpoints/master.read"),
+    closedRuntimeErrorCode(page, baseUrl + "/api/runtime/screens/outra-tela/endpoints/master.read"),
+    closedRuntimeErrorCode(page, baseUrl + "/api/runtime/screens/" + screenId + "/endpoints/master.read?origem=externa"),
+    closedRuntimeErrorCode(page, baseUrl + "/api/runtime/screens/" + screenId + "/endpoints/master.read", "GET")
+  ]);
+  assert(rejectedRoutes.every((code) => code === "RUNTIME_ENDPOINT_NOT_FOUND"), "O runtime mock aceitou URL, caminho ou metodo fora da lista fechada.");
 
   await page.setViewportSize({ width: 768, height: 900 });
   await page.reload();
