@@ -46,6 +46,7 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
             ->setNumberEnd(199);
         $master = $this->pedidoEntity();
         $detail = $this->pedidoItemEntity();
+        $installment = $this->pedidoParcelaEntity();
         $masterVersion = (new BuilderEntityVersion())->setBuilderEntityCode('pedido_venda');
         $this->setEntityId($masterVersion, 700);
         $savedVersion = null;
@@ -53,10 +54,11 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
         $publishedScreen = null;
 
         $entities = $this->createStub(BuilderEntityRepository::class);
-        $entities->method('findOneBy')->willReturnCallback(static function (array $criteria) use ($master, $detail): ?BuilderEntity {
+        $entities->method('findOneBy')->willReturnCallback(static function (array $criteria) use ($master, $detail, $installment): ?BuilderEntity {
             return match ($criteria['code'] ?? null) {
                 'pedido_venda' => $master,
                 'pedido_item' => $detail,
+                'pedido_parcela' => $installment,
                 default => null,
             };
         });
@@ -171,6 +173,20 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
         self::assertArrayNotHasKey('url', $definition['createFlow']);
     }
 
+    public function testPreviewMasterDetailBuildsPublishedRuntimeShapeWithoutEmbeddedRecords(): void
+    {
+        $preview = $this->service()->previewDraft($this->validProgramPayload());
+        $definition = $preview['generatedDefinition'];
+
+        self::assertSame('master_detail', $definition['pageType']);
+        self::assertSame('vendas.pedidos', $definition['screenId']);
+        self::assertSame(['pedido_item', 'pedido_parcela'], array_column($definition['details'], 'entity'));
+        self::assertSame('createGraph', $definition['createFlow']['endpointId']);
+        self::assertArrayNotHasKey('records', $definition['master']);
+        self::assertArrayNotHasKey('records', $definition['details'][0]);
+        self::assertArrayNotHasKey('records', $definition['details'][1]);
+    }
+
     #[DataProvider('invalidMasterDetailConfigs')]
     public function testNormalizeMasterDetailConfigRejectsInvalidReferences(array $config, string $errorCode): void
     {
@@ -228,15 +244,27 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
             return match ($criteria['code'] ?? null) {
                 'pedido_venda' => $this->pedidoEntity(),
                 'pedido_item' => $this->pedidoItemEntity(),
+                'pedido_parcela' => $this->pedidoParcelaEntity(),
                 default => null,
             };
         });
+
+        $permissions = $this->createStub(PermissionResolver::class);
+        $permissions->method('hasPermission')->willReturn(true);
+        $module = (new BuilderModule())
+            ->setCode('vendas')
+            ->setName('Vendas')
+            ->setAbbreviation('vd')
+            ->setNumberStart(100)
+            ->setNumberEnd(199);
+        $modules = $this->createStub(BuilderModuleRepository::class);
+        $modules->method('findOneBy')->willReturnCallback(static fn (array $criteria): ?BuilderModule => $criteria === ['code' => 'vendas'] ? $module : null);
 
         return new ProgramBuilderService(
             $entities,
             $this->createStub(BuilderApiSourceRepository::class),
             $this->createStub(BuilderEditorLockRepository::class),
-            $this->createStub(BuilderModuleRepository::class),
+            $modules,
             $this->createStub(BuilderFieldRepository::class),
             $this->createStub(BuilderEntityVersionRepository::class),
             $this->createStub(BuilderProgramVersionRepository::class),
@@ -249,7 +277,7 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
             $this->createStub(ProgramOverlayService::class),
             $this->createStub(RuntimeNotificationService::class),
             $this->createStub(RuntimeEnvironmentIdentityResolver::class),
-            $this->createStub(PermissionResolver::class),
+            $permissions,
             $this->createStub(RuntimeSessionGuard::class),
             $this->createStub(OdooClient::class),
             $this->createStub(RuntimeEventService::class),
@@ -294,6 +322,16 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
                     'label' => 'Total dos itens',
                     'type' => 'currency',
                 ]],
+            ], [
+                'entityCode' => 'pedido_parcela',
+                'title' => 'Parcelas',
+                'parentField' => 'pedido_id',
+                'displayFields' => ['numero', 'vencimento', 'valor'],
+                'totals' => [[
+                    'field' => 'valor',
+                    'label' => 'Total das parcelas',
+                    'type' => 'currency',
+                ]],
             ]],
         ];
     }
@@ -315,6 +353,17 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
             $this->field('produto', 'Produto', 'string', 3),
             $this->field('quantidade', 'Quantidade', 'decimal', 4),
             $this->field('valor_total', 'Valor total', 'currency', 5),
+        ]);
+    }
+
+    private function pedidoParcelaEntity(): BuilderEntity
+    {
+        return $this->entity('pedido_parcela', 'Parcela do pedido', [
+            $this->field('id', 'ID', 'integer', 1, true),
+            $this->field('pedido_id', 'Pedido', 'integer', 2),
+            $this->field('numero', 'Numero', 'integer', 3),
+            $this->field('vencimento', 'Vencimento', 'date', 4),
+            $this->field('valor', 'Valor', 'currency', 5),
         ]);
     }
 
