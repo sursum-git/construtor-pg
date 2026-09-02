@@ -4,7 +4,12 @@ namespace App\Tests\Builder;
 
 use App\Builder\ProgramBuilderService;
 use App\Entity\BuilderEntity;
+use App\Entity\BuilderEntityVersion;
 use App\Entity\BuilderField;
+use App\Entity\BuilderModule;
+use App\Entity\BuilderProgramVersion;
+use App\Entity\Program;
+use App\Entity\ScreenDefinition;
 use App\Odoo\OdooClient;
 use App\Repository\BuilderApiSourceRepository;
 use App\Repository\BuilderEditorLockRepository;
@@ -31,6 +36,120 @@ use PHPUnit\Framework\TestCase;
 
 class ProgramBuilderServiceMasterDetailTest extends TestCase
 {
+    public function testSaveAndPublishMasterDetailKeepsConfigurationAndDefinition(): void
+    {
+        $module = (new BuilderModule())
+            ->setCode('vendas')
+            ->setName('Vendas')
+            ->setAbbreviation('vd')
+            ->setNumberStart(100)
+            ->setNumberEnd(199);
+        $master = $this->pedidoEntity();
+        $detail = $this->pedidoItemEntity();
+        $masterVersion = (new BuilderEntityVersion())->setBuilderEntityCode('pedido_venda');
+        $this->setEntityId($masterVersion, 700);
+        $savedVersion = null;
+        $publishedProgram = null;
+        $publishedScreen = null;
+
+        $entities = $this->createStub(BuilderEntityRepository::class);
+        $entities->method('findOneBy')->willReturnCallback(static function (array $criteria) use ($master, $detail): ?BuilderEntity {
+            return match ($criteria['code'] ?? null) {
+                'pedido_venda' => $master,
+                'pedido_item' => $detail,
+                default => null,
+            };
+        });
+
+        $modules = $this->createStub(BuilderModuleRepository::class);
+        $modules->method('findOneBy')->willReturnCallback(static fn (array $criteria): ?BuilderModule => $criteria === ['code' => 'vendas'] ? $module : null);
+
+        $versions = $this->createStub(BuilderProgramVersionRepository::class);
+        $versions->method('findOneBy')->willReturn(null);
+        $versions->method('find')->willReturnCallback(static function (int $id) use (&$savedVersion): ?BuilderProgramVersion {
+            return $id === 701 ? $savedVersion : null;
+        });
+        $versions->method('findByProgramCodeOrdered')->willReturnCallback(static function (string $programCode) use (&$savedVersion): array {
+            return $programCode === 'vd0101' && $savedVersion ? [$savedVersion] : [];
+        });
+
+        $programs = $this->createStub(ProgramRepository::class);
+        $programs->method('findOneBy')->willReturnCallback(static function () use (&$publishedProgram): ?Program {
+            return $publishedProgram;
+        });
+        $screens = $this->createStub(ScreenDefinitionRepository::class);
+        $screens->method('findOneBy')->willReturn(null);
+        $entityVersions = $this->createStub(BuilderEntityVersionRepository::class);
+        $entityVersions->method('findByEntityCodeOrdered')->willReturn([$masterVersion]);
+
+        $entityManager = $this->createStub(EntityManagerInterface::class);
+        $entityManager->method('persist')->willReturnCallback(function (object $entity) use (&$savedVersion, &$publishedProgram, &$publishedScreen): void {
+            if ($entity instanceof BuilderProgramVersion && $entity->getId() === null) {
+                $this->setEntityId($entity, 701);
+                $savedVersion = $entity;
+            }
+            if ($entity instanceof Program && $entity->getId() === null) {
+                $this->setEntityId($entity, 702);
+                $publishedProgram = $entity;
+            }
+            if ($entity instanceof ScreenDefinition && $entity->getId() === null) {
+                $this->setEntityId($entity, 703);
+                $publishedScreen = $entity;
+            }
+        });
+
+        $permissions = $this->createStub(PermissionResolver::class);
+        $permissions->method('hasPermission')->willReturn(true);
+
+        $service = new ProgramBuilderService(
+            $entities,
+            $this->createStub(BuilderApiSourceRepository::class),
+            $this->createStub(BuilderEditorLockRepository::class),
+            $modules,
+            $this->createStub(BuilderFieldRepository::class),
+            $entityVersions,
+            $versions,
+            $programs,
+            $screens,
+            $this->createStub(RuntimeEndpointRepository::class),
+            $entityManager,
+            $this->createStub(StructuralIntegrityService::class),
+            $this->createStub(ProgramGovernanceService::class),
+            $this->createStub(ProgramOverlayService::class),
+            $this->createStub(RuntimeNotificationService::class),
+            $this->createStub(RuntimeEnvironmentIdentityResolver::class),
+            $permissions,
+            $this->createStub(RuntimeSessionGuard::class),
+            $this->createStub(OdooClient::class),
+            $this->createStub(RuntimeEventService::class),
+        );
+
+        $draft = $service->saveDraft($this->validProgramPayload());
+
+        self::assertSame('master_detail', $draft['pageType']);
+        self::assertSame('pedido_venda', $draft['builderEntityCode']);
+        self::assertSame('pedido_venda', $draft['builderConfig']['masterDetailConfig']['masterEntityCode']);
+        self::assertSame('master_detail', $draft['generatedDefinition']['pageType']);
+
+        $published = $service->publishVersion(701);
+
+        self::assertSame('vd0101', $published['program']['code']);
+        self::assertSame('vendas.pedidos', $published['program']['screenId']);
+        self::assertSame('master_detail', $published['program']['programType']);
+        self::assertInstanceOf(ScreenDefinition::class, $publishedScreen);
+        self::assertSame('master_detail', $publishedScreen->getPageType());
+        self::assertSame('vendas.pedidos', $publishedScreen->getScreenId());
+        self::assertSame('master_detail', $publishedScreen->getDefinition()['pageType']);
+        self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $publishedScreen->getDefinition()['runtime']['traceability']['schemaFingerprint']);
+
+        $definitionWithoutMasterDetail = $publishedScreen->getDefinition();
+        unset($definitionWithoutMasterDetail['master'], $definitionWithoutMasterDetail['details'], $definitionWithoutMasterDetail['createFlow']);
+        self::assertNotSame(
+            $publishedScreen->getDefinition()['runtime']['traceability']['schemaFingerprint'],
+            $this->invokePrivateMixed($service, 'programSchemaFingerprint', [$savedVersion, $definitionWithoutMasterDetail])
+        );
+    }
+
     public function testGenerateMasterDetailDefinitionBuildsGraph(): void
     {
         $definition = $this->invokePrivateMixed($this->service(), 'generateMasterDetailDefinition', [[
@@ -142,6 +261,21 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
         return self::baseMasterDetailConfig();
     }
 
+    private function validProgramPayload(): array
+    {
+        return [
+            'programCode' => 'vd0101',
+            'programTitle' => 'Pedido de venda',
+            'module' => 'vendas',
+            'pageType' => 'master_detail',
+            'builderEntityCode' => 'pedido_venda',
+            'screenId' => 'vendas.pedidos',
+            'version' => '1.0.0',
+            'permissionPrefix' => 'vendas.pedido',
+            'masterDetailConfig' => $this->validMasterDetailConfig(),
+        ];
+    }
+
     private static function baseMasterDetailConfig(): array
     {
         return [
@@ -214,5 +348,12 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
         $reflection->setAccessible(true);
 
         return $reflection->invokeArgs($target, $arguments);
+    }
+
+    private function setEntityId(object $entity, int $id): void
+    {
+        $reflection = new \ReflectionProperty($entity, 'id');
+        $reflection->setAccessible(true);
+        $reflection->setValue($entity, $id);
     }
 }
