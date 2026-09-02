@@ -81,6 +81,22 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
         $invalidField['details'][0]['displayFields'] = ['produto_inexistente'];
         yield 'campo ou total invalido' => [$invalidField, 'PROGRAM_BUILDER_MASTER_DETAIL_FIELD_INVALID'];
 
+        $invalidTotalField = $valid;
+        $invalidTotalField['details'][0]['totals'] = [[
+            'field' => 'total_inexistente',
+            'label' => 'Total',
+            'type' => 'currency',
+        ]];
+        yield 'campo total inexistente' => [$invalidTotalField, 'PROGRAM_BUILDER_MASTER_DETAIL_FIELD_INVALID'];
+
+        $textTotal = $valid;
+        $textTotal['details'][0]['totals'] = [[
+            'field' => 'produto',
+            'label' => 'Total de produto',
+            'type' => 'currency',
+        ]];
+        yield 'campo textual nao pode ser total currency' => [$textTotal, 'PROGRAM_BUILDER_MASTER_DETAIL_FIELD_INVALID'];
+
         $withoutGraph = $valid;
         $withoutGraph['createFlow'] = ['mode' => 'draftWithChildren'];
         yield 'fluxo conjunto sem endpoint' => [$withoutGraph, 'PROGRAM_BUILDER_MASTER_DETAIL_CREATE_GRAPH_REQUIRED'];

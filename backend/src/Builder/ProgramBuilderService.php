@@ -3617,7 +3617,7 @@ class ProgramBuilderService
                         'field' => $totalField,
                     ]);
                 }
-                $totalType = strtolower(trim((string) ($total['type'] ?? $this->normalizeFieldType($availableFields[$totalField]->getDataType()))));
+                $totalType = $this->normalizeFieldType($availableFields[$totalField]->getDataType());
                 if (!in_array($totalType, ['currency', 'number', 'integer', 'decimal'], true)) {
                     throw new RuntimeHttpException('PROGRAM_BUILDER_MASTER_DETAIL_FIELD_INVALID', 'Total da filha exige campo numerico.', 422, [
                         'entityCode' => $detailCode,
