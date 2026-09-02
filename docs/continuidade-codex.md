@@ -25,6 +25,9 @@ Use este arquivo para retomar o trabalho em outra sessao.
 
 ## Mestre-detalhe em producao
 
+- O `Program Builder` agora permite criar programas `pageType=master_detail` com uma entidade mestre `persistence`, entidades filhas vinculadas por campo, campos de exibicao/totais e fluxo de inclusao `parentFirst` ou `draftWithChildren`.
+- O preview do builder gera a definicao completa (`master`, `details` e `createFlow`) e aceita somente o endpoint seguro `masterDetail.createGraph` para inclusao conjunta.
+- A validacao automatizada da capacidade do builder usa `npm run test:program-builder-master-detail`.
 - A tela `vendas.pedido-master-detail` publica `pageType=master_detail`.
 - A URL de producao e `production/app.html?screenId=vendas.pedido-master-detail`.
 - O backend usa tres entidades persistentes distintas:
