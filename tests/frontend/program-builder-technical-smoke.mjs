@@ -41,6 +41,40 @@ async function closeTechnicalDialog(page) {
   });
 }
 
+async function verifyMasterDetailLayout(page, width) {
+  await page.setViewportSize({ width, height: 900 });
+  const controls = await page.evaluate(() => {
+    const app = window.programBuilderDemoApp;
+    app.activateSideTab(1);
+    const context = app.propertiesElement.find(".program-builder-master-detail-context").get(0);
+    const rect = context.getBoundingClientRect();
+    const controlRects = Array.from(context.querySelectorAll(".program-builder-master-detail-editor > .program-builder-field, .program-builder-master-detail-editor > button")).map((element) => {
+      const controlRect = element.getBoundingClientRect();
+      return { left: controlRect.left, top: controlRect.top, right: controlRect.right, bottom: controlRect.bottom, width: controlRect.width, height: controlRect.height };
+    });
+    const overlaps = controlRects.some((current, index) => controlRects.slice(index + 1).some((next) => current.left < next.right && current.right > next.left && current.top < next.bottom && current.bottom > next.top));
+    return {
+      context: { left: rect.left, right: rect.right, width: rect.width, height: rect.height },
+      controls: controlRects,
+      overlaps,
+      viewportWidth: window.innerWidth
+    };
+  });
+  const preview = await page.evaluate(() => {
+    const app = window.programBuilderDemoApp;
+    app.activateSideTab(0);
+    const rect = app.previewPanel.get(0).getBoundingClientRect();
+    return { left: rect.left, right: rect.right, width: rect.width, height: rect.height };
+  });
+  if (controls.context.width <= 0 || controls.context.height <= 0 || controls.context.left < 0 || controls.context.right > controls.viewportWidth || controls.controls.some((item) => item.width <= 0 || item.height <= 0) || controls.overlaps) {
+    throw new Error(`Controles mestre-detalhe sem acesso ou sobrepostos em ${width}px.`);
+  }
+  if (preview.width <= 0 || preview.height <= 0 || preview.left >= controls.viewportWidth || preview.right <= 0) {
+    throw new Error(`Preview nao acessivel em ${width}px.`);
+  }
+  return { width, controls, preview };
+}
+
 async function main() {
   await ensureOutputDir();
   const browser = await chromium.launch({ headless: true });
@@ -54,6 +88,7 @@ async function main() {
     const masterDetailPayload = await page.evaluate(() => {
       const app = window.programBuilderDemoApp;
       app.state.entities = [
+        { code: "cliente", name: "Cliente", entityType: "persistence" },
         { code: "pedido_venda", name: "Pedido de venda", entityType: "persistence" },
         { code: "pedido_item", name: "Item do pedido", entityType: "persistence" }
       ];
@@ -81,33 +116,65 @@ async function main() {
       app.addMasterDetail("pedido_item", "pedido_id");
       app.syncProgramTypeState();
       app.selectPropertyNode("program", { code: "" });
+      app.builderEntitySelect.value("cliente");
+      app.handleProgramEntityChange(false);
+      const propertyBaseEntity = app.propertiesElement.find(".program-builder-field").filter(function() {
+        return window.jQuery(this).find(".program-builder-field-label-row span").first().text() === "Entidade base";
+      }).find("select");
+      propertyBaseEntity.val("cliente").triggerHandler("change");
+      const context = app.propertiesElement.find(".program-builder-master-detail-context");
+      const changedMaster = {
+        masterEntityCode: app.masterDetailConfigValue().masterEntityCode,
+        contextualText: context.find(".program-builder-master-detail-summary").text(),
+        detailOptions: context.find("[data-role='combobox']").data("kendoComboBox").dataSource.data().map(function(item) { return item.value; })
+      };
+      app.setMasterDetailConfig({
+        masterEntityCode: "cliente",
+        createFlow: { mode: "draftWithChildren", endpointId: "carregamento.nao.permitido" },
+        details: app.masterDetailConfigValue().details
+      });
+      const loadedEndpoint = app.masterDetailConfigValue().createFlow.endpointId;
+      app.setMasterDetailCreateFlow("draftWithChildren", "nao.permitido");
+      const normalizedEndpoint = app.masterDetailConfigValue().createFlow.endpointId;
       const payload = app.collectProgramPayload();
       app.renderLocalSummary(payload);
       return {
         payload,
         preview: app.state.preview && app.state.preview.generatedDefinition,
         contextualPanel: app.propertiesElement.find(".program-builder-master-detail-context").length,
-        hasCustomModeLabel: app.propertiesElement.text().indexOf("Modo custom") >= 0
+        hasCustomModeLabel: app.propertiesElement.text().indexOf("Modo custom") >= 0,
+        switchedViaPropertyPanel: propertyBaseEntity.length === 1,
+        changedMaster,
+        loadedEndpoint,
+        normalizedEndpoint
       };
     });
     if (masterDetailPayload.payload.pageType !== "master_detail") {
       throw new Error("O editor nao coletou pageType=master_detail.");
     }
-    if (masterDetailPayload.payload.builderEntityCode !== "pedido_venda") {
-      throw new Error("O editor nao manteve pedido_venda como entidade mestre.");
+    if (masterDetailPayload.payload.builderEntityCode !== "cliente") {
+      throw new Error("O editor nao atualizou a entidade mestre pelo painel de propriedades.");
     }
-    if (!masterDetailPayload.payload.masterDetailConfig || masterDetailPayload.payload.masterDetailConfig.masterEntityCode !== "pedido_venda") {
-      throw new Error("O payload nao informou a configuracao declarativa do mestre.");
+    if (!masterDetailPayload.payload.masterDetailConfig || masterDetailPayload.payload.masterDetailConfig.masterEntityCode !== "cliente") {
+      throw new Error("O payload nao atualizou a configuracao declarativa do mestre.");
     }
     if (masterDetailPayload.payload.masterDetailConfig.details.length !== 1 || masterDetailPayload.payload.masterDetailConfig.details[0].parentField !== "pedido_id") {
       throw new Error("O payload nao preservou parentField para pedido_item.");
     }
-    if (!masterDetailPayload.preview || masterDetailPayload.preview.master.entityCode !== "pedido_venda" || masterDetailPayload.preview.details[0].parentField !== "pedido_id") {
+    if (!masterDetailPayload.preview || masterDetailPayload.preview.master.entityCode !== "cliente" || masterDetailPayload.preview.details[0].parentField !== "pedido_id") {
       throw new Error("O preview local nao exibiu mestre e filhos declarativos.");
     }
-    if (masterDetailPayload.preview.createFlow.mode !== "parentFirst" || masterDetailPayload.contextualPanel !== 1 || masterDetailPayload.hasCustomModeLabel) {
+    if (masterDetailPayload.preview.createFlow.mode !== "draftWithChildren" || masterDetailPayload.contextualPanel !== 1 || masterDetailPayload.hasCustomModeLabel) {
       throw new Error("O painel contextual do mestre-detalhe esta incompleto ou exibiu controles custom.");
     }
+    if (!masterDetailPayload.switchedViaPropertyPanel || masterDetailPayload.changedMaster.masterEntityCode !== "cliente" || masterDetailPayload.changedMaster.contextualText.indexOf("cliente") < 0 || masterDetailPayload.changedMaster.detailOptions.includes("cliente")) {
+      throw new Error("A troca de mestre nao atualizou imediatamente o inspetor e as opcoes de filhos.");
+    }
+    if (masterDetailPayload.loadedEndpoint !== "masterDetail.createGraph" || masterDetailPayload.normalizedEndpoint !== "masterDetail.createGraph" || masterDetailPayload.payload.masterDetailConfig.createFlow.endpointId !== "masterDetail.createGraph") {
+      throw new Error("O endpointId fora da lista fechada permaneceu no estado ou payload.");
+    }
+    const layout1366 = await verifyMasterDetailLayout(page, 1366);
+    const layout768 = await verifyMasterDetailLayout(page, 768);
 
     const entityTriggers = await page.evaluate(() => window.programBuilderDemoApp.entityPanel.find('[data-crud-role="program-builder-technical-info"]').length);
     await clickFirstFromContainer(page, "entityPanel");
@@ -150,7 +217,9 @@ async function main() {
       programTriggers,
       apiTriggers,
       inspectorTriggers,
-      masterDetailPayload
+      masterDetailPayload,
+      layout1366,
+      layout768
     };
 
     await fs.writeFile(

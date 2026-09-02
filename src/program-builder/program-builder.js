@@ -3868,15 +3868,21 @@
     return entity && Array.isArray(entity.fields) ? entity.fields : [];
   };
 
+  ProgramBuilder.prototype.normalizeMasterDetailCreateFlow = function(mode, endpointId) {
+    const createFlowMode = mode === "draftWithChildren" ? "draftWithChildren" : "parentFirst";
+    const safeEndpointId = String(endpointId || "").trim() === "masterDetail.createGraph" ? "masterDetail.createGraph" : "";
+    return {
+      mode: createFlowMode,
+      endpointId: createFlowMode === "draftWithChildren" ? (safeEndpointId || "masterDetail.createGraph") : ""
+    };
+  };
+
   ProgramBuilder.prototype.masterDetailConfigValue = function() {
     const current = this.state.masterDetailConfig || {};
     const masterEntityCode = String(current.masterEntityCode || this.builderEntitySelect && this.builderEntitySelect.value && this.builderEntitySelect.value() || "").trim();
     return {
       masterEntityCode: masterEntityCode,
-      createFlow: {
-        mode: current.createFlow && current.createFlow.mode === "draftWithChildren" ? "draftWithChildren" : "parentFirst",
-        endpointId: String(current.createFlow && current.createFlow.endpointId || "").trim()
-      },
+      createFlow: this.normalizeMasterDetailCreateFlow(current.createFlow && current.createFlow.mode, current.createFlow && current.createFlow.endpointId),
       details: Array.isArray(current.details) ? current.details.map(function(detail) {
         return {
           entityCode: String(detail && detail.entityCode || "").trim(),
@@ -3900,6 +3906,7 @@
 
   ProgramBuilder.prototype.setMasterDetailConfig = function(config) {
     this.state.masterDetailConfig = config || null;
+    this.state.masterDetailConfig = this.masterDetailConfigValue();
   };
 
   ProgramBuilder.prototype.syncMasterDetailMasterEntity = function() {
@@ -3961,10 +3968,7 @@
 
   ProgramBuilder.prototype.setMasterDetailCreateFlow = function(mode, endpointId) {
     const config = this.masterDetailConfigValue();
-    config.createFlow = {
-      mode: mode === "draftWithChildren" ? "draftWithChildren" : "parentFirst",
-      endpointId: String(endpointId || "").trim()
-    };
+    config.createFlow = this.normalizeMasterDetailCreateFlow(mode, endpointId);
     this.setMasterDetailConfig(config);
     this.schedulePreview();
   };
@@ -10460,6 +10464,8 @@
     const entity = this.findEntitySummary(entityCode);
     if (pageType === "master_detail") {
       this.syncMasterDetailMasterEntity();
+      this.renderPropertyInspector();
+      this.schedulePreview();
       if (entity && entity.entityType !== "persistence") {
         this.previewFooter.text("Mestre-detalhe aceita somente entidade mestre persistence.");
       }

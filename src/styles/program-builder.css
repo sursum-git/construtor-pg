@@ -753,6 +753,10 @@
 .program-builder-master-detail-context {
   display: grid;
   gap: 12px;
+  width: 392px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 12px;
   border: 1px solid #b8d6f5;
   border-radius: 8px;
@@ -770,6 +774,14 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+  min-width: 0;
+}
+
+.program-builder-master-detail-editor > .program-builder-field,
+.program-builder-master-detail-editor .k-input,
+.program-builder-master-detail-editor .k-picker {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .program-builder-master-detail-summary-item,
@@ -1420,5 +1432,9 @@
   .program-builder-master-detail-editor,
   .program-builder-master-detail-row {
     grid-template-columns: 1fr;
+  }
+
+  .program-builder-master-detail-context {
+    width: 300px;
   }
 }
