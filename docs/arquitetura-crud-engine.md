@@ -10,7 +10,7 @@ Frontend renderiza.
 Esse mesmo principio tambem existe para a pagina inicial via `HomeEngine`.
 O `HomeEngine` e separado do `CrudEngine`: ele monta o shell global e pode chamar um CRUD como um dos tipos fechados de programa.
 Para paginas de processamento por parametros existe tambem o `ProcessEngine`, separado do CRUD para evitar misturar consultas com execucoes de jobs.
-Para geracao visual de novos programas existe uma interface administrativa separada, que gera definicoes CRUD ou registra programas custom e publica o resultado no runtime.
+Para geracao visual de novos programas existe uma interface administrativa separada, que gera definicoes CRUD, `master_detail`, analytics, relatorios e documentos ou registra programas custom, publicando o resultado no runtime.
 Esse editor agora tambem possui painel contextual de propriedades, visao de relacionamentos, comparativo entre revisoes/versoes, reordenacao por drag-and-drop para campos/regras/chaves, lock de edicao com heartbeat no backend, importacao de tabelas PostgreSQL existentes e importacao de SQL/DDL com `CREATE TABLE`.
 Existe tambem um MVP opcional e separado em `desktop-wpf/`, criado apenas para validar uma experiencia desktop de autoria sem impactar o frontend web atual.
 
@@ -29,8 +29,10 @@ Contrato atual:
 - `master.entity` aponta para a entidade persistente do cabecalho.
 - cada item de `details[]` aponta para uma entidade persistente filha.
 - `master.idField` e o identificador do mestre.
-- `details[].parentField` e a coluna da filha que referencia o mestre.
+- `details[].parentField` e a FK/relacao da filha que referencia a tabela e a chave primaria do mestre; um campo apenas homonimo ou do mesmo tipo nao e aceito.
 - cada secao possui endpoints fechados `read`, `get`, `create`, `update` e `delete`.
+- o Program Builder publica e ativa `master.*`, `detail.<entidade>.*` e, no fluxo conjunto, `createGraph`; operacoes de escrita desabilitadas nao entram na definicao nem ficam ativas no runtime.
+- cada filha guarda `title`, `displayFields` e `totals`, todos escolhidos a partir dos campos da propria entidade.
 
 Em producao, a tela `vendas.pedido-master-detail` usa:
 
@@ -56,7 +58,7 @@ Exemplo:
     "mode": "draftWithChildren",
     "api": {
       "createGraph": {
-        "endpointId": "masterDetail.createGraph",
+        "endpointId": "createGraph",
         "method": "POST"
       }
     }
@@ -835,7 +837,7 @@ As APIs da tela devem usar `endpointId` ou `actionId`; o motor converte esses id
 As demos continuam em `index.html`, `home.html` e `examples/pages/*.html`.
 Para producao, usar entradas separadas:
 
-- `production/app.html?screenId=cadastros.clientes`: abre uma tela por `screenId`, detectando `crud`, `process` ou `custom`.
+- `production/app.html?screenId=cadastros.clientes`: abre uma tela por `screenId`, detectando `crud`, `master_detail`, `process`, `custom`, `analytics`, `report`, `special_document` ou `regulated_document`.
 - `production/home.html?screenId=home`: abre a Home por `screenId`; se ausente, usa `home`.
 - Programas `type="process"` podem ser abertos pela Home usando `screenId` em producao.
 - Programas `type="custom"` podem ser abertos pela Home ou diretamente em `production/app.html`, usando definicao runtime com `custom.mode` e `custom.entryUrl`.
@@ -1075,9 +1077,9 @@ Na esteira atual, publicar programa `standard/system` exige:
 - bundle de testes executado;
 - aprovacao final ativa.
 
-Primeiro escopo suportado:
+O escopo comecou somente com `pageType="crud"`; o mesmo fluxo de versao, governanca, preview e publicacao hoje tambem suporta `master_detail`, analytics, relatorios, documentos e programas custom, respeitando os contratos proprios de cada tipo.
 
-- somente `pageType="crud"`;
+Escopo estrutural originalmente entregue para CRUD:
 - modelagem visual de entidade persistente;
 - selecao visual de `entityType` (`persistence`, `query`, `io`);
 - cadastro visual de modulo estrutural com abreviacao e faixa numerica inicial/final sem sobreposicao;

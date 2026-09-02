@@ -3868,12 +3868,55 @@
     return entity && Array.isArray(entity.fields) ? entity.fields : [];
   };
 
+  ProgramBuilder.prototype.masterDetailEligibleParentFields = function(detailEntityCode, masterEntityCode) {
+    const detailCode = String(detailEntityCode || "").trim();
+    const masterCode = String(masterEntityCode || this.builderEntitySelect && this.builderEntitySelect.value && this.builderEntitySelect.value() || "").trim();
+    const masterSummary = this.findEntitySummary(masterCode) || {};
+    const masterDetail = this.state.entityDetailCache && this.state.entityDetailCache[masterCode] || {};
+    const masterFields = this.masterDetailEntityFields(masterCode);
+    const primaryField = masterFields.find(function(field) {
+      return field && field.primaryKey === true;
+    });
+    const masterTable = String(masterDetail.tableName || masterSummary.tableName || "").trim().toLowerCase();
+    const primaryCode = String(primaryField && primaryField.code || "").trim();
+    const primaryColumn = String(primaryField && (primaryField.columnName || primaryField.code) || "").trim().toLowerCase();
+    if (!detailCode || !masterCode || !primaryField) {
+      return [];
+    }
+
+    return this.masterDetailEntityFields(detailCode).filter(function(field) {
+      if (!field || field.virtualField === true) {
+        return false;
+      }
+      const foreignKey = field.options && field.options.foreignKey || {};
+      const targetEntityCode = String(foreignKey.entityCode || "").trim();
+      const targetFieldCode = String(foreignKey.fieldCode || "").trim();
+      if (targetEntityCode || targetFieldCode) {
+        return targetEntityCode === masterCode && targetFieldCode === primaryCode;
+      }
+      const targetTable = String(field.foreignKeyTable || foreignKey.table || "").trim().toLowerCase();
+      const targetColumn = String(field.foreignKeyColumn || foreignKey.column || "").trim().toLowerCase();
+      return masterTable !== "" && primaryColumn !== "" && targetTable === masterTable && targetColumn === primaryColumn;
+    });
+  };
+
+  ProgramBuilder.prototype.masterDetailDetailCompatibility = function(detail, masterEntityCode) {
+    const detailFields = this.masterDetailEntityFields(detail && detail.entityCode);
+    const masterFields = this.masterDetailEntityFields(masterEntityCode);
+    if (!detailFields.length || !masterFields.length) {
+      return null;
+    }
+    return this.masterDetailEligibleParentFields(detail.entityCode, masterEntityCode).some(function(field) {
+      return String(field.code || "") === String(detail.parentField || "");
+    });
+  };
+
   ProgramBuilder.prototype.normalizeMasterDetailCreateFlow = function(mode, endpointId) {
     const createFlowMode = mode === "draftWithChildren" ? "draftWithChildren" : "parentFirst";
-    const safeEndpointId = String(endpointId || "").trim() === "masterDetail.createGraph" ? "masterDetail.createGraph" : "";
+    const safeEndpointId = String(endpointId || "").trim() === "createGraph" ? "createGraph" : "";
     return {
       mode: createFlowMode,
-      endpointId: createFlowMode === "draftWithChildren" ? (safeEndpointId || "masterDetail.createGraph") : ""
+      endpointId: createFlowMode === "draftWithChildren" ? (safeEndpointId || "createGraph") : ""
     };
   };
 
@@ -3914,8 +3957,8 @@
     const masterEntityCode = String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "").trim();
     config.masterEntityCode = masterEntityCode;
     config.details = config.details.filter(function(detail) {
-      return detail.entityCode !== masterEntityCode;
-    });
+      return detail.entityCode !== masterEntityCode && this.masterDetailDetailCompatibility(detail, masterEntityCode) !== false;
+    }.bind(this));
     this.setMasterDetailConfig(config);
   };
 
@@ -3925,7 +3968,7 @@
     const masterCode = String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "").trim();
     const detailEntity = this.findEntitySummary(detailCode);
     const fields = this.masterDetailEntityFields(detailCode);
-    if (!masterCode || detailCode === masterCode || !detailEntity || detailEntity.entityType !== "persistence" || !parent || !fields.some(function(field) {
+    if (!masterCode || detailCode === masterCode || !detailEntity || detailEntity.entityType !== "persistence" || !parent || !this.masterDetailEligibleParentFields(detailCode, masterCode).some(function(field) {
       return String(field && field.code || "") === parent;
     })) {
       return false;
@@ -3952,6 +3995,60 @@
     } else {
       config.details.push(detail);
     }
+    this.setMasterDetailConfig(config);
+    this.schedulePreview();
+    return true;
+  };
+
+  ProgramBuilder.prototype.updateMasterDetailDetail = function(entityCode, patch) {
+    const detailCode = String(entityCode || "").trim();
+    const changes = patch || {};
+    const config = this.masterDetailConfigValue();
+    const detail = config.details.find(function(item) {
+      return item.entityCode === detailCode;
+    });
+    if (!detail) {
+      return false;
+    }
+
+    const fields = this.masterDetailEntityFields(detailCode);
+    const fieldsByCode = fields.reduce(function(result, field) {
+      const code = String(field && field.code || "").trim();
+      if (code) {
+        result[code] = field;
+      }
+      return result;
+    }, {});
+    if (Object.prototype.hasOwnProperty.call(changes, "title")) {
+      detail.title = String(changes.title || "").trim();
+    }
+    if (Object.prototype.hasOwnProperty.call(changes, "singularTitle")) {
+      detail.singularTitle = String(changes.singularTitle || "").trim();
+    }
+    if (Array.isArray(changes.displayFields)) {
+      detail.displayFields = changes.displayFields.map(function(value) {
+        return String(value || "").trim();
+      }).filter(function(code, index, values) {
+        const field = fieldsByCode[code];
+        return Boolean(field) && field.primaryKey !== true && code !== detail.parentField && values.indexOf(code) === index;
+      });
+    }
+    if (Array.isArray(changes.totals)) {
+      detail.totals = changes.totals.map(function(total) {
+        const fieldCode = String(total && total.field || "").trim();
+        const field = fieldsByCode[fieldCode];
+        const type = String(field && (field.dataType || field.type) || "").toLowerCase();
+        if (!field || ["integer", "decimal", "number", "currency"].indexOf(type) < 0) {
+          return null;
+        }
+        return {
+          field: fieldCode,
+          label: String(total && total.label || field.label || fieldCode).trim(),
+          type: type
+        };
+      }).filter(Boolean);
+    }
+
     this.setMasterDetailConfig(config);
     this.schedulePreview();
     return true;
@@ -10493,6 +10590,16 @@
       }
     }
     this.ensureEntityDetail(entityCode).then(function() {
+      if (pageType === "master_detail") {
+        const detailLoads = this.masterDetailConfigValue().details.map(function(detail) {
+          return this.ensureEntityDetail(detail.entityCode);
+        }.bind(this));
+        return Promise.all(detailLoads).then(function() {
+          this.syncMasterDetailMasterEntity();
+          this.renderPropertyInspector();
+          this.schedulePreview();
+        }.bind(this));
+      }
       if (pageType === "analytics" && this.analyticsProgramPanel) {
         this.refreshAnalyticsConfigOptions();
         if (!String(this.analyticsSortFieldSelect.val() || "").trim()) {

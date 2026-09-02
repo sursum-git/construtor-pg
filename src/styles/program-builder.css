@@ -813,8 +813,19 @@
 }
 
 .program-builder-master-detail-row {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.program-builder-master-detail-row > .program-builder-field,
+.program-builder-master-detail-row .k-input,
+.program-builder-master-detail-row .k-multiselect {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.program-builder-master-detail-row > button {
+  justify-self: start;
 }
 
 .program-builder-preview {

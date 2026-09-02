@@ -38,7 +38,7 @@ final class ProgramBuilderMasterDetailFixtureHarness extends TestCase
     }
 }
 
-function fixtureField(string $code, string $label, string $type, int $position, bool $primaryKey = false, bool $required = false): BuilderField
+function fixtureField(string $code, string $label, string $type, int $position, bool $primaryKey = false, bool $required = false, array $options = []): BuilderField
 {
     return (new BuilderField())
         ->setCode($code)
@@ -46,7 +46,8 @@ function fixtureField(string $code, string $label, string $type, int $position, 
         ->setDataType($type)
         ->setPosition($position)
         ->setPrimaryKey($primaryKey)
-        ->setRequired($required);
+        ->setRequired($required)
+        ->setOptions($options);
 }
 
 function fixtureEntity(string $code, string $name, array $fields): BuilderEntity
@@ -71,14 +72,18 @@ $master = fixtureEntity('pedido_venda', 'Pedido de venda', [
 ]);
 $items = fixtureEntity('pedido_item', 'Item do pedido', [
     fixtureField('id', 'ID', 'integer', 1, true),
-    fixtureField('pedido_id', 'Pedido', 'integer', 2),
+    fixtureField('pedido_id', 'Pedido', 'integer', 2, false, false, [
+        'foreignKey' => ['table' => 't_pedido_venda', 'column' => 'id'],
+    ]),
     fixtureField('produto', 'Produto', 'string', 3),
     fixtureField('quantidade', 'Quantidade', 'decimal', 4),
     fixtureField('valor_total', 'Valor total', 'currency', 5),
 ]);
 $installments = fixtureEntity('pedido_parcela', 'Parcela do pedido', [
     fixtureField('id', 'ID', 'integer', 1, true),
-    fixtureField('pedido_id', 'Pedido', 'integer', 2),
+    fixtureField('pedido_id', 'Pedido', 'integer', 2, false, false, [
+        'foreignKey' => ['table' => 't_pedido_venda', 'column' => 'id'],
+    ]),
     fixtureField('numero', 'Numero', 'integer', 3),
     fixtureField('vencimento', 'Vencimento', 'date', 4),
     fixtureField('valor', 'Valor', 'currency', 5),

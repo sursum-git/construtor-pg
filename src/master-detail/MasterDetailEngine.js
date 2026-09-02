@@ -57,6 +57,12 @@
   MasterDetailEngine.prototype.normalizeDefinition = function() {
     const definition = this.definition;
     definition.program = definition.program || {};
+    definition.permissions = Object.assign({
+      read: true,
+      create: true,
+      edit: true,
+      delete: true
+    }, definition.permissions || {});
     definition.master = definition.master || {};
     definition.master.idField = definition.master.idField || "id";
     definition.master.fields = ensureArray(definition.master.fields);
@@ -229,9 +235,15 @@
       .find("p").text(master.subtitle || "Registros principais");
 
     const actions = $("<div class=\"master-detail-actions\"></div>").appendTo(heading);
-    this.createButton(actions, "Incluir", "plus", "primary", () => this.openMasterWindow("create"));
-    this.createButton(actions, "Alterar", "pencil", null, () => this.openMasterWindow("edit", this.getSelectedMaster()));
-    this.createButton(actions, "Excluir", "trash", null, () => this.deleteSelectedMaster());
+    if (this.hasPermission("create")) {
+      this.createButton(actions, "Incluir", "plus", "primary", () => this.openMasterWindow("create"));
+    }
+    if (this.hasPermission("edit")) {
+      this.createButton(actions, "Alterar", "pencil", null, () => this.openMasterWindow("edit", this.getSelectedMaster()));
+    }
+    if (this.hasPermission("delete")) {
+      this.createButton(actions, "Excluir", "trash", null, () => this.deleteSelectedMaster());
+    }
 
     this.masterContextElement = $("<div class=\"master-detail-context\"></div>").appendTo(panel);
     const gridElement = $("<div class=\"master-detail-grid master-detail-master-grid\"></div>").appendTo(panel);
@@ -284,16 +296,21 @@
 
   MasterDetailEngine.prototype.renderSingleDetail = function(container, detail) {
     const toolbar = $("<div class=\"master-detail-detail-toolbar\"></div>").appendTo(container);
-    this.detailButtons[detail.id] = {
-      create: this.createButton(toolbar, "Incluir", "plus", "primary", () => this.openDetailWindow(detail, "create")),
-      edit: this.createButton(toolbar, "Alterar", "pencil", null, () => {
+    this.detailButtons[detail.id] = {};
+    if (this.hasPermission("create")) {
+      this.detailButtons[detail.id].create = this.createButton(toolbar, "Incluir", "plus", "primary", () => this.openDetailWindow(detail, "create"));
+    }
+    if (this.hasPermission("edit")) {
+      this.detailButtons[detail.id].edit = this.createButton(toolbar, "Alterar", "pencil", null, () => {
         const record = this.getSelectedDetailRecord(detail);
         if (record) {
           this.openDetailWindow(detail, "edit", record);
         }
-      }),
-      remove: this.createButton(toolbar, "Excluir", "trash", null, () => this.deleteSelectedDetail(detail))
-    };
+      });
+    }
+    if (this.hasPermission("delete")) {
+      this.detailButtons[detail.id].remove = this.createButton(toolbar, "Excluir", "trash", null, () => this.deleteSelectedDetail(detail));
+    }
 
     this.detailSummaries[detail.id] = $("<div class=\"master-detail-summary\"></div>").appendTo(container);
 
@@ -324,11 +341,9 @@
   };
 
   MasterDetailEngine.prototype.buildGridColumns = function(section, handlers) {
-    const columns = [{
-      title: "Acoes",
-      width: 170,
-      command: [
-        {
+    const commands = [];
+    if (this.hasPermission("edit")) {
+      commands.push({
           name: "masterDetailEdit",
           text: "Editar",
           click: (event) => {
@@ -338,8 +353,10 @@
               handlers.edit(record);
             }
           }
-        },
-        {
+        });
+    }
+    if (this.hasPermission("delete")) {
+      commands.push({
           name: "masterDetailDelete",
           text: "Excluir",
           click: (event) => {
@@ -349,9 +366,13 @@
               handlers.remove(record);
             }
           }
-        }
-      ]
-    }];
+        });
+    }
+    const columns = commands.length ? [{
+      title: "Acoes",
+      width: 170,
+      command: commands
+    }] : [];
 
     const fieldsById = this.fieldsById(section.fields);
     const configured = ensureArray(section.grid.columns);
@@ -439,12 +460,15 @@
     }
     const idField = this.definition.master.idField;
     const rows = this.masterGrid.tbody.children("tr");
-    rows.off("dblclick.masterDetail").on("dblclick.masterDetail", (event) => {
-      const record = this.masterGrid.dataItem(event.currentTarget);
-      if (record) {
-        this.openMasterWindow("edit", record);
-      }
-    });
+    rows.off("dblclick.masterDetail");
+    if (this.hasPermission("edit")) {
+      rows.on("dblclick.masterDetail", (event) => {
+        const record = this.masterGrid.dataItem(event.currentTarget);
+        if (record) {
+          this.openMasterWindow("edit", record);
+        }
+      });
+    }
     rows.each((_, row) => {
       const record = this.masterGrid.dataItem(row);
       if (record && String(record[idField]) === String(this.selectedMasterId)) {
@@ -458,12 +482,15 @@
     if (!grid) {
       return;
     }
-    grid.tbody.children("tr").off("dblclick.masterDetail").on("dblclick.masterDetail", (event) => {
-      const record = grid.dataItem(event.currentTarget);
-      if (record) {
-        this.openDetailWindow(detail, "edit", record);
-      }
-    });
+    const rows = grid.tbody.children("tr").off("dblclick.masterDetail");
+    if (this.hasPermission("edit")) {
+      rows.on("dblclick.masterDetail", (event) => {
+        const record = grid.dataItem(event.currentTarget);
+        if (record) {
+          this.openDetailWindow(detail, "edit", record);
+        }
+      });
+    }
   };
 
   MasterDetailEngine.prototype.setSelectedMaster = function(id) {
@@ -580,6 +607,9 @@
   };
 
   MasterDetailEngine.prototype.openMasterWindow = function(mode, record) {
+    if (!this.hasPermission(mode === "create" ? "create" : "edit")) {
+      return;
+    }
     if (mode === "create" && this.getCreateFlowMode() === "draftWithChildren") {
       this.openCreateGraphWindow();
       return;
@@ -596,6 +626,9 @@
   };
 
   MasterDetailEngine.prototype.openDetailWindow = function(detail, mode, record) {
+    if (!this.hasPermission(mode === "create" ? "create" : "edit")) {
+      return;
+    }
     if (this.selectedMasterId == null) {
       showMessage("Selecione o registro pai antes de incluir filhos.", "warning");
       return;
@@ -1178,6 +1211,9 @@
   };
 
   MasterDetailEngine.prototype.deleteMaster = function(record) {
+    if (!this.hasPermission("delete")) {
+      return;
+    }
     const idField = this.definition.master.idField;
     const id = record[idField];
     confirmAction("Excluir o registro pai tambem remove os filhos vinculados nesta tela. Deseja continuar?", () => {
@@ -1213,6 +1249,9 @@
   };
 
   MasterDetailEngine.prototype.deleteDetail = function(detail, record) {
+    if (!this.hasPermission("delete")) {
+      return;
+    }
     const idField = detail.idField;
     const id = record[idField];
     confirmAction("Excluir este registro filho?", () => {
@@ -1237,6 +1276,13 @@
   MasterDetailEngine.prototype.hasEndpoint = function(section, operation) {
     const endpoint = section && section.api && section.api[operation];
     return Boolean(endpoint && endpoint.url && this.httpClient && typeof this.httpClient.request === "function");
+  };
+
+  MasterDetailEngine.prototype.hasPermission = function(permission) {
+    if (global.CrudUtils && typeof global.CrudUtils.getPermission === "function") {
+      return global.CrudUtils.getPermission(this.definition, permission);
+    }
+    return Boolean(this.definition.permissions && this.definition.permissions[permission]);
   };
 
   MasterDetailEngine.prototype.hasRemoteDetails = function() {

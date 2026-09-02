@@ -49,7 +49,9 @@
     }), () => this.moduleInput.value(), (value) => this.moduleInput.value(value), this.programFieldTechnicalProperties("programModule"));
     const pageType = String(this.pageTypeSelect.value() || "crud");
     if (pageType === "crud" || pageType === "master_detail") {
-      this.appendPropertySelect(panel, "Entidade base", this.state.entities.map(function(item) {
+      this.appendPropertySelect(panel, "Entidade base", this.state.entities.filter(function(item) {
+        return pageType !== "master_detail" || item.entityType === "persistence";
+      }).map(function(item) {
         return { value: item.code, text: item.code + " - " + item.name };
       }), () => this.builderEntitySelect.value(), (value) => { this.builderEntitySelect.value(value); this.handleProgramEntityChange(false); }, this.programFieldTechnicalProperties("baseEntity"));
       if (pageType === "master_detail") {
@@ -109,7 +111,7 @@
           return;
         }
         thisProgram.ensureEntityDetail(code).then(function() {
-          const fields = thisProgram.masterDetailEntityFields(code).map(function(field) {
+          const fields = thisProgram.masterDetailEligibleParentFields(code, masterCode).map(function(field) {
             return { value: field.code, text: field.code + " - " + (field.label || field.code) };
           });
           parentSelect.setDataSource(new kendo.data.DataSource({ data: fields }));
@@ -134,7 +136,7 @@
     const flowField = this.appendPropertyField(editor, "Fluxo de criacao", this.buildTechnicalProperties("Programa", "Fluxo de criacao", "Define se os filhos exigem o mestre salvo ou podem ser enviados no mesmo comando declarativo."));
     const endpointField = this.appendPropertyField(editor, "Endpoint ID", this.buildTechnicalProperties("Programa", "Endpoint ID", "Identificador seguro do endpoint transacional para inclusao conjunta, sem URL livre."));
     const endpointSelect = $("<input>").appendTo(endpointField).kendoDropDownList({
-      dataSource: [{ value: "", text: "Nao se aplica" }, { value: "masterDetail.createGraph", text: "masterDetail.createGraph" }],
+      dataSource: [{ value: "", text: "Nao se aplica" }, { value: "createGraph", text: "createGraph" }],
       dataTextField: "text",
       dataValueField: "value",
       value: config.createFlow.endpointId,
@@ -150,7 +152,7 @@
       value: config.createFlow.mode,
       change: function() {
         const joint = this.value() === "draftWithChildren";
-        const endpointId = joint ? (endpointSelect.value() || "masterDetail.createGraph") : "";
+        const endpointId = joint ? (endpointSelect.value() || "createGraph") : "";
         endpointSelect.enable(joint);
         endpointSelect.value(endpointId);
         thisProgram.setMasterDetailCreateFlow(this.value(), endpointId);
@@ -168,6 +170,82 @@
       const row = $("<div class=\"program-builder-master-detail-row\"></div>").appendTo(detailList);
       $("<strong></strong>").text(detail.title || detail.entityCode).appendTo(row);
       $("<span></span>").text(detail.entityCode + " • " + detail.parentField).appendTo(row);
+      const fields = thisProgram.masterDetailEntityFields(detail.entityCode);
+      const displayOptions = fields.filter(function(field) {
+        return field && field.primaryKey !== true && String(field.code || "") !== detail.parentField;
+      }).map(function(field) {
+        return { value: String(field.code || ""), text: String(field.label || field.code || "") + " (" + String(field.code || "") + ")" };
+      });
+      const numericOptions = fields.filter(function(field) {
+        return field && ["integer", "decimal", "number", "currency"].indexOf(String(field.dataType || field.type || "").toLowerCase()) >= 0;
+      }).map(function(field) {
+        return { value: String(field.code || ""), text: String(field.label || field.code || "") + " (" + String(field.code || "") + ")" };
+      });
+
+      const titleField = thisProgram.appendPropertyField(row, "Titulo da filha", thisProgram.buildTechnicalProperties("Programa", "Titulo da filha", "Titulo da aba e da grade filha."));
+      const titleInput = $("<input type=\"text\" class=\"program-builder-mini-input program-builder-master-detail-title\">").val(detail.title || "").appendTo(titleField);
+      titleInput.on("input change", function() {
+        thisProgram.updateMasterDetailDetail(detail.entityCode, { title: titleInput.val() });
+      });
+
+      const displayField = thisProgram.appendPropertyField(row, "Campos exibidos", thisProgram.buildTechnicalProperties("Programa", "Campos exibidos", "Campos existentes da filha que formam as colunas da grade."));
+      const displaySelect = $("<select multiple class=\"program-builder-master-detail-display-fields\"></select>").appendTo(displayField);
+      const displayWidget = displaySelect.kendoMultiSelect({
+        dataSource: displayOptions,
+        dataTextField: "text",
+        dataValueField: "value",
+        value: detail.displayFields || [],
+        change: function() {
+          thisProgram.updateMasterDetailDetail(detail.entityCode, { displayFields: this.value() });
+        }
+      }).data("kendoMultiSelect");
+      if (displayWidget) {
+        displayWidget.value(detail.displayFields || []);
+      }
+
+      const totalsField = thisProgram.appendPropertyField(row, "Campos totalizados", thisProgram.buildTechnicalProperties("Programa", "Campos totalizados", "Campos numericos da filha resumidos abaixo da grade."));
+      const totalsSelect = $("<select multiple class=\"program-builder-master-detail-totals\"></select>").appendTo(totalsField);
+      const totalsWidget = totalsSelect.kendoMultiSelect({
+        dataSource: numericOptions,
+        dataTextField: "text",
+        dataValueField: "value",
+        value: (detail.totals || []).map(function(total) { return total.field; }),
+        change: function() {
+          const previous = (thisProgram.masterDetailConfigValue().details.find(function(item) {
+            return item.entityCode === detail.entityCode;
+          }) || {}).totals || [];
+          const totals = this.value().map(function(fieldCode) {
+            const field = fields.find(function(item) { return String(item.code || "") === fieldCode; }) || {};
+            const existing = previous.find(function(item) { return item.field === fieldCode; }) || {};
+            return {
+              field: fieldCode,
+              label: existing.label || field.label || fieldCode,
+              type: String(field.dataType || field.type || "number").toLowerCase()
+            };
+          });
+          thisProgram.updateMasterDetailDetail(detail.entityCode, { totals: totals });
+          thisProgram.renderPropertyInspector();
+        }
+      }).data("kendoMultiSelect");
+      if (totalsWidget) {
+        totalsWidget.value((detail.totals || []).map(function(total) { return total.field; }));
+      }
+
+      (detail.totals || []).forEach(function(total) {
+        const labelField = thisProgram.appendPropertyField(row, "Rotulo do total " + total.field, thisProgram.buildTechnicalProperties("Programa", "Rotulo do total", "Texto exibido no resumo do campo totalizado."));
+        const labelInput = $("<input type=\"text\" class=\"program-builder-mini-input program-builder-master-detail-total-label\">").val(total.label || "").appendTo(labelField);
+        labelInput.on("input change", function() {
+          const totals = (thisProgram.masterDetailConfigValue().details.find(function(item) {
+            return item.entityCode === detail.entityCode;
+          }) || {}).totals || [];
+          totals.forEach(function(item) {
+            if (item.field === total.field) {
+              item.label = String(labelInput.val() || "").trim();
+            }
+          });
+          thisProgram.updateMasterDetailDetail(detail.entityCode, { totals: totals });
+        });
+      });
       $("<button type=\"button\" class=\"k-button k-button-md k-rounded-md\"></button>").text("Remover").appendTo(row).on("click", function() {
         thisProgram.removeMasterDetail(detail.entityCode);
         thisProgram.renderPropertyInspector();

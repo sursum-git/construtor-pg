@@ -85,37 +85,68 @@ async function main() {
     await page.waitForFunction(() => Boolean(window.programBuilderDemoApp), null, { timeout: 30000 });
     await page.waitForFunction(() => document.querySelectorAll('[data-crud-role="program-builder-technical-info"]').length > 0, null, { timeout: 30000 });
 
-    const masterDetailPayload = await page.evaluate(() => {
+    const masterDetailPayload = await page.evaluate(async () => {
       const app = window.programBuilderDemoApp;
       app.state.entities = [
-        { code: "cliente", name: "Cliente", entityType: "persistence" },
-        { code: "pedido_venda", name: "Pedido de venda", entityType: "persistence" },
-        { code: "pedido_item", name: "Item do pedido", entityType: "persistence" }
+        { code: "cliente", name: "Cliente", entityType: "persistence", tableName: "t_cliente" },
+        { code: "pedido_venda", name: "Pedido de venda", entityType: "persistence", tableName: "t_pedido_venda" },
+        { code: "pedido_item", name: "Item do pedido", entityType: "persistence", tableName: "t_pedido_item" }
       ];
       app.state.entityDetailCache = {
+        cliente: {
+          code: "cliente",
+          tableName: "t_cliente",
+          fields: [
+            { code: "id", columnName: "id", label: "ID", dataType: "integer", primaryKey: true },
+            { code: "nome", columnName: "nome", label: "Nome", dataType: "string" }
+          ]
+        },
         pedido_venda: {
           code: "pedido_venda",
+          tableName: "t_pedido_venda",
           fields: [
-            { code: "id", label: "ID", dataType: "integer", primaryKey: true },
+            { code: "id", columnName: "id", label: "ID", dataType: "integer", primaryKey: true },
             { code: "numero", label: "Numero", dataType: "string" }
           ]
         },
         pedido_item: {
           code: "pedido_item",
+          tableName: "t_pedido_item",
           fields: [
             { code: "id", label: "ID", dataType: "integer", primaryKey: true },
-            { code: "pedido_id", label: "Pedido", dataType: "integer" },
+            { code: "pedido_id", label: "Pedido", dataType: "integer", foreignKeyTable: "t_pedido_venda", foreignKeyColumn: "id" },
+            { code: "cliente_id", label: "Cliente", dataType: "integer", foreignKeyTable: "t_cliente", foreignKeyColumn: "id" },
             { code: "produto", label: "Produto", dataType: "string" },
-            { code: "quantidade", label: "Quantidade", dataType: "decimal" }
+            { code: "quantidade", label: "Quantidade", dataType: "decimal" },
+            { code: "valor_total", label: "Valor total", dataType: "currency" }
           ]
         }
       };
       app.applyBootstrapData();
       app.pageTypeSelect.value("master_detail");
       app.builderEntitySelect.value("pedido_venda");
-      app.addMasterDetail("pedido_item", "pedido_id");
+      const rejectsNonRelationship = app.addMasterDetail("pedido_item", "produto") === false;
+      const acceptsRelationship = app.addMasterDetail("pedido_item", "pedido_id") === true;
+      app.updateMasterDetailDetail("pedido_item", {
+        title: "Produtos do pedido",
+        displayFields: ["produto", "valor_total"],
+        totals: [{ field: "valor_total", label: "Total dos produtos", type: "currency" }]
+      });
       app.syncProgramTypeState();
       app.selectPropertyNode("program", { code: "" });
+      const configuredDetail = app.masterDetailConfigValue().details[0];
+      const detailCombo = app.propertiesElement.find("[data-role='combobox']").data("kendoComboBox");
+      detailCombo.value("pedido_item");
+      detailCombo.trigger("change");
+      await new Promise(function(resolve) { window.setTimeout(resolve, 0); });
+      const eligibleParentFields = app.propertiesElement.find("[data-role='dropdownlist']").filter(function() {
+        return window.jQuery(this).data("kendoDropDownList")?.options?.dataValueField === "value";
+      }).first().data("kendoDropDownList").dataSource.data().map(function(item) { return item.value; });
+      const editorControls = {
+        title: app.propertiesElement.find(".program-builder-master-detail-title").length,
+        displayFields: app.propertiesElement.find(".program-builder-master-detail-display-fields").length,
+        totals: app.propertiesElement.find(".program-builder-master-detail-totals").length
+      };
       app.builderEntitySelect.value("cliente");
       app.handleProgramEntityChange(false);
       const propertyBaseEntity = app.propertiesElement.find(".program-builder-field").filter(function() {
@@ -126,7 +157,8 @@ async function main() {
       const changedMaster = {
         masterEntityCode: app.masterDetailConfigValue().masterEntityCode,
         contextualText: context.find(".program-builder-master-detail-summary").text(),
-        detailOptions: context.find("[data-role='combobox']").data("kendoComboBox").dataSource.data().map(function(item) { return item.value; })
+        detailOptions: context.find("[data-role='combobox']").data("kendoComboBox").dataSource.data().map(function(item) { return item.value; }),
+        details: app.masterDetailConfigValue().details
       };
       app.setMasterDetailConfig({
         masterEntityCode: "cliente",
@@ -145,6 +177,11 @@ async function main() {
         hasCustomModeLabel: app.propertiesElement.text().indexOf("Modo custom") >= 0,
         switchedViaPropertyPanel: propertyBaseEntity.length === 1,
         changedMaster,
+        configuredDetail,
+        eligibleParentFields,
+        editorControls,
+        rejectsNonRelationship,
+        acceptsRelationship,
         loadedEndpoint,
         normalizedEndpoint
       };
@@ -158,19 +195,29 @@ async function main() {
     if (!masterDetailPayload.payload.masterDetailConfig || masterDetailPayload.payload.masterDetailConfig.masterEntityCode !== "cliente") {
       throw new Error("O payload nao atualizou a configuracao declarativa do mestre.");
     }
-    if (masterDetailPayload.payload.masterDetailConfig.details.length !== 1 || masterDetailPayload.payload.masterDetailConfig.details[0].parentField !== "pedido_id") {
-      throw new Error("O payload nao preservou parentField para pedido_item.");
+    if (!masterDetailPayload.rejectsNonRelationship || !masterDetailPayload.acceptsRelationship || masterDetailPayload.eligibleParentFields.join(",") !== "pedido_id") {
+      throw new Error("O editor ofereceu ou aceitou parentField sem FK coerente para o mestre: " + JSON.stringify({
+        rejectsNonRelationship: masterDetailPayload.rejectsNonRelationship,
+        acceptsRelationship: masterDetailPayload.acceptsRelationship,
+        eligibleParentFields: masterDetailPayload.eligibleParentFields
+      }));
     }
-    if (!masterDetailPayload.preview || masterDetailPayload.preview.master.entityCode !== "cliente" || masterDetailPayload.preview.details[0].parentField !== "pedido_id") {
-      throw new Error("O preview local nao exibiu mestre e filhos declarativos.");
+    if (masterDetailPayload.configuredDetail.title !== "Produtos do pedido" || masterDetailPayload.configuredDetail.displayFields.join(",") !== "produto,valor_total" || masterDetailPayload.configuredDetail.totals[0].label !== "Total dos produtos") {
+      throw new Error("O editor nao persistiu titulo, displayFields e totals da filha.");
+    }
+    if (masterDetailPayload.editorControls.title < 1 || masterDetailPayload.editorControls.displayFields < 1 || masterDetailPayload.editorControls.totals < 1) {
+      throw new Error("O painel nao exibiu os controles de titulo, displayFields e totals da filha: " + JSON.stringify(masterDetailPayload.editorControls));
+    }
+    if (!masterDetailPayload.preview || masterDetailPayload.preview.master.entityCode !== "cliente" || masterDetailPayload.preview.details.length !== 0) {
+      throw new Error("O preview local nao removeu a filha incompatível ao trocar o mestre.");
     }
     if (masterDetailPayload.preview.createFlow.mode !== "draftWithChildren" || masterDetailPayload.contextualPanel !== 1 || masterDetailPayload.hasCustomModeLabel) {
       throw new Error("O painel contextual do mestre-detalhe esta incompleto ou exibiu controles custom.");
     }
-    if (!masterDetailPayload.switchedViaPropertyPanel || masterDetailPayload.changedMaster.masterEntityCode !== "cliente" || masterDetailPayload.changedMaster.contextualText.indexOf("cliente") < 0 || masterDetailPayload.changedMaster.detailOptions.includes("cliente")) {
+    if (!masterDetailPayload.switchedViaPropertyPanel || masterDetailPayload.changedMaster.masterEntityCode !== "cliente" || masterDetailPayload.changedMaster.contextualText.indexOf("cliente") < 0 || masterDetailPayload.changedMaster.detailOptions.includes("cliente") || masterDetailPayload.changedMaster.details.length !== 0) {
       throw new Error("A troca de mestre nao atualizou imediatamente o inspetor e as opcoes de filhos.");
     }
-    if (masterDetailPayload.loadedEndpoint !== "masterDetail.createGraph" || masterDetailPayload.normalizedEndpoint !== "masterDetail.createGraph" || masterDetailPayload.payload.masterDetailConfig.createFlow.endpointId !== "masterDetail.createGraph") {
+    if (masterDetailPayload.loadedEndpoint !== "createGraph" || masterDetailPayload.normalizedEndpoint !== "createGraph" || masterDetailPayload.payload.masterDetailConfig.createFlow.endpointId !== "createGraph") {
       throw new Error("O endpointId fora da lista fechada permaneceu no estado ou payload.");
     }
     const layout1366 = await verifyMasterDetailLayout(page, 1366);

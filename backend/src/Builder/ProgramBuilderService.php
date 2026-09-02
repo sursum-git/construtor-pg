@@ -3546,16 +3546,12 @@ class ProgramBuilderService
             $createFlowMode = 'parentFirst';
         }
         $createGraphEndpointId = trim((string) ($createFlowInput['endpointId'] ?? ''));
-        if ($createGraphEndpointId !== '' && !preg_match('/^[A-Za-z0-9_.:-]+$/', $createGraphEndpointId)) {
+        if ($createFlowMode === 'draftWithChildren' && $createGraphEndpointId !== 'createGraph') {
             throw new RuntimeHttpException('PROGRAM_BUILDER_MASTER_DETAIL_CREATE_GRAPH_REQUIRED', 'O fluxo conjunto exige endpointId seguro para createGraph.', 422, [
                 'mode' => $createFlowMode,
             ]);
         }
-        if ($createFlowMode === 'draftWithChildren' && $createGraphEndpointId === '') {
-            throw new RuntimeHttpException('PROGRAM_BUILDER_MASTER_DETAIL_CREATE_GRAPH_REQUIRED', 'O fluxo conjunto exige endpointId para createGraph.', 422, [
-                'mode' => $createFlowMode,
-            ]);
-        }
+        $createGraphEndpointId = $createFlowMode === 'draftWithChildren' ? 'createGraph' : '';
 
         $details = [];
         $detailCodes = [];
@@ -3582,7 +3578,11 @@ class ProgramBuilderService
                 $availableFields[$field->getCode()] = $field;
             }
             $parentField = $this->safeCode((string) ($item['parentField'] ?? ''));
-            if ($parentField === '' || !isset($availableFields[$parentField])) {
+            if (
+                $parentField === ''
+                || !isset($availableFields[$parentField])
+                || !$this->masterDetailFieldReferencesMaster($availableFields[$parentField], $master)
+            ) {
                 throw new RuntimeHttpException('PROGRAM_BUILDER_MASTER_DETAIL_PARENT_FIELD_INVALID', 'A entidade filha deve informar um campo de vinculo existente para a entidade mestre.', 422, [
                     'entityCode' => $detailCode,
                     'parentField' => $parentField,
@@ -3654,6 +3654,41 @@ class ProgramBuilderService
             ], static fn (mixed $item): bool => $item !== null),
             'details' => $details,
         ];
+    }
+
+    private function masterDetailFieldReferencesMaster(BuilderField $field, BuilderEntity $master): bool
+    {
+        $foreignKey = $field->getOptions()['foreignKey'] ?? null;
+        if (!is_array($foreignKey)) {
+            return false;
+        }
+
+        $primaryField = null;
+        foreach ($master->getFields() as $candidate) {
+            if ($candidate->isPrimaryKey()) {
+                $primaryField = $candidate;
+                break;
+            }
+        }
+        if (!$primaryField instanceof BuilderField) {
+            return false;
+        }
+
+        $targetEntityCode = $this->safeCode((string) ($foreignKey['entityCode'] ?? ''));
+        $targetFieldCode = $this->safeCode((string) ($foreignKey['fieldCode'] ?? ''));
+        if ($targetEntityCode !== '' || $targetFieldCode !== '') {
+            return $targetEntityCode === $master->getCode() && $targetFieldCode === $primaryField->getCode();
+        }
+
+        $targetTable = strtolower(trim((string) ($foreignKey['table'] ?? '')));
+        $targetColumn = strtolower(trim((string) ($foreignKey['column'] ?? '')));
+        $masterTable = strtolower(trim((string) $master->getTableName()));
+        $primaryColumn = strtolower(trim((string) ($primaryField->getOptions()['columnName'] ?? $primaryField->getCode())));
+
+        return $targetTable !== ''
+            && $targetColumn !== ''
+            && $targetTable === $masterTable
+            && $targetColumn === $primaryColumn;
     }
 
     private function normalizeReportBuilderConfig(mixed $value, ?BuilderEntity $entity): array
@@ -4298,14 +4333,24 @@ class ProgramBuilderService
         );
         $permissionPrefix = (string) ($config['permissionPrefix'] ?? '');
         $readPermission = $permissionPrefix !== '' ? $permissionPrefix . '.read' : true;
-        $masterSection = $this->buildMasterDetailSection($master);
+        $operations = ['read', 'get'];
+        if (($config['allowCreate'] ?? true) === true) {
+            $operations[] = 'create';
+        }
+        if (($config['allowUpdate'] ?? true) === true) {
+            $operations[] = 'update';
+        }
+        if (($config['allowDelete'] ?? true) === true) {
+            $operations[] = 'delete';
+        }
+        $masterSection = $this->buildMasterDetailSection($master, [], $operations);
         $details = [];
         foreach ($masterDetailConfig['details'] as $detailConfig) {
             $detail = $this->entities->findOneBy(['code' => $detailConfig['entityCode']]);
             if (!$detail instanceof BuilderEntity) {
                 throw new \LogicException('Entidade filha normalizada nao encontrada.');
             }
-            $details[] = $this->buildMasterDetailSection($detail, $detailConfig);
+            $details[] = $this->buildMasterDetailSection($detail, $detailConfig, $operations);
         }
 
         return [
@@ -4334,7 +4379,7 @@ class ProgramBuilderService
         ];
     }
 
-    private function buildMasterDetailSection(BuilderEntity $entity, array $detailConfig = []): array
+    private function buildMasterDetailSection(BuilderEntity $entity, array $detailConfig = [], array $operations = ['read', 'get', 'create', 'update', 'delete']): array
     {
         $fieldsByCode = [];
         $primaryKey = 'id';
@@ -4397,7 +4442,7 @@ class ProgramBuilderService
 
         $sectionId = $isDetail ? $entity->getCode() : 'master';
         $api = [];
-        foreach (['read', 'get', 'create', 'update', 'delete'] as $operation) {
+        foreach ($operations as $operation) {
             $api[$operation] = [
                 'endpointId' => $isDetail ? 'detail.' . $sectionId . '.' . $operation : 'master.' . $operation,
                 'method' => 'POST',
@@ -5363,6 +5408,10 @@ class ProgramBuilderService
             $this->upsertAnalyticsRuntimeEndpoints($version);
             return;
         }
+        if ($version->getPageType() === 'master_detail') {
+            $this->upsertMasterDetailRuntimeEndpoints($version);
+            return;
+        }
         if ($version->getPageType() === 'report') {
             $this->upsertReportRuntimeEndpoints($version);
             return;
@@ -5377,6 +5426,191 @@ class ProgramBuilderService
         }
 
         $this->disableRuntimeEndpointsForScreen($version->getScreenId());
+    }
+
+    private function upsertMasterDetailRuntimeEndpoints(BuilderProgramVersion $version): void
+    {
+        $config = $version->getBuilderConfig()['masterDetailConfig'] ?? null;
+        if (!is_array($config)) {
+            $this->disableRuntimeEndpointsForScreen($version->getScreenId());
+            return;
+        }
+
+        $sections = [[
+            'prefix' => 'master',
+            'entityCode' => $version->getBuilderEntityCode(),
+        ]];
+        foreach ((array) ($config['details'] ?? []) as $detail) {
+            if (!is_array($detail)) {
+                continue;
+            }
+            $entityCode = $this->safeCode((string) ($detail['entityCode'] ?? ''));
+            if ($entityCode === '') {
+                continue;
+            }
+            $sections[] = [
+                'prefix' => 'detail.' . $entityCode,
+                'entityCode' => $entityCode,
+            ];
+        }
+
+        $operations = ['read', 'get'];
+        if ($version->isAllowCreate()) {
+            $operations[] = 'create';
+        }
+        if ($version->isAllowUpdate()) {
+            $operations[] = 'update';
+        }
+        if ($version->isAllowDelete()) {
+            $operations[] = 'delete';
+        }
+
+        $activeEndpointIds = [];
+        foreach ($sections as $section) {
+            foreach ($operations as $operation) {
+                $endpointId = $section['prefix'] . '.' . $operation;
+                $endpoint = $this->endpoints->findOneBy([
+                    'screenId' => $version->getScreenId(),
+                    'endpointId' => $endpointId,
+                ]) ?? new RuntimeEndpoint();
+                $endpoint
+                    ->setScreenId($version->getScreenId())
+                    ->setEndpointId($endpointId)
+                    ->setHandler('entity.crud')
+                    ->setEnabled(true)
+                    ->setPermission($this->masterDetailEndpointPermission($version, $operation))
+                    ->setConfig($this->masterDetailEntityEndpointConfig($version, (string) $section['entityCode'], $operation, $endpointId));
+                $this->entityManager->persist($endpoint);
+                $this->integrity->signEndpoint($endpoint, ['source' => 'syncRuntimeEndpoints']);
+                $activeEndpointIds[] = $endpointId;
+            }
+        }
+
+        $createFlow = is_array($config['createFlow'] ?? null) ? $config['createFlow'] : [];
+        if (
+            $version->isAllowCreate()
+            && ($createFlow['mode'] ?? null) === 'draftWithChildren'
+            && ($createFlow['endpointId'] ?? null) === 'createGraph'
+        ) {
+            $endpoint = $this->endpoints->findOneBy([
+                'screenId' => $version->getScreenId(),
+                'endpointId' => 'createGraph',
+            ]) ?? new RuntimeEndpoint();
+            $endpoint
+                ->setScreenId($version->getScreenId())
+                ->setEndpointId('createGraph')
+                ->setHandler('master_detail.createGraph')
+                ->setEnabled(true)
+                ->setPermission($this->masterDetailEndpointPermission($version, 'create'))
+                ->setConfig($this->masterDetailCreateGraphEndpointConfig($version, $config));
+            $this->entityManager->persist($endpoint);
+            $this->integrity->signEndpoint($endpoint, ['source' => 'syncRuntimeEndpoints']);
+            $activeEndpointIds[] = 'createGraph';
+        }
+
+        $this->disableUnusedMasterDetailGeneratedEndpoints($version->getScreenId(), $activeEndpointIds);
+    }
+
+    private function masterDetailEndpointPermission(BuilderProgramVersion $version, string $operation): ?string
+    {
+        $prefix = $version->getPermissionPrefix();
+        if ($prefix === null || $prefix === '') {
+            return null;
+        }
+
+        return match ($operation) {
+            'read', 'get' => $prefix . '.read',
+            'create' => $prefix . '.create',
+            'update' => $prefix . '.edit',
+            'delete' => $prefix . '.delete',
+            default => null,
+        };
+    }
+
+    private function masterDetailEntityEndpointConfig(BuilderProgramVersion $version, string $entityCode, string $operation, string $endpointId): array
+    {
+        return [
+            'entityCode' => $entityCode,
+            'operation' => $operation,
+            'actionId' => $endpointId,
+            'programId' => $version->getProgramCode(),
+            'permissionPrefix' => $version->getPermissionPrefix(),
+            'traceability' => $this->runtimeEndpointTraceability($version, $entityCode),
+        ];
+    }
+
+    private function masterDetailCreateGraphEndpointConfig(BuilderProgramVersion $version, array $config): array
+    {
+        $masterIdField = 'id';
+        $master = $this->entities->findOneBy(['code' => $version->getBuilderEntityCode()]);
+        if ($master instanceof BuilderEntity) {
+            foreach ($master->getFields() as $field) {
+                if ($field->isPrimaryKey()) {
+                    $masterIdField = $field->getCode();
+                    break;
+                }
+            }
+        }
+        $details = [];
+        foreach ((array) ($config['details'] ?? []) as $detail) {
+            if (!is_array($detail)) {
+                continue;
+            }
+            $details[] = [
+                'id' => $this->safeCode((string) ($detail['entityCode'] ?? '')),
+                'entityCode' => $this->safeCode((string) ($detail['entityCode'] ?? '')),
+                'parentField' => $this->safeCode((string) ($detail['parentField'] ?? '')),
+            ];
+        }
+
+        return [
+            'entityCode' => $version->getBuilderEntityCode(),
+            'masterEntityCode' => $version->getBuilderEntityCode(),
+            'masterIdField' => $masterIdField,
+            'operation' => 'createGraph',
+            'actionId' => 'createGraph',
+            'programId' => $version->getProgramCode(),
+            'permissionPrefix' => $version->getPermissionPrefix(),
+            'details' => $details,
+            'traceability' => $this->runtimeEndpointTraceability($version, $version->getBuilderEntityCode()),
+        ];
+    }
+
+    private function runtimeEndpointTraceability(BuilderProgramVersion $version, string $entityCode): array
+    {
+        return [
+            'programCode' => $version->getProgramCode(),
+            'programVersion' => $version->getVersion(),
+            'builderProgramVersionId' => $version->getId(),
+            'builderEntityVersionId' => $this->latestBuilderEntityVersionId($entityCode),
+            'screenDefinitionVersion' => $version->getVersion(),
+            'schemaFingerprint' => $this->programSchemaFingerprint($version, $version->getGeneratedDefinition()),
+            'customizationKind' => $version->getProgramOrigin(),
+            'subscriberId' => $version->getSubscriberId(),
+        ];
+    }
+
+    /**
+     * @param list<string> $activeEndpointIds
+     */
+    private function disableUnusedMasterDetailGeneratedEndpoints(string $screenId, array $activeEndpointIds): void
+    {
+        foreach ($this->endpoints->findBy(['screenId' => $screenId]) as $endpoint) {
+            $endpointId = $endpoint->getEndpointId();
+            if (
+                $endpointId !== 'createGraph'
+                && !str_starts_with($endpointId, 'master.')
+                && !str_starts_with($endpointId, 'detail.')
+            ) {
+                continue;
+            }
+            if (in_array($endpointId, $activeEndpointIds, true)) {
+                continue;
+            }
+            $endpoint->setEnabled(false);
+            $this->entityManager->persist($endpoint);
+            $this->integrity->signEndpoint($endpoint, ['source' => 'disableUnusedMasterDetailGeneratedEndpoints']);
+        }
     }
 
     private function upsertCrudRuntimeEndpoints(BuilderProgramVersion $version): void

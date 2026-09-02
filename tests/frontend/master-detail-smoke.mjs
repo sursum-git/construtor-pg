@@ -65,6 +65,26 @@ await page.waitForFunction(() => {
     && engine.detailRecords.parcelas.some((parcela) => parcela.pedido_id === pedidoId && parcela.numero === 99);
 });
 
+const deniedWriteActions = await page.evaluate(() => {
+  const engine = window.currentMasterDetailExampleEngine;
+  engine.definition.permissions = {
+    read: true,
+    create: false,
+    edit: false,
+    delete: false
+  };
+  engine.render();
+  return {
+    masterActionButtons: document.querySelectorAll(".master-detail-actions button").length,
+    detailActionButtons: document.querySelectorAll(".master-detail-detail-toolbar button").length,
+    gridCommandButtons: document.querySelectorAll(".k-grid .k-command-cell button").length
+  };
+});
+
+if (deniedWriteActions.masterActionButtons !== 0 || deniedWriteActions.detailActionButtons !== 0 || deniedWriteActions.gridCommandButtons !== 0) {
+  throw new Error("A engine exibiu acoes de escrita sem permissao: " + JSON.stringify(deniedWriteActions));
+}
+
 await browser.close();
 
 if (errors.length) {

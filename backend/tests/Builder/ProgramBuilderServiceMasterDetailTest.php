@@ -9,6 +9,7 @@ use App\Entity\BuilderField;
 use App\Entity\BuilderModule;
 use App\Entity\BuilderProgramVersion;
 use App\Entity\Program;
+use App\Entity\RuntimeEndpoint;
 use App\Entity\ScreenDefinition;
 use App\Odoo\OdooClient;
 use App\Repository\BuilderApiSourceRepository;
@@ -52,6 +53,7 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
         $savedVersion = null;
         $publishedProgram = null;
         $publishedScreen = null;
+        $publishedEndpoints = [];
 
         $entities = $this->createStub(BuilderEntityRepository::class);
         $entities->method('findOneBy')->willReturnCallback(static function (array $criteria) use ($master, $detail, $installment): ?BuilderEntity {
@@ -83,9 +85,14 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
         $screens->method('findOneBy')->willReturn(null);
         $entityVersions = $this->createStub(BuilderEntityVersionRepository::class);
         $entityVersions->method('findByEntityCodeOrdered')->willReturn([$masterVersion]);
+        $endpoints = $this->createStub(RuntimeEndpointRepository::class);
+        $endpoints->method('findOneBy')->willReturn(null);
+        $endpoints->method('findBy')->willReturnCallback(static function (array $criteria) use (&$publishedEndpoints): array {
+            return ($criteria['screenId'] ?? null) === 'vendas.pedidos' ? array_values($publishedEndpoints) : [];
+        });
 
         $entityManager = $this->createStub(EntityManagerInterface::class);
-        $entityManager->method('persist')->willReturnCallback(function (object $entity) use (&$savedVersion, &$publishedProgram, &$publishedScreen): void {
+        $entityManager->method('persist')->willReturnCallback(function (object $entity) use (&$savedVersion, &$publishedProgram, &$publishedScreen, &$publishedEndpoints): void {
             if ($entity instanceof BuilderProgramVersion && $entity->getId() === null) {
                 $this->setEntityId($entity, 701);
                 $savedVersion = $entity;
@@ -97,6 +104,9 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
             if ($entity instanceof ScreenDefinition && $entity->getId() === null) {
                 $this->setEntityId($entity, 703);
                 $publishedScreen = $entity;
+            }
+            if ($entity instanceof RuntimeEndpoint) {
+                $publishedEndpoints[$entity->getEndpointId()] = $entity;
             }
         });
 
@@ -113,7 +123,7 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
             $versions,
             $programs,
             $screens,
-            $this->createStub(RuntimeEndpointRepository::class),
+            $endpoints,
             $entityManager,
             $this->createStub(StructuralIntegrityService::class),
             $this->createStub(ProgramGovernanceService::class),
@@ -143,6 +153,36 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
         self::assertSame('vendas.pedidos', $publishedScreen->getScreenId());
         self::assertSame('master_detail', $publishedScreen->getDefinition()['pageType']);
         self::assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $publishedScreen->getDefinition()['runtime']['traceability']['schemaFingerprint']);
+        ksort($publishedEndpoints);
+        self::assertSame([
+            'createGraph',
+            'detail.pedido_item.create',
+            'detail.pedido_item.delete',
+            'detail.pedido_item.get',
+            'detail.pedido_item.read',
+            'detail.pedido_item.update',
+            'detail.pedido_parcela.create',
+            'detail.pedido_parcela.delete',
+            'detail.pedido_parcela.get',
+            'detail.pedido_parcela.read',
+            'detail.pedido_parcela.update',
+            'master.create',
+            'master.delete',
+            'master.get',
+            'master.read',
+            'master.update',
+        ], array_keys($publishedEndpoints));
+        self::assertSame('entity.crud', $publishedEndpoints['master.read']->getHandler());
+        self::assertSame('pedido_venda', $publishedEndpoints['master.read']->getConfig()['entityCode']);
+        self::assertSame('read', $publishedEndpoints['master.read']->getConfig()['operation']);
+        self::assertSame('vendas.pedido.read', $publishedEndpoints['master.read']->getPermission());
+        self::assertSame('pedido_item', $publishedEndpoints['detail.pedido_item.create']->getConfig()['entityCode']);
+        self::assertSame('create', $publishedEndpoints['detail.pedido_item.create']->getConfig()['operation']);
+        self::assertSame('vendas.pedido.create', $publishedEndpoints['detail.pedido_item.create']->getPermission());
+        self::assertSame('master_detail.createGraph', $publishedEndpoints['createGraph']->getHandler());
+        self::assertSame('vendas.pedido.create', $publishedEndpoints['createGraph']->getPermission());
+        self::assertSame('pedido_id', $publishedEndpoints['createGraph']->getConfig()['details'][0]['parentField']);
+        self::assertTrue($publishedEndpoints['createGraph']->isEnabled());
 
         $definitionWithoutMasterDetail = $publishedScreen->getDefinition();
         unset($definitionWithoutMasterDetail['master'], $definitionWithoutMasterDetail['details'], $definitionWithoutMasterDetail['createFlow']);
@@ -187,6 +227,28 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
         self::assertArrayNotHasKey('records', $definition['details'][1]);
     }
 
+    public function testGenerateMasterDetailDefinitionOmitsDisabledWriteOperations(): void
+    {
+        $definition = $this->invokePrivateMixed($this->service(), 'generateMasterDetailDefinition', [[
+            'pageType' => 'master_detail',
+            'programCode' => 'vd0101',
+            'programTitle' => 'Pedido de venda',
+            'screenId' => 'vendas.pedidos',
+            'module' => 'vendas',
+            'permissionPrefix' => 'vendas.pedido',
+            'version' => '1.0.0',
+            'allowCreate' => false,
+            'allowUpdate' => false,
+            'allowDelete' => false,
+            '_entity' => $this->pedidoEntity(),
+            'masterDetailConfig' => $this->validMasterDetailConfig(),
+        ]]);
+
+        self::assertSame(['read' => 'vendas.pedido.read', 'create' => false, 'edit' => false, 'delete' => false], $definition['permissions']);
+        self::assertSame(['read', 'get'], array_keys($definition['master']['api']));
+        self::assertSame(['read', 'get'], array_keys($definition['details'][0]['api']));
+    }
+
     #[DataProvider('invalidMasterDetailConfigs')]
     public function testNormalizeMasterDetailConfigRejectsInvalidReferences(array $config, string $errorCode): void
     {
@@ -211,6 +273,10 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
         $invalidParent = $valid;
         $invalidParent['details'][0]['parentField'] = 'pedido_inexistente_id';
         yield 'fk inexistente' => [$invalidParent, 'PROGRAM_BUILDER_MASTER_DETAIL_PARENT_FIELD_INVALID'];
+
+        $nonRelationshipField = $valid;
+        $nonRelationshipField['details'][0]['parentField'] = 'produto';
+        yield 'campo existente sem relacionamento com mestre' => [$nonRelationshipField, 'PROGRAM_BUILDER_MASTER_DETAIL_PARENT_FIELD_INVALID'];
 
         $invalidField = $valid;
         $invalidField['details'][0]['displayFields'] = ['produto_inexistente'];
@@ -349,7 +415,9 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
     {
         return $this->entity('pedido_item', 'Item do pedido', [
             $this->field('id', 'ID', 'integer', 1, true),
-            $this->field('pedido_id', 'Pedido', 'integer', 2),
+            $this->field('pedido_id', 'Pedido', 'integer', 2, false, [
+                'foreignKey' => ['table' => 't_pedido_venda', 'column' => 'id'],
+            ]),
             $this->field('produto', 'Produto', 'string', 3),
             $this->field('quantidade', 'Quantidade', 'decimal', 4),
             $this->field('valor_total', 'Valor total', 'currency', 5),
@@ -360,7 +428,9 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
     {
         return $this->entity('pedido_parcela', 'Parcela do pedido', [
             $this->field('id', 'ID', 'integer', 1, true),
-            $this->field('pedido_id', 'Pedido', 'integer', 2),
+            $this->field('pedido_id', 'Pedido', 'integer', 2, false, [
+                'foreignKey' => ['table' => 't_pedido_venda', 'column' => 'id'],
+            ]),
             $this->field('numero', 'Numero', 'integer', 3),
             $this->field('vencimento', 'Vencimento', 'date', 4),
             $this->field('valor', 'Valor', 'currency', 5),
@@ -381,14 +451,15 @@ class ProgramBuilderServiceMasterDetailTest extends TestCase
         return $entity;
     }
 
-    private function field(string $code, string $label, string $type, int $position, bool $primaryKey = false): BuilderField
+    private function field(string $code, string $label, string $type, int $position, bool $primaryKey = false, array $options = []): BuilderField
     {
         return (new BuilderField())
             ->setCode($code)
             ->setLabel($label)
             ->setDataType($type)
             ->setPosition($position)
-            ->setPrimaryKey($primaryKey);
+            ->setPrimaryKey($primaryKey)
+            ->setOptions($options);
     }
 
     private function invokePrivateMixed(object $target, string $method, array $arguments): mixed
