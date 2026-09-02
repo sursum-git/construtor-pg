@@ -37,19 +37,25 @@
     this.appendPropertyText(panel, "Versao", () => this.versionInput.value(), (value) => this.versionInput.value(value), "text", this.programFieldTechnicalProperties("version"));
     this.appendPropertySelect(panel, "Tipo", [
       { value: "crud", text: "CRUD" },
+      { value: "master_detail", text: "Mestre-detalhe" },
       { value: "analytics", text: "Analytics / BI" },
       { value: "report", text: "Relatorios" },
       { value: "special_document", text: "Documento especial" },
       { value: "regulated_document", text: "Documento regulado" },
       { value: "custom", text: "Custom" }
-    ], () => this.pageTypeSelect.value(), (value) => { this.pageTypeSelect.value(value); this.syncProgramTypeState(); }, this.programFieldTechnicalProperties("pageType"));
+    ], () => this.pageTypeSelect.value(), (value) => { this.pageTypeSelect.value(value); this.syncProgramTypeState(); this.renderPropertyInspector(); }, this.programFieldTechnicalProperties("pageType"));
     this.appendPropertySelect(panel, "Modulo", this.state.modules.map(function(item) {
       return { value: item.code, text: item.code + " - " + item.name };
     }), () => this.moduleInput.value(), (value) => this.moduleInput.value(value), this.programFieldTechnicalProperties("programModule"));
-    if (String(this.pageTypeSelect.value() || "crud") === "crud") {
+    const pageType = String(this.pageTypeSelect.value() || "crud");
+    if (pageType === "crud" || pageType === "master_detail") {
       this.appendPropertySelect(panel, "Entidade base", this.state.entities.map(function(item) {
         return { value: item.code, text: item.code + " - " + item.name };
       }), () => this.builderEntitySelect.value(), (value) => { this.builderEntitySelect.value(value); this.handleProgramEntityChange(false); }, this.programFieldTechnicalProperties("baseEntity"));
+      if (pageType === "master_detail") {
+        this.renderMasterDetailProperties(panel);
+        return;
+      }
       this.appendPropertyCheckbox(panel, "Permite incluir", () => this.allowCreateInput.is(":checked"), (checked) => this.allowCreateInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Programa", "Permite incluir", "Habilita a acao create no CRUD quando o runtime possui endpoint compativel."));
       this.appendPropertyCheckbox(panel, "Permite alterar", () => this.allowUpdateInput.is(":checked"), (checked) => this.allowUpdateInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Programa", "Permite alterar", "Habilita a acao update no CRUD quando o runtime possui endpoint compativel."));
       this.appendPropertyCheckbox(panel, "Permite excluir", () => this.allowDeleteInput.is(":checked"), (checked) => this.allowDeleteInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Programa", "Permite excluir", "Habilita a acao delete no CRUD quando o runtime possui endpoint compativel."));
@@ -61,6 +67,112 @@
     ], () => this.customModeSelect.value(), (value) => { this.customModeSelect.value(value); this.schedulePreview(); }, this.programFieldTechnicalProperties("customMode"));
     this.appendPropertyText(panel, "Entry URL", () => this.customEntryUrlInput.value(), (value) => this.customEntryUrlInput.value(value), "text", this.programFieldTechnicalProperties("customEntryUrl"));
     this.appendPropertyText(panel, "Titulo do frame", () => this.customFrameTitleInput.value(), (value) => this.customFrameTitleInput.value(value), "text", this.programFieldTechnicalProperties("customFrameTitle"));
+  };
+
+  ProgramBuilder.prototype.renderMasterDetailProperties = function(panel) {
+    const config = this.masterDetailConfigValue();
+    const masterCode = String(config.masterEntityCode || "");
+    const context = $("<section class=\"program-builder-master-detail-context\"></section>").appendTo(panel);
+    $("<h3></h3>").text("Configuracao mestre-detalhe").appendTo(context);
+    const summary = $("<div class=\"program-builder-master-detail-summary\"></div>").appendTo(context);
+    [
+      { label: "Mestre", value: masterCode || "Selecione a entidade mestre" },
+      { label: "Modo", value: config.createFlow.mode === "draftWithChildren" ? "Rascunho com filhos" : "Salvar mestre primeiro" },
+      { label: "Filhos", value: String(config.details.length) },
+      { label: "Endpoint ID", value: config.createFlow.endpointId || "Nao informado" }
+    ].forEach(function(item) {
+      const itemElement = $("<div class=\"program-builder-master-detail-summary-item\"></div>").appendTo(summary);
+      $("<span></span>").text(item.label).appendTo(itemElement);
+      $("<strong></strong>").text(item.value).appendTo(itemElement);
+    });
+
+    const editor = $("<div class=\"program-builder-master-detail-editor\"></div>").appendTo(context);
+    const thisProgram = this;
+    let parentSelect;
+    const detailField = this.appendPropertyField(editor, "Entidade filha", this.buildTechnicalProperties("Programa", "Entidade filha", "Entidade persistence que sera exibida como detalhe do mestre."));
+    const detailOptions = this.state.entities.filter(function(entity) {
+      return entity && entity.entityType === "persistence" && entity.code !== masterCode;
+    }).map(function(entity) {
+      return { value: entity.code, text: entity.code + " - " + entity.name };
+    });
+    const detailInput = $("<input>").appendTo(detailField).kendoComboBox({
+      dataSource: detailOptions,
+      dataTextField: "text",
+      dataValueField: "value",
+      optionLabel: "Selecione a entidade filha",
+      change: function() {
+        const code = String(this.value() || "");
+        parentSelect.setDataSource(new kendo.data.DataSource({ data: [] }));
+        parentSelect.value("");
+        if (!code) {
+          thisProgram.schedulePreview();
+          return;
+        }
+        thisProgram.ensureEntityDetail(code).then(function() {
+          const fields = thisProgram.masterDetailEntityFields(code).map(function(field) {
+            return { value: field.code, text: field.code + " - " + (field.label || field.code) };
+          });
+          parentSelect.setDataSource(new kendo.data.DataSource({ data: fields }));
+          thisProgram.schedulePreview();
+        });
+      }
+    }).data("kendoComboBox");
+    const parentField = this.appendPropertyField(editor, "Campo de vinculo", this.buildTechnicalProperties("Programa", "Campo de vinculo", "Campo existente na entidade filha que referencia o mestre."));
+    parentSelect = $("<input>").appendTo(parentField).kendoDropDownList({
+      dataTextField: "text",
+      dataValueField: "value",
+      optionLabel: "Selecione o campo de vinculo",
+      dataSource: []
+    }).data("kendoDropDownList");
+    const addButton = $("<button type=\"button\" class=\"k-button k-button-md k-rounded-md k-button-solid k-button-solid-primary\"></button>").text("Adicionar filho").appendTo(editor);
+    addButton.on("click", function() {
+      if (thisProgram.addMasterDetail(detailInput.value(), parentSelect.value())) {
+        thisProgram.renderPropertyInspector();
+      }
+    });
+
+    const flowField = this.appendPropertyField(editor, "Fluxo de criacao", this.buildTechnicalProperties("Programa", "Fluxo de criacao", "Define se os filhos exigem o mestre salvo ou podem ser enviados no mesmo comando declarativo."));
+    const endpointField = this.appendPropertyField(editor, "Endpoint ID", this.buildTechnicalProperties("Programa", "Endpoint ID", "Identificador seguro do endpoint transacional para inclusao conjunta, sem URL livre."));
+    const endpointSelect = $("<input>").appendTo(endpointField).kendoDropDownList({
+      dataSource: [{ value: "", text: "Nao se aplica" }, { value: "masterDetail.createGraph", text: "masterDetail.createGraph" }],
+      dataTextField: "text",
+      dataValueField: "value",
+      value: config.createFlow.endpointId,
+      change: function() {
+        thisProgram.setMasterDetailCreateFlow(flowSelect.value(), this.value());
+        thisProgram.renderPropertyInspector();
+      }
+    }).data("kendoDropDownList");
+    const flowSelect = $("<input>").appendTo(flowField).kendoDropDownList({
+      dataSource: [{ value: "parentFirst", text: "Salvar mestre primeiro" }, { value: "draftWithChildren", text: "Rascunho com filhos" }],
+      dataTextField: "text",
+      dataValueField: "value",
+      value: config.createFlow.mode,
+      change: function() {
+        const joint = this.value() === "draftWithChildren";
+        const endpointId = joint ? (endpointSelect.value() || "masterDetail.createGraph") : "";
+        endpointSelect.enable(joint);
+        endpointSelect.value(endpointId);
+        thisProgram.setMasterDetailCreateFlow(this.value(), endpointId);
+        thisProgram.renderPropertyInspector();
+      }
+    }).data("kendoDropDownList");
+    endpointSelect.enable(config.createFlow.mode === "draftWithChildren");
+
+    const detailList = $("<div class=\"program-builder-master-detail-list\"></div>").appendTo(context);
+    if (!config.details.length) {
+      $("<p class=\"program-builder-inline-muted\"></p>").text("Adicione ao menos uma entidade filha e o campo que a vincula ao mestre.").appendTo(detailList);
+      return;
+    }
+    config.details.forEach(function(detail) {
+      const row = $("<div class=\"program-builder-master-detail-row\"></div>").appendTo(detailList);
+      $("<strong></strong>").text(detail.title || detail.entityCode).appendTo(row);
+      $("<span></span>").text(detail.entityCode + " • " + detail.parentField).appendTo(row);
+      $("<button type=\"button\" class=\"k-button k-button-md k-rounded-md\"></button>").text("Remover").appendTo(row).on("click", function() {
+        thisProgram.removeMasterDetail(detail.entityCode);
+        thisProgram.renderPropertyInspector();
+      });
+    });
   };
 
   ProgramBuilder.prototype.renderFieldProperties = function(index) {

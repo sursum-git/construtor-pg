@@ -1,9 +1,10 @@
 import { chromium } from "playwright";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
-const repoRoot = "C:/construtor-pg";
-const baseUrl = "file:///C:/construtor-pg";
+const repoRoot = process.cwd();
+const baseUrl = pathToFileURL(repoRoot + path.sep).href.replace(/\/$/, "");
 const outputDir = path.join(repoRoot, "tmp");
 
 async function ensureOutputDir() {
@@ -50,6 +51,64 @@ async function main() {
     await page.waitForFunction(() => Boolean(window.programBuilderDemoApp), null, { timeout: 30000 });
     await page.waitForFunction(() => document.querySelectorAll('[data-crud-role="program-builder-technical-info"]').length > 0, null, { timeout: 30000 });
 
+    const masterDetailPayload = await page.evaluate(() => {
+      const app = window.programBuilderDemoApp;
+      app.state.entities = [
+        { code: "pedido_venda", name: "Pedido de venda", entityType: "persistence" },
+        { code: "pedido_item", name: "Item do pedido", entityType: "persistence" }
+      ];
+      app.state.entityDetailCache = {
+        pedido_venda: {
+          code: "pedido_venda",
+          fields: [
+            { code: "id", label: "ID", dataType: "integer", primaryKey: true },
+            { code: "numero", label: "Numero", dataType: "string" }
+          ]
+        },
+        pedido_item: {
+          code: "pedido_item",
+          fields: [
+            { code: "id", label: "ID", dataType: "integer", primaryKey: true },
+            { code: "pedido_id", label: "Pedido", dataType: "integer" },
+            { code: "produto", label: "Produto", dataType: "string" },
+            { code: "quantidade", label: "Quantidade", dataType: "decimal" }
+          ]
+        }
+      };
+      app.applyBootstrapData();
+      app.pageTypeSelect.value("master_detail");
+      app.builderEntitySelect.value("pedido_venda");
+      app.addMasterDetail("pedido_item", "pedido_id");
+      app.syncProgramTypeState();
+      app.selectPropertyNode("program", { code: "" });
+      const payload = app.collectProgramPayload();
+      app.renderLocalSummary(payload);
+      return {
+        payload,
+        preview: app.state.preview && app.state.preview.generatedDefinition,
+        contextualPanel: app.propertiesElement.find(".program-builder-master-detail-context").length,
+        hasCustomModeLabel: app.propertiesElement.text().indexOf("Modo custom") >= 0
+      };
+    });
+    if (masterDetailPayload.payload.pageType !== "master_detail") {
+      throw new Error("O editor nao coletou pageType=master_detail.");
+    }
+    if (masterDetailPayload.payload.builderEntityCode !== "pedido_venda") {
+      throw new Error("O editor nao manteve pedido_venda como entidade mestre.");
+    }
+    if (!masterDetailPayload.payload.masterDetailConfig || masterDetailPayload.payload.masterDetailConfig.masterEntityCode !== "pedido_venda") {
+      throw new Error("O payload nao informou a configuracao declarativa do mestre.");
+    }
+    if (masterDetailPayload.payload.masterDetailConfig.details.length !== 1 || masterDetailPayload.payload.masterDetailConfig.details[0].parentField !== "pedido_id") {
+      throw new Error("O payload nao preservou parentField para pedido_item.");
+    }
+    if (!masterDetailPayload.preview || masterDetailPayload.preview.master.entityCode !== "pedido_venda" || masterDetailPayload.preview.details[0].parentField !== "pedido_id") {
+      throw new Error("O preview local nao exibiu mestre e filhos declarativos.");
+    }
+    if (masterDetailPayload.preview.createFlow.mode !== "parentFirst" || masterDetailPayload.contextualPanel !== 1 || masterDetailPayload.hasCustomModeLabel) {
+      throw new Error("O painel contextual do mestre-detalhe esta incompleto ou exibiu controles custom.");
+    }
+
     const entityTriggers = await page.evaluate(() => window.programBuilderDemoApp.entityPanel.find('[data-crud-role="program-builder-technical-info"]').length);
     await clickFirstFromContainer(page, "entityPanel");
     await page.waitForSelector(".crud-technical-info-window", { timeout: 10000 });
@@ -90,7 +149,8 @@ async function main() {
       entityTriggers,
       programTriggers,
       apiTriggers,
-      inspectorTriggers
+      inspectorTriggers,
+      masterDetailPayload
     };
 
     await fs.writeFile(
