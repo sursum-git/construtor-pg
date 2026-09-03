@@ -24,6 +24,7 @@
       currentProgramCode: "",
       currentEntityCode: "",
       entityDetailCache: {},
+      masterDetailConfig: null,
       originalEntityTableName: "",
       preview: null,
       databaseTables: [],
@@ -3225,6 +3226,7 @@
     this.pageTypeSelect = $("<input>").appendTo(pageTypeField).kendoDropDownList({
       dataSource: [
         { value: "crud", text: "CRUD" },
+        { value: "master_detail", text: "Mestre-detalhe" },
         { value: "analytics", text: "Analytics / BI" },
         { value: "report", text: "Relatorios" },
         { value: "special_document", text: "Documento especial" },
@@ -3852,6 +3854,220 @@
     }.bind(this)).catch(function() {
       return null;
     });
+  };
+
+  ProgramBuilder.prototype.masterDetailEntityFields = function(entityCode) {
+    const code = String(entityCode || "").trim();
+    if (!code) {
+      return [];
+    }
+    if (this.state.currentEntityCode === code) {
+      return this.collectEntityPayload().fields || [];
+    }
+    const entity = this.state.entityDetailCache && this.state.entityDetailCache[code];
+    return entity && Array.isArray(entity.fields) ? entity.fields : [];
+  };
+
+  ProgramBuilder.prototype.masterDetailEligibleParentFields = function(detailEntityCode, masterEntityCode) {
+    const detailCode = String(detailEntityCode || "").trim();
+    const masterCode = String(masterEntityCode || this.builderEntitySelect && this.builderEntitySelect.value && this.builderEntitySelect.value() || "").trim();
+    const masterSummary = this.findEntitySummary(masterCode) || {};
+    const masterDetail = this.state.entityDetailCache && this.state.entityDetailCache[masterCode] || {};
+    const masterFields = this.masterDetailEntityFields(masterCode);
+    const primaryField = masterFields.find(function(field) {
+      return field && field.primaryKey === true;
+    });
+    const masterTable = String(masterDetail.tableName || masterSummary.tableName || "").trim().toLowerCase();
+    const primaryCode = String(primaryField && primaryField.code || "").trim();
+    const primaryColumn = String(primaryField && (primaryField.columnName || primaryField.code) || "").trim().toLowerCase();
+    if (!detailCode || !masterCode || !primaryField) {
+      return [];
+    }
+
+    return this.masterDetailEntityFields(detailCode).filter(function(field) {
+      if (!field || field.virtualField === true) {
+        return false;
+      }
+      const foreignKey = field.options && field.options.foreignKey || {};
+      const targetEntityCode = String(foreignKey.entityCode || "").trim();
+      const targetFieldCode = String(foreignKey.fieldCode || "").trim();
+      if (targetEntityCode || targetFieldCode) {
+        return targetEntityCode === masterCode && targetFieldCode === primaryCode;
+      }
+      const targetTable = String(field.foreignKeyTable || foreignKey.table || "").trim().toLowerCase();
+      const targetColumn = String(field.foreignKeyColumn || foreignKey.column || "").trim().toLowerCase();
+      return masterTable !== "" && primaryColumn !== "" && targetTable === masterTable && targetColumn === primaryColumn;
+    });
+  };
+
+  ProgramBuilder.prototype.masterDetailDetailCompatibility = function(detail, masterEntityCode) {
+    const detailFields = this.masterDetailEntityFields(detail && detail.entityCode);
+    const masterFields = this.masterDetailEntityFields(masterEntityCode);
+    if (!detailFields.length || !masterFields.length) {
+      return null;
+    }
+    return this.masterDetailEligibleParentFields(detail.entityCode, masterEntityCode).some(function(field) {
+      return String(field.code || "") === String(detail.parentField || "");
+    });
+  };
+
+  ProgramBuilder.prototype.normalizeMasterDetailCreateFlow = function(mode, endpointId) {
+    const createFlowMode = mode === "draftWithChildren" ? "draftWithChildren" : "parentFirst";
+    const safeEndpointId = String(endpointId || "").trim() === "createGraph" ? "createGraph" : "";
+    return {
+      mode: createFlowMode,
+      endpointId: createFlowMode === "draftWithChildren" ? (safeEndpointId || "createGraph") : ""
+    };
+  };
+
+  ProgramBuilder.prototype.masterDetailConfigValue = function() {
+    const current = this.state.masterDetailConfig || {};
+    const masterEntityCode = String(current.masterEntityCode || this.builderEntitySelect && this.builderEntitySelect.value && this.builderEntitySelect.value() || "").trim();
+    return {
+      masterEntityCode: masterEntityCode,
+      createFlow: this.normalizeMasterDetailCreateFlow(current.createFlow && current.createFlow.mode, current.createFlow && current.createFlow.endpointId),
+      details: Array.isArray(current.details) ? current.details.map(function(detail) {
+        return {
+          entityCode: String(detail && detail.entityCode || "").trim(),
+          title: String(detail && detail.title || "").trim(),
+          singularTitle: String(detail && detail.singularTitle || "").trim(),
+          parentField: String(detail && detail.parentField || "").trim(),
+          displayFields: Array.isArray(detail && detail.displayFields) ? detail.displayFields.slice() : [],
+          totals: Array.isArray(detail && detail.totals) ? detail.totals.map(function(total) {
+            return {
+              field: String(total && total.field || "").trim(),
+              label: String(total && total.label || "").trim(),
+              type: String(total && total.type || "").trim()
+            };
+          }) : []
+        };
+      }).filter(function(detail) {
+        return detail.entityCode && detail.parentField;
+      }) : []
+    };
+  };
+
+  ProgramBuilder.prototype.setMasterDetailConfig = function(config) {
+    this.state.masterDetailConfig = config || null;
+    this.state.masterDetailConfig = this.masterDetailConfigValue();
+  };
+
+  ProgramBuilder.prototype.syncMasterDetailMasterEntity = function() {
+    const config = this.masterDetailConfigValue();
+    const masterEntityCode = String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "").trim();
+    config.masterEntityCode = masterEntityCode;
+    config.details = config.details.filter(function(detail) {
+      return detail.entityCode !== masterEntityCode && this.masterDetailDetailCompatibility(detail, masterEntityCode) !== false;
+    }.bind(this));
+    this.setMasterDetailConfig(config);
+  };
+
+  ProgramBuilder.prototype.addMasterDetail = function(entityCode, parentField) {
+    const detailCode = String(entityCode || "").trim();
+    const parent = String(parentField || "").trim();
+    const masterCode = String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "").trim();
+    const detailEntity = this.findEntitySummary(detailCode);
+    const fields = this.masterDetailEntityFields(detailCode);
+    if (!masterCode || detailCode === masterCode || !detailEntity || detailEntity.entityType !== "persistence" || !parent || !this.masterDetailEligibleParentFields(detailCode, masterCode).some(function(field) {
+      return String(field && field.code || "") === parent;
+    })) {
+      return false;
+    }
+    const config = this.masterDetailConfigValue();
+    config.masterEntityCode = masterCode;
+    const detail = {
+      entityCode: detailCode,
+      title: String(detailEntity.name || detailCode),
+      singularTitle: "",
+      parentField: parent,
+      displayFields: fields.filter(function(field) {
+        return String(field && field.code || "") !== parent && field && field.primaryKey !== true;
+      }).map(function(field) {
+        return String(field.code || "");
+      }).filter(Boolean),
+      totals: []
+    };
+    const index = config.details.findIndex(function(item) {
+      return item.entityCode === detailCode;
+    });
+    if (index >= 0) {
+      config.details[index] = detail;
+    } else {
+      config.details.push(detail);
+    }
+    this.setMasterDetailConfig(config);
+    this.schedulePreview();
+    return true;
+  };
+
+  ProgramBuilder.prototype.updateMasterDetailDetail = function(entityCode, patch) {
+    const detailCode = String(entityCode || "").trim();
+    const changes = patch || {};
+    const config = this.masterDetailConfigValue();
+    const detail = config.details.find(function(item) {
+      return item.entityCode === detailCode;
+    });
+    if (!detail) {
+      return false;
+    }
+
+    const fields = this.masterDetailEntityFields(detailCode);
+    const fieldsByCode = fields.reduce(function(result, field) {
+      const code = String(field && field.code || "").trim();
+      if (code) {
+        result[code] = field;
+      }
+      return result;
+    }, {});
+    if (Object.prototype.hasOwnProperty.call(changes, "title")) {
+      detail.title = String(changes.title || "").trim();
+    }
+    if (Object.prototype.hasOwnProperty.call(changes, "singularTitle")) {
+      detail.singularTitle = String(changes.singularTitle || "").trim();
+    }
+    if (Array.isArray(changes.displayFields)) {
+      detail.displayFields = changes.displayFields.map(function(value) {
+        return String(value || "").trim();
+      }).filter(function(code, index, values) {
+        const field = fieldsByCode[code];
+        return Boolean(field) && field.primaryKey !== true && code !== detail.parentField && values.indexOf(code) === index;
+      });
+    }
+    if (Array.isArray(changes.totals)) {
+      detail.totals = changes.totals.map(function(total) {
+        const fieldCode = String(total && total.field || "").trim();
+        const field = fieldsByCode[fieldCode];
+        const type = String(field && (field.dataType || field.type) || "").toLowerCase();
+        if (!field || ["integer", "decimal", "number", "currency"].indexOf(type) < 0) {
+          return null;
+        }
+        return {
+          field: fieldCode,
+          label: String(total && total.label || field.label || fieldCode).trim(),
+          type: type
+        };
+      }).filter(Boolean);
+    }
+
+    this.setMasterDetailConfig(config);
+    this.schedulePreview();
+    return true;
+  };
+
+  ProgramBuilder.prototype.removeMasterDetail = function(entityCode) {
+    const config = this.masterDetailConfigValue();
+    config.details = config.details.filter(function(detail) {
+      return detail.entityCode !== String(entityCode || "").trim();
+    });
+    this.setMasterDetailConfig(config);
+    this.schedulePreview();
+  };
+
+  ProgramBuilder.prototype.setMasterDetailCreateFlow = function(mode, endpointId) {
+    const config = this.masterDetailConfigValue();
+    config.createFlow = this.normalizeMasterDetailCreateFlow(mode, endpointId);
+    this.setMasterDetailConfig(config);
+    this.schedulePreview();
   };
 
   ProgramBuilder.prototype.refreshAnalyticsConfigOptions = function() {
@@ -5693,6 +5909,7 @@
   ProgramBuilder.prototype.syncProgramTypeState = function() {
     const pageType = String(this.pageTypeSelect && this.pageTypeSelect.value ? this.pageTypeSelect.value() || "crud" : "crud");
     const isCrud = pageType === "crud";
+    const isMasterDetail = pageType === "master_detail";
     const isAnalytics = pageType === "analytics";
     const isReport = pageType === "report";
     const isSpecialDocument = pageType === "special_document";
@@ -5700,7 +5917,7 @@
     const reportSourceType = String(this.reportSourceTypeSelect && this.reportSourceTypeSelect.val ? this.reportSourceTypeSelect.val() || "operational" : "operational");
     const specialSourceType = String(this.specialDocumentSourceTypeSelect && this.specialDocumentSourceTypeSelect.val ? this.specialDocumentSourceTypeSelect.val() || "operational" : "operational");
     const regulatedSourceType = String(this.regulatedDocumentSourceTypeSelect && this.regulatedDocumentSourceTypeSelect.val ? this.regulatedDocumentSourceTypeSelect.val() || "operational" : "operational");
-    const usesEntity = isCrud || isAnalytics || (isReport && reportSourceType !== "analytic") || (isSpecialDocument && specialSourceType !== "analytic") || (isRegulatedDocument && regulatedSourceType !== "analytic");
+    const usesEntity = isCrud || isMasterDetail || isAnalytics || (isReport && reportSourceType !== "analytic") || (isSpecialDocument && specialSourceType !== "analytic") || (isRegulatedDocument && regulatedSourceType !== "analytic");
     const entity = usesEntity ? this.findEntitySummary(String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "")) : null;
     const apiEntity = !!(entity && entity.entityType === "api");
     const sameLoadedApi = isCrud && apiEntity && this.state.currentEntityCode === String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "");
@@ -5712,7 +5929,7 @@
       this.builderEntityField.toggle(usesEntity);
     }
     if (this.programWriteFlagsField) {
-      this.programWriteFlagsField.toggle(isCrud);
+      this.programWriteFlagsField.toggle(isCrud || isMasterDetail);
     }
     if (this.customProgramPanel) {
       this.customProgramPanel.toggle(pageType === "custom");
@@ -5732,7 +5949,7 @@
     if (this.builderEntitySelect) {
       this.builderEntitySelect.enable(usesEntity);
     }
-    if (!isCrud) {
+    if (!isCrud && !isMasterDetail) {
       this.allowCreateInput.prop("checked", false);
       this.allowUpdateInput.prop("checked", false);
       this.allowDeleteInput.prop("checked", false);
@@ -5770,12 +5987,15 @@
       this.allowUpdateInput.prop("disabled", String(this.apiCatalogUpdateOperationSelect.value() || "").trim() === "");
       this.allowDeleteInput.prop("disabled", String(this.apiCatalogDeleteOperationSelect.value() || "").trim() === "");
     } else {
-      this.allowCreateInput.prop("disabled", !isCrud);
-      this.allowUpdateInput.prop("disabled", !isCrud);
-      this.allowDeleteInput.prop("disabled", !isCrud);
+      this.allowCreateInput.prop("disabled", !isCrud && !isMasterDetail);
+      this.allowUpdateInput.prop("disabled", !isCrud && !isMasterDetail);
+      this.allowDeleteInput.prop("disabled", !isCrud && !isMasterDetail);
     }
     this.syncAnalyticsProgramPanelState();
     this.schedulePreview();
+    if (this.state.propertySelection && this.state.propertySelection.kind === "program") {
+      this.renderPropertyInspector();
+    }
   };
 
   ProgramBuilder.prototype.renderVersionsGrid = function() {
@@ -10328,7 +10548,7 @@
 
   ProgramBuilder.prototype.handleProgramEntityChange = function(prefillOnlyWhenEmpty) {
     const pageType = String(this.pageTypeSelect.value() || "crud");
-    if (pageType !== "crud" && pageType !== "analytics" && pageType !== "report") {
+    if (pageType !== "crud" && pageType !== "master_detail" && pageType !== "analytics" && pageType !== "report") {
       this.schedulePreview();
       return;
     }
@@ -10339,7 +10559,14 @@
     }
 
     const entity = this.findEntitySummary(entityCode);
-    if (pageType === "analytics" && entity && entity.entityType !== "persistence") {
+    if (pageType === "master_detail") {
+      this.syncMasterDetailMasterEntity();
+      this.renderPropertyInspector();
+      this.schedulePreview();
+      if (entity && entity.entityType !== "persistence") {
+        this.previewFooter.text("Mestre-detalhe aceita somente entidade mestre persistence.");
+      }
+    } else if (pageType === "analytics" && entity && entity.entityType !== "persistence") {
       this.previewFooter.text("Analytics v1 aceita somente entidades persistence como fonte interna.");
     } else if (entity && entity.entityType === "api") {
       if (this.state.currentEntityCode === entityCode) {
@@ -10363,6 +10590,16 @@
       }
     }
     this.ensureEntityDetail(entityCode).then(function() {
+      if (pageType === "master_detail") {
+        const detailLoads = this.masterDetailConfigValue().details.map(function(detail) {
+          return this.ensureEntityDetail(detail.entityCode);
+        }.bind(this));
+        return Promise.all(detailLoads).then(function() {
+          this.syncMasterDetailMasterEntity();
+          this.renderPropertyInspector();
+          this.schedulePreview();
+        }.bind(this));
+      }
       if (pageType === "analytics" && this.analyticsProgramPanel) {
         this.refreshAnalyticsConfigOptions();
         if (!String(this.analyticsSortFieldSelect.val() || "").trim()) {
@@ -10545,6 +10782,7 @@
     this.populateReportProgramConfig(version.builderConfig && version.builderConfig.reportConfig);
     this.populateSpecialDocumentProgramConfig(version.builderConfig && version.builderConfig.specialDocumentConfig);
     this.populateRegulatedDocumentProgramConfig(version.builderConfig && version.builderConfig.regulatedDocumentConfig);
+    this.setMasterDetailConfig(version.builderConfig && version.builderConfig.masterDetailConfig);
     this.ensureEntityDetail(version.builderEntityCode || "");
     this.syncProgramTypeState();
     this.renderDefinition(version.generatedDefinition || {});
@@ -10593,6 +10831,7 @@
     this.populateReportProgramConfig(null);
     this.populateSpecialDocumentProgramConfig(null);
     this.populateRegulatedDocumentProgramConfig(null);
+    this.setMasterDetailConfig(null);
     this.state.analyticsValidator = {
       signature: "",
       datasetId: "",
@@ -10694,6 +10933,7 @@
     const editableCurrent = current.status === "draft";
     const pageType = String(this.pageTypeSelect.value() || "crud");
     const usesEntity = pageType === "crud"
+      || pageType === "master_detail"
       || pageType === "analytics"
       || (pageType === "report" && String(this.reportSourceTypeSelect && this.reportSourceTypeSelect.val ? this.reportSourceTypeSelect.val() || "operational" : "operational") !== "analytic")
       || (pageType === "special_document" && String(this.specialDocumentSourceTypeSelect && this.specialDocumentSourceTypeSelect.val ? this.specialDocumentSourceTypeSelect.val() || "operational" : "operational") !== "analytic")
@@ -10721,9 +10961,10 @@
       publicationPolicy: {
         allowedDatabaseEnvironments: this.parseCommaSeparatedValues(this.publicationPolicyInput.value())
       },
-      allowCreate: pageType === "crud" && this.allowCreateInput.is(":checked"),
-      allowUpdate: pageType === "crud" && this.allowUpdateInput.is(":checked"),
-      allowDelete: pageType === "crud" && this.allowDeleteInput.is(":checked"),
+      allowCreate: (pageType === "crud" || pageType === "master_detail") && this.allowCreateInput.is(":checked"),
+      allowUpdate: (pageType === "crud" || pageType === "master_detail") && this.allowUpdateInput.is(":checked"),
+      allowDelete: (pageType === "crud" || pageType === "master_detail") && this.allowDeleteInput.is(":checked"),
+      masterDetailConfig: pageType === "master_detail" ? this.masterDetailConfigValue() : null,
       analyticsConfig: pageType === "analytics" ? this.collectAnalyticsConfig() : null,
       reportConfig: pageType === "report" ? this.collectReportConfig() : null,
       specialDocumentConfig: pageType === "special_document" ? this.collectSpecialDocumentConfig() : null,
@@ -10742,7 +10983,7 @@
     this.state.versions = [];
     this.versionsGrid.dataSource.data([]);
     this.resetProgramForm();
-    if (["crud", "analytics", "report", "special_document", "regulated_document"].indexOf(String(this.pageTypeSelect.value() || "crud")) >= 0) {
+    if (["crud", "master_detail", "analytics", "report", "special_document", "regulated_document"].indexOf(String(this.pageTypeSelect.value() || "crud")) >= 0) {
       this.builderEntitySelect.value(this.state.currentEntityCode || "");
       this.handleProgramEntityChange(true);
     }
@@ -10767,6 +11008,7 @@
   ProgramBuilder.prototype.requestPreview = function(notifyOnSuccess) {
     const payload = this.collectProgramPayload();
     const usesEntity = payload.pageType === "crud"
+      || payload.pageType === "master_detail"
       || payload.pageType === "analytics"
       || (payload.pageType === "report" && String(payload.reportConfig && payload.reportConfig.sourceType || "operational") !== "analytic")
       || (payload.pageType === "special_document" && String(payload.specialDocumentConfig && payload.specialDocumentConfig.sourceType || "operational") !== "analytic")
@@ -10830,6 +11072,23 @@
     };
     if (payload.pageType === "crud") {
       preview.runtime.entityCode = payload.builderEntityCode;
+    } else if (payload.pageType === "master_detail") {
+      const masterDetailConfig = payload.masterDetailConfig || {};
+      preview.runtime.entityCode = payload.builderEntityCode;
+      preview.master = {
+        entityCode: masterDetailConfig.masterEntityCode || payload.builderEntityCode
+      };
+      preview.details = (masterDetailConfig.details || []).map(function(detail) {
+        return {
+          entityCode: detail.entityCode,
+          title: detail.title,
+          singularTitle: detail.singularTitle,
+          parentField: detail.parentField,
+          displayFields: detail.displayFields || [],
+          totals: detail.totals || []
+        };
+      });
+      preview.createFlow = masterDetailConfig.createFlow || { mode: "parentFirst", endpointId: "" };
     } else if (payload.pageType === "analytics") {
       const analyticsConfig = Object.assign({}, this.defaultAnalyticsConfig(), payload.analyticsConfig || {});
       const semanticPipelines = Array.isArray(analyticsConfig.semanticPipelines) ? analyticsConfig.semanticPipelines : [];
@@ -11007,7 +11266,7 @@
     this.updatePreviewMeta({
       status: this.state.currentVersion && this.state.currentVersion.status || "draft",
       version: payload.version,
-      builderEntityCode: payload.pageType === "crud" || payload.pageType === "analytics" || payload.pageType === "report" || payload.pageType === "special_document" || payload.pageType === "regulated_document" ? payload.builderEntityCode : "",
+      builderEntityCode: payload.pageType === "crud" || payload.pageType === "master_detail" || payload.pageType === "analytics" || payload.pageType === "report" || payload.pageType === "special_document" || payload.pageType === "regulated_document" ? payload.builderEntityCode : "",
       screenId: payload.screenId
     });
     this.previewFooter.text("Resumo local. O JSON completo aparece quando os campos obrigatorios permitem gerar preview no backend.");

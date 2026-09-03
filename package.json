@@ -11,6 +11,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:technical-properties": "node tests/frontend/technical-properties-smoke.mjs",
     "test:program-builder-technical": "node tests/frontend/program-builder-technical-smoke.mjs",
+    "test:program-builder-master-detail": "node tests/frontend/program-builder-master-detail-smoke.mjs",
     "test:program-builder-analytics": "node tests/frontend/program-builder-analytics-validator-smoke.mjs",
     "test:program-builder-reports": "node tests/frontend/program-builder-report-validator-smoke.mjs",
     "test:admin-integracoes": "node tests/frontend/admin-integracoes-smoke.mjs",

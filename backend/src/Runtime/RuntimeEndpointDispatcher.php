@@ -25,6 +25,7 @@ class RuntimeEndpointDispatcher
         private readonly RuntimeSpecialDocumentEndpointHandler $specialDocuments,
         private readonly RuntimeRegulatedDocumentEndpointHandler $regulatedDocuments,
         private readonly RuntimeJobEnqueueService $jobEnqueue,
+        private readonly RuntimeMasterDetailActionService $masterDetails,
         private readonly RuntimeExecutionContext $executionContext,
         private readonly RuntimeAsyncJobService $asyncJobs,
         private readonly StructuralIntegrityService $integrity,
@@ -78,6 +79,7 @@ class RuntimeEndpointDispatcher
             'entity.api.readonly' => $this->apiEntities->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
             'entity.api.crud' => $this->apiEntities->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
             'entity.api.odoo.readonly' => $this->odooEntities->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
+            'master_detail.createGraph' => $this->masterDetails->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
             'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status', 'analytics.pipeline.schema', 'analytics.pipeline.preview', 'analytics.pipeline.run', 'analytics.pipeline.publish', 'analytics.pipeline.status', 'analytics.pipeline.logs', 'analytics.pipeline.versions', 'analytics.pipeline.rollback' => $this->analytics->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
             'reports.schema', 'reports.run', 'reports.export' => $this->reports->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
             'specialDocuments.schema', 'specialDocuments.render', 'specialDocuments.export' => $this->specialDocuments->handle($screenId, $endpoint->getEndpointId(), $endpoint->getConfig(), $payload),
@@ -152,7 +154,7 @@ class RuntimeEndpointDispatcher
     private function enrichPayloadFromEndpoint(RuntimeEndpoint $endpoint, array $payload): array
     {
         $config = $endpoint->getConfig();
-        if (!in_array($endpoint->getHandler(), ['entity.crud', 'entity.api.readonly', 'entity.api.crud', 'entity.api.odoo.readonly', 'runtime.job.enqueue', 'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status', 'analytics.pipeline.schema', 'analytics.pipeline.preview', 'analytics.pipeline.run', 'analytics.pipeline.publish', 'analytics.pipeline.status', 'analytics.pipeline.logs', 'analytics.pipeline.versions', 'analytics.pipeline.rollback', 'reports.schema', 'reports.run', 'reports.export', 'specialDocuments.schema', 'specialDocuments.render', 'specialDocuments.export', 'regulatedDocuments.schema', 'regulatedDocuments.prepare', 'regulatedDocuments.render', 'regulatedDocuments.issue', 'regulatedDocuments.verify', 'regulatedDocuments.artifact'], true)) {
+        if (!in_array($endpoint->getHandler(), ['entity.crud', 'entity.api.readonly', 'entity.api.crud', 'entity.api.odoo.readonly', 'master_detail.createGraph', 'runtime.job.enqueue', 'analytics.schema', 'analytics.query.run', 'analytics.materialize', 'analytics.cache.status', 'analytics.pipeline.schema', 'analytics.pipeline.preview', 'analytics.pipeline.run', 'analytics.pipeline.publish', 'analytics.pipeline.status', 'analytics.pipeline.logs', 'analytics.pipeline.versions', 'analytics.pipeline.rollback', 'reports.schema', 'reports.run', 'reports.export', 'specialDocuments.schema', 'specialDocuments.render', 'specialDocuments.export', 'regulatedDocuments.schema', 'regulatedDocuments.prepare', 'regulatedDocuments.render', 'regulatedDocuments.issue', 'regulatedDocuments.verify', 'regulatedDocuments.artifact'], true)) {
             return $payload;
         }
 
