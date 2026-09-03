@@ -24,6 +24,7 @@
     }
 
     init() {
+      global.CrudUtils.beginRenderGate(this.root);
       this.renderLoading();
       return this.loadConfig().then(() => {
         this.securityPolicy = global.CrudUtils.normalizeSecurityPolicy(this.config, this.options);
@@ -41,9 +42,11 @@
         if (typeof this.options.onLastUpdated === "function") {
           this.options.onLastUpdated(new Date());
         }
+        global.CrudUtils.completeRenderGate(this.root);
         return this;
       }).catch((error) => {
         this.renderError(error);
+        global.CrudUtils.failRenderGate(this.root);
         throw error;
       });
     }

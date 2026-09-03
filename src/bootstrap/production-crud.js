@@ -6,6 +6,7 @@
     if (!root) {
       return;
     }
+    global.CrudUtils.beginRenderGate(root);
 
     const params = readParams();
     const screenId = getParam(params, "screenId") || root.getAttribute("data-screen-id") || "";
@@ -195,6 +196,7 @@
     element.className = "crud-message crud-message-error";
     element.textContent = message;
     root.appendChild(element);
+    global.CrudUtils.failRenderGate(root);
   }
 
   function logBootstrapError() {

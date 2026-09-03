@@ -1311,6 +1311,71 @@
       return value == null ? fallback : Boolean(value);
     },
 
+    beginRenderGate(root) {
+      const element = this.resolveRenderGateElement(root);
+      if (!element) {
+        return null;
+      }
+      if (!element.hasAttribute("data-render-original-visibility")) {
+        element.setAttribute("data-render-original-visibility", element.style.visibility || "");
+      }
+      element.setAttribute("data-render-state", "loading");
+      element.setAttribute("aria-busy", "true");
+      element.style.visibility = "hidden";
+      return element;
+    },
+
+    completeRenderGate(root) {
+      const element = this.resolveRenderGateElement(root);
+      if (!element) {
+        return null;
+      }
+      this.restoreRenderGateVisibility(element);
+      element.setAttribute("data-render-state", "ready");
+      element.setAttribute("aria-busy", "false");
+      return element;
+    },
+
+    failRenderGate(root) {
+      const element = this.resolveRenderGateElement(root);
+      if (!element) {
+        return null;
+      }
+      this.restoreRenderGateVisibility(element);
+      element.setAttribute("data-render-state", "error");
+      element.setAttribute("aria-busy", "false");
+      return element;
+    },
+
+    resolveRenderGateElement(root) {
+      if (!root) {
+        return null;
+      }
+      if (root.nodeType === 1) {
+        return root;
+      }
+      if (root.jquery) {
+        return root.get(0) || null;
+      }
+      if (typeof root === "string") {
+        return document.querySelector(root);
+      }
+      if (root[0] && root[0].nodeType === 1) {
+        return root[0];
+      }
+      return null;
+    },
+
+    restoreRenderGateVisibility(element) {
+      const original = element.getAttribute("data-render-original-visibility");
+      if (original) {
+        element.style.visibility = original;
+      } else {
+        element.style.removeProperty("visibility");
+      }
+      element.removeAttribute("data-render-original-visibility");
+    },
+
     isProductionSecurity(policy) {
       return Boolean(policy && policy.production);
     },

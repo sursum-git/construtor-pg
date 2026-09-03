@@ -32,8 +32,10 @@
   }
 
   MasterDetailEngine.prototype.init = function() {
+    global.CrudUtils.beginRenderGate(this.root);
     if (!$ || !global.kendo || !$.fn.kendoGrid) {
       this.renderFatal("Kendo UI nao esta carregado.");
+      global.CrudUtils.failRenderGate(this.root);
       return Promise.resolve(this);
     }
 
@@ -41,10 +43,12 @@
     return this.loadData()
       .then(() => {
         this.render();
+        global.CrudUtils.completeRenderGate(this.root);
         return this;
       })
       .catch((error) => {
         this.renderFatal(this.errorMessage(error, "Falha ao carregar mestre-detalhe."));
+        global.CrudUtils.failRenderGate(this.root);
         return this;
       });
   };

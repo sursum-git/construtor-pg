@@ -20,6 +20,7 @@
       this.dataSourceEvents = {};
       this.columns = this.resolveColumns();
       this.grid = this.createGridAdapter();
+      this.initialReadPromise = Promise.resolve(null);
     }
 
     render(container) {
@@ -41,8 +42,9 @@
       this.renderHeader();
       this.bindEvents();
       if (!this.deferInitialRead) {
-        this.refresh();
+        this.initialReadPromise = this.refresh({ rejectOnError: true });
       } else {
+        this.initialReadPromise = Promise.resolve(null);
         this.renderRows();
       }
       return this.grid;
@@ -57,6 +59,10 @@
     }
 
     bindRowActions() {}
+
+    waitForInitialRead() {
+      return this.initialReadPromise || Promise.resolve(null);
+    }
 
     createGridAdapter() {
       return {
@@ -327,7 +333,8 @@
       ].join("");
     }
 
-    refresh() {
+    refresh(options) {
+      const settings = options || {};
       const endpoint = this.definition.api && this.definition.api.read;
       if (!endpoint || !endpoint.url) {
         global.CrudUtils.showMessage("Endpoint de leitura nao configurado.", "error");
@@ -360,6 +367,9 @@
       }).catch((error) => {
         const normalized = global.CrudUtils.unwrapError(error, "Erro ao carregar registros.");
         global.CrudUtils.showMessage(normalized.message, "error");
+        if (settings.rejectOnError) {
+          throw normalized;
+        }
         return null;
       }).finally(() => {
         this.setLoading(false);

@@ -18,6 +18,7 @@
     }
 
     init() {
+      global.CrudUtils.beginRenderGate(this.root);
       return this.loadConfig()
         .then(() => this.loadDefinition())
         .then((definition) => {
@@ -25,7 +26,15 @@
           this.render();
           return this.prepareDocument();
         })
-        .then(() => this);
+        .then(() => {
+          global.CrudUtils.completeRenderGate(this.root);
+          return this;
+        })
+        .catch((error) => {
+          this.renderError(error);
+          global.CrudUtils.failRenderGate(this.root);
+          throw error;
+        });
     }
 
     destroy() {

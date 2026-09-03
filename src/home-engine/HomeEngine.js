@@ -108,6 +108,7 @@
     }
 
     init() {
+      global.CrudUtils.beginRenderGate(this.root);
       this.renderLoading();
       return this.loadConfig().then(() => {
         this.securityPolicy = global.CrudUtils.normalizeSecurityPolicy(this.config, this.options);
@@ -132,15 +133,18 @@
         this.startRuntimeMessagePolling();
         return this.maybeCheckSystemUpdatesSummary().then(() => {
           if (this.systemUpdatesBlocked) {
+            global.CrudUtils.completeRenderGate(this.root);
             return this;
           }
           return this.openInitialProgram().then(() => {
             this.restoreAppbarPanelContext();
+            global.CrudUtils.completeRenderGate(this.root);
             return this;
           });
         });
       }).catch((error) => {
         this.renderError(global.CrudUtils.unwrapError(error, "Erro ao carregar pagina inicial."));
+        global.CrudUtils.failRenderGate(this.root);
         throw error;
       });
     }

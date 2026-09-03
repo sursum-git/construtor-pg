@@ -9,9 +9,22 @@
       this.deferInitialRead = Boolean(options.deferInitialRead);
       this.filters = global.CrudUtils.ensureArray(options.initialFilters);
       this.lastColumnMenuField = null;
+      this.initialReadPromise = Promise.resolve(null);
+      this.resolveInitialRead = null;
+      this.rejectInitialRead = null;
+      this.initialReadSettled = false;
     }
 
     render(container) {
+      this.initialReadSettled = this.deferInitialRead;
+      this.resolveInitialRead = null;
+      this.rejectInitialRead = null;
+      this.initialReadPromise = this.deferInitialRead
+        ? Promise.resolve(null)
+        : new Promise((resolve, reject) => {
+          this.resolveInitialRead = resolve;
+          this.rejectInitialRead = reject;
+        });
       const panel = $("<section class=\"crud-grid-panel\"></section>").appendTo(container);
       const gridElement = $("<div class=\"crud-grid\"></div>")
         .attr("id", this.definition.grid.id || "crudGrid")
@@ -59,6 +72,7 @@
         selectable: this.getSelectableMode(),
         change: () => this.notifySelectionChange(),
         dataBound: () => {
+          this.completeInitialRead();
           this.notifySelectionChange();
           this.initializeMobileTemplateTabs();
           this.initializeRowActionButtons();
@@ -657,7 +671,10 @@
               data: payload
             }).then((response) => {
               options.success(response);
-            }).catch(options.error);
+            }).catch((error) => {
+              this.completeInitialRead(error);
+              options.error(error);
+            });
           }
         },
         schema: {
@@ -674,6 +691,28 @@
         filter: this.getInitialFilter(),
         group: isMobileTemplate ? [] : initialGroup
       });
+    }
+
+    completeInitialRead(error) {
+      if (this.initialReadSettled) {
+        return;
+      }
+      this.initialReadSettled = true;
+      const resolve = this.resolveInitialRead;
+      const reject = this.rejectInitialRead;
+      this.resolveInitialRead = null;
+      this.rejectInitialRead = null;
+      if (error && typeof reject === "function") {
+        reject(error);
+        return;
+      }
+      if (typeof resolve === "function") {
+        resolve(this.grid || null);
+      }
+    }
+
+    waitForInitialRead() {
+      return this.initialReadPromise || Promise.resolve(this.grid || null);
     }
 
     buildModel() {

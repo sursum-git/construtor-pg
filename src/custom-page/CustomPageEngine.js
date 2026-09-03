@@ -14,15 +14,18 @@
     }
 
     init() {
+      global.CrudUtils.beginRenderGate(this.root);
       this.renderLoading();
       return this.loadConfig().then(() => {
         return this.loadDefinition();
       }).then((definition) => {
         this.definition = this.validateDefinition(definition);
         this.render();
+        global.CrudUtils.completeRenderGate(this.root);
         return this;
       }).catch((error) => {
         this.renderError(global.CrudUtils.unwrapError(error, "Erro ao carregar programa custom."));
+        global.CrudUtils.failRenderGate(this.root);
         throw error;
       });
     }

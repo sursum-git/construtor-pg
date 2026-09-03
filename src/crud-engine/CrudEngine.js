@@ -37,6 +37,7 @@
     }
 
     init() {
+      global.CrudUtils.beginRenderGate(this.root);
       this.renderLoading();
       return this.loadConfig().then(() => {
         this.securityPolicy = global.CrudUtils.normalizeSecurityPolicy(this.config, this.options);
@@ -55,9 +56,13 @@
         if (this.options.runtimeMessages !== false) {
           this.startRuntimeMessagePolling();
         }
-        return this;
+        return this.waitForInitialGridRead().then(() => {
+          global.CrudUtils.completeRenderGate(this.root);
+          return this;
+        });
       }).catch((error) => {
         this.renderError(global.CrudUtils.unwrapError(error, "Erro ao carregar tela."));
+        global.CrudUtils.failRenderGate(this.root);
         throw error;
       });
     }
@@ -187,6 +192,13 @@
           this.renderActiveFilters(initialFilters);
         }
       }
+    }
+
+    waitForInitialGridRead() {
+      if (!this.gridRenderer || typeof this.gridRenderer.waitForInitialRead !== "function") {
+        return Promise.resolve(this);
+      }
+      return this.gridRenderer.waitForInitialRead().then(() => this);
     }
 
     getGridRendererClass() {

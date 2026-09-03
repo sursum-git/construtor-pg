@@ -20,6 +20,8 @@ Na producao inicial, o backend Symfony ja entrega telas por `screenId`, endpoint
 Para uma primeira versao de producao, o motor tambem aceita carregar a tela por `screenId`.
 Nesse modo o frontend nao recebe uma URL livre de JSON: ele pede ao backend uma tela conhecida, e o backend devolve somente a definicao autorizada para o usuario.
 
+Antes de qualquer motor exibir a tela final, o root entra em carregamento controlado por `CrudUtils.beginRenderGate`. O conteudo fica oculto ate o `init()` terminar metadados, dados iniciais e componentes necessarios. Ao concluir, `CrudUtils.completeRenderGate` marca `data-render-state="ready"` e libera a visualizacao. Em falha, o root fica visivel apenas com a mensagem de erro e `data-render-state="error"`.
+
 ## Mestre-detalhe
 
 O tipo fechado `pageType=master_detail` cobre o formulario de uma entidade mestre e uma ou mais entidades filhas distintas. A consulta/listagem do mestre continua sendo responsabilidade do `pageType=crud` existente.

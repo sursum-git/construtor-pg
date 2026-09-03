@@ -7,6 +7,7 @@ Objetivo principal:
 - Renderizar telas CRUD a partir de uma definicao JSON.
 - Renderizar telas de processamento por parametros a partir de uma definicao JSON.
 - Manter um padrao visual e comportamental reutilizavel.
+- Liberar visualmente a tela somente depois que metadados, dados iniciais e componentes do motor estiverem prontos; durante a inicializacao, o root fica em `data-render-state="loading"` e `aria-busy="true"`.
 - Servir como base futura para migrar sistemas existentes para telas configuradas por metadados.
 
 Decisoes fechadas:

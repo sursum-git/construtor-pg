@@ -18,6 +18,7 @@
     }
 
     init() {
+      global.CrudUtils.beginRenderGate(this.root);
       this.renderLoading();
       return this.loadConfig().then(() => {
         return this.loadDefinition();
@@ -28,9 +29,11 @@
         this.render();
         return this.runQuery();
       }).then(() => {
+        global.CrudUtils.completeRenderGate(this.root);
         return this;
       }).catch((error) => {
         this.renderError(error);
+        global.CrudUtils.failRenderGate(this.root);
         throw error;
       });
     }
