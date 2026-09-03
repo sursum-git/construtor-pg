@@ -184,6 +184,7 @@ Documentos importantes:
 - `docs/paridade-demo-producao.md`: controle do que mudou na demo e precisa, ou nao, ser levado para producao.
 - `docs/estado-local-persistido.md`: guia operacional do que fica salvo localmente, por contexto, e o que deve ser limpo no logout.
 - `docs/provisionamento-saas-onprem.md`: guia operacional do provisionamento SaaS e on-premise sem alterar a estrutura atual.
+- `docs/contrato-motor-progress.md`: contrato de integracao para o motor-progress devolver metadados e payloads no formato esperado pelo construtor.
 - `docs/manual-instalacao.md`: manual detalhado da instalacao por executavel Go, ativacao, precheck, Docker, Linux nativo, Windows teste e SaaS.
 - `docs/checklist-producao-instalacao.md`: checklist dos passos finais para central real, cadastros, artefatos, testes externos, distribuicao e endurecimento.
 - `docs/instalacao-central-real.env.example`: modelo de variaveis da central real.

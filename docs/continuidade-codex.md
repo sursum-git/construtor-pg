@@ -26,6 +26,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
 ## Mestre-detalhe em producao
 
 - O mecanismo geral de renderizacao usa um gate visual comum: CRUD, Home, Process, Analytics, Reports, documentos, custom e mestre-detalhe so liberam o root depois que o `init()` conclui metadados, dados iniciais e componentes. O root expoe `data-render-state="loading|ready|error"` e `aria-busy`.
+- O contrato para o motor-progress devolver metadados e payloads compativeis com o construtor esta em `docs/contrato-motor-progress.md`; ele cobre `crud`, `master_detail`, `process`, `analytics`, `report`, `special_document`, `regulated_document`, `custom` e `home`.
 - O `Program Builder` agora permite criar programas `pageType=master_detail` como formulario de uma entidade mestre `persistence`, com entidades filhas vinculadas por campo, campos de exibicao/totais e fluxo de inclusao `parentFirst` ou `draftWithChildren`. A consulta/listagem do mestre deve permanecer em tela CRUD separada.
 - O preview do builder gera a definicao completa (`master`, `details` e `createFlow`) e aceita somente o endpoint seguro `createGraph` para inclusao conjunta.
 - Cada filha permite editar titulo, campos exibidos e totais; `parentField` precisa ser uma FK declarada para a tabela/chave primaria do mestre.
