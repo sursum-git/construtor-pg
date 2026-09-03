@@ -25,7 +25,7 @@ Use este arquivo para retomar o trabalho em outra sessao.
 
 ## Mestre-detalhe em producao
 
-- O `Program Builder` agora permite criar programas `pageType=master_detail` com uma entidade mestre `persistence`, entidades filhas vinculadas por campo, campos de exibicao/totais e fluxo de inclusao `parentFirst` ou `draftWithChildren`.
+- O `Program Builder` agora permite criar programas `pageType=master_detail` como formulario de uma entidade mestre `persistence`, com entidades filhas vinculadas por campo, campos de exibicao/totais e fluxo de inclusao `parentFirst` ou `draftWithChildren`. A consulta/listagem do mestre deve permanecer em tela CRUD separada.
 - O preview do builder gera a definicao completa (`master`, `details` e `createFlow`) e aceita somente o endpoint seguro `createGraph` para inclusao conjunta.
 - Cada filha permite editar titulo, campos exibidos e totais; `parentField` precisa ser uma FK declarada para a tabela/chave primaria do mestre.
 - A publicacao ativa endpoints `master.*`, `detail.<entidade>.*` e `createGraph` conforme as permissoes `create/edit/delete`; a inclusao conjunta usa o handler transacional fechado `master_detail.createGraph`.

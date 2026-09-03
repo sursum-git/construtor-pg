@@ -113,7 +113,7 @@
     },
     "section": {
       "type": "object",
-      "required": ["id", "entity", "idField", "fields", "grid"],
+      "required": ["id", "entity", "idField", "fields"],
       "properties": {
         "id": { "type": "string" },
         "entity": { "type": "string" },

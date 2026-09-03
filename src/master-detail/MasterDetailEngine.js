@@ -12,6 +12,7 @@
     this.httpClient = settings.httpClient || (global.CrudHttpClient ? new global.CrudHttpClient() : null);
     this.productionErrors = settings.productionErrors === true;
     this.hideHeader = settings.hideHeader === true;
+    this.initialMasterId = settings.initialMasterId != null && settings.initialMasterId !== "" ? String(settings.initialMasterId) : "";
     this.definition = clone(settings.definition || {});
     this.masterRecords = [];
     this.detailRecords = {};
@@ -19,7 +20,13 @@
     this.detailButtons = {};
     this.detailSummaries = {};
     this.selectedMasterId = null;
-    this.masterGrid = null;
+    this.masterFormElement = null;
+    this.masterFormEditors = {};
+    this.masterFormValidation = null;
+    this.masterFormMode = "edit";
+    this.masterFormOriginalRecord = null;
+    this.masterSaveButton = null;
+    this.masterCancelButton = null;
     this.tabStrip = null;
     this.masterContextElement = null;
   }
@@ -47,11 +54,16 @@
       global.kendo.destroy(this.root);
     }
     this.root.empty();
-    this.masterGrid = null;
     this.tabStrip = null;
     this.detailGrids = {};
     this.detailButtons = {};
     this.detailSummaries = {};
+    this.masterFormElement = null;
+    this.masterFormEditors = {};
+    this.masterFormValidation = null;
+    this.masterFormOriginalRecord = null;
+    this.masterSaveButton = null;
+    this.masterCancelButton = null;
   };
 
   MasterDetailEngine.prototype.normalizeDefinition = function() {
@@ -99,7 +111,7 @@
       this.renderHeader(screen);
     }
 
-    const layout = $("<div class=\"master-detail-layout\"></div>").appendTo(screen);
+    const layout = $("<div class=\"master-detail-form-layout\"></div>").appendTo(screen);
     const masterPanel = $("<section class=\"master-detail-panel master-detail-parent-panel\"></section>").appendTo(layout);
     const detailPanel = $("<section class=\"master-detail-panel master-detail-child-panel\"></section>").appendTo(layout);
 
@@ -161,23 +173,29 @@
 
   MasterDetailEngine.prototype.loadMasterRecords = function() {
     const master = this.definition.master;
+    if (this.initialMasterId !== "") {
+      if (this.hasEndpoint(master, "get")) {
+        return this.requestSection(master, "get", {
+          id: this.initialMasterId,
+          [master.idField]: this.initialMasterId
+        }).then((response) => {
+          const record = this.extractResponseRecord(response, {});
+          this.masterRecords = record && record[master.idField] != null ? [record] : [];
+          this.selectedMasterId = this.masterRecords.length ? this.masterRecords[0][master.idField] : null;
+          return this.masterRecords;
+        });
+      }
+      const selected = this.masterRecords.find((record) => String(record[master.idField]) === this.initialMasterId);
+      this.masterRecords = selected ? [selected] : [];
+      this.selectedMasterId = selected ? selected[master.idField] : null;
+      return Promise.resolve(this.masterRecords);
+    }
     if (!this.hasEndpoint(master, "read")) {
       return Promise.resolve(this.masterRecords);
     }
-    return this.requestSection(master, "read", {
-      skip: 0,
-      take: 500,
-      pageSize: 500,
-      sort: ensureArray(master.query && master.query.sort)
-    }).then((response) => {
-      this.masterRecords = this.extractResponseRows(response);
-      if (this.masterRecords.length) {
-        this.selectedMasterId = this.masterRecords[0][master.idField];
-      } else {
-        this.selectedMasterId = null;
-      }
-      return this.masterRecords;
-    });
+    this.masterRecords = [];
+    this.selectedMasterId = null;
+    return Promise.resolve(this.masterRecords);
   };
 
   MasterDetailEngine.prototype.loadDetailRecordsForSelected = function() {
@@ -222,7 +240,7 @@
       $("<p></p>").text(program.subtitle).appendTo(titleGroup);
     }
     const badges = $("<div class=\"master-detail-badges\"></div>").appendTo(header);
-    $("<span></span>").text("Kendo Grid").appendTo(badges);
+    $("<span></span>").text("Formulario CRUD").appendTo(badges);
     $("<span></span>").text(String(this.definition.details.length) + " filho(s)").appendTo(badges);
     $("<span></span>").text(this.getCreateFlowMode() === "draftWithChildren" ? "Inclusao conjunta" : "Pai primeiro").appendTo(badges);
   };
@@ -232,42 +250,24 @@
     const heading = $("<div class=\"master-detail-panel-heading\"></div>").appendTo(panel);
     $("<div><h3></h3><p></p></div>").appendTo(heading)
       .find("h3").text(master.title || "Pai").end()
-      .find("p").text(master.subtitle || "Registros principais");
+      .find("p").text(master.subtitle || "Cabecalho do registro mestre");
 
     const actions = $("<div class=\"master-detail-actions\"></div>").appendTo(heading);
     if (this.hasPermission("create")) {
       this.createButton(actions, "Incluir", "plus", "primary", () => this.openMasterWindow("create"));
     }
-    if (this.hasPermission("edit")) {
-      this.createButton(actions, "Alterar", "pencil", null, () => this.openMasterWindow("edit", this.getSelectedMaster()));
+    if (this.hasPermission("create") || this.hasPermission("edit")) {
+      this.masterSaveButton = this.createButton(actions, "Confirmar", "check", null, () => this.saveMasterForm());
+      this.masterCancelButton = this.createButton(actions, "Cancelar", "cancel", null, () => this.cancelMasterForm());
     }
     if (this.hasPermission("delete")) {
       this.createButton(actions, "Excluir", "trash", null, () => this.deleteSelectedMaster());
     }
 
     this.masterContextElement = $("<div class=\"master-detail-context\"></div>").appendTo(panel);
-    const gridElement = $("<div class=\"master-detail-grid master-detail-master-grid\"></div>").appendTo(panel);
-    const columns = this.buildGridColumns(master, {
-      edit: (record) => this.openMasterWindow("edit", record),
-      remove: (record) => this.deleteMaster(record)
-    });
-
-    gridElement.kendoGrid({
-      dataSource: this.createDataSource(this.masterRecords, master),
-      selectable: "row",
-      sortable: true,
-      pageable: false,
-      resizable: true,
-      columns: columns,
-      change: () => {
-        const selected = this.masterGrid.dataItem(this.masterGrid.select());
-        if (selected) {
-          this.setSelectedMaster(selected[master.idField]);
-        }
-      },
-      dataBound: () => this.bindMasterGridRows()
-    });
-    this.masterGrid = gridElement.data("kendoGrid");
+    this.masterFormValidation = $("<div class=\"master-detail-validation\"></div>").appendTo(panel);
+    this.masterFormElement = $("<form class=\"master-detail-form master-detail-master-form\"></form>").appendTo(panel);
+    this.renderMasterForm(this.getSelectedMaster() || this.createDefaultRecord(master), this.getSelectedMaster() ? "edit" : "create");
   };
 
   MasterDetailEngine.prototype.renderDetailPanel = function(panel) {
@@ -454,29 +454,6 @@
     }, {});
   };
 
-  MasterDetailEngine.prototype.bindMasterGridRows = function() {
-    if (!this.masterGrid) {
-      return;
-    }
-    const idField = this.definition.master.idField;
-    const rows = this.masterGrid.tbody.children("tr");
-    rows.off("dblclick.masterDetail");
-    if (this.hasPermission("edit")) {
-      rows.on("dblclick.masterDetail", (event) => {
-        const record = this.masterGrid.dataItem(event.currentTarget);
-        if (record) {
-          this.openMasterWindow("edit", record);
-        }
-      });
-    }
-    rows.each((_, row) => {
-      const record = this.masterGrid.dataItem(row);
-      if (record && String(record[idField]) === String(this.selectedMasterId)) {
-        this.masterGrid.select(row);
-      }
-    });
-  };
-
   MasterDetailEngine.prototype.bindDetailGridRows = function(detail) {
     const grid = this.detailGrids[detail.id];
     if (!grid) {
@@ -498,6 +475,7 @@
       id = this.masterRecords[0][this.definition.master.idField];
     }
     this.selectedMasterId = id;
+    this.refreshMasterForm();
     this.refreshMasterContext();
     if (this.hasRemoteDetails()) {
       return this.loadDetailRecordsForSelected()
@@ -515,13 +493,41 @@
     return Promise.resolve(this);
   };
 
-  MasterDetailEngine.prototype.refreshMasterGrid = function() {
-    if (!this.masterGrid) {
+  MasterDetailEngine.prototype.refreshMasterForm = function() {
+    if (!this.masterFormElement) {
       return;
     }
-    this.masterGrid.setDataSource(this.createDataSource(this.masterRecords, this.definition.master));
-    this.masterGrid.refresh();
-    this.bindMasterGridRows();
+    const record = this.getSelectedMaster();
+    this.renderMasterForm(record || this.createDefaultRecord(this.definition.master), record ? "edit" : "create");
+  };
+
+  MasterDetailEngine.prototype.renderMasterForm = function(record, mode) {
+    if (!this.masterFormElement) {
+      return;
+    }
+    const values = clone(record || {});
+    this.masterFormMode = mode || "edit";
+    this.masterFormOriginalRecord = mode === "create" ? null : clone(record || {});
+    this.masterFormEditors = {};
+    this.masterFormElement.empty();
+    ensureArray(this.definition.master.fields).forEach((field) => {
+      const id = field.id || field.code;
+      if (!id || field.hidden === true) {
+        return;
+      }
+      const row = $("<label class=\"master-detail-field\"></label>").appendTo(this.masterFormElement);
+      $("<span></span>").text((field.label || id) + (field.required ? " *" : "")).appendTo(row);
+      this.masterFormEditors[id] = this.createEditor(row, field, values[id], this.masterFormMode);
+      if (!this.hasPermission(this.masterFormMode === "create" ? "create" : "edit")) {
+        disableEditor(this.masterFormEditors[id].input);
+      }
+    });
+    if (this.masterSaveButton && typeof this.masterSaveButton.enable === "function") {
+      this.masterSaveButton.enable(this.hasPermission(this.masterFormMode === "create" ? "create" : "edit"));
+    }
+    if (this.masterCancelButton && typeof this.masterCancelButton.enable === "function") {
+      this.masterCancelButton.enable(true);
+    }
   };
 
   MasterDetailEngine.prototype.refreshDetailGrids = function() {
@@ -543,7 +549,7 @@
     const record = this.getSelectedMaster();
     this.masterContextElement.empty();
     if (!record) {
-      $("<span></span>").text("Nenhum pai selecionado.").appendTo(this.masterContextElement);
+      $("<span></span>").text(this.masterFormMode === "create" ? "Novo mestre em preenchimento." : "Nenhum pai selecionado.").appendTo(this.masterContextElement);
       return;
     }
 
@@ -615,14 +621,61 @@
       return;
     }
     const master = this.definition.master;
-    const values = mode === "create" ? this.createDefaultRecord(master) : clone(toPlainRecord(record));
-    this.openRecordWindow({
-      title: (mode === "create" ? "Incluir " : "Alterar ") + (master.singularTitle || master.title || "pai"),
-      section: master,
-      mode: mode,
-      values: values,
-      save: (nextValues) => this.saveMaster(mode, record, nextValues)
-    });
+    if (mode === "create") {
+      this.selectedMasterId = null;
+      this.renderMasterForm(this.createDefaultRecord(master), "create");
+      this.refreshMasterContext();
+      this.refreshDetailGrids();
+      return;
+    }
+    this.renderMasterForm(record || this.getSelectedMaster() || this.createDefaultRecord(master), "edit");
+  };
+
+  MasterDetailEngine.prototype.saveMasterForm = function() {
+    if (!this.masterFormElement) {
+      return;
+    }
+    const mode = this.masterFormMode === "create" ? "create" : "edit";
+    if (!this.hasPermission(mode === "create" ? "create" : "edit")) {
+      return;
+    }
+    const base = mode === "create" ? this.createDefaultRecord(this.definition.master) : toPlainRecord(this.masterFormOriginalRecord);
+    const values = Object.assign({}, base, this.collectEditorValues(this.definition.master, this.masterFormEditors));
+    const errors = this.validateRecord(this.definition.master, values);
+    this.masterFormValidation.empty();
+    if (errors.length) {
+      this.masterFormValidation.text(errors.join(" "));
+      showMessage(errors.join("\n"), "warning");
+      return;
+    }
+    const result = this.saveMaster(mode, this.masterFormOriginalRecord, values);
+    if (result && typeof result.then === "function") {
+      setWindowButtonsEnabled(this.masterSaveButton, this.masterCancelButton, false);
+      result.catch((error) => {
+        const message = this.errorMessage(error, "Nao foi possivel salvar o registro pai.");
+        this.masterFormValidation.text(message);
+        showMessage(message, "error");
+      }).finally(() => {
+        setWindowButtonsEnabled(this.masterSaveButton, this.masterCancelButton, true);
+      });
+    }
+  };
+
+  MasterDetailEngine.prototype.cancelMasterForm = function() {
+    const record = this.getSelectedMaster();
+    if (record) {
+      this.renderMasterForm(record, "edit");
+      this.refreshMasterContext();
+      this.refreshDetailGrids();
+      return;
+    }
+    if (this.masterRecords.length) {
+      this.setSelectedMaster(this.masterRecords[0][this.definition.master.idField]);
+      return;
+    }
+    this.renderMasterForm(this.createDefaultRecord(this.definition.master), "create");
+    this.refreshMasterContext();
+    this.refreshDetailGrids();
   };
 
   MasterDetailEngine.prototype.openDetailWindow = function(detail, mode, record) {
@@ -1007,7 +1060,7 @@
       this.detailRecords[detail.id] = records;
     });
 
-    this.refreshMasterGrid();
+    this.refreshMasterForm();
     this.setSelectedMaster(this.selectedMasterId);
   };
 
@@ -1159,7 +1212,7 @@
         this.selectedMasterId = values[idField];
       }
     }
-    this.refreshMasterGrid();
+    this.refreshMasterForm();
     this.setSelectedMaster(this.selectedMasterId);
   };
 
@@ -1227,7 +1280,7 @@
           });
         });
         this.selectedMasterId = this.masterRecords.length ? this.masterRecords[0][idField] : null;
-        this.refreshMasterGrid();
+        this.refreshMasterForm();
         this.setSelectedMaster(this.selectedMasterId);
         showMessage("Registro pai excluido.", "success");
       };

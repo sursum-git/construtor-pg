@@ -82,6 +82,12 @@
   align-items: start;
 }
 
+.master-detail-form-layout {
+  display: grid;
+  gap: 14px;
+  align-items: start;
+}
+
 .master-detail-panel {
   display: grid;
   min-width: 0;
@@ -144,6 +150,16 @@
   display: grid;
   gap: 12px;
   padding: 4px;
+}
+
+.master-detail-master-form {
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  align-items: start;
+}
+
+.master-detail-master-form .master-detail-field:has(textarea),
+.master-detail-master-form .master-detail-field:nth-child(5n) {
+  grid-column: span 2;
 }
 
 .master-detail-draft-form {
@@ -240,5 +256,14 @@
 
   .master-detail-draft-fields {
     grid-template-columns: 1fr;
+  }
+
+  .master-detail-master-form {
+    grid-template-columns: 1fr;
+  }
+
+  .master-detail-master-form .master-detail-field:has(textarea),
+  .master-detail-master-form .master-detail-field:nth-child(5n) {
+    grid-column: auto;
   }
 }

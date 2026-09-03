@@ -111,6 +111,7 @@ await page.addInitScript(({ runtimeDefinition, runtimeScreenId }) => {
           pedido_parcela: [{ id: 2001, pedido_id: 101, numero: 1, vencimento: "2026-09-10", valor: 120 }]
         };
         window.__programBuilderMasterDetailCreateGraphCalls = 0;
+        window.__programBuilderMasterDetailRequests = [];
       }
 
       request(request) {
@@ -123,6 +124,7 @@ await page.addInitScript(({ runtimeDefinition, runtimeScreenId }) => {
         const runtimePath = "/api/runtime/screens/" + encodeURIComponent(runtimeScreenId);
         const endpointPath = runtimePath + "/endpoints/";
         const method = String(request?.method || "GET").toUpperCase();
+        window.__programBuilderMasterDetailRequests.push({ method, pathname: url.pathname });
         if (url.origin !== window.location.origin || url.search || url.hash) {
           return Promise.reject({ error: { code: "RUNTIME_ENDPOINT_NOT_FOUND", message: "Endpoint fechado nao encontrado." } });
         }
@@ -131,6 +133,10 @@ await page.addInitScript(({ runtimeDefinition, runtimeScreenId }) => {
         }
         if (method === "POST" && url.pathname === endpointPath + "master.read") {
           return Promise.resolve({ data: this.masterRecords });
+        }
+        if (method === "POST" && url.pathname === endpointPath + "master.get") {
+          const id = request?.data?.id;
+          return Promise.resolve(this.masterRecords.find((record) => String(record.id) === String(id)) || {});
         }
         if (method === "POST" && url.pathname === endpointPath + "detail.pedido_item.read") {
           return Promise.resolve({ data: this.detailRecords.pedido_item });
@@ -158,12 +164,17 @@ await page.addInitScript(({ runtimeDefinition, runtimeScreenId }) => {
 
 try {
   await page.setViewportSize({ width: 1366, height: 900 });
-  await page.goto(baseUrl + "/production/app.html?screenId=" + screenId);
+  await page.goto(baseUrl + "/production/app.html?screenId=" + screenId + "&masterId=101");
   await page.waitForSelector(".master-detail-screen");
   await page.waitForSelector(".master-detail-parent-panel");
   await page.waitForSelector(".master-detail-child-panel");
   await assertActiveDetailTab(page, "Itens", "Produto publicado");
   await assertActiveDetailTab(page, "Parcelas", "120,00");
+  const openedMaster = await page.locator(".master-detail-master-form .master-detail-field").filter({ hasText: "Numero" }).locator("input, textarea").inputValue();
+  const runtimeRequests = await page.evaluate(() => window.__programBuilderMasterDetailRequests);
+  assert(openedMaster === "PV-101", "Formulario mestre-detalhe nao abriu o mestre solicitado pelo CRUD: " + JSON.stringify({ openedMaster, runtimeRequests }));
+  const masterReadCalls = runtimeRequests.filter((item) => item.pathname.endsWith("/master.read")).length;
+  assert(masterReadCalls === 0, "MasterDetailEngine nao deve consultar/listar mestres; a consulta fica no CRUD existente.");
 
   const rejectedRoutes = await Promise.all([
     closedRuntimeErrorCode(page, "https://nao-confiavel.test/api/runtime/screens/" + screenId + "/endpoints/master.read"),

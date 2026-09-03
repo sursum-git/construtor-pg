@@ -21,6 +21,7 @@
     const hideThemeSwitch = readBooleanParam(params, "hideThemeSwitch");
     const hideHeader = readBooleanParam(params, "hideProgramHeader");
     const initialFilters = readInitialFilters(params);
+    const initialMasterId = getParam(params, "masterId") || getParam(params, "recordId") || getParam(params, "id");
     const httpClient = new global.CrudHttpClient({
       allowLocalFallback: false
     });
@@ -40,6 +41,7 @@
           hideThemeSwitch: hideThemeSwitch,
           hideHeader: hideHeader,
           initialFilters: initialFilters,
+          initialMasterId: initialMasterId,
           httpClient: httpClient
         });
       });
@@ -113,6 +115,7 @@
         definition: definition,
         config: options.config,
         hideHeader: options.hideHeader,
+        initialMasterId: options.initialMasterId,
         productionErrors: true,
         httpClient: options.httpClient
       }).init();

@@ -21,8 +21,20 @@ await page.waitForSelector(".master-detail-screen");
 await page.waitForSelector(".master-detail-tabs li[role='tab']");
 
 const tabLabels = await page.locator(".master-detail-tabs li[role='tab']").allTextContents();
-const masterRows = await page.locator(".master-detail-master-grid .k-grid-content tbody tr").count();
+const masterGridCount = await page.locator(".master-detail-master-grid").count();
+const masterFormFields = await page.locator(".master-detail-master-form .master-detail-field").count();
+const masterFormNumero = await page.locator(".master-detail-master-form .master-detail-field").filter({ hasText: "Numero" }).locator("input").inputValue();
 const detailGridCount = await page.locator(".master-detail-detail-grid").count();
+const layout = await page.evaluate(() => {
+  const masterForm = document.querySelector(".master-detail-master-form").getBoundingClientRect();
+  const tabs = document.querySelector(".master-detail-tabs").getBoundingClientRect();
+  return {
+    formTop: masterForm.top,
+    formBottom: masterForm.bottom,
+    tabsTop: tabs.top,
+    tabsBottom: tabs.bottom
+  };
+});
 
 if (!tabLabels.some((label) => label.includes("Itens"))) {
   throw new Error("Aba de itens nao foi renderizada.");
@@ -30,11 +42,17 @@ if (!tabLabels.some((label) => label.includes("Itens"))) {
 if (!tabLabels.some((label) => label.includes("Parcelas"))) {
   throw new Error("Aba de parcelas nao foi renderizada.");
 }
-if (masterRows < 1) {
-  throw new Error("Grid mestre nao renderizou pedidos.");
+if (masterGridCount !== 0) {
+  throw new Error("Mestre-detalhe nao deve renderizar grid do mestre; a consulta deve ficar no CRUD existente.");
+}
+if (masterFormFields < 4 || masterFormNumero !== "PV-0001") {
+  throw new Error("Formulario/cabecalho do mestre nao foi renderizado acima das abas.");
 }
 if (detailGridCount < 2) {
   throw new Error("Nao renderizou os grids filhos esperados.");
+}
+if (layout.formTop >= layout.tabsTop || layout.formBottom > layout.tabsTop) {
+  throw new Error("O formulario do mestre deve ficar acima das abas de detalhe: " + JSON.stringify(layout));
 }
 
 await page.evaluate(() => {

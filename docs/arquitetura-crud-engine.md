@@ -22,7 +22,7 @@ Nesse modo o frontend nao recebe uma URL livre de JSON: ele pede ao backend uma 
 
 ## Mestre-detalhe
 
-O tipo fechado `pageType=master_detail` cobre uma entidade mestre e uma ou mais entidades filhas distintas.
+O tipo fechado `pageType=master_detail` cobre o formulario de uma entidade mestre e uma ou mais entidades filhas distintas. A consulta/listagem do mestre continua sendo responsabilidade do `pageType=crud` existente.
 
 Contrato atual:
 
@@ -41,7 +41,7 @@ Em producao, a tela `vendas.pedido-master-detail` usa:
 - filha `pedido_venda_parcela` vinculada por `pedido_id`;
 - endpoints runtime `master.*`, `detail.itens.*` e `detail.parcelas.*`, todos resolvidos pelo handler generico `entity.crud`.
 
-O frontend continua apenas renderizando. Ao selecionar um pedido, o `MasterDetailEngine` recarrega cada filha enviando filtro fechado `pedido_id = id do pedido selecionado`. Ao incluir filho, a engine injeta o mesmo `pedido_id` antes de chamar o backend.
+O frontend continua apenas renderizando. O `MasterDetailEngine` mostra o cabecalho do mestre em formulario e as filhas em abas abaixo; ao carregar ou salvar o mestre, cada filha usa filtro fechado `pedido_id = id do pedido atual`. Ao incluir filho, a engine injeta o mesmo `pedido_id` antes de chamar o backend.
 
 ### Fluxo de inclusao no mestre-detalhe
 
