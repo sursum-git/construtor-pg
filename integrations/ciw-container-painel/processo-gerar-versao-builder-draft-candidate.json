@@ -1,0 +1,162 @@
+{
+  "entityDraft": {
+    "code": "container_processos_progress",
+    "name": "Processos do Container",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1015,
+    "apiSourceCode": "motor_progress_container_processos",
+    "apiListOperationCode": "painel_read",
+    "apiDetailOperationCode": "painel_get",
+    "fields": [
+      {
+        "code": "container_id",
+        "label": "Nr.Container",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": true,
+        "readonlyField": true,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 10,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "tipo_versao_id",
+        "label": "Tipo de versão (ID)",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "apiJsonPath": "tipo_versao_id",
+        "apiWritePath": "tipo_versao_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 20,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "descricao",
+        "label": "Descrição da versão",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "apiJsonPath": "descricao",
+        "apiWritePath": "descricao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 30,
+        "options": {
+          "readonly": false,
+          "writable": true
+        },
+        "length": 8000
+      },
+      {
+        "code": "expected_latest_version_id",
+        "label": "ID da última versão esperada",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "apiJsonPath": "expected_latest_version_id",
+        "apiWritePath": "expected_latest_version_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 40,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "versao_id",
+        "label": "ID da versão de custo a fechar",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "apiJsonPath": "versao_id",
+        "apiWritePath": "versao_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 50,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "log_priorizar_custo_previsto",
+        "label": "Priorizar custo previsto?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "apiJsonPath": "log_priorizar_custo_previsto",
+        "apiWritePath": "log_priorizar_custo_previsto",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 60,
+        "options": {
+          "readonly": false,
+          "writable": true
+        },
+        "defaultValue": false
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1015",
+    "programTitle": "Gerar Versão de Custo",
+    "module": "operacional",
+    "pageType": "process",
+    "builderEntityCode": "container_processos_progress",
+    "screenId": "ciw.container-gerar-versao",
+    "version": "1.0.0",
+    "subtitle": "Geração explícita com validação da última versão do container.",
+    "permissionPrefix": "container_gerar_versao_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "contextFields": [
+      {
+        "field": "container_id",
+        "required": true,
+        "readonly": true
+      }
+    ],
+    "processOptions": {
+      "operationCode": "gerar_versao",
+      "parameterFields": [
+        "tipo_versao_id",
+        "descricao",
+        "expected_latest_version_id"
+      ],
+      "confirmation": {
+        "message": "Gera uma nova versão dos custos e seus registros vinculados neste container. Confirme o ID da última versão; informe 0 apenas quando ainda não houver versão.",
+        "confirmText": "Gerar versão"
+      }
+    },
+    "changeSummary": "Processo nativo com permissão própria, contexto fixo e confirmação; abrir não executa."
+  }
+}

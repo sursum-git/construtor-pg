@@ -27,6 +27,31 @@
       this.applyTheme(this.currentTheme, { persist: false });
     }
 
+    async prepareApiCompany() {
+      if (!this.definition.apiCompany) { return; }
+      if (!global.ApiCompanySelection) { throw new Error("Componente Empresa API indisponível. Atualize a aplicação."); }
+      this.apiCompanySelection = global.ApiCompanySelection.forDefinition(this.definition, this.httpClient, {
+        beforeChange: () => this.confirmDiscardChanges(),
+        onChange: () => this.applyApiCompanySelection(),
+        onInvalid: () => global.CrudUtils.showMessage("A Empresa API mudou ou ficou indisponível. Selecione novamente antes de continuar.", "warning")
+      });
+      await this.apiCompanySelection.load();
+      this.httpClient = this.apiCompanySelection.client(this.httpClient);
+    }
+
+    hasPendingChanges() { return this.hasUnsavedChanges(); }
+
+    async applyApiCompanySelection() {
+      if (this.formRenderer) { this.formRenderer.close(true); }
+      if (this.gridRenderer && this.gridRenderer.discardBatch && this.gridRenderer.hasUnsavedChanges()) { this.gridRenderer.discardBatch(); }
+      this.releaseRuntimeLock({silent:true});
+      if (this.definition.form && this.definition.form.openOnLoadField) {
+        this.contextualRecordDeleted = false;
+        return this.openContextualForm();
+      }
+      if (this.gridRenderer) { this.gridRenderer.refresh(); }
+    }
+
     resolveUiMode() {
       const value = String(this.options.uiMode || this.options.rendererMode || "").toLowerCase();
       return value === "lite" ? "lite" : "kendo";
@@ -52,13 +77,18 @@
         this.definition = this.definitionNormalizer.normalize(definition);
         this.validator.validate(this.definition, { securityPolicy: this.securityPolicy });
         global.CrudUtils.applyEndpointSecurity(this.definition, this.securityPolicy);
+        this.initializeNavigationContext();
+        this.navigationGridState = global.CrudUtils.readGridReturnState(this.definition, this.options.restoreFrom);
+        if (this.navigationGridState) { this.options.initialFilters = this.navigationGridState.filters; }
+        return this.prepareApiCompany().then(() => {
         this.render();
         if (this.options.runtimeMessages !== false) {
           this.startRuntimeMessagePolling();
         }
-        return this.waitForInitialGridRead().then(() => {
+        return Promise.resolve(this.initialFormReady).then(() => this.waitForInitialGridRead()).then(() => {
           global.CrudUtils.completeRenderGate(this.root);
           return this;
+        });
         });
       }).catch((error) => {
         this.renderError(global.CrudUtils.unwrapError(error, "Erro ao carregar tela."));
@@ -68,6 +98,7 @@
     }
 
     render() {
+      if (this.gridRenderer && this.gridRenderer.guardBatchNavigation && !this.gridRenderer.guardBatchNavigation()) { return false; }
       if (this.gridRenderer && typeof this.gridRenderer.destroy === "function") {
         this.gridRenderer.destroy();
       }
@@ -77,12 +108,24 @@
       if (global.kendo && typeof global.kendo.destroy === "function") {
         global.kendo.destroy(this.root);
       }
+      this.auditSummaryElement = null;
+      this.apiCompanyContextMessage = null;
       this.root.empty();
       const screen = $("<div class=\"crud-screen\"></div>")
         .toggleClass("crud-lite", this.isLiteMode())
         .appendTo(this.root);
+      if (this.apiCompanySelection) {
+        const companyHost = this.options.apiCompanyHost || $("<div></div>").appendTo(screen);
+        this.apiCompanySelection.render(companyHost);
+      }
       if (this.options.hideHeader !== true) {
         this.renderHeader(screen);
+      }
+
+      if (this.definition.form && this.definition.form.openOnLoadField) {
+        this.initializeFormRenderer(screen);
+        this.initialFormReady = this.openContextualForm();
+        return;
       }
 
       this.layoutManager = new global.CrudLayoutManager({
@@ -100,6 +143,8 @@
         handlers: {
           create: () => this.openCreate(),
           refresh: () => this.refresh(),
+          saveBatch: () => this.gridRenderer.saveBatch(),
+          cancelBatch: () => this.gridRenderer.cancelBatch(),
           filters: () => this.openFilters(),
           sort: () => this.isLiteMode() ? this.showLiteUnsupported("ordenacao", "Use o clique no cabecalho da coluna para ordenar na v1 Lite.") : this.openSortWindow(),
           group: () => this.isLiteMode() ? this.showLiteUnsupported("agrupamento", "Agrupamento salvo fica fora da v1 Lite.") : this.openGroupWindow(),
@@ -126,47 +171,40 @@
         this.filterRenderer.render();
       }
 
-      const FormRenderer = this.getFormRendererClass();
-      this.formRenderer = new FormRenderer({
-        definition: this.definition,
-        httpClient: this.httpClient,
-        config: this.config,
-        securityPolicy: this.securityPolicy,
-        onSaved: (record, mode) => this.afterRecordSaved(record, mode),
-        onCreate: () => this.openCreate(),
-        onEdit: (record) => this.openRecord("edit", record[this.definition.dataModel.primaryKey]),
-        onDelete: (record, options) => this.deleteRecord(record[this.definition.dataModel.primaryKey], Object.assign({ record }, options || {})),
-        onLogs: (record, logs) => this.openLogsWindow(record, logs),
-        onButtonAction: (button, record, context) => this.executeFormButtonAction(button, record, context),
-        onBeforeAction: (mode, record, options) => this.prepareRecordAction(mode, record, options),
-        onActionCanceled: () => this.releaseRuntimeLock(),
-        onClosed: () => this.releaseRuntimeLock(),
-        onNavigate: (record, direction) => this.navigateFormRecord(record, direction),
-        getNavigationState: (record) => this.getFormNavigationState(record)
-      });
+      this.initializeFormRenderer();
 
       const shouldOpenInitialFilter = this.shouldOpenFiltersOnLoad();
       const shouldDeferInitialRead = shouldOpenInitialFilter && this.shouldWaitForFilterSubmitOnLoad();
-      const queryFilters = global.CrudUtils.ensureArray(this.options.initialFilters);
+      const queryFilters = global.CrudUtils.ensureArray(this.options.initialFilters).map((filter) => {
+        const editor = global.CrudUtils.ensureArray(this.definition.filter && this.definition.filter.fields)
+          .find((item) => item.id === filter.id || item.field === filter.field);
+        return Object.assign({}, filter, { id: filter.id || editor && editor.id || filter.field });
+      });
       if (this.filterRenderer && queryFilters.length) {
         this.filterRenderer.setValues(queryFilters);
       }
+      const editorFilters = this.filterRenderer ? this.filterRenderer.getValues() : [];
       const initialFilters = !shouldDeferInitialRead
-        ? (this.filterRenderer ? this.filterRenderer.getValues() : queryFilters)
+        ? editorFilters.concat(queryFilters.filter((filter) => !editorFilters.some((item) => (item.id === filter.id || item.field === filter.field) && item.operator === filter.operator)))
         : queryFilters;
-      this.currentFilters = initialFilters;
+      this.currentFilters = this.withContextFilters(initialFilters);
+      this.renderAuditSummary(screen);
       const GridRenderer = this.getGridRendererClass();
       this.gridRenderer = new GridRenderer({
         definition: this.definition,
         httpClient: this.httpClient,
         deferInitialRead: shouldDeferInitialRead,
-        initialFilters,
+        initialFilters: this.currentFilters,
+        initialNavigationState: this.navigationGridState,
+        contextValues: this.getRequestContextValues(),
         handlers: {
           create: () => this.openCreate(),
           view: (id, options) => this.openRecord("view", id, options),
+          logs: (record, logs) => this.openLogsWindow(record, logs),
           edit: (id, options) => this.openRecord("edit", id, options),
           delete: (id) => this.deleteRecord(id),
           selectionChange: (rows) => this.updateBulkSelection(rows),
+          batchChange: (dirty, saving) => this.toolbarRenderer.setBatchState(dirty, saving),
           print: (format, option) => this.exportGrid(format, option),
           layoutDirty: () => {
             if (this.layoutManager) {
@@ -194,11 +232,157 @@
       }
     }
 
+    initializeFormRenderer(host) {
+      const FormRenderer = this.getFormRendererClass();
+      if (this.formRenderer) { this.formRenderer.close(true); }
+      this.formRenderer = new FormRenderer({
+        host,
+        definition: this.definition,
+        httpClient: this.httpClient,
+        config: this.config,
+        securityPolicy: this.securityPolicy,
+        contextValues: this.getRequestContextValues(),
+        onSaved: (record, mode) => this.afterRecordSaved(record, mode),
+        onCreate: () => this.openCreate(),
+        onEdit: (record) => this.openRecord("edit", record[this.definition.dataModel.primaryKey]),
+        onDelete: (record, options) => this.deleteRecord(record[this.definition.dataModel.primaryKey], Object.assign({ record }, options || {})),
+        onLogs: (record, logs) => this.openLogsWindow(record, logs),
+        onButtonAction: (button, record, context) => this.executeFormButtonAction(button, record, context),
+        onBeforeAction: (mode, record, options) => this.prepareRecordAction(mode, record, options),
+        onActionCanceled: () => this.releaseRuntimeLock(),
+        onClosed: () => this.releaseRuntimeLock(),
+        onNavigate: (record, direction) => this.navigateFormRecord(record, direction),
+        getNavigationState: (record) => this.getFormNavigationState(record)
+      });
+    }
+
+    showApiCompanyContextMessage(message) {
+      if (!this.apiCompanyContextMessage) {
+        this.apiCompanyContextMessage = $("<p class=\"crud-api-company-message\" role=\"status\"></p>").appendTo(this.root);
+      }
+      this.apiCompanyContextMessage.text(message || "").toggle(Boolean(message));
+    }
+
+    openContextualForm() {
+      const requestVersion = this.contextualFormRequestVersion = (this.contextualFormRequestVersion || 0) + 1;
+      if (this.apiCompanySelection) {
+        const requiresCompany = Object.values(this.apiCompanySelection.config.endpointModes).some(entry => entry.operation === "get" && entry.mode !== "shared");
+        if (requiresCompany && !this.apiCompanySelection.selected) {
+          this.showApiCompanyContextMessage("Selecione a Empresa API para consultar este registro.");
+          return Promise.resolve(null);
+        }
+        this.showApiCompanyContextMessage("");
+      }
+      const field = this.definition.form.openOnLoadField;
+      const id = this.contextValues[field];
+      if (!global.CrudUtils.getPermission(this.definition, 'read')) {
+        return Promise.reject(global.CrudUtils.makeError('CRUD_READ_FORBIDDEN', 'Consulta nao autorizada.'));
+      }
+      return this.fetchRecord(id).then((record) => {
+        if (requestVersion !== this.contextualFormRequestVersion) { return null; }
+        if (!record || String(record[field]) !== String(id)) {
+          throw global.CrudUtils.makeError('CRUD_CONTEXT_RECORD_MISMATCH', 'Registro retornado nao corresponde ao contexto solicitado.');
+        }
+        if (this.sessionRevoked) { throw global.CrudUtils.makeError('SESSION_REVOKED', 'Sessao revogada.'); }
+        this.formRenderer.open('view', record);
+        return Promise.resolve(this.formRenderer.optionsReady).then(() => { if (requestVersion !== this.contextualFormRequestVersion) { return null; } this.updateLastUpdated(); return record; });
+      }).catch(error => {
+        if (requestVersion !== this.contextualFormRequestVersion) { return null; }
+        if (!this.apiCompanySelection) { throw error; }
+        this.formRenderer.close(true);
+        const detail = global.CrudUtils.unwrapError(error, "Não foi possível consultar o registro na Empresa API selecionada.");
+        this.showApiCompanyContextMessage(detail.message || detail);
+        return null;
+      });
+    }
+
     waitForInitialGridRead() {
       if (!this.gridRenderer || typeof this.gridRenderer.waitForInitialRead !== "function") {
         return Promise.resolve(this);
       }
-      return this.gridRenderer.waitForInitialRead().then(() => this);
+      return Promise.all([this.gridRenderer.waitForInitialRead(), this.auditSummaryReady || Promise.resolve()]).then(() => this);
+    }
+
+    renderAuditSummary(container) {
+      const config = this.definition.crud && this.definition.crud.auditSummary || this.definition.auditSummary;
+      this.auditSummaryConfig = config;
+      if (!config || config.enabled === false) {
+        this.auditSummaryReady = Promise.resolve();
+        return;
+      }
+      const panel = $("<section class=\"crud-section crud-audit-summary\" aria-live=\"polite\"></section>").appendTo(container);
+      $("<h3 class=\"crud-section-title\"></h3>").text("Alterações da transação").appendTo(panel);
+      this.auditSummaryElement = panel;
+      this.auditSummaryReady = this.refreshAuditSummary();
+    }
+
+    refreshAuditSummary() {
+      const panel = this.auditSummaryElement;
+      const config = this.auditSummaryConfig;
+      if (!panel || !config || config.enabled === false) { return Promise.resolve(); }
+      const requestVersion = (this.auditSummaryRequestVersion || 0) + 1;
+      this.auditSummaryRequestVersion = requestVersion;
+      const selected = global.CrudUtils.ensureArray(this.currentFilters).filter((filter) => filter.field === config.contextField && filter.operator === "eq" && filter.value != null && filter.value !== "");
+      const values = Array.from(new Set(selected.map((filter) => String(filter.value))));
+      panel.children().not("h3").remove();
+      if (values.length !== 1) {
+        panel.attr("data-state", "awaiting-selection");
+        $("<p></p>").text("Abra um evento para visualizar os valores anteriores e atuais.").appendTo(panel);
+        return Promise.resolve();
+      }
+      const transactionId = values[0];
+      panel.find("h3").text("Alterações da transação " + transactionId);
+      panel.attr("data-state", "loading");
+      $("<p></p>").text("Carregando alterações e eventos...").appendTo(panel);
+      const limit = Math.max(1, Math.min(500, config.maxRows || 500));
+      const endpoint = this.definition.api && this.definition.api.read;
+      const isCurrent = () => this.auditSummaryElement === panel && this.auditSummaryRequestVersion === requestVersion;
+      return Promise.resolve().then(() => {
+        if (!endpoint || !endpoint.url) { throw new Error("Consulta de eventos não configurada."); }
+        return this.httpClient.request({ url: endpoint.url, method: endpoint.method || "GET", data: {
+          take: limit, skip: 0, page: 1, pageSize: limit,
+          filters: this.withContextFilters([{ field: config.contextField, operator: "eq", value: transactionId }]),
+          sort: this.definition.query && this.definition.query.defaultSort || []
+        }});
+      }).then((response) => {
+        if (!isCurrent()) { return; }
+        panel.children().not("h3").remove();
+        const records = global.CrudUtils.ensureArray(response.data);
+        const total = Number(response.total);
+        const incomplete = Number.isFinite(total) ? total > records.length : records.length >= limit;
+        const parse = (value) => { if (typeof value === "string") { try { return JSON.parse(value); } catch (error) { return null; } } return value; };
+        const mapping = config.auditDiff || {};
+        const actor = records.find((row) => row[config.actorNameField] || row[config.actorIdField]);
+        if (actor) {
+          const name = actor[config.actorNameField]; const id = actor[config.actorIdField];
+          $("<p class=\"crud-audit-summary-actor\"></p>").text("Usuário: " + (name || id) + (name && id && name !== id ? " (" + id + ")" : "")).appendTo(panel);
+        }
+        let query = false;
+        const changes = records.filter((record) => {
+          const eventType = String(record[mapping.eventTypeField] || "");
+          if (/\.(read|get|list|options)$/.test(eventType)) { query = true; return false; }
+          const diff = parse(record[config.field]);
+          const hasDiff = diff && typeof diff === "object" && Object.keys(diff).length > 0;
+          return hasDiff || eventType.indexOf(".api.") !== -1 && /\.(create|update|delete|batch|unavailable)(\.|$)/.test(eventType);
+        });
+        changes.forEach((record) => {
+          const content = $("<div class=\"crud-audit-diff\"></div>").appendTo(panel);
+          this.formRenderer.renderAuditDiffValue(content, { field: config.field, auditDiff: mapping }, record);
+        });
+        if (incomplete) {
+          panel.attr("data-state", "incomplete");
+          $("<p></p>").text("O limite de " + limit + " eventos foi atingido. A comparação está incompleta; consulte os demais eventos na grade.").appendTo(panel);
+        } else {
+          panel.attr("data-state", "ready");
+          if (!changes.length) {
+            $("<p></p>").text(query ? "Esta transação não registrou alteração de dados. Operação de consulta." : records.length ? "Esta transação não possui diferenças de dados registradas." : "Não há eventos disponíveis para esta transação.").appendTo(panel);
+          }
+        }
+      }).catch(() => {
+        if (!isCurrent()) { return; }
+        panel.children().not("h3").remove();panel.attr("data-state", "error");
+        $("<p></p>").text("Não foi possível carregar os eventos; a comparação não pôde ser verificada.").appendTo(panel);
+      });
     }
 
     getGridRendererClass() {
@@ -339,9 +523,10 @@
     renderLogsButton(container) {
       const logs = this.getLogsConfig();
       const title = logs.title || "Logs";
-      const button = $("<button type=\"button\" class=\"crud-log-button crud-icon-button\"></button>")
+      const button = $("<button type=\"button\" class=\"crud-log-button\"></button>")
         .attr("title", title)
         .attr("aria-label", title)
+        .text(title)
         .appendTo(container);
 
       button.kendoButton({ icon: "list-unordered" });
@@ -354,11 +539,39 @@
         return;
       }
       const screenId = global.CrudUtils.getDefinitionScreenId(this.definition);
-      const sourceUrl = global.CrudUtils.resolveDocumentUrlForPolicy(logs, "logs", screenId, this.securityPolicy);
-      if (!sourceUrl) {
-        return;
+      let url;
+      if (["transactions", "transactionEvents", "deletions", "recordEvents"].indexOf(logs.mode) !== -1) {
+        const primaryKey = this.definition.dataModel && this.definition.dataModel.primaryKey;
+        const recordId = primaryKey && record ? record[primaryKey] : null;
+        const hasRecord = recordId != null && recordId !== 0 && recordId !== "0" && String(recordId).trim() !== "";
+        if ((logs.mode !== "deletions" || logs.requiresRecord === true) && !hasRecord) {
+          return;
+        }
+        const parameters = new URLSearchParams();
+        parameters.set("screenId", logs.mode === "transactions" ? "admin.transacoes" : "admin.logs-transacoes");
+        if (logs.mode === "deletions" || logs.mode === "recordEvents") {
+          parameters.set("context__audit_screen_id", screenId);
+          if (logs.mode === "deletions") {
+            parameters.set("context__audit_operation", "delete");
+          } else {
+            parameters.set("context__audit_record_id", recordId);
+          }
+        } else if (logs.mode === "transactions") {
+          parameters.set("context__screen_id", screenId);
+          if (hasRecord) {
+            parameters.set("context__record_id", recordId);
+          }
+        } else {
+          parameters.set("filter__transaction_id", recordId);
+        }
+        url = "../production/app.html?" + parameters.toString();
+      } else {
+        const sourceUrl = global.CrudUtils.resolveDocumentUrlForPolicy(logs, "logs", screenId, this.securityPolicy);
+        if (!sourceUrl) {
+          return;
+        }
+        url = this.resolveRecordUrl(sourceUrl, record || {});
       }
-      const url = this.resolveRecordUrl(sourceUrl, record || {});
 
       const wrapper = $("<div></div>").appendTo(document.body);
       const content = $("<div class=\"crud-log-window-content\"></div>").appendTo(wrapper);
@@ -1163,11 +1376,61 @@
       this.root.html("<div class=\"crud-message crud-message-error\"><strong>" + message + "</strong>" + details + "</div>");
     }
 
+    initializeNavigationContext() {
+      this.contextValues = {};
+      const supplied = this.options.contextValues || {};
+      global.CrudUtils.ensureArray(this.definition.contextFields).forEach((item) => {
+        const raw = supplied[item.field];
+        if (item.filterOnly === true && Object.prototype.hasOwnProperty.call(supplied, item.field) && (raw == null || raw === "")) { throw global.CrudUtils.makeError("CRUD_CONTEXT_INVALID", "Selecao informada invalida: " + item.field + "."); }
+        if (raw == null || raw === "") {
+          if (item.required) { throw global.CrudUtils.makeError("CRUD_CONTEXT_REQUIRED", "Informe o contexto de " + item.field + "."); }
+          return;
+        }
+        const field = this.definition.dataModel.fields[item.field];
+        const type = field && field.type;
+        let value = raw;
+        if (type === "integer") {
+          if (!/^[1-9][0-9]*$/.test(String(raw)) || Number(raw) > 2147483647) { throw global.CrudUtils.makeError("CRUD_CONTEXT_INVALID", "Contexto invalido: " + item.field + "."); }
+          value = Number(raw);
+        } else if (type === "string") {
+          const maximum = field.validation && field.validation.maxLength || 160;
+          if (typeof raw !== "string" || !raw.trim() || raw.length > maximum || /[\u0000-\u001f\u007f]/.test(raw) ||
+              Array.isArray(field.options) && field.options.length && !field.options.some((option) => String(option.value) === raw)) {
+            throw global.CrudUtils.makeError("CRUD_CONTEXT_INVALID", "Contexto invalido: " + item.field + ".");
+          }
+          value = raw;
+        } else { throw global.CrudUtils.makeError("CRUD_CONTEXT_INVALID", "Tipo de contexto nao suportado."); }
+        this.contextValues[item.field] = value;
+      });
+    }
+
+    getRequestContextValues() {
+      const values = this.contextValues || {};
+      const excluded = global.CrudUtils.ensureArray(this.definition && this.definition.contextFields).filter((item) => item.filterOnly === true).map((item) => item.field);
+      if (!excluded.length) { return values; }
+      return Object.fromEntries(Object.entries(values).filter(([field]) => excluded.indexOf(field) === -1));
+    }
+
+    withContextFilters(filters) {
+      const fixed = global.CrudUtils.ensureArray(this.definition && this.definition.contextFields).filter((item) => item.filter && Object.prototype.hasOwnProperty.call(this.contextValues || {}, item.field));
+      return global.CrudUtils.ensureArray(filters).filter((filter) => !fixed.some((item) => item.field === filter.field)).concat(fixed.map((item) => ({ field: item.field, operator: "eq", value: this.contextValues[item.field] })));
+    }
+
     openCreate() {
-      this.formRenderer.open("create", {});
+      if (this.gridRenderer && this.gridRenderer.isBatchMode && this.gridRenderer.isBatchMode()) { return this.gridRenderer.addBatchRow(); }
+      const defaults = {};
+      global.CrudUtils.ensureArray(this.definition.contextFields).forEach((item) => {
+        if (item.createDefault && Object.prototype.hasOwnProperty.call(this.contextValues || {}, item.field)) { defaults[item.field] = this.contextValues[item.field]; }
+      });
+      this.formRenderer.open("create", defaults);
     }
 
     openRecord(mode, id, options) {
+      if (this.gridRenderer && this.gridRenderer.guardBatchNavigation && !this.gridRenderer.guardBatchNavigation()) { return Promise.resolve(null); }
+      if (this.gridRenderer && this.gridRenderer.isBatchMode && this.gridRenderer.isBatchMode() && mode !== "view") {
+        global.CrudUtils.showMessage("Edite os valores diretamente na grade e use Salvar lote.", "warning");
+        return Promise.resolve(null);
+      }
       return this.fetchRecord(id, options).then((record) => {
         return this.prepareRecordAction(mode, record).then((allowed) => {
           if (allowed === false) {
@@ -1197,7 +1460,7 @@
       return this.httpClient.request({
         url,
         method: endpoint.method || "GET",
-        data: Object.assign({ [primaryKey]: id, id }, record ? { record } : {})
+        data: Object.assign({ [primaryKey]: id, id, context: Object.assign({}, this.getRequestContextValues()) }, record ? { record } : {})
       });
     }
 
@@ -1439,7 +1702,17 @@
           method: endpoint.method || "DELETE",
           data: this.buildRuntimeWritePayload(this.buildRecordActionParams(record))
         }).then(() => {
-          this.refresh();
+          if (this.definition.form && this.definition.form.openOnLoadField) {
+            this.contextualRecordDeleted = true;
+            this.formRenderer.close(true);
+            this.root.empty();
+            const status = $('<section class="crud-message crud-message-info" role="status"></section>').text('Registro excluido.').appendTo(this.root);
+            const target = this.definition.form.returnScreenId;
+            if (target && /^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(target)) {
+              $('<a></a>').attr('href', global.CrudUtils.buildGridReturnUrl(this.definition)).text('Voltar').appendTo(status).kendoButton({icon:'arrow-left'});
+            }
+            global.CrudUtils.completeRenderGate(this.root);
+          } else { this.refresh(); }
           this.releaseRuntimeLock();
           return true;
         }).catch((error) => {
@@ -1990,7 +2263,10 @@
     }
 
     refresh() {
-      this.gridRenderer.refresh();
+      if (this.contextualRecordDeleted) { return Promise.resolve(null); }
+      if (this.definition && this.definition.form && this.definition.form.openOnLoadField) { return this.openContextualForm(); }
+      if (this.gridRenderer.refresh() === false) { return false; }
+      this.auditSummaryReady = this.refreshAuditSummary();
       this.updateLastUpdated();
     }
 
@@ -2008,6 +2284,20 @@
 
     afterRecordSaved(record, mode) {
       this.releaseRuntimeLock();
+      if (this.definition.form && this.definition.form.openOnLoadField) {
+        global.CrudUtils.beginRenderGate(this.root);
+        return this.openContextualForm().then(() => {
+          global.CrudUtils.completeRenderGate(this.root);
+          global.CrudUtils.showMessage('Registro salvo.', 'success');
+          return record;
+        }).catch((error) => {
+          this.formRenderer.close(true);
+          const detail = global.CrudUtils.unwrapError(error, 'Falha ao atualizar o registro.');
+          this.renderError(global.CrudUtils.makeError('CRUD_SAVED_REFRESH_FAILED', 'Registro salvo. Nao foi possivel atualizar a visualizacao: ' + detail.message));
+          global.CrudUtils.failRenderGate(this.root);
+          return null;
+        });
+      }
       global.CrudUtils.showMessage(mode === "create" ? "Cliente criado." : "Cliente salvo.", "success");
       if (mode === "create") {
         if (this.filterRenderer) {
@@ -2316,10 +2606,15 @@
     }
 
     hasUnsavedChanges() {
+      if (this.gridRenderer && this.gridRenderer.hasUnsavedChanges && this.gridRenderer.hasUnsavedChanges()) { return true; }
       return Boolean(this.formRenderer && typeof this.formRenderer.hasUnsavedChanges === "function" && this.formRenderer.hasUnsavedChanges());
     }
 
     confirmDiscardChanges() {
+      if (this.gridRenderer && this.gridRenderer.batchSaving) {
+        global.CrudUtils.showMessage("Aguarde a conclusao da gravacao do lote.", "warning");
+        return Promise.resolve(false);
+      }
       if (!this.hasUnsavedChanges()) {
         return Promise.resolve(true);
       }
@@ -2333,6 +2628,7 @@
     }
 
     destroy() {
+      if (this.apiCompanySelection) { this.apiCompanySelection.destroy(); }
       this.stopRuntimeMessagePolling();
       this.releaseRuntimeLock({ silent: true });
       if (this.gridRenderer && typeof this.gridRenderer.destroy === "function") {
@@ -2347,8 +2643,13 @@
     }
 
     applyFilters(filters) {
-      this.currentFilters = this.sortFiltersByDefinition(filters);
-      this.gridRenderer.setFilters(this.currentFilters);
+      const nextFilters = this.withContextFilters(this.sortFiltersByDefinition(filters));
+      if (this.gridRenderer.setFilters(nextFilters) === false) {
+        if (this.filterRenderer) { this.filterRenderer.setValues(this.currentFilters); }
+        return false;
+      }
+      this.currentFilters = nextFilters;
+      this.auditSummaryReady = this.refreshAuditSummary();
       this.renderActiveFilters(this.currentFilters);
       this.updateLastUpdated();
     }
@@ -3529,6 +3830,7 @@
     }
 
     applyLayout(layoutId) {
+      if (this.gridRenderer && this.gridRenderer.guardBatchNavigation && !this.gridRenderer.guardBatchNavigation()) { return; }
       if (!this.layoutManager.apply(layoutId)) {
         global.CrudUtils.showMessage("Leiaute nao encontrado.", "error");
         return;
@@ -3537,6 +3839,7 @@
     }
 
     restoreLayout() {
+      if (this.gridRenderer && this.gridRenderer.guardBatchNavigation && !this.gridRenderer.guardBatchNavigation()) { return; }
       this.layoutManager.restore().then(() => {
         global.CrudUtils.showMessage("Padrao do sistema restaurado.", "success");
         this.render();

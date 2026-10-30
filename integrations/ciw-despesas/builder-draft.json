@@ -1,0 +1,275 @@
+{
+  "entityDraft": {
+    "code": "despesas_progress",
+    "apiUpdateOperationCode": "despesas_update",
+    "structureBaseNumber": 92,
+    "apiDetailOperationCode": "despesas_get",
+    "apiCreateOperationCode": "despesas_create",
+    "apiDeleteOperationCode": "despesas_delete",
+    "name": "Despesas",
+    "apiListOperationCode": "despesas_read",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "fields": [
+      {
+        "apiShowInForm": true,
+        "readonlyField": true,
+        "dataType": "integer",
+        "options": {
+          "writable": false,
+          "readonly": true
+        },
+        "code": "despesa_id",
+        "primaryKey": true,
+        "apiWritePath": "despesa_id",
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "label": "ID",
+        "required": false,
+        "position": 10,
+        "apiJsonPath": "despesa_id"
+      },
+      {
+        "code": "descricao",
+        "apiShowInForm": true,
+        "length": 100,
+        "dataType": "string",
+        "options": {
+          "defaultValue": ""
+        },
+        "apiJsonPath": "descricao",
+        "label": "Descrição",
+        "required": false,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "position": 20,
+        "apiWritePath": "descricao"
+      },
+      {
+        "code": "log_imposto",
+        "apiShowInForm": true,
+        "dataType": "integer",
+        "options": {
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 0,
+              "text": "Não"
+            },
+            {
+              "value": 1,
+              "text": "Sim"
+            }
+          ]
+        },
+        "apiJsonPath": "log_imposto",
+        "label": "Imposto?",
+        "required": false,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "position": 30,
+        "apiWritePath": "log_imposto"
+      },
+      {
+        "code": "ordem",
+        "apiShowInForm": true,
+        "dataType": "integer",
+        "options": {
+          "max": 9999,
+          "min": 0,
+          "defaultValue": 0
+        },
+        "apiJsonPath": "ordem",
+        "label": "Ordem",
+        "required": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "position": 40,
+        "apiWritePath": "ordem"
+      },
+      {
+        "code": "log_calculada",
+        "apiShowInForm": true,
+        "dataType": "boolean",
+        "options": {
+          "defaultValue": false
+        },
+        "apiJsonPath": "log_calculada",
+        "label": "Calculada?",
+        "required": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": true,
+        "position": 50,
+        "apiWritePath": "log_calculada"
+      },
+      {
+        "apiShowInForm": true,
+        "dataType": "decimal",
+        "options": {
+          "min": 0,
+          "visibleWhen": {
+            "field": "log_calculada",
+            "operator": "eq",
+            "value": true
+          },
+          "defaultValue": 0
+        },
+        "scale": 2,
+        "code": "perc_calculo",
+        "apiWritePath": "perc_calculo",
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "precision": 17,
+        "label": "% Cálculo",
+        "required": false,
+        "position": 60,
+        "apiJsonPath": "perc_calculo"
+      },
+      {
+        "code": "log_vl_prod_base_calculo",
+        "apiShowInForm": true,
+        "dataType": "boolean",
+        "options": {
+          "visibleWhen": {
+            "field": "log_calculada",
+            "operator": "eq",
+            "value": true
+          },
+          "defaultValue": false
+        },
+        "apiJsonPath": "log_vl_prod_base_calculo",
+        "label": "Valor do produto na base de cálculo?",
+        "required": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "position": 70,
+        "apiWritePath": "log_vl_prod_base_calculo"
+      },
+      {
+        "code": "log_calc_por_item",
+        "apiShowInForm": true,
+        "dataType": "boolean",
+        "options": {
+          "defaultValue": false
+        },
+        "apiJsonPath": "log_calc_por_item",
+        "label": "Calculada por item?",
+        "required": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "position": 80,
+        "apiWritePath": "log_calc_por_item"
+      },
+      {
+        "code": "ind_imposto",
+        "apiShowInForm": true,
+        "dataType": "integer",
+        "options": {
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 0,
+              "text": "Não informado"
+            },
+            {
+              "value": 1,
+              "text": "II"
+            },
+            {
+              "value": 2,
+              "text": "ICMS"
+            },
+            {
+              "value": 3,
+              "text": "IPI"
+            },
+            {
+              "value": 4,
+              "text": "PIS"
+            },
+            {
+              "value": 5,
+              "text": "COFINS"
+            }
+          ]
+        },
+        "apiJsonPath": "ind_imposto",
+        "label": "Imposto",
+        "required": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "position": 90,
+        "apiWritePath": "ind_imposto"
+      },
+      {
+        "code": "md_relacs_desp",
+        "apiShowInForm": true,
+        "dataType": "json",
+        "options": {
+          "visibleWhen": {
+            "field": "log_calculada",
+            "operator": "eq",
+            "value": true
+          },
+          "defaultValue": [],
+          "editor": "multiselect",
+          "api": {
+            "optionsSource": {
+              "valueField": "despesa_id",
+              "textField": "descricao",
+              "operationCode": "opcoes_despesas",
+              "excludeCurrent": true
+            },
+            "collection": {
+              "itemType": "integer"
+            }
+          }
+        },
+        "apiJsonPath": "md_relacs_desp",
+        "label": "Despesas da base de cálculo",
+        "required": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "position": 100,
+        "apiWritePath": "md_relacs_desp"
+      }
+    ],
+    "apiSourceCode": "motor_progress_despesas",
+    "entityType": "api",
+    "structureModuleCode": "cadastros"
+  },
+  "programDraft": {
+    "allowDelete": true,
+    "permissionPrefix": "despesas_progress",
+    "allowCreate": true,
+    "rowLinks": [
+      {
+        "id": "empresas",
+        "parameters": [
+          {
+            "sourceField": "despesa_id",
+            "field": "despesa_id"
+          }
+        ],
+        "screenId": "ciw.empresas-despesa",
+        "label": "Empresas",
+        "icon": "buildings-outline",
+        "iconOnly": true
+      }
+    ],
+    "screenId": "ciw.despesas",
+    "builderEntityCode": "despesas_progress",
+    "allowUpdate": true,
+    "ownerScope": "system",
+    "version": "1.0.2",
+    "pageType": "crud",
+    "subtitle": "Cadastro de despesas e bases de cálculo",
+    "programCode": "cd0092",
+    "programTitle": "Despesas",
+    "programOrigin": "standard",
+    "gridEditMode": "form",
+    "module": "cadastros"
+  }
+}

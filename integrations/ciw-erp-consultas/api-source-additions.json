@@ -1,0 +1,55 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "notas_fiscais_med_read",
+      "name": "Notas Fiscais de Importação — MED — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "notas_fiscais_med"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "notas_fiscais_med_get",
+      "name": "Notas Fiscais de Importação — MED — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "notas_fiscais_med"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "titulos_pagar_med_read",
+      "name": "Títulos a Pagar — MED — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "titulos_pagar_med"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "titulos_pagar_med_get",
+      "name": "Títulos a Pagar — MED — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "titulos_pagar_med"
+      },
+      "itemPath": "data"
+    }
+  ]
+}

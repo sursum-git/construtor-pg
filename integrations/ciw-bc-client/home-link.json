@@ -1,0 +1,1 @@
+{"id":"ciw-buscar-cotacao-bc","code":"cd0104","title":"Buscar cotação no Banco Central","subtitle":"Consulta oficial do dólar de venda e gravação automática no histórico","type":"process","screenId":"ciw.cotacoes-bc-buscar","moduleId":"ciw","permission":"hist_cotacoes_bc_progress.read"}

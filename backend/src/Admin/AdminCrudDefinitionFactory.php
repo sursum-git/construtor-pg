@@ -1417,6 +1417,7 @@ final class AdminCrudDefinitionFactory
         $authSources = [
             ['value' => 'local', 'text' => 'Local'],
             ['value' => 'ldap', 'text' => 'LDAP'],
+            ['value' => 'ima-user-web', 'text' => 'IMA — usuário Progress'],
             ['value' => 'sso', 'text' => 'SSO'],
             ['value' => 'oauth', 'text' => 'OAuth'],
         ];

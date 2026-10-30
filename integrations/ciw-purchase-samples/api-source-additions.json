@@ -1,0 +1,104 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "proc_compra_amostras_read",
+      "name": "Envios de Amostras dos Itens — MED — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id",
+        "item_proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_amostras",
+        "operation": "read"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "proc_compra_amostras_get",
+      "name": "Envios de Amostras dos Itens — MED — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id",
+        "item_proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_amostras",
+        "operation": "get"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_amostras_create",
+      "name": "Envios de Amostras dos Itens — MED — create",
+      "type": "create",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id",
+        "item_proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_amostras",
+        "operation": "create"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_amostras_update",
+      "name": "Envios de Amostras dos Itens — MED — update",
+      "type": "update",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id",
+        "item_proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_amostras",
+        "operation": "update"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_amostras_delete",
+      "name": "Envios de Amostras dos Itens — MED — delete",
+      "type": "delete",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id",
+        "item_proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_amostras",
+        "operation": "delete"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_amostras_opcoes_representante",
+      "name": "Representantes ativos para amostras",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id",
+        "item_proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_amostras",
+        "operation": "options",
+        "lookup": "representante"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    }
+  ]
+}

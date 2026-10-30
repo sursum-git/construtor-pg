@@ -1,0 +1,58 @@
+{
+  "target": "D:/opencode/conversao-sc/.runtime/ciw-completion-20261028/official-build6-v2/tax-only-metadata/source-six-current.json",
+  "baselineIsFuture1043": false,
+  "baselineSha256": "eba194fc97fe2b2e47de0969c98dcd195c8614d18041db02de263bad8ab27ecd",
+  "sourceCode": "motor_progress_container_processos",
+  "preserveGlobalAuthentication": true,
+  "expectedOperationCount": 6,
+  "resultOperationCount": 8,
+  "operations": [
+    {
+      "op": "add",
+      "path": "/operations/-",
+      "value": {
+        "code": "despesas_selecao_opcoes",
+        "name": "Selecionar despesas do container MED — options",
+        "type": "list",
+        "method": "POST",
+        "path": "http://127.0.0.1:19910/med/web/SursumPrograms/containers-processos",
+        "headers": [],
+        "queryParams": [],
+        "bodyTemplate": {
+          "resource": "despesas-selecao",
+          "operation": "options"
+        },
+        "requestContextFields": [
+          "container_id"
+        ],
+        "itemsPath": "data",
+        "itemPath": null,
+        "totalPath": "total"
+      }
+    },
+    {
+      "op": "add",
+      "path": "/operations/-",
+      "value": {
+        "code": "selecionar_despesas",
+        "name": "Selecionar despesas do container MED — selecionar_despesas",
+        "type": "custom",
+        "method": "POST",
+        "path": "http://127.0.0.1:19910/med/web/SursumPrograms/containers-processos",
+        "headers": [],
+        "queryParams": [],
+        "bodyTemplate": {
+          "resource": "impostos",
+          "operation": "selecionar_despesas"
+        },
+        "requestContextFields": [
+          "container_id"
+        ],
+        "itemsPath": null,
+        "itemPath": "data",
+        "totalPath": null,
+        "allowProcess": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "proc_compra_quantidades_periodo_read",
+      "name": "Quantidades por período MED — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "proc_compra_quantidades_periodo_med",
+        "operation": "read"
+      },
+      "requestContextFields": [],
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "proc_compra_quantidades_periodo_get",
+      "name": "Quantidades por período MED — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "proc_compra_quantidades_periodo_med",
+        "operation": "get"
+      },
+      "requestContextFields": [],
+      "itemPath": "data"
+    }
+  ]
+}

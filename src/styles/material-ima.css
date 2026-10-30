@@ -1,0 +1,55 @@
+/* Material local com a cor institucional do cabecalho IMA Online (#bd282f). */
+@import url("../../kendo/styles/material-main.css");
+
+:root:root {
+  --crud-title: #9e2026;
+  --crud-accent: #bd282f;
+  --crud-accent-soft: #fff1f2;
+  --crud-accent-border: #edc1c4;
+  --crud-button-primary-bg: #bd282f;
+  --crud-button-primary-hover-bg: #9e2026;
+  --crud-button-primary-text: #ffffff;
+  --kendo-color-primary: #bd282f;
+  --kendo-color-primary-hover: #a9232a;
+  --kendo-color-primary-active: #941e24;
+  --kendo-color-primary-emphasis: #edc1c4;
+  --kendo-color-primary-subtle: #fff1f2;
+  --kendo-color-primary-subtle-hover: #fce3e5;
+  --kendo-color-primary-subtle-active: #f7d2d5;
+  --kendo-color-primary-on-surface: #a9232a;
+  --kendo-color-primary-on-subtle: #941e24;
+  --kendo-color-on-primary: #ffffff;
+  --kendo-color-base: #fcebed;
+  --kendo-color-base-hover: #f7dce0;
+  --kendo-color-base-active: #f2cdd2;
+  --kendo-color-base-subtle: #fff5f6;
+  --kendo-color-base-subtle-hover: #fcebed;
+  --kendo-color-base-subtle-active: #f7dce0;
+  --kendo-color-secondary: #fcebed;
+  --kendo-color-secondary-hover: #f7dce0;
+  --kendo-color-on-secondary: #732026;
+  --kendo-color-secondary-on-surface: #941e24;
+  --kendo-color-secondary-on-subtle: #941e24;
+}
+
+:where(.analytics-screen, .crud-app-shell) a:not(.k-button) {
+  color: var(--crud-accent);
+}
+
+:where(.analytics-screen, .crud-app-shell) a:not(.k-button):hover {
+  color: #941e24;
+}
+
+.analytics-declarative-dashboard .analytics-dashboard-tile {
+  font-size: 12px;
+}
+
+.analytics-declarative-dashboard .analytics-dashboard-tile h3,
+.analytics-declarative-dashboard .analytics-dashboard-tile .k-button {
+  font-size: 12px;
+}
+
+.analytics-declarative-dashboard .analytics-kpi strong {
+  font-size: 20px;
+  line-height: 1.25;
+}

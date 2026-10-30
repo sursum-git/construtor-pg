@@ -1,0 +1,551 @@
+{
+  "entityDraft": {
+    "code": "container_itens_progress",
+    "name": "Itens do Container",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1002,
+    "apiSourceCode": "motor_progress_container_painel",
+    "apiListOperationCode": "itens_read",
+    "apiDetailOperationCode": "itens_get",
+    "fields": [
+      {
+        "code": "item_container_id",
+        "label": "Item do container",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": true,
+        "readonlyField": true,
+        "apiJsonPath": "item_container_id",
+        "apiWritePath": "item_container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 10,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "container_id",
+        "label": "Nr.Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 20,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "item_proc_compra_id",
+        "label": "Item do pedido de importação",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "item_proc_compra_id",
+        "apiWritePath": "item_proc_compra_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 30,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "qt_alocada",
+        "label": "Quantidade alocada",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "qt_alocada",
+        "apiWritePath": "qt_alocada",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 40,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "qt_confirm_emb",
+        "label": "Quantidade confirmada no embarque",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "qt_confirm_emb",
+        "apiWritePath": "qt_confirm_emb",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 50,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "qt_recbto_fisico",
+        "label": "Quantidade recebida",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "qt_recbto_fisico",
+        "apiWritePath": "qt_recbto_fisico",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 60,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "log_rec_doc_prazo_emb",
+        "label": "Documento recebido no prazo?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "log_rec_doc_prazo_emb",
+        "apiWritePath": "log_rec_doc_prazo_emb",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 70,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "observacao",
+        "label": "Observação",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "observacao",
+        "apiWritePath": "observacao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 80,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_tipo_calculo",
+        "label": "Tipo de cálculo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_tipo_calculo",
+        "apiWritePath": "cod_tipo_calculo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 90,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "perc_custo",
+        "label": "perc custo",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "perc_custo",
+        "apiWritePath": "perc_custo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 100,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "log_calc_icms",
+        "label": "Calcular ICMS?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "log_calc_icms",
+        "apiWritePath": "log_calc_icms",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 110,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "log_calc_ipi",
+        "label": "Calcular IPI?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "log_calc_ipi",
+        "apiWritePath": "log_calc_ipi",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 120,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "perc_icms",
+        "label": "ICMS (%)",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "perc_icms",
+        "apiWritePath": "perc_icms",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 130,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "perc_ipi",
+        "label": "IPI (%)",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "perc_ipi",
+        "apiWritePath": "perc_ipi",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 140,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "preco_liquida_ima",
+        "label": "Preço de liquidação IMA",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "preco_liquida_ima",
+        "apiWritePath": "preco_liquida_ima",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 150,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "descricao_item",
+        "label": "Descrição do item",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "descricao_item",
+        "apiWritePath": "descricao_item",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 160,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "codigo_erp",
+        "label": "Código ERP",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "codigo_erp",
+        "apiWritePath": "codigo_erp",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 170,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "unid_medida",
+        "label": "Unidade",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "unid_medida",
+        "apiWritePath": "unid_medida",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 180,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "proc_compra_id",
+        "label": "Pedido de importação",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "proc_compra_id",
+        "apiWritePath": "proc_compra_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 190,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_proc_fornec",
+        "label": "Pedido do fornecedor",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_proc_fornec",
+        "apiWritePath": "cod_proc_fornec",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 200,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "fornecedor_id",
+        "label": "Fornecedor do pedido",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "fornecedor_id",
+        "apiWritePath": "fornecedor_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 210,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "empresa_pedido_id",
+        "label": "Empresa do pedido",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "empresa_pedido_id",
+        "apiWritePath": "empresa_pedido_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 220,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1002",
+    "programTitle": "Itens do Container",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "container_itens_progress",
+    "screenId": "ciw.container-itens",
+    "version": "1.0.0",
+    "subtitle": "Itens do Container",
+    "permissionPrefix": "container_itens_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "container_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "item_container_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "codigo_erp",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "descricao_item",
+          "hidden": false,
+          "width": 280
+        },
+        {
+          "field": "unid_medida",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "proc_compra_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "cod_proc_fornec",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "qt_alocada",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "qt_confirm_emb",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "qt_recbto_fisico",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "log_rec_doc_prazo_emb",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "cod_tipo_calculo",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "perc_custo",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "log_calc_icms",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "perc_icms",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "log_calc_ipi",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "perc_ipi",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "preco_liquida_ima",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "observacao",
+          "hidden": false,
+          "width": 160
+        }
+      ],
+      "filterFields": [
+        "item_container_id",
+        "codigo_erp"
+      ],
+      "defaultSort": [
+        {
+          "field": "item_container_id",
+          "dir": "asc"
+        }
+      ]
+    }
+  }
+}

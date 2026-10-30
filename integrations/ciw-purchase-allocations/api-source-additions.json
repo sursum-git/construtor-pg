@@ -1,0 +1,38 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "proc_compra_alocacoes_read",
+      "name": "Alocações do item — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id",
+        "item_proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_alocacoes",
+        "operation": "read"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "proc_compra_alocacoes_get",
+      "name": "Alocações do item — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id",
+        "item_proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_alocacoes",
+        "operation": "get"
+      },
+      "itemPath": "data"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "crud": "ciw.proc-compra-despesas",
+  "process": "ciw.proc-compra-gerar-despesas",
+  "parentVersion": "1.0.4",
+  "parentTabs": 7,
+  "previousTabsPreserved": 5,
+  "sourceBefore": 85,
+  "sourceAfter": 92,
+  "newSequence": false,
+  "homeChanged": false,
+  "executeOnOpen": false
+}

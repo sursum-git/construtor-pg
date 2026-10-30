@@ -2461,3 +2461,14 @@ body textarea {
     grid-column: span 1;
   }
 }
+
+/* Batch deletions remain visible until the whole transaction is saved. */
+.crud-grid .crud-batch-deleted td { text-decoration: line-through; opacity: .65; }
+.crud-grid .crud-batch-deleted td:first-child { text-decoration: none; opacity: 1; }
+.crud-grid[aria-busy="true"] { pointer-events: none; opacity: .75; }
+
+
+/* Links com icone preservam o mesmo destino e contexto dos links textuais. */
+.crud-row-link-has-icon { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.crud-row-link-icon-only { width: 32px; height: 32px; border-radius: 4px; color: var(--crud-title); text-decoration: none; }
+.crud-row-link-icon-only:hover, .crud-row-link-icon-only:focus-visible { background: var(--crud-accent-soft); outline: 1px solid var(--crud-accent-border); }

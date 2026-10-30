@@ -1,0 +1,94 @@
+{
+  "dataModel": {
+    "fields": {
+      "actor_user_name": {
+        "type": "string",
+        "label": "Usuário",
+        "editable": false,
+        "nullable": true
+      },
+      "actor_user_id": {
+        "type": "string",
+        "label": "Código do usuário",
+        "editable": false,
+        "nullable": true
+      },
+      "before_data": {
+        "type": "json",
+        "label": "Anterior",
+        "editable": false
+      },
+      "after_data": {
+        "type": "json",
+        "label": "Atual",
+        "editable": false
+      },
+      "diff_data": {
+        "type": "json",
+        "label": "Alterações",
+        "editable": false
+      },
+      "event_type": {
+        "type": "string",
+        "label": "Evento",
+        "editable": false
+      },
+      "metadata": {
+        "type": "json",
+        "label": "Metadata",
+        "editable": false
+      },
+      "transaction_id": {
+        "type": "integer",
+        "label": "Transação",
+        "editable": false
+      }
+    }
+  },
+  "crud": {
+    "form": {
+      "tabs": [
+        {
+          "id": "alteracoes",
+          "title": "Alterações",
+          "fields": [
+            {
+              "field": "actor_user_name",
+              "renderAs": "readonly"
+            },
+            {
+              "field": "actor_user_id",
+              "renderAs": "readonly"
+            },
+            {
+              "field": "diff_data",
+              "label": "Alterações registradas",
+              "renderAs": "audit-diff",
+              "colSpan": 2,
+              "auditDiff": {
+                "beforeField": "before_data",
+                "afterField": "after_data",
+                "eventTypeField": "event_type",
+                "metadataField": "metadata"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "auditSummary": {
+      "enabled": true,
+      "contextField": "transaction_id",
+      "field": "diff_data",
+      "maxRows": 500,
+      "actorNameField": "actor_user_name",
+      "actorIdField": "actor_user_id",
+      "auditDiff": {
+        "beforeField": "before_data",
+        "afterField": "after_data",
+        "eventTypeField": "event_type",
+        "metadataField": "metadata"
+      }
+    }
+  }
+}

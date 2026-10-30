@@ -1,0 +1,41 @@
+{
+    "sourceCode": "motor_progress_ciw_cadastros",
+    "operations": [
+        {
+            "code": "sinalizadores_importacao_read",
+            "name": "Sinalizadores de importação — read",
+            "type": "list",
+            "method": "POST",
+            "path": "/SursumPrograms/ciw-cadastros",
+            "bodyTemplate": {
+                "operation": "read",
+                "resource": "sinalizadores_importacao"
+            },
+            "itemsPath": "data",
+            "totalPath": "total"
+        },
+        {
+            "code": "sinalizadores_importacao_get",
+            "name": "Sinalizadores de importação — get",
+            "type": "detail",
+            "method": "POST",
+            "path": "/SursumPrograms/ciw-cadastros",
+            "bodyTemplate": {
+                "operation": "get",
+                "resource": "sinalizadores_importacao"
+            },
+            "itemPath": "data"
+        },
+        {
+            "code": "sinalizadores_importacao_update",
+            "name": "Sinalizadores de importação — update",
+            "type": "update",
+            "method": "POST",
+            "path": "/SursumPrograms/ciw-cadastros",
+            "bodyTemplate": {
+                "operation": "update",
+                "resource": "sinalizadores_importacao"
+            }
+        }
+    ]
+}

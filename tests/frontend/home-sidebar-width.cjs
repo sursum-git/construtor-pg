@@ -1,0 +1,26 @@
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const canonical=process.env.CONSTRUTOR_ROOT||'D:/opencode/construtor-pg',source=process.argv[2]||canonical;
+const win={location:{origin:'http://localhost',href:'http://localhost/home'}};
+const ctx=vm.createContext({window:win,console,URL,Promise,jQuery:()=>{throw Error('DOM nao esperado no teste puro');}});
+for(const [root,file]of [[canonical,'src/crud-engine/CrudUtils.js'],[source,'src/home-engine/HomeDefinitionValidator.js'],[source,'src/home-engine/HomeEngine.js']])vm.runInContext(fs.readFileSync(path.join(root,file),'utf8'),ctx,{filename:file});
+const proto=win.HomeEngine.prototype,cases=[],test=(n,f)=>cases.push([n,f]);
+const definition=(sidebar={})=>({schemaVersion:'1.0',pageType:'home',app:{title:'Home'},layout:{sidebar},navigation:{groups:[]},programs:[],permissions:{}});
+const width=(sidebar,content,available)=>proto.resolveSidebarWidth.call({definition:definition(sidebar)},content,available);
+test('sem configuracao preserva280px',()=>assert.equal(width({},700,1400),280));
+test('largura fixa ignora comprimento do texto',()=>assert.equal(width({width:340},700,1400),340));
+test('auto usa largura real medida',()=>assert.equal(width({width:320,autoWidth:true,maxWidth:480},389,1400),389));
+test('texto curto preserva largura inicial',()=>assert.equal(width({width:320,autoWidth:true},200,1400),320));
+test('texto muito longo respeita teto',()=>assert.equal(width({width:320,autoWidth:true,maxWidth:480},900,1400),480));
+test('desktop preserva espaco do conteudo',()=>assert.equal(width({width:320,autoWidth:true,maxWidth:480},900,1000),450));
+test('tela pequena respeita72porcento',()=>assert.equal(width({width:320,autoWidth:true,maxWidth:480},900,400),288));
+test('padrao antigo mantem limite responsivo',()=>assert.equal(width({},900,300),216));
+test('validador aceita configuracao completa',()=>assert.equal(new win.HomeDefinitionValidator().validate(definition({width:320,autoWidth:true,maxWidth:480})),true));
+test('validador rejeita larguras invalidas',()=>{for(const value of ['320',-1,0,159,1201,NaN,Infinity])assert.throws(()=>new win.HomeDefinitionValidator().validate(definition({width:value})));});
+test('validador rejeita teto inferior a base',()=>assert.throws(()=>new win.HomeDefinitionValidator().validate(definition({width:400,maxWidth:320}))));
+test('validador rejeita autoWidth nao booleano',()=>assert.throws(()=>new win.HomeDefinitionValidator().validate(definition({autoWidth:'true'}))));
+test('pesquisa nao reduz largura e modulos mantem medidas independentes',()=>{
+ let measured=390,applied;const home={definition:definition({width:320,autoWidth:true,maxWidth:480}),currentModuleId:'ciw',mainElement:{clientWidth:1400},sidebar:{length:1},shell:[{style:{setProperty:(k,v)=>{applied=v;}}}],measureSidebarContentWidth:()=>measured,resolveSidebarWidth:proto.resolveSidebarWidth};
+ proto.updateSidebarWidth.call(home);assert.equal(applied,'390px');measured=180;proto.updateSidebarWidth.call(home);assert.equal(applied,'390px');
+ home.currentModuleId='outro';proto.updateSidebarWidth.call(home);assert.equal(applied,'320px');home.currentModuleId='ciw';proto.updateSidebarWidth.call(home);assert.equal(applied,'390px');
+});
+let failures=0;for(const[n,f]of cases){try{f();console.log('PASS '+n);}catch(e){failures++;console.log('FAIL '+n+': '+e.message);}}console.log(`${cases.length-failures}/${cases.length} PASS`);process.exitCode=failures?1:0;

@@ -1,0 +1,69 @@
+{
+  "code": "motor_progress_empresas",
+  "name": "Motor Progress — Empresas",
+  "providerType": "generic",
+  "responseContract": "sursum-programs",
+  "authMode": "none",
+  "baseUrl": "http://127.0.0.1:19910/med/web",
+  "status": "active",
+  "timeoutSeconds": 20,
+  "authHeaders": {
+    "X-Empresas-Token": "__RUNTIME_SECRET__"
+  },
+  "operations": [
+    {
+      "code": "read",
+      "name": "Consultar empresas",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/empresas",
+      "bodyTemplate": {
+        "operation": "read"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "get",
+      "name": "Obter empresa",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/empresas",
+      "bodyTemplate": {
+        "operation": "get"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "create",
+      "name": "Incluir empresa",
+      "type": "create",
+      "method": "POST",
+      "path": "/SursumPrograms/empresas",
+      "bodyTemplate": {
+        "operation": "create"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "update",
+      "name": "Alterar empresa",
+      "type": "update",
+      "method": "POST",
+      "path": "/SursumPrograms/empresas",
+      "bodyTemplate": {
+        "operation": "update"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "delete",
+      "name": "Excluir empresa",
+      "type": "delete",
+      "method": "POST",
+      "path": "/SursumPrograms/empresas",
+      "bodyTemplate": {
+        "operation": "delete"
+      }
+    }
+  ]
+}

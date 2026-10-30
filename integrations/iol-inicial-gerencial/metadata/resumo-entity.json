@@ -1,0 +1,275 @@
+{
+  "code": "iol_gerencial_resumo_progress",
+  "name": "IOL Gerencial — Resumo",
+  "entityType": "api",
+  "createPhysicalTable": false,
+  "structureType": "main",
+  "structureModuleCode": "operacional",
+  "structureBaseNumber": 1012,
+  "apiSourceCode": "motor_progress_iol_gerencial",
+  "apiListOperationCode": "read_resumo",
+  "fields": [
+    {
+      "code": "id",
+      "label": "ID",
+      "dataType": "integer",
+      "primaryKey": true,
+      "required": true,
+      "readonlyField": true,
+      "apiJsonPath": "id",
+      "apiWritePath": "id",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 0,
+      "options": {
+        "readonly": true,
+        "writable": false
+      }
+    },
+    {
+      "code": "competencia",
+      "label": "Competência",
+      "dataType": "string",
+      "primaryKey": false,
+      "required": false,
+      "readonlyField": true,
+      "apiJsonPath": "competencia",
+      "apiWritePath": "competencia",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 1,
+      "options": {
+        "readonly": true,
+        "writable": false
+      },
+      "length": 120
+    },
+    {
+      "code": "data_referencia",
+      "label": "Referência",
+      "dataType": "date",
+      "primaryKey": false,
+      "required": false,
+      "readonlyField": true,
+      "apiJsonPath": "data_referencia",
+      "apiWritePath": "data_referencia",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 2,
+      "options": {
+        "readonly": true,
+        "writable": false
+      }
+    },
+    {
+      "code": "meta_mensal",
+      "label": "Meta Mensal",
+      "dataType": "decimal",
+      "primaryKey": false,
+      "required": false,
+      "readonlyField": true,
+      "apiJsonPath": "meta_mensal",
+      "apiWritePath": "meta_mensal",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 3,
+      "options": {
+        "readonly": true,
+        "writable": false,
+        "analytics": {
+          "format": "c2"
+        }
+      }
+    },
+    {
+      "code": "meta_quinzenal",
+      "label": "Meta Quinzenal",
+      "dataType": "decimal",
+      "primaryKey": false,
+      "required": false,
+      "readonlyField": true,
+      "apiJsonPath": "meta_quinzenal",
+      "apiWritePath": "meta_quinzenal",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 4,
+      "options": {
+        "readonly": true,
+        "writable": false,
+        "analytics": {
+          "format": "c2"
+        }
+      }
+    },
+    {
+      "code": "faturamento_liquido",
+      "label": "Faturado Líquido",
+      "dataType": "decimal",
+      "primaryKey": false,
+      "required": false,
+      "readonlyField": true,
+      "apiJsonPath": "faturamento_liquido",
+      "apiWritePath": "faturamento_liquido",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 5,
+      "options": {
+        "readonly": true,
+        "writable": false,
+        "analytics": {
+          "format": "c2"
+        }
+      }
+    },
+    {
+      "code": "percentual_meta",
+      "label": "Progresso",
+      "dataType": "decimal",
+      "primaryKey": false,
+      "required": false,
+      "readonlyField": true,
+      "apiJsonPath": "percentual_meta",
+      "apiWritePath": "percentual_meta",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 6,
+      "options": {
+        "readonly": true,
+        "writable": false
+      }
+    },
+    {
+      "code": "percentual_loja_vendido",
+      "label": "Vendido Loja",
+      "dataType": "decimal",
+      "primaryKey": false,
+      "required": false,
+      "readonlyField": true,
+      "apiJsonPath": "percentual_loja_vendido",
+      "apiWritePath": "percentual_loja_vendido",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 7,
+      "options": {
+        "readonly": true,
+        "writable": false
+      }
+    },
+    {
+      "code": "percentual_loja_ideal",
+      "label": "Ideal Loja",
+      "dataType": "decimal",
+      "primaryKey": false,
+      "required": false,
+      "readonlyField": true,
+      "apiJsonPath": "percentual_loja_ideal",
+      "apiWritePath": "percentual_loja_ideal",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 8,
+      "options": {
+        "readonly": true,
+        "writable": false
+      }
+    },
+    {
+      "code": "dias_uteis_mes",
+      "label": "Dias Úteis no Mês",
+      "dataType": "integer",
+      "primaryKey": false,
+      "required": false,
+      "readonlyField": true,
+      "apiJsonPath": "dias_uteis_mes",
+      "apiWritePath": "dias_uteis_mes",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 9,
+      "options": {
+        "readonly": true,
+        "writable": false
+      }
+    },
+    {
+      "code": "dias_uteis_passados",
+      "label": "Dias Úteis Passados",
+      "dataType": "integer",
+      "primaryKey": false,
+      "required": false,
+      "readonlyField": true,
+      "apiJsonPath": "dias_uteis_passados",
+      "apiWritePath": "dias_uteis_passados",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 10,
+      "options": {
+        "readonly": true,
+        "writable": false
+      }
+    },
+    {
+      "code": "dias_uteis_restantes",
+      "label": "Dias Úteis Restantes",
+      "dataType": "integer",
+      "primaryKey": false,
+      "required": false,
+      "readonlyField": true,
+      "apiJsonPath": "dias_uteis_restantes",
+      "apiWritePath": "dias_uteis_restantes",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 11,
+      "options": {
+        "readonly": true,
+        "writable": false
+      }
+    },
+    {
+      "code": "pedidos_avaliacao",
+      "label": "Avaliação Gerencial",
+      "dataType": "integer",
+      "primaryKey": false,
+      "required": false,
+      "readonlyField": true,
+      "apiJsonPath": "pedidos_avaliacao",
+      "apiWritePath": "pedidos_avaliacao",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 12,
+      "options": {
+        "readonly": true,
+        "writable": false
+      }
+    },
+    {
+      "code": "pedidos_abertos",
+      "label": "Pedidos em Aberto",
+      "dataType": "integer",
+      "primaryKey": false,
+      "required": false,
+      "readonlyField": true,
+      "apiJsonPath": "pedidos_abertos",
+      "apiWritePath": "pedidos_abertos",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 13,
+      "options": {
+        "readonly": true,
+        "writable": false
+      }
+    }
+  ]
+}

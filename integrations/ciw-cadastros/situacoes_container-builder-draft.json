@@ -1,0 +1,116 @@
+{
+  "entityDraft": {
+    "code": "situacoes_container_progress",
+    "name": "Situações do container Progress",
+    "entityType": "api",
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 95,
+    "createPhysicalTable": false,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "situacoes_container_read",
+    "apiDetailOperationCode": "situacoes_container_get",
+    "apiCreateOperationCode": "situacoes_container_create",
+    "apiUpdateOperationCode": "situacoes_container_update",
+    "apiDeleteOperationCode": "situacoes_container_delete",
+    "apiBatchOperationCode": "situacoes_container_batch",
+    "fields": [
+      {
+        "code": "situacao_container_id",
+        "label": "ID",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "position": 10,
+        "readonlyField": true,
+        "apiJsonPath": "situacao_container_id",
+        "apiWritePath": "situacao_container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "descricao",
+        "label": "Descrição",
+        "dataType": "string",
+        "required": false,
+        "position": 20,
+        "apiJsonPath": "descricao",
+        "apiWritePath": "descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "defaultValue": ""
+        },
+        "length": 100
+      },
+      {
+        "code": "log_gerar_saldo_a_pagar",
+        "label": "Gerar saldo a pagar",
+        "dataType": "boolean",
+        "required": false,
+        "position": 30,
+        "apiJsonPath": "log_gerar_saldo_a_pagar",
+        "apiWritePath": "log_gerar_saldo_a_pagar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "defaultValue": true
+        }
+      },
+      {
+        "code": "log_gerar_distr_custo",
+        "label": "Gerar distribuição de custo",
+        "dataType": "boolean",
+        "required": false,
+        "position": 40,
+        "apiJsonPath": "log_gerar_distr_custo",
+        "apiWritePath": "log_gerar_distr_custo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "defaultValue": true
+        }
+      },
+      {
+        "code": "num_ordem",
+        "label": "Ordem",
+        "dataType": "integer",
+        "required": false,
+        "position": 50,
+        "apiJsonPath": "num_ordem",
+        "apiWritePath": "num_ordem",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "defaultValue": 0
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "cd0095",
+    "programTitle": "Situações do container",
+    "module": "cadastros",
+    "builderEntityCode": "situacoes_container_progress",
+    "pageType": "crud",
+    "gridEditMode": "batch",
+    "screenId": "ciw.situacoes-container",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": true,
+    "allowUpdate": true,
+    "allowDelete": true,
+    "permissionPrefix": "situacoes_container_progress",
+    "subtitle": "Cadastro CIW integrado ao Progress"
+  }
+}

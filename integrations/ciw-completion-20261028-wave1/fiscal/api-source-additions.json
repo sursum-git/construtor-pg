@@ -1,0 +1,71 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "container_calculos_impostos_med_read",
+      "name": "Histórico de cálculos fiscais do container — MED — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "container_id",
+        "calc_imp_container_id"
+      ],
+      "bodyTemplate": {
+        "resource": "container_calculos_impostos_med",
+        "operation": "read"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "container_calculos_impostos_med_get",
+      "name": "Histórico de cálculos fiscais do container — MED — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "container_id",
+        "calc_imp_container_id"
+      ],
+      "bodyTemplate": {
+        "resource": "container_calculos_impostos_med",
+        "operation": "get"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "container_despesa_memoria_med_read",
+      "name": "Memória de cálculo da despesa — MED — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "container_id",
+        "despesa_container_id"
+      ],
+      "bodyTemplate": {
+        "resource": "container_despesa_memoria_med",
+        "operation": "read"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "container_despesa_memoria_med_get",
+      "name": "Memória de cálculo da despesa — MED — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "container_id",
+        "despesa_container_id"
+      ],
+      "bodyTemplate": {
+        "resource": "container_despesa_memoria_med",
+        "operation": "get"
+      },
+      "itemPath": "data"
+    }
+  ]
+}

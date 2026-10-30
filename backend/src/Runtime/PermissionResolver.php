@@ -104,7 +104,8 @@ class PermissionResolver
         }
 
         $definition = $screen->getDefinition();
-        if (!$this->passesSecurity($definition['security'] ?? [])) {
+        if (!$this->passesSecurity($definition['security'] ?? [])
+            && !(self::isAuditScreen($screen->getScreenId()) && $this->hasPermission('ciw.audit.read'))) {
             return false;
         }
 
@@ -122,6 +123,14 @@ class PermissionResolver
             return false;
         }
 
+        if (self::isAuditScreen($endpoint->getScreenId()) && !$this->isAdministrator() && $this->hasPermission('ciw.audit.read')) {
+            $config = $endpoint->getConfig();
+            $expected = $endpoint->getScreenId() === 'admin.transacoes' ? 'runtime_transaction' : 'runtime_transaction_log';
+            return $endpoint->getHandler() === 'entity.crud'
+                && ($config['entityCode'] ?? '') === $expected
+                && in_array($endpoint->getEndpointId(), ['read', 'get'], true)
+                && ($config['operation'] ?? $endpoint->getEndpointId()) === $endpoint->getEndpointId();
+        }
         $permission = $this->endpointPermissions($endpoint);
         if (!$permission) {
             return true;
@@ -140,7 +149,9 @@ class PermissionResolver
         if (is_array($definition['permissions'] ?? null)) {
             $filtered = [];
             foreach ($definition['permissions'] as $key => $value) {
-                $filtered[$key] = $this->isDefinitionPermissionAllowed((string) $key, $value, $definition);
+                $filtered[$key] = $key === 'read' && $value !== false && $value !== null
+                    && self::isAuditScreen((string) ($definition['screenId'] ?? '')) && $this->hasPermission('ciw.audit.read')
+                    ? true : $this->isDefinitionPermissionAllowed((string) $key, $value, $definition);
             }
             $definition['permissions'] = $filtered;
         }
@@ -468,7 +479,12 @@ class PermissionResolver
         return $this->hasPermission($permission);
     }
 
-    private function isAdministrator(): bool
+    public static function isAuditScreen(string $screenId): bool
+    {
+        return in_array($screenId, ['admin.transacoes', 'admin.logs-transacoes'], true);
+    }
+
+    public function isAdministrator(): bool
     {
         return in_array('admin', $this->currentGroups(), true)
             || in_array('*', $this->currentPermissionSets()['allow'], true);
@@ -686,3 +702,4 @@ class PermissionResolver
         return mb_strtoupper($letters ?: 'U');
     }
 }
+

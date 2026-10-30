@@ -1,0 +1,230 @@
+{
+  "module": {
+    "id": "ciw",
+    "title": "CIW"
+  },
+  "groups": [
+    {
+      "id": "ciw-cadastros",
+      "title": "Cadastros e parâmetros",
+      "moduleId": "ciw",
+      "items": [
+        {
+          "programId": "ciw-empresas",
+          "title": "Empresas"
+        },
+        {
+          "programId": "ciw-despesas",
+          "title": "Despesas"
+        },
+        {
+          "programId": "ciw-coloracoes",
+          "title": "Colorações"
+        },
+        {
+          "programId": "ciw-tipos-anexo",
+          "title": "Tipos de anexo"
+        },
+        {
+          "programId": "ciw-situacoes-container",
+          "title": "Situações do container"
+        },
+        {
+          "programId": "ciw-tipos-versao-custo",
+          "title": "Tipos de versão de custo"
+        },
+        {
+          "programId": "ciw-motivos-desconto",
+          "title": "Motivos de desconto"
+        },
+        {
+          "programId": "ciw-parametros-ima",
+          "title": "Parâmetros IMA"
+        }
+      ]
+    },
+    {
+      "id": "ciw-consultas",
+      "title": "Consultas ERP",
+      "moduleId": "ciw",
+      "items": [
+        {
+          "programId": "ciw-fornecedores",
+          "title": "Fornecedores"
+        },
+        {
+          "programId": "ciw-fornecedores-estrangeiros",
+          "title": "Fornecedores estrangeiros"
+        },
+        {
+          "programId": "ciw-itens-erp",
+          "title": "Itens ERP"
+        },
+        {
+          "programId": "ciw-representantes-ativos",
+          "title": "Representantes ativos"
+        }
+      ]
+    },
+    {
+      "id": "ciw-containers",
+      "title": "Containers",
+      "moduleId": "ciw",
+      "items": [
+        {
+          "programId": "ciw-containers",
+          "title": "Containers"
+        }
+      ]
+    }
+  ],
+  "programs": [
+    {
+      "id": "ciw-empresas",
+      "code": "cd0090",
+      "title": "Empresas",
+      "subtitle": "Cadastro integrado ao Progress",
+      "type": "crud",
+      "screenId": "ciw.empresas",
+      "moduleId": "ciw",
+      "permission": "empresas_progress.read"
+    },
+    {
+      "id": "ciw-despesas",
+      "code": "cd0092",
+      "title": "Despesas",
+      "subtitle": "Cadastro de despesas e bases de cálculo",
+      "type": "crud",
+      "screenId": "ciw.despesas",
+      "moduleId": "ciw",
+      "permission": "despesas_progress.read"
+    },
+    {
+      "id": "ciw-coloracoes",
+      "code": "cd0094",
+      "title": "Colorações",
+      "subtitle": "Cadastro CIW integrado ao Progress",
+      "type": "crud",
+      "screenId": "ciw.coloracoes",
+      "moduleId": "ciw",
+      "permission": "coloracoes_progress.read"
+    },
+    {
+      "id": "ciw-tipos-anexo",
+      "code": "cd0091",
+      "title": "Tipos de anexo",
+      "subtitle": "Formulário de múltiplos registros integrado ao Progress",
+      "type": "crud",
+      "screenId": "ciw.tipos-anexo",
+      "moduleId": "ciw",
+      "permission": "tipos_anexo_progress.read"
+    },
+    {
+      "id": "ciw-situacoes-container",
+      "code": "cd0095",
+      "title": "Situações do container",
+      "subtitle": "Cadastro CIW integrado ao Progress",
+      "type": "crud",
+      "screenId": "ciw.situacoes-container",
+      "moduleId": "ciw",
+      "permission": "situacoes_container_progress.read"
+    },
+    {
+      "id": "ciw-tipos-versao-custo",
+      "code": "cd0096",
+      "title": "Tipos de versão de custo",
+      "subtitle": "Cadastro CIW integrado ao Progress",
+      "type": "crud",
+      "screenId": "ciw.tipos-versao-custo",
+      "moduleId": "ciw",
+      "permission": "tipos_versao_custo_progress.read"
+    },
+    {
+      "id": "ciw-motivos-desconto",
+      "code": "cd0097",
+      "title": "Motivos de desconto",
+      "subtitle": "Cadastro CIW integrado ao Progress",
+      "type": "crud",
+      "screenId": "ciw.motivos-desconto",
+      "moduleId": "ciw",
+      "permission": "motivos_desconto_progress.read"
+    },
+    {
+      "id": "ciw-parametros-ima",
+      "code": "cd0098",
+      "title": "Parâmetros IMA",
+      "subtitle": "Parâmetros administrativos IMA",
+      "type": "crud",
+      "screenId": "ciw.parametros-ima",
+      "moduleId": "ciw",
+      "permission": "im_param_progress.read"
+    },
+    {
+      "id": "ciw-fornecedores",
+      "code": "cd0099",
+      "title": "Fornecedores",
+      "subtitle": "Consulta do cadastro comum",
+      "type": "crud",
+      "screenId": "ciw.fornecedores",
+      "moduleId": "ciw",
+      "permission": "fornecedores_consulta_progress.read"
+    },
+    {
+      "id": "ciw-fornecedores-estrangeiros",
+      "code": "cd0100",
+      "title": "Fornecedores estrangeiros",
+      "subtitle": "Consulta do cadastro comum",
+      "type": "crud",
+      "screenId": "ciw.fornecedores-estrangeiros",
+      "moduleId": "ciw",
+      "permission": "fornecedores_estrangeiros_consulta_progress.read"
+    },
+    {
+      "id": "ciw-itens-erp",
+      "code": "cd0101",
+      "title": "Itens ERP",
+      "subtitle": "Consulta de referência ERP",
+      "type": "crud",
+      "screenId": "ciw.itens-erp",
+      "moduleId": "ciw",
+      "permission": "itens_consulta_progress.read"
+    },
+    {
+      "id": "ciw-representantes-ativos",
+      "code": "cd0102",
+      "title": "Representantes ativos",
+      "subtitle": "Consulta de referência ERP",
+      "type": "crud",
+      "screenId": "ciw.representantes-ativos",
+      "moduleId": "ciw",
+      "permission": "representantes_ativos_consulta_progress.read"
+    },
+    {
+      "id": "ciw-containers",
+      "code": "op1000",
+      "title": "Containers",
+      "subtitle": "Consulta de containers",
+      "type": "crud",
+      "screenId": "ciw.containers",
+      "moduleId": "ciw",
+      "permission": "containers_progress.read"
+    }
+  ],
+  "contextualScreens": [
+    "ciw.container-resumo",
+    "ciw.container-sincronizar-impostos",
+    "ciw.container-pagamentos",
+    "ciw.container-nfs",
+    "ciw.container-comparativos",
+    "ciw.container-gerar-versao",
+    "ciw.container-rastro-dolar",
+    "ciw.empresas-despesa",
+    "ciw.container-anexos",
+    "ciw.container-versoes-custo",
+    "ciw.container-custos-itens",
+    "ciw.container-fechar-custos",
+    "ciw.container-despesas",
+    "ciw.container-itens",
+    "ciw.container-painel"
+  ]
+}

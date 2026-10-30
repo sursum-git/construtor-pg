@@ -1,0 +1,45 @@
+{
+  "description": "Exemplo de envio da empresa em todas as chamadas API; a API decide filtros e bancos. Identificadores fictícios; ativação exige vínculo real e contrato de parâmetro confirmado.",
+  "companyMetadata": {
+    "apiCompanyBindings": [
+      {
+        "key": "empresa-demo",
+        "ownerTenantId": "tenant-demo",
+        "moduleId": "modulo-demo",
+        "apiSourceCode": "fonte-demo",
+        "externalCompanyId": 101,
+        "ems2Code": 7,
+        "ems5Code": 700,
+        "revision": 1,
+        "enabled": false
+      }
+    ]
+  },
+  "sourcePayload": {
+    "companyContext": {
+      "version": 1,
+      "adapters": {
+        "empresa": {
+          "body": {
+            "api_empresa_id": "externalCompanyId",
+            "api_ems2_code": "ems2Code",
+            "api_ems5_code": "ems5Code"
+          }
+        }
+      }
+    }
+  },
+  "entityPayload": {
+    "entityType": "api",
+    "apiCompanyContext": {
+      "version": 1,
+      "moduleId": "modulo-demo",
+      "adapter": "empresa"
+    }
+  },
+  "moduleCases": {
+    "onlyApi": "O seletor é disponibilizado nas telas API com contrato ativo.",
+    "mixed": "As entidades locais mantêm seus requests; somente as entidades API recebem revisão e contexto resolvido.",
+    "withoutApi": "Não há seletor nem alteração do assinante ou do request legado."
+  }
+}

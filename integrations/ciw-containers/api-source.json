@@ -1,0 +1,37 @@
+{
+  "providerType": "generic",
+  "code": "motor_progress_containers",
+  "name": "Motor Progress — Containers (consulta)",
+  "status": "active",
+  "baseUrl": "http://127.0.0.1:19910/med/web",
+  "authMode": "header_static",
+  "authHeaders": {
+    "X-Containers-Token": "__RUNTIME_SECRET__"
+  },
+  "timeoutSeconds": 25,
+  "responseContract": "sursum-programs",
+  "operations": [
+    {
+      "code": "read",
+      "name": "Containers — Consultar",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-consulta",
+      "itemsPath": "data",
+      "bodyTemplate": {
+        "operation": "read"
+      }
+    },
+    {
+      "code": "get",
+      "name": "Containers — Detalhar",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-consulta",
+      "itemPath": "data",
+      "bodyTemplate": {
+        "operation": "get"
+      }
+    }
+  ]
+}

@@ -21,6 +21,10 @@
 
         this.renderButton(this.isPrimaryAction(item) ? primaryGroup : toolsGroup, item);
       });
+      if (this.isBatchMode()) {
+        this.renderButton(primaryGroup, {id: "batchSave", label: "Salvar lote", action: "saveBatch", icon: "save", enabledWhenDirty: true});
+        this.renderButton(primaryGroup, {id: "batchCancel", label: "Cancelar lote", action: "cancelBatch", icon: "cancel", enabledWhenDirty: true});
+      }
       this.renderBulkActions(toolsGroup);
       this.renderPrintActions(toolsGroup);
 
@@ -35,6 +39,18 @@
 
       $(container).append(toolbar);
       return toolbar;
+    }
+
+    isBatchMode() {
+      return Boolean(this.definition.grid && this.definition.grid.editing && this.definition.grid.editing.mode === "batch");
+    }
+
+    setBatchState(dirty, saving) {
+      this.setButtonEnabled("batchSave", dirty && !saving);
+      this.setButtonEnabled("batchCancel", dirty && !saving);
+      global.CrudUtils.ensureArray(this.definition.grid && this.definition.grid.toolbar).forEach((item) => {
+        if (item.action === "create") { this.setButtonEnabled(item.id, !saving); }
+      });
     }
 
     isPrimaryAction(item) {
@@ -65,7 +81,7 @@
       const button = $("<button type=\"button\"></button>")
         .attr("id", "crud-action-" + item.id)
         .attr("title", item.label)
-        .text(item.label)
+        .text(this.isBatchMode() && item.action === "create" ? "Adicionar linha" : item.label)
         .appendTo(container);
 
       if (item.action === "saveLayout" || item.action === "restoreLayout") {

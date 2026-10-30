@@ -1,0 +1,234 @@
+{
+  "entityDraft": {
+    "code": "container_despesa_memoria_med_progress",
+    "name": "Memória de cálculo da despesa — MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureModuleCode": "operacional",
+    "structureType": "main",
+    "structureBaseNumber": 1034,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "container_despesa_memoria_med_read",
+    "apiDetailOperationCode": "container_despesa_memoria_med_get",
+    "apiCreateOperationCode": "",
+    "apiUpdateOperationCode": "",
+    "apiDeleteOperationCode": "",
+    "fields": [
+      {
+        "code": "despesa_container_id",
+        "label": "Despesa do container",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "despesa_container_id",
+        "apiWritePath": "despesa_container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "container_id",
+        "label": "Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "calc_imp_container_id",
+        "label": "Cálculo fiscal associado",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "calc_imp_container_id",
+        "apiWritePath": "calc_imp_container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "memoria_calculo",
+        "label": "Memória própria da despesa",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "memoria_calculo",
+        "apiWritePath": "memoria_calculo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "editor": "textarea",
+          "rows": 16
+        },
+        "length": 4000
+      },
+      {
+        "code": "link_calculo_id",
+        "label": "Cálculo fiscal para navegação",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "link_calculo_id",
+        "apiWritePath": "link_calculo_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1034",
+    "programTitle": "Memória de cálculo da despesa — MED",
+    "module": "operacional",
+    "builderEntityCode": "container_despesa_memoria_med_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.container-despesa-memoria-med",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "permissionPrefix": "container_despesa_memoria_med_progress",
+    "subtitle": "Memória persistida selecionada; consulta não executa recálculo.",
+    "rowLinks": [
+      {
+        "id": "calculo",
+        "label": "Memória fiscal associada",
+        "screenId": "ciw.container-calculos-impostos-med",
+        "parameters": [
+          {
+            "field": "container_id",
+            "sourceField": "container_id"
+          },
+          {
+            "field": "calc_imp_container_id",
+            "sourceField": "link_calculo_id"
+          }
+        ],
+        "position": "end"
+      },
+      {
+        "id": "container",
+        "label": "Painel do container",
+        "screenId": "ciw.container-painel",
+        "parameters": [
+          {
+            "field": "container_id",
+            "sourceField": "container_id"
+          }
+        ],
+        "position": "end"
+      }
+    ],
+    "contextFields": [
+      {
+        "field": "container_id",
+        "filter": true,
+        "createDefault": false,
+        "readonly": true,
+        "required": true
+      },
+      {
+        "field": "despesa_container_id",
+        "filter": true,
+        "createDefault": false,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 50,
+      "defaultSort": [
+        {
+          "field": "despesa_container_id",
+          "dir": "desc"
+        }
+      ],
+      "gridFields": [
+        {
+          "field": "despesa_container_id"
+        },
+        {
+          "field": "container_id"
+        },
+        {
+          "field": "calc_imp_container_id"
+        },
+        {
+          "field": "memoria_calculo"
+        }
+      ],
+      "filterFields": [
+        "despesa_container_id",
+        "container_id",
+        "calc_imp_container_id",
+        "memoria_calculo"
+      ]
+    },
+    "formOptions": {
+      "mode": "popup",
+      "tabs": [
+        {
+          "id": "memoria",
+          "title": "Memória persistida",
+          "sections": [
+            {
+              "id": "dados",
+              "title": "Consulta",
+              "columns": 1,
+              "fields": [
+                "despesa_container_id",
+                "container_id",
+                "calc_imp_container_id",
+                "memoria_calculo"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

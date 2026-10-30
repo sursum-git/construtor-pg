@@ -1,0 +1,36 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "proc_compra_resumo_read",
+      "name": "Resumo do processo — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_resumo",
+        "operation": "read"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "proc_compra_resumo_get",
+      "name": "Resumo do processo — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_resumo",
+        "operation": "get"
+      },
+      "itemPath": "data"
+    }
+  ]
+}

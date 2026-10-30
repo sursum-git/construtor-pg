@@ -1,0 +1,82 @@
+{
+  "entityDraft": {
+    "code": "itens_consulta_progress",
+    "name": "Itens ERP",
+    "entityType": "api",
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 101,
+    "createPhysicalTable": false,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "itens_read",
+    "apiDetailOperationCode": "itens_get",
+    "fields": [
+      {
+        "code": "it_codigo",
+        "label": "Código",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": true,
+        "position": 10,
+        "readonlyField": true,
+        "apiJsonPath": "it_codigo",
+        "apiWritePath": "it_codigo",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "descricao",
+        "label": "Descrição",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "position": 20,
+        "readonlyField": true,
+        "apiJsonPath": "descricao",
+        "apiWritePath": "descricao",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "cd0101",
+    "programTitle": "Itens ERP",
+    "module": "cadastros",
+    "builderEntityCode": "itens_consulta_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.itens-erp",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "permissionPrefix": "itens_consulta_progress",
+    "subtitle": "Consulta de referência ERP",
+    "crudOptions": {
+      "pageSize": 30,
+      "filterFields": [
+        "it_codigo",
+        "descricao"
+      ],
+      "defaultSort": [
+        {
+          "field": "it_codigo",
+          "dir": "asc"
+        }
+      ]
+    }
+  }
+}

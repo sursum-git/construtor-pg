@@ -1,0 +1,143 @@
+{
+  "providerType": "generic",
+  "code": "motor_progress_container_custos",
+  "name": "Motor Progress — Custos do Container",
+  "status": "active",
+  "baseUrl": "http://127.0.0.1:19910/med/web",
+  "authMode": "header_static",
+  "authHeaders": {
+    "X-Containers-Token": "__RUNTIME_SECRET__"
+  },
+  "timeoutSeconds": 25,
+  "responseContract": "sursum-programs",
+  "operations": [
+    {
+      "code": "itens_read",
+      "name": "Custos dos Itens — read",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-custos",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "itens",
+        "moeda": "real"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "itens_get",
+      "name": "Custos dos Itens — get",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-custos",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "itens",
+        "moeda": "real"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "resumo_read",
+      "name": "Resumo do Container — read",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-custos",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "resumo",
+        "moeda": "real"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "resumo_get",
+      "name": "Resumo do Container — get",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-custos",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "resumo",
+        "moeda": "real"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "comparativos_read",
+      "name": "Comparativos de Custo — read",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-custos",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "comparativos",
+        "moeda": "real"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "comparativos_get",
+      "name": "Comparativos de Custo — get",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-custos",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "comparativos",
+        "moeda": "real"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "rastro_read",
+      "name": "Rastro do Dólar Médio — read",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-custos",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "rastro",
+        "moeda": "real"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "rastro_get",
+      "name": "Rastro do Dólar Médio — get",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-custos",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "rastro",
+        "moeda": "real"
+      },
+      "itemPath": "data"
+    }
+  ]
+}

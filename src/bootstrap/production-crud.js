@@ -22,6 +22,8 @@
     const hideThemeSwitch = readBooleanParam(params, "hideThemeSwitch");
     const hideHeader = readBooleanParam(params, "hideProgramHeader");
     const initialFilters = readInitialFilters(params);
+    const contextValues = {};
+    if (params) { params.forEach(function(value, key) { if (/^context__[A-Za-z_][A-Za-z0-9_]*$/.test(key)) { contextValues[key.slice(9)] = value; } }); }
     const initialMasterId = getParam(params, "masterId") || getParam(params, "recordId") || getParam(params, "id");
     const httpClient = new global.CrudHttpClient({
       allowLocalFallback: false
@@ -42,6 +44,8 @@
           hideThemeSwitch: hideThemeSwitch,
           hideHeader: hideHeader,
           initialFilters: initialFilters,
+          contextValues: contextValues,
+          restoreFrom: getParam(params, "restoreFrom"),
           initialMasterId: initialMasterId,
           httpClient: httpClient
         });
@@ -64,6 +68,8 @@
         hideThemeSwitch: options.hideThemeSwitch,
         hideHeader: options.hideHeader,
         initialFilters: options.initialFilters,
+        contextValues: options.contextValues,
+        restoreFrom: options.restoreFrom,
         productionErrors: true,
         httpClient: options.httpClient
       }).init();
@@ -74,6 +80,7 @@
         screenId: options.screenId,
         config: options.config,
         hideHeader: options.hideHeader,
+        contextValues: options.contextValues,
         httpClient: options.httpClient
       }).init();
     }

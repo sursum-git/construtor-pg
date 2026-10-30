@@ -1,0 +1,1501 @@
+{
+  "entityDraft": {
+    "code": "proc_compra_itens_progress",
+    "name": "Itens do Processo de Compra — MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureModuleCode": "operacional",
+    "structureType": "main",
+    "structureBaseNumber": 1014,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "proc_compra_itens_read",
+    "apiDetailOperationCode": "proc_compra_itens_get",
+    "apiCreateOperationCode": "proc_compra_itens_create",
+    "apiUpdateOperationCode": "proc_compra_itens_update",
+    "apiDeleteOperationCode": "proc_compra_itens_delete",
+    "fields": [
+      {
+        "code": "item_proc_compra_id",
+        "label": "ID Item Pedido",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "item_proc_compra_id",
+        "apiWritePath": "item_proc_compra_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647
+        }
+      },
+      {
+        "code": "descricao",
+        "label": "Descrição",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "position": 10,
+        "apiJsonPath": "descricao",
+        "apiWritePath": "values.descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": ""
+        },
+        "length": 100
+      },
+      {
+        "code": "codigo_erp",
+        "label": "Código ERP",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 20,
+        "apiJsonPath": "codigo_erp",
+        "apiWritePath": "values.codigo_erp",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": ""
+        },
+        "length": 20
+      },
+      {
+        "code": "qt_dias_producao",
+        "label": "Qt Dias Produção",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 30,
+        "apiJsonPath": "qt_dias_producao",
+        "apiWritePath": "values.qt_dias_producao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 9999,
+          "defaultValue": 0
+        }
+      },
+      {
+        "code": "vl_base_tributacao",
+        "label": "Vl.Unit.Base Tributação + Anti Dumping(Dólar)",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 40,
+        "apiJsonPath": "vl_base_tributacao",
+        "apiWritePath": "values.vl_base_tributacao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": 0,
+          "decimals": 5,
+          "format": "n5",
+          "max": 999999999999
+        },
+        "precision": 24,
+        "scale": 5
+      },
+      {
+        "code": "unid_medida",
+        "label": "Unid.Medida",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "position": 50,
+        "apiJsonPath": "unid_medida",
+        "apiWritePath": "values.unid_medida",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": "MT",
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": "MT",
+              "text": "Metro"
+            },
+            {
+              "value": "KG",
+              "text": "Quilo"
+            }
+          ]
+        }
+      },
+      {
+        "code": "proc_compra_id",
+        "label": "Pedido Importação",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "proc_compra_id",
+        "apiWritePath": "proc_compra_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647
+        }
+      },
+      {
+        "code": "qt_comprada",
+        "label": "Qt.Comprada",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 70,
+        "apiJsonPath": "qt_comprada",
+        "apiWritePath": "values.qt_comprada",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": 0,
+          "decimals": 2,
+          "format": "n2",
+          "max": 999999999999,
+          "min": 0
+        },
+        "precision": 24,
+        "scale": 2
+      },
+      {
+        "code": "vl_custo_dolar",
+        "label": "Vl .Unit.Registro(Dólar)",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 80,
+        "apiJsonPath": "vl_custo_dolar",
+        "apiWritePath": "values.vl_custo_dolar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": 0,
+          "decimals": 10,
+          "format": "n10",
+          "max": 999999999999
+        },
+        "precision": 24,
+        "scale": 10
+      },
+      {
+        "code": "composicao",
+        "label": "Composição",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 90,
+        "apiJsonPath": "composicao",
+        "apiWritePath": "values.composicao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": ""
+        },
+        "length": 30
+      },
+      {
+        "code": "peso",
+        "label": "Peso (GSM)",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 100,
+        "apiJsonPath": "peso",
+        "apiWritePath": "values.peso",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": ""
+        },
+        "length": 30
+      },
+      {
+        "code": "largura",
+        "label": "Largura (CM)",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 110,
+        "apiJsonPath": "largura",
+        "apiWritePath": "values.largura",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": ""
+        },
+        "length": 30
+      },
+      {
+        "code": "rolo",
+        "label": "Tamanho Rolo",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 120,
+        "apiJsonPath": "rolo",
+        "apiWritePath": "values.rolo",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": ""
+        },
+        "length": 30
+      },
+      {
+        "code": "dt_prev_envio_desenhos",
+        "label": "Dt. Prev. Envio Desenhos",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 130,
+        "apiJsonPath": "dt_prev_envio_desenhos",
+        "apiWritePath": "values.dt_prev_envio_desenhos",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "dt_real_envio_desenhos",
+        "label": "Dt. Real Envio Desenhos",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 140,
+        "apiJsonPath": "dt_real_envio_desenhos",
+        "apiWritePath": "values.dt_real_envio_desenhos",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "log_aprov_so_ld",
+        "label": "Aprova Strike Offs e Lab Dips?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 150,
+        "apiJsonPath": "log_aprov_so_ld",
+        "apiWritePath": "values.log_aprov_so_ld",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": false
+        }
+      },
+      {
+        "code": "dt_prev_recbto_so_ld",
+        "label": "Dt.Prev.Recbto Strike Offs e Labs Dips",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 160,
+        "apiJsonPath": "dt_prev_recbto_so_ld",
+        "apiWritePath": "values.dt_prev_recbto_so_ld",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "dt_prev_aprov_so_ld",
+        "label": "Dt. Prev. Aprov. Strike Offs e Labs Dips",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 170,
+        "apiJsonPath": "dt_prev_aprov_so_ld",
+        "apiWritePath": "values.dt_prev_aprov_so_ld",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "dt_real_aprov_so_ld",
+        "label": "Dt. Real Aprov. Strike Offs e Labs Dips",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 180,
+        "apiJsonPath": "dt_real_aprov_so_ld",
+        "apiWritePath": "values.dt_real_aprov_so_ld",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "coloracao_id",
+        "label": "Coloração",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 190,
+        "apiJsonPath": "coloracao_id",
+        "apiWritePath": "values.coloracao_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "api": {
+            "optionsSource": {
+              "operationCode": "proc_compra_itens_opcoes_coloracao",
+              "valueField": "value",
+              "textField": "text"
+            }
+          }
+        }
+      },
+      {
+        "code": "dt_maxima_producao",
+        "label": "Dt. Máxima Produção",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 200,
+        "apiJsonPath": "dt_maxima_producao",
+        "apiWritePath": "values.dt_maxima_producao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "dt_mostruario",
+        "label": "Dt. do Mostruário",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 210,
+        "apiJsonPath": "dt_mostruario",
+        "apiWritePath": "values.dt_mostruario",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "log_mostruario",
+        "label": "Controla Data Mostruário?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 220,
+        "apiJsonPath": "log_mostruario",
+        "apiWritePath": "values.log_mostruario",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": true
+        }
+      },
+      {
+        "code": "formato_amostra_id",
+        "label": "Formato Amostra ",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 230,
+        "apiJsonPath": "formato_amostra_id",
+        "apiWritePath": "values.formato_amostra_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "api": {
+            "optionsSource": {
+              "operationCode": "proc_compra_itens_opcoes_formato_amostra",
+              "valueField": "value",
+              "textField": "text"
+            }
+          }
+        }
+      },
+      {
+        "code": "ind_producao_no_prazo",
+        "label": "Produção no prazo esperado?",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 240,
+        "apiJsonPath": "ind_producao_no_prazo",
+        "apiWritePath": "values.ind_producao_no_prazo",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 0,
+              "text": "Não Informado"
+            },
+            {
+              "value": 1,
+              "text": "Sim"
+            },
+            {
+              "value": 2,
+              "text": "Não"
+            }
+          ]
+        }
+      },
+      {
+        "code": "ind_relat_semanal_producao",
+        "label": "Envio Relat. Semanal de Produção?",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 250,
+        "apiJsonPath": "ind_relat_semanal_producao",
+        "apiWritePath": "values.ind_relat_semanal_producao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 0,
+              "text": "Não Informado"
+            },
+            {
+              "value": 1,
+              "text": "Sim"
+            },
+            {
+              "value": 2,
+              "text": "Não"
+            }
+          ]
+        }
+      },
+      {
+        "code": "ind_qualid_emb",
+        "label": "Recbto da  Embalagem Conforme  nossa qualidade padrão ?",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 260,
+        "apiJsonPath": "ind_qualid_emb",
+        "apiWritePath": "values.ind_qualid_emb",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 0,
+              "text": "Não Informado"
+            },
+            {
+              "value": 1,
+              "text": "Sim"
+            },
+            {
+              "value": 2,
+              "text": "Não"
+            }
+          ]
+        }
+      },
+      {
+        "code": "ind_laudo_antes_embarque",
+        "label": "Envio de Laudo Antes do Embarque?",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 270,
+        "apiJsonPath": "ind_laudo_antes_embarque",
+        "apiWritePath": "values.ind_laudo_antes_embarque",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 0,
+              "text": "Não Informado"
+            },
+            {
+              "value": 1,
+              "text": "Sim"
+            },
+            {
+              "value": 2,
+              "text": "Não"
+            }
+          ]
+        }
+      },
+      {
+        "code": "ind_prod_conf_pi",
+        "label": "Produção Conforme PL(Laudo)?",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 280,
+        "apiJsonPath": "ind_prod_conf_pi",
+        "apiWritePath": "values.ind_prod_conf_pi",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 0,
+              "text": "Não Informado"
+            },
+            {
+              "value": 1,
+              "text": "Sim"
+            },
+            {
+              "value": 2,
+              "text": "Não"
+            }
+          ]
+        }
+      },
+      {
+        "code": "ind_rec_amostra_antes_emb",
+        "label": "Recbto Amostras Antes do Embarque?",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 290,
+        "apiJsonPath": "ind_rec_amostra_antes_emb",
+        "apiWritePath": "values.ind_rec_amostra_antes_emb",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 0,
+              "text": "Não Informado"
+            },
+            {
+              "value": 1,
+              "text": "Sim"
+            },
+            {
+              "value": 2,
+              "text": "Não"
+            }
+          ]
+        }
+      },
+      {
+        "code": "ind_qt_conf_proforma",
+        "label": "Quantidade Conforme Pró-forma ?",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 300,
+        "apiJsonPath": "ind_qt_conf_proforma",
+        "apiWritePath": "values.ind_qt_conf_proforma",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 0,
+              "text": "Não Informado"
+            },
+            {
+              "value": 1,
+              "text": "Sim"
+            },
+            {
+              "value": 2,
+              "text": "Não"
+            }
+          ]
+        }
+      },
+      {
+        "code": "ind_tamanho_pecas_correto",
+        "label": "Tamanho de Peças De acordo com o Solicitado?",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 310,
+        "apiJsonPath": "ind_tamanho_pecas_correto",
+        "apiWritePath": "values.ind_tamanho_pecas_correto",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 0,
+              "text": "Não Informado"
+            },
+            {
+              "value": 1,
+              "text": "Sim"
+            },
+            {
+              "value": 2,
+              "text": "Não"
+            }
+          ]
+        }
+      },
+      {
+        "code": "observacao",
+        "label": "Observações",
+        "dataType": "text",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 320,
+        "apiJsonPath": "observacao",
+        "apiWritePath": "values.observacao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": "",
+          "editor": "textarea"
+        },
+        "length": 8000
+      },
+      {
+        "code": "dt_cheg_amostras_emb",
+        "label": "Dt. Cheg. Amostras Embarque",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 330,
+        "apiJsonPath": "dt_cheg_amostras_emb",
+        "apiWritePath": "values.dt_cheg_amostras_emb",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "dt_termino_producao",
+        "label": "Dt Termino Producao",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 340,
+        "apiJsonPath": "dt_termino_producao",
+        "apiWritePath": "values.dt_termino_producao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "vl_cubagem",
+        "label": "Vl. Cubagem",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 350,
+        "apiJsonPath": "vl_cubagem",
+        "apiWritePath": "values.vl_cubagem",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": 0,
+          "decimals": 2,
+          "format": "n2",
+          "max": 999999999999
+        },
+        "precision": 24,
+        "scale": 2
+      },
+      {
+        "code": "dt_recbto_laudo",
+        "label": "Dt Recbto Laudo",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 360,
+        "apiJsonPath": "dt_recbto_laudo",
+        "apiWritePath": "values.dt_recbto_laudo",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "dt_recbto_embalagem",
+        "label": "Dt Recbto Embalagem",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 370,
+        "apiJsonPath": "dt_recbto_embalagem",
+        "apiWritePath": "values.dt_recbto_embalagem",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "dt_real_recbto_so_ld",
+        "label": "Dt Real Recbto So Ld",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 380,
+        "apiJsonPath": "dt_real_recbto_so_ld",
+        "apiWritePath": "values.dt_real_recbto_so_ld",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "dt_prev_termino_producao",
+        "label": "Dt.Prev.Término Produção",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 390,
+        "apiJsonPath": "dt_prev_termino_producao",
+        "apiWritePath": "values.dt_prev_termino_producao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "qt_dias_calc_so_ld",
+        "label": "Qt Dias Calc So Ld",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 400,
+        "apiJsonPath": "qt_dias_calc_so_ld",
+        "apiWritePath": "values.qt_dias_calc_so_ld",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 999,
+          "defaultValue": 0
+        }
+      },
+      {
+        "code": "shrinkage",
+        "label": "Shrinkage",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 410,
+        "apiJsonPath": "shrinkage",
+        "apiWritePath": "values.shrinkage",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": ""
+        },
+        "length": 100
+      },
+      {
+        "code": "ind_distr_custo",
+        "label": "Distr.Custo ?",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 420,
+        "apiJsonPath": "ind_distr_custo",
+        "apiWritePath": "values.ind_distr_custo",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "defaultValue": 1,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 0,
+              "text": "Não"
+            },
+            {
+              "value": 1,
+              "text": "Sim / Negociado maior que registro"
+            },
+            {
+              "value": 2,
+              "text": "Negociado menor que registro"
+            },
+            {
+              "value": 3,
+              "text": "Negociado igual ao registro"
+            }
+          ]
+        }
+      },
+      {
+        "code": "vl_negociado",
+        "label": "Vl.Negociado",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 430,
+        "apiJsonPath": "vl_negociado",
+        "apiWritePath": "values.vl_negociado",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": 0,
+          "decimals": 5,
+          "format": "n5",
+          "max": 999999999999
+        },
+        "precision": 24,
+        "scale": 5
+      },
+      {
+        "code": "item_estacao",
+        "label": "Estação Item/Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 440,
+        "apiJsonPath": "item_estacao",
+        "apiWritePath": "values.item_estacao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "api": {
+            "optionsSource": {
+              "operationCode": "proc_compra_itens_opcoes_estacao",
+              "valueField": "value",
+              "textField": "text"
+            }
+          }
+        }
+      },
+      {
+        "code": "dt_item_certificacao",
+        "label": "Data de certificação",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 450,
+        "apiJsonPath": "dt_item_certificacao",
+        "apiWritePath": "values.dt_item_certificacao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "row_stamp",
+        "label": "Controle de concorrência",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 460,
+        "apiJsonPath": "row_stamp",
+        "apiWritePath": "row_stamp",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "qt_alocada",
+        "label": "Qt. alocada",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 470,
+        "apiJsonPath": "qt_alocada",
+        "apiWritePath": "values.qt_alocada",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2",
+          "max": 999999999999
+        },
+        "precision": 24,
+        "scale": 2
+      },
+      {
+        "code": "qt_saldo",
+        "label": "Saldo para alocação",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 480,
+        "apiJsonPath": "qt_saldo",
+        "apiWritePath": "values.qt_saldo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2",
+          "max": 999999999999
+        },
+        "precision": 24,
+        "scale": 2
+      },
+      {
+        "code": "calc_gm",
+        "label": "Gramatura (G/M)",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 490,
+        "apiJsonPath": "calc_gm",
+        "apiWritePath": "values.calc_gm",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 4,
+          "format": "n4",
+          "max": 999999999999
+        },
+        "precision": 24,
+        "scale": 4
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1014",
+    "programTitle": "Itens do Processo de Compra — MED",
+    "module": "operacional",
+    "builderEntityCode": "proc_compra_itens_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.proc-compra-itens",
+    "version": "1.0.1",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": true,
+    "allowUpdate": true,
+    "allowDelete": true,
+    "permissionPrefix": "proc_compra_itens_progress",
+    "subtitle": "Empresa MED. Itens vinculados ao processo de compra selecionado.",
+    "rowLinks": [
+      {
+        "id": "envios_amostras",
+        "label": "Envios de amostras",
+        "screenId": "ciw.proc-compra-amostras",
+        "parameters": [
+          {
+            "field": "proc_compra_id",
+            "sourceField": "proc_compra_id"
+          },
+          {
+            "field": "item_proc_compra_id",
+            "sourceField": "item_proc_compra_id"
+          }
+        ],
+        "position": "start"
+      }
+    ],
+    "contextFields": [
+      {
+        "field": "proc_compra_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 50,
+      "defaultSort": [
+        {
+          "field": "item_proc_compra_id",
+          "dir": "asc"
+        }
+      ],
+      "gridFields": [
+        {
+          "field": "item_proc_compra_id"
+        },
+        {
+          "field": "descricao"
+        },
+        {
+          "field": "codigo_erp"
+        },
+        {
+          "field": "qt_dias_producao"
+        },
+        {
+          "field": "unid_medida"
+        },
+        {
+          "field": "vl_custo_dolar"
+        },
+        {
+          "field": "vl_negociado"
+        },
+        {
+          "field": "qt_comprada"
+        },
+        {
+          "field": "qt_alocada"
+        },
+        {
+          "field": "qt_saldo"
+        },
+        {
+          "field": "dt_item_certificacao"
+        }
+      ],
+      "filterFields": [
+        "item_proc_compra_id",
+        "descricao",
+        "codigo_erp",
+        "qt_dias_producao",
+        "unid_medida",
+        "vl_custo_dolar",
+        "vl_negociado",
+        "qt_comprada",
+        "qt_alocada",
+        "qt_saldo",
+        "dt_item_certificacao"
+      ]
+    },
+    "formOptions": {
+      "mode": "popup",
+      "tabs": [
+        {
+          "id": "principal",
+          "title": "Principal",
+          "sections": [
+            {
+              "id": "identificacao",
+              "title": "Item do pedido",
+              "columns": 2,
+              "fields": [
+                "item_proc_compra_id",
+                "proc_compra_id",
+                "descricao",
+                "codigo_erp",
+                "unid_medida",
+                "qt_comprada",
+                "qt_alocada",
+                "qt_saldo",
+                "vl_custo_dolar",
+                "vl_negociado",
+                "vl_base_tributacao",
+                "vl_cubagem",
+                "ind_distr_custo",
+                "dt_item_certificacao"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "especificacoes",
+          "title": "Especificações",
+          "sections": [
+            {
+              "id": "tecido",
+              "title": "Especificações do tecido",
+              "columns": 2,
+              "fields": [
+                "composicao",
+                "shrinkage",
+                "peso",
+                "largura",
+                "calc_gm",
+                "rolo",
+                "coloracao_id",
+                "item_estacao",
+                "formato_amostra_id"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "prazos",
+          "title": "Prazos e amostras",
+          "sections": [
+            {
+              "id": "producao",
+              "title": "Produção e mostruário",
+              "columns": 2,
+              "fields": [
+                "qt_dias_producao",
+                "dt_maxima_producao",
+                "dt_prev_termino_producao",
+                "dt_termino_producao",
+                "log_mostruario",
+                "dt_mostruario",
+                "dt_cheg_amostras_emb",
+                "dt_recbto_laudo",
+                "dt_recbto_embalagem"
+              ]
+            },
+            {
+              "id": "so_ld",
+              "title": "Strike Offs e Lab Dips",
+              "columns": 2,
+              "fields": [
+                "log_aprov_so_ld",
+                "qt_dias_calc_so_ld",
+                "dt_prev_envio_desenhos",
+                "dt_real_envio_desenhos",
+                "dt_prev_recbto_so_ld",
+                "dt_real_recbto_so_ld",
+                "dt_prev_aprov_so_ld",
+                "dt_real_aprov_so_ld"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "avaliacao",
+          "title": "Avaliação",
+          "sections": [
+            {
+              "id": "qualidade",
+              "title": "Produção e qualidade",
+              "columns": 2,
+              "fields": [
+                "ind_producao_no_prazo",
+                "ind_relat_semanal_producao",
+                "ind_qualid_emb",
+                "ind_laudo_antes_embarque",
+                "ind_prod_conf_pi",
+                "ind_rec_amostra_antes_emb",
+                "ind_qt_conf_proforma",
+                "ind_tamanho_pecas_correto"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "observacao",
+          "title": "Observações",
+          "sections": [
+            {
+              "id": "observacao",
+              "title": "Observações",
+              "columns": 1,
+              "fields": [
+                "observacao"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "envios_amostras",
+          "title": "Envios de amostras",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.proc-compra-amostras",
+            "engine": "crud",
+            "hideHeader": false,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "proc_compra_id",
+                "sourceField": "proc_compra_id",
+                "operator": "eq"
+              },
+              {
+                "field": "item_proc_compra_id",
+                "sourceField": "item_proc_compra_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

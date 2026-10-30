@@ -1,0 +1,306 @@
+{
+  "entityDraft": {
+    "code": "proc_compra_alocacoes_progress",
+    "name": "Alocações do Item de Compra — MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureModuleCode": "operacional",
+    "structureType": "main",
+    "structureBaseNumber": 1026,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "proc_compra_alocacoes_read",
+    "apiDetailOperationCode": "proc_compra_alocacoes_get",
+    "apiCreateOperationCode": "",
+    "apiUpdateOperationCode": "",
+    "apiDeleteOperationCode": "",
+    "fields": [
+      {
+        "code": "item_container_id",
+        "label": "Alocação",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "item_container_id",
+        "apiWritePath": "item_container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "proc_compra_id",
+        "label": "Processo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "proc_compra_id",
+        "apiWritePath": "proc_compra_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "item_proc_compra_id",
+        "label": "Item de compra",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "item_proc_compra_id",
+        "apiWritePath": "item_proc_compra_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "container_id",
+        "label": "Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "qt_alocada",
+        "label": "Quantidade alocada",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "qt_alocada",
+        "apiWritePath": "qt_alocada",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "precision": 28,
+        "scale": 2,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2"
+        }
+      },
+      {
+        "code": "situacao",
+        "label": "Código da situação ERP",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "situacao",
+        "apiWritePath": "situacao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "situacao_descricao",
+        "label": "Situação ERP",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "situacao_descricao",
+        "apiWritePath": "situacao_descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "length": 100,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "situacao_container_id",
+        "label": "Código do acompanhamento",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 70,
+        "apiJsonPath": "situacao_container_id",
+        "apiWritePath": "situacao_container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "situacao_acomp",
+        "label": "Acompanhamento",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 80,
+        "apiJsonPath": "situacao_acomp",
+        "apiWritePath": "situacao_acomp",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "length": 100,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1026",
+    "programTitle": "Alocações do Item de Compra — MED",
+    "module": "operacional",
+    "builderEntityCode": "proc_compra_alocacoes_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.proc-compra-alocacoes",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "permissionPrefix": "proc_compra_alocacoes_progress",
+    "subtitle": "Empresa MED. Containers e quantidades alocadas do item selecionado.",
+    "rowLinks": [
+      {
+        "id": "container",
+        "label": "Painel do container",
+        "screenId": "ciw.container-painel",
+        "parameters": [
+          {
+            "field": "container_id",
+            "sourceField": "container_id"
+          }
+        ],
+        "position": "end"
+      }
+    ],
+    "contextFields": [
+      {
+        "field": "proc_compra_id",
+        "filter": true,
+        "createDefault": false,
+        "readonly": true,
+        "required": true
+      },
+      {
+        "field": "item_proc_compra_id",
+        "filter": true,
+        "createDefault": false,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 50,
+      "defaultSort": [
+        {
+          "field": "item_container_id",
+          "dir": "asc"
+        }
+      ],
+      "gridFields": [
+        {
+          "field": "item_container_id"
+        },
+        {
+          "field": "container_id"
+        },
+        {
+          "field": "qt_alocada"
+        },
+        {
+          "field": "situacao_descricao"
+        },
+        {
+          "field": "situacao_acomp"
+        }
+      ],
+      "filterFields": [
+        "container_id",
+        "qt_alocada",
+        "situacao",
+        "situacao_container_id",
+        "situacao_acomp"
+      ]
+    },
+    "formOptions": {
+      "mode": "popup",
+      "tabs": [
+        {
+          "id": "alocacao",
+          "title": "Alocação",
+          "sections": [
+            {
+              "id": "contexto",
+              "title": "Item e container",
+              "columns": 2,
+              "fields": [
+                "item_container_id",
+                "proc_compra_id",
+                "item_proc_compra_id",
+                "container_id",
+                "qt_alocada",
+                "situacao",
+                "situacao_descricao",
+                "situacao_container_id",
+                "situacao_acomp"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

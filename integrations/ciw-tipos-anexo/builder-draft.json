@@ -1,0 +1,39 @@
+{
+  "entityDraft": {
+    "code": "tipos_anexo_progress",
+    "name": "Tipos de anexo Progress",
+    "entityType": "api",
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 91,
+    "createPhysicalTable": false,
+    "apiSourceCode": "motor_progress_tipos_anexo",
+    "apiListOperationCode": "read",
+    "apiDetailOperationCode": "get",
+    "apiCreateOperationCode": "create",
+    "apiUpdateOperationCode": "update",
+    "apiDeleteOperationCode": "delete",
+    "apiBatchOperationCode": "batch",
+    "fields": [
+      {"code":"tipo_anexo_id","label":"ID","dataType":"integer","primaryKey":true,"required":false,"position":10,"readonlyField":true,"apiJsonPath":"tipo_anexo_id","apiWritePath":"tipo_anexo_id","apiShowInGrid":true,"apiShowInForm":true,"apiShowInFilter":true,"options":{"readonly":true,"writable":false}},
+      {"code":"descricao","label":"Descrição","dataType":"string","length":100,"required":false,"position":20,"apiJsonPath":"descricao","apiWritePath":"descricao","apiShowInGrid":true,"apiShowInForm":true,"apiShowInFilter":true}
+    ]
+  },
+  "programDraft": {
+    "programCode": "cd0091",
+    "programTitle": "Tipos de anexo",
+    "module": "cadastros",
+    "builderEntityCode": "tipos_anexo_progress",
+    "pageType": "crud",
+    "gridEditMode": "batch",
+    "screenId": "ciw.tipos-anexo",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": true,
+    "allowUpdate": true,
+    "allowDelete": true,
+    "permissionPrefix": "tipos_anexo_progress",
+    "subtitle": "Formulário de múltiplos registros integrado ao Progress"
+  }
+}

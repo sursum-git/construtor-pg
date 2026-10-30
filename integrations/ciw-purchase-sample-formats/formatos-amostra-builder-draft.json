@@ -1,0 +1,143 @@
+{
+  "entityDraft": {
+    "code": "formatos_amostra_progress",
+    "name": "Formatos de amostra",
+    "entityType": "api",
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 109,
+    "createPhysicalTable": false,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "formatos_amostra_read",
+    "apiDetailOperationCode": "formatos_amostra_get",
+    "apiCreateOperationCode": "formatos_amostra_create",
+    "apiUpdateOperationCode": "formatos_amostra_update",
+    "apiDeleteOperationCode": "formatos_amostra_delete",
+    "apiBatchOperationCode": "formatos_amostra_batch",
+    "fields": [
+      {
+        "code": "formato_amostra_id",
+        "label": "Código",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "formato_amostra_id",
+        "apiWritePath": "formato_amostra_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "descricao",
+        "label": "Descrição",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 20,
+        "apiJsonPath": "descricao",
+        "apiWritePath": "descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "length": 40,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "log_inativo",
+        "label": "Inativo",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 30,
+        "apiJsonPath": "log_inativo",
+        "apiWritePath": "log_inativo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "cd0109",
+    "programTitle": "Formatos de amostra",
+    "module": "cadastros",
+    "builderEntityCode": "formatos_amostra_progress",
+    "pageType": "crud",
+    "gridEditMode": "batch",
+    "screenId": "ciw.formatos-amostra",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": true,
+    "allowUpdate": true,
+    "allowDelete": true,
+    "permissionPrefix": "formatos_amostra_progress",
+    "subtitle": "Cadastro compartilhado entre os processos de compra.",
+    "contextFields": [],
+    "rowLinks": [],
+    "crudOptions": {
+      "pageSize": 50,
+      "defaultSort": [
+        {
+          "field": "formato_amostra_id",
+          "dir": "asc"
+        }
+      ],
+      "gridFields": [
+        {
+          "field": "formato_amostra_id"
+        },
+        {
+          "field": "descricao"
+        },
+        {
+          "field": "log_inativo"
+        }
+      ],
+      "filterFields": [
+        "formato_amostra_id",
+        "descricao",
+        "log_inativo"
+      ]
+    },
+    "formOptions": {
+      "mode": "popup",
+      "tabs": [
+        {
+          "id": "principal",
+          "title": "Principal",
+          "sections": [
+            {
+              "id": "formato",
+              "title": "Formato de amostra",
+              "columns": 2,
+              "fields": [
+                "formato_amostra_id",
+                "descricao",
+                "log_inativo"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

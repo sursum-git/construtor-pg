@@ -1,0 +1,192 @@
+{
+  "entityDraft": {
+    "code": "container_versao_pagtos_historico_med_progress",
+    "name": "Pagamentos históricos da versão",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1036,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "container_versao_pagtos_historico_med_read",
+    "apiDetailOperationCode": "container_versao_pagtos_historico_med_get",
+    "fields": [
+      {
+        "code": "record_key",
+        "label": "Chave da linha",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "record_key",
+        "apiWritePath": "record_key",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 2048
+      },
+      {
+        "code": "container_id",
+        "label": "Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "versao_id",
+        "label": "Versão",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "versao_id",
+        "apiWritePath": "versao_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "num_id_tit_ap",
+        "label": "ID do título",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "num_id_tit_ap",
+        "apiWritePath": "num_id_tit_ap",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_real",
+        "label": "Valor R$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "vl_real",
+        "apiWritePath": "vl_real",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_dolar",
+        "label": "Valor US$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "vl_dolar",
+        "apiWritePath": "vl_dolar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1036",
+    "programTitle": "Pagamentos históricos da versão",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "container_versao_pagtos_historico_med_progress",
+    "screenId": "ciw.container-versao-pagamentos-historico",
+    "version": "1.0.0",
+    "subtitle": "Snapshot persistido da versão selecionada — MED",
+    "permissionPrefix": "container_versao_pagtos_historico_med_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "container_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      },
+      {
+        "field": "versao_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "num_id_tit_ap",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_real",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_dolar",
+          "hidden": false,
+          "width": 160
+        }
+      ],
+      "filterFields": [
+        "num_id_tit_ap",
+        "vl_real",
+        "vl_dolar"
+      ],
+      "defaultSort": [
+        {
+          "field": "num_id_tit_ap",
+          "dir": "asc"
+        }
+      ]
+    }
+  }
+}

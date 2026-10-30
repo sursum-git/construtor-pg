@@ -1,0 +1,58 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {pathToFileURL,fileURLToPath} from 'node:url';
+const canonical='D:/opencode/construtor-pg';
+const require=createRequire(canonical+'/package.json');
+const {chromium}=require('playwright');
+const task='D:/opencode/conversao-sc';
+const core=process.env.IOL_CORE_ROOT||path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
+const scratch=task+'/.runtime/iol-gerencial';fs.mkdirSync(scratch,{recursive:true});
+const scripts=['vendor/jquery/jquery-4.0.0.min.js','kendo/js/kendo.all.min.js','kendo/kendo-license.js','kendo/js/cultures/kendo.culture.pt-BR.min.js','src/bootstrap/kendo-ptbr.js','src/crud-engine/CrudUtils.js','src/crud-engine/CrudHttpClient.js','src/crud-engine/CrudConfigLoader.js'].map(f=>canonical+'/'+f);
+scripts.push(core+'/src/analytics-engine/AnalyticsEngine.js');
+const html='<!doctype html><html lang="pt-BR"><head><meta charset="UTF-8"><link rel="stylesheet" href="'+pathToFileURL(canonical+'/kendo/styles/default-urban.css')+'"><link rel="stylesheet" href="'+pathToFileURL(core+'/src/styles/analytics-engine.css')+'"></head><body><main id="root"></main>'+scripts.map(f=>'<script src="'+pathToFileURL(f)+'"></script>').join('')+'</body></html>';
+fs.writeFileSync(scratch+'/dashboard-test.html',html);
+const browser=await chromium.launch({channel:'msedge'});
+try {
+ const page=await browser.newPage({viewport:{width:1200,height:900}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(pathToFileURL(scratch+'/dashboard-test.html').href);
+ await page.evaluate(async()=>{
+  window.calls=[];window.failRequest=false;
+  const summary=[{id:1,amount:850,percent:85,open:3,competencia:"2026-10"}]; const sellers=[{id:7,name:'<img src=x onerror=alert(1)>',percent:44},{id:8,name:'JOS\u00c9 DA SILVA',percent:20}];
+  const def={schemaVersion:'1.0',pageType:'analytics',screenId:'test.dashboard',program:{id:'test',title:'Painel'},dataSource:{api:{run:{url:'/test/read',method:'POST'}}},analytics:{presentation:{mode:'dashboard'},navigationHosts:['imaonline.imatextil.com.br'],navigation:{prices:{label:'Preços',url:'https://imaonline.imatextil.com.br/iol/cons_tb_preco_estoque/'}},datasets:[{id:'summary',source:{type:'api',entityCode:'summary'},fields:[{field:'amount',type:'currency'},{field:'percent',type:'decimal'},{field:'open',type:'integer'}],limit:100},{id:'sellers',source:{type:'api',entityCode:'sellers'},fields:[{field:'name',type:'string'},{field:'percent',type:'decimal'}],limit:100}],views:[{id:'dashboard',type:'dashboard',datasetId:'summary',tiles:[{id:'meta',type:'group',title:'Meta de Faturamento',collapsed:true,children:[{id:'amount',type:'kpi',title:'Faturado',valueField:'amount',format:'c2'},{id:'progress',type:'progress',title:'Progresso',valueField:'percent',format:'percent0'}]},{id:'orders',type:'kpi',title:'Pedidos',valueField:'open',format:'n0'},{id:'sellers',type:'list',datasetId:'sellers',title:'Vendedores',valueField:'percent',labelField:'name',labelCase:'title',format:'percent0'},{id:'links',type:'links',title:'Tabelas',items:[{navigationId:'prices'}]}]}]}};
+  window.fixture=def;
+  window.engine=new AnalyticsEngine({root:'#root',definition:def,httpClient:{request:async({data})=>{calls.push(data.datasetIds);if(failRequest)throw Error('Falha controlada');return{datasets:{summary:{data:summary,total:1,columns:[]},sellers:{data:sellers,total:2,columns:[]}}};}}});
+  engine.loadConfig=async()=>{engine.config={};};
+  await engine.init();
+ });
+ assert.match(await page.locator(".analytics-status").innerText(),/2026-10/);
+ assert.equal(await page.locator('.analytics-dashboard-progress').count(),1,'Barra declarativa deve existir');
+ assert.deepEqual(await page.evaluate(()=>calls),[['summary','sellers']],'Uma chamada transporta os dois datasets');
+ assert.equal(await page.locator('.analytics-dashboard-group-body').isVisible(),false);
+ await page.getByRole('button',{name:'Mostrar indicadores de Meta de Faturamento'}).click();
+ assert.equal(await page.locator('.analytics-dashboard-group-body').isVisible(),true);
+ assert.match(await page.locator('.analytics-dashboard-progress').innerText(),/85%/);
+ assert.equal(await page.locator('.analytics-dashboard-list li span').nth(1).textContent(),'Jos\u00e9 Da Silva');
+ assert.equal(await page.locator('.analytics-dashboard-list img').count(),0);
+ assert.match(await page.locator('.analytics-dashboard-list').innerText(),/<img/i);
+ assert.equal(await page.locator('.analytics-dashboard-links a').getAttribute('rel'),'noopener noreferrer');
+ await page.setViewportSize({width:390,height:850});
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),'Sem overflow horizontal mobile');
+ await page.evaluate(async()=>{failRequest=true;await engine.runQuery();});
+ assert.equal(await page.locator('.analytics-kpi strong').count(),0,'Falha limpa numeros anteriores');
+ assert.equal(await page.locator('.analytics-dashboard-list li').count(),0);
+ await page.evaluate(()=>{const def=structuredClone(fixture);def.analytics.navigation.prices.url='javascript:alert(1)';let rejected=false;try{engine.normalizeDefinition(def);}catch(_){rejected=true;}if(!rejected)throw Error('URL insegura aceita');});
+ await page.evaluate(async()=>{
+  window.pendingReplies=[];
+  engine.httpClient.request=()=>new Promise(resolve=>pendingReplies.push(resolve));
+  const running=engine.runQuery();
+  engine.destroy();
+  pendingReplies.forEach(resolve=>resolve({data:[{id:1,amount:999,percent:99,open:9}],total:1,columns:[]}));
+  await running;
+  if(engine.currentResult!==null)throw Error('Resposta obsoleta foi aceita');
+ });
+ assert.equal(await page.locator('#root').textContent(),'','Destroy ignora respostas atrasadas');
+ assert.deepEqual(errors,[]);
+ console.log('PASS analytics dashboard datasets/collapse/formats/XSS/mobile/error');
+} finally {await browser.close();}

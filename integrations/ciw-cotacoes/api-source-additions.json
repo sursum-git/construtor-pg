@@ -1,0 +1,64 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "hist_cotacoes_bc_read",
+      "name": "Cotações BC — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "hist_cotacoes_bc"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "hist_cotacoes_bc_get",
+      "name": "Cotações BC — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "hist_cotacoes_bc"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "hist_cotacoes_bc_create",
+      "name": "Cotações BC — create",
+      "type": "create",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "create",
+        "resource": "hist_cotacoes_bc"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "hist_cotacoes_bc_update",
+      "name": "Cotações BC — update",
+      "type": "update",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "update",
+        "resource": "hist_cotacoes_bc"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "hist_cotacoes_bc_delete",
+      "name": "Cotações BC — delete",
+      "type": "delete",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "delete",
+        "resource": "hist_cotacoes_bc"
+      }
+    }
+  ]
+}

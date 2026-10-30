@@ -1,0 +1,89 @@
+{
+  "providerType": "generic",
+  "code": "motor_progress_container_cabecalho",
+  "name": "Motor Progress — Manutenção do Container",
+  "status": "active",
+  "baseUrl": "http://127.0.0.1:19910/med/web",
+  "authMode": "header_static",
+  "authHeaders": {
+    "X-Containers-Token": "__RUNTIME_SECRET__"
+  },
+  "timeoutSeconds": 25,
+  "responseContract": "sursum-programs",
+  "operations": [
+    {
+      "code": "painel_read",
+      "name": "Painel do Container — Consultar",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-painel",
+      "itemsPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "painel"
+      }
+    },
+    {
+      "code": "painel_get",
+      "name": "Painel do Container — Detalhar",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-painel",
+      "itemPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "painel"
+      }
+    },
+    {
+      "code": "containers_create",
+      "name": "containers — create",
+      "method": "POST",
+      "type": "create",
+      "path": "/SursumPrograms/containers-cabecalho",
+      "itemPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "create",
+        "resource": "containers"
+      }
+    },
+    {
+      "code": "containers_update",
+      "name": "containers — update",
+      "method": "POST",
+      "type": "update",
+      "path": "/SursumPrograms/containers-cabecalho",
+      "itemPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "update",
+        "resource": "containers"
+      }
+    },
+    {
+      "code": "containers_delete",
+      "name": "containers — delete",
+      "method": "POST",
+      "type": "delete",
+      "path": "/SursumPrograms/containers-cabecalho",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "delete",
+        "resource": "containers"
+      }
+    }
+  ]
+}

@@ -1,0 +1,211 @@
+{
+  "entityDraft": {
+    "code": "proc_compra_despesas_progress",
+    "name": "Despesas do Processo — MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureModuleCode": "operacional",
+    "structureType": "main",
+    "structureBaseNumber": 1021,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "proc_compra_despesas_read",
+    "apiDetailOperationCode": "proc_compra_despesas_get",
+    "apiCreateOperationCode": "proc_compra_despesas_create",
+    "apiUpdateOperationCode": "proc_compra_despesas_update",
+    "apiDeleteOperationCode": "proc_compra_despesas_delete",
+    "fields": [
+      {
+        "code": "despesa_proc_compra_id",
+        "label": "ID",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "despesa_proc_compra_id",
+        "apiWritePath": "despesa_proc_compra_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647
+        }
+      },
+      {
+        "code": "proc_compra_id",
+        "label": "Processo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "proc_compra_id",
+        "apiWritePath": "proc_compra_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647
+        }
+      },
+      {
+        "code": "despesa_id",
+        "label": "Despesa",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "position": 20,
+        "apiJsonPath": "despesa_id",
+        "apiWritePath": "values.despesa_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "editor": "dropdown",
+          "api": {
+            "optionsSource": {
+              "operationCode": "proc_compra_despesas_opcoes_despesa",
+              "valueField": "value",
+              "textField": "text"
+            }
+          }
+        }
+      },
+      {
+        "code": "vl_prev",
+        "label": "Valor previsto",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 30,
+        "apiJsonPath": "vl_prev",
+        "apiWritePath": "values.vl_prev",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 2,
+          "format": "n2",
+          "step": 0.01,
+          "defaultValue": 0
+        },
+        "precision": 14,
+        "scale": 2
+      },
+      {
+        "code": "calc_imp_proc_compra_id",
+        "label": "Cálculo vinculado",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "calc_imp_proc_compra_id",
+        "apiWritePath": "calc_imp_proc_compra_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647
+        }
+      },
+      {
+        "code": "row_stamp",
+        "label": "Versão",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "row_stamp",
+        "apiWritePath": "row_stamp",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 64
+      },
+      {
+        "code": "despesa_descricao",
+        "label": "Descrição da despesa",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "despesa_descricao",
+        "apiWritePath": "despesa_descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 4000
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1022",
+    "programTitle": "Gerar despesas do processo — MED",
+    "module": "operacional",
+    "builderEntityCode": "proc_compra_despesas_progress",
+    "pageType": "process",
+    "screenId": "ciw.proc-compra-gerar-despesas",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "permissionPrefix": "op1022",
+    "subtitle": "Gera despesas ausentes e preserva os valores já existentes.",
+    "processOptions": {
+      "operationCode": "proc_compra_despesas_generate",
+      "parameterFields": [],
+      "confirmation": {
+        "message": "Gerar somente as despesas ausentes deste processo usando os valores padrão da empresa? Os valores existentes serão preservados.",
+        "confirmText": "Gerar despesas ausentes"
+      }
+    },
+    "contextFields": [
+      {
+        "field": "proc_compra_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "changeSummary": "Writer compartilhado com manutenção; geração idempotente e logs individuais por despesa."
+  }
+}

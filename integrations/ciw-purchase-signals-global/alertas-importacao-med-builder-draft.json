@@ -1,0 +1,531 @@
+{
+  "entityDraft": {
+    "code": "proc_compra_sinalizados_med_progress",
+    "name": "Alertas de Importação — MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureModuleCode": "operacional",
+    "structureType": "main",
+    "structureBaseNumber": 1032,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "proc_compra_sinalizados_read",
+    "apiDetailOperationCode": "proc_compra_sinalizados_get",
+    "apiCreateOperationCode": "",
+    "apiUpdateOperationCode": "",
+    "apiDeleteOperationCode": "",
+    "fields": [
+      {
+        "code": "record_key",
+        "label": "Chave do alerta",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "record_key",
+        "apiWritePath": "record_key",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 2048
+      },
+      {
+        "code": "sinaliz_imp_id",
+        "label": "Regra",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "sinaliz_imp_id",
+        "apiWritePath": "sinaliz_imp_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "proc_compra_id",
+        "label": "Processo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "proc_compra_id",
+        "apiWritePath": "proc_compra_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "item_proc_compra_id",
+        "label": "Item",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "item_proc_compra_id",
+        "apiWritePath": "item_proc_compra_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "tipo_registro",
+        "label": "Origem",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "tipo_registro",
+        "apiWritePath": "tipo_registro",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 256
+      },
+      {
+        "code": "nome_alerta",
+        "label": "Alerta",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "nome_alerta",
+        "apiWritePath": "nome_alerta",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 256
+      },
+      {
+        "code": "titulo_configurado",
+        "label": "Título configurado",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "titulo_configurado",
+        "apiWritePath": "titulo_configurado",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 256
+      },
+      {
+        "code": "descricao_alerta",
+        "label": "Descrição configurada",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 70,
+        "apiJsonPath": "descricao_alerta",
+        "apiWritePath": "descricao_alerta",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 2048
+      },
+      {
+        "code": "dias_alerta",
+        "label": "Dias configurados",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 80,
+        "apiJsonPath": "dias_alerta",
+        "apiWritePath": "dias_alerta",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "data_base",
+        "label": "Data base",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 90,
+        "apiJsonPath": "data_base",
+        "apiWritePath": "data_base",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "data_alerta",
+        "label": "Data do alerta",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 100,
+        "apiJsonPath": "data_alerta",
+        "apiWritePath": "data_alerta",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "data_consulta",
+        "label": "Data da consulta",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 110,
+        "apiJsonPath": "data_consulta",
+        "apiWritePath": "data_consulta",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_proc_fornec",
+        "label": "Referência do processo",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 120,
+        "apiJsonPath": "cod_proc_fornec",
+        "apiWritePath": "cod_proc_fornec",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 256
+      },
+      {
+        "code": "fornecedor_id",
+        "label": "Fornecedor",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 130,
+        "apiJsonPath": "fornecedor_id",
+        "apiWritePath": "fornecedor_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "item_descricao",
+        "label": "Descrição do item",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 140,
+        "apiJsonPath": "item_descricao",
+        "apiWritePath": "item_descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 256
+      },
+      {
+        "code": "codigo_erp",
+        "label": "Código ERP",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 150,
+        "apiJsonPath": "codigo_erp",
+        "apiWritePath": "codigo_erp",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 256
+      },
+      {
+        "code": "container_id",
+        "label": "Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 160,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "link_proc_compra_id",
+        "label": "Contexto processo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 170,
+        "apiJsonPath": "link_proc_compra_id",
+        "apiWritePath": "link_proc_compra_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "link_container_id",
+        "label": "Contexto container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 180,
+        "apiJsonPath": "link_container_id",
+        "apiWritePath": "link_container_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1032",
+    "programTitle": "Alertas de Importação — MED",
+    "module": "operacional",
+    "builderEntityCode": "proc_compra_sinalizados_med_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.alertas-importacao-med",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "permissionPrefix": "proc_compra_sinalizados_med_progress",
+    "subtitle": "Empresa MED. Alertas da regra selecionada; somente leitura.",
+    "rowLinks": [
+      {
+        "id": "processo",
+        "label": "Processo de compra",
+        "screenId": "ciw.processos-compra-med",
+        "parameters": [
+          {
+            "field": "proc_compra_id",
+            "sourceField": "link_proc_compra_id"
+          }
+        ],
+        "position": "end"
+      },
+      {
+        "id": "container",
+        "label": "Painel do container",
+        "screenId": "ciw.container-painel",
+        "parameters": [
+          {
+            "field": "container_id",
+            "sourceField": "link_container_id"
+          }
+        ],
+        "position": "end"
+      }
+    ],
+    "contextFields": [
+      {
+        "field": "sinaliz_imp_id",
+        "filter": true,
+        "createDefault": false,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "defaultSort": [
+        {
+          "field": "sinaliz_imp_id",
+          "dir": "asc"
+        }
+      ],
+      "gridFields": [
+        {
+          "field": "sinaliz_imp_id"
+        },
+        {
+          "field": "proc_compra_id"
+        },
+        {
+          "field": "item_proc_compra_id"
+        },
+        {
+          "field": "tipo_registro"
+        },
+        {
+          "field": "nome_alerta"
+        },
+        {
+          "field": "dias_alerta"
+        },
+        {
+          "field": "data_base"
+        },
+        {
+          "field": "data_alerta"
+        },
+        {
+          "field": "cod_proc_fornec"
+        },
+        {
+          "field": "item_descricao"
+        },
+        {
+          "field": "codigo_erp"
+        },
+        {
+          "field": "container_id"
+        }
+      ],
+      "filterFields": [
+        "sinaliz_imp_id",
+        "proc_compra_id",
+        "item_proc_compra_id",
+        "tipo_registro",
+        "nome_alerta",
+        "dias_alerta",
+        "data_base",
+        "data_alerta",
+        "cod_proc_fornec",
+        "item_descricao",
+        "codigo_erp",
+        "container_id"
+      ]
+    },
+    "formOptions": {
+      "mode": "popup",
+      "tabs": [
+        {
+          "id": "alerta",
+          "title": "Alerta",
+          "sections": [
+            {
+              "id": "regra",
+              "title": "Regra e registro",
+              "columns": 2,
+              "fields": [
+                "sinaliz_imp_id",
+                "proc_compra_id",
+                "item_proc_compra_id",
+                "tipo_registro",
+                "nome_alerta",
+                "titulo_configurado",
+                "descricao_alerta",
+                "dias_alerta",
+                "data_base",
+                "data_alerta",
+                "data_consulta",
+                "cod_proc_fornec",
+                "fornecedor_id",
+                "item_descricao",
+                "codigo_erp",
+                "container_id"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

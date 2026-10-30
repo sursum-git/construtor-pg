@@ -1,0 +1,279 @@
+{
+  "entityDraft": {
+    "code": "proc_compra_amostras_progress",
+    "name": "Envios de Amostras dos Itens — MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureModuleCode": "operacional",
+    "structureType": "main",
+    "structureBaseNumber": 1018,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "proc_compra_amostras_read",
+    "apiDetailOperationCode": "proc_compra_amostras_get",
+    "apiCreateOperationCode": "proc_compra_amostras_create",
+    "apiUpdateOperationCode": "proc_compra_amostras_update",
+    "apiDeleteOperationCode": "proc_compra_amostras_delete",
+    "fields": [
+      {
+        "code": "apont_amostra_id",
+        "label": "Apontamento original",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "apont_amostra_id",
+        "apiWritePath": "apont_amostra_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647
+        }
+      },
+      {
+        "code": "cod_rep",
+        "label": "Representante",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "position": 10,
+        "apiJsonPath": "cod_rep",
+        "apiWritePath": "values.cod_rep",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "defaultValue": null,
+          "editor": "dropdown",
+          "api": {
+            "optionsSource": {
+              "operationCode": "proc_compra_amostras_opcoes_representante",
+              "valueField": "value",
+              "textField": "text"
+            }
+          }
+        }
+      },
+      {
+        "code": "dt_envio",
+        "label": "Data do envio",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 20,
+        "apiJsonPath": "dt_envio",
+        "apiWritePath": "values.dt_envio",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "envio_amostra_repres_id",
+        "label": "Envio",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "envio_amostra_repres_id",
+        "apiWritePath": "envio_amostra_repres_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647
+        }
+      },
+      {
+        "code": "item_proc_compra_id",
+        "label": "Item do pedido",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "item_proc_compra_id",
+        "apiWritePath": "item_proc_compra_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647
+        }
+      },
+      {
+        "code": "proc_compra_id",
+        "label": "Pedido de importação",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "proc_compra_id",
+        "apiWritePath": "proc_compra_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647
+        }
+      },
+      {
+        "code": "row_stamp",
+        "label": "Controle de concorrência",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "row_stamp",
+        "apiWritePath": "row_stamp",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "representante_nome",
+        "label": "Nome do representante",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 70,
+        "apiJsonPath": "representante_nome",
+        "apiWritePath": "representante_nome",
+        "apiShowInGrid": true,
+        "apiShowInForm": false,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1018",
+    "programTitle": "Envios de Amostras dos Itens — MED",
+    "module": "operacional",
+    "builderEntityCode": "proc_compra_amostras_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.proc-compra-amostras",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": true,
+    "allowUpdate": true,
+    "allowDelete": true,
+    "permissionPrefix": "proc_compra_amostras_progress",
+    "subtitle": "Empresa MED. Envios de amostras do item selecionado.",
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "proc_compra_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      },
+      {
+        "field": "item_proc_compra_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 50,
+      "defaultSort": [
+        {
+          "field": "envio_amostra_repres_id",
+          "dir": "desc"
+        }
+      ],
+      "gridFields": [
+        {
+          "field": "envio_amostra_repres_id"
+        },
+        {
+          "field": "cod_rep"
+        },
+        {
+          "field": "representante_nome"
+        },
+        {
+          "field": "dt_envio"
+        }
+      ],
+      "filterFields": [
+        "envio_amostra_repres_id",
+        "cod_rep",
+        "representante_nome",
+        "dt_envio"
+      ]
+    },
+    "formOptions": {
+      "mode": "popup",
+      "tabs": [
+        {
+          "id": "principal",
+          "title": "Envio de amostra",
+          "sections": [
+            {
+              "id": "envio",
+              "title": "Dados do envio",
+              "columns": 2,
+              "fields": [
+                "envio_amostra_repres_id",
+                "proc_compra_id",
+                "item_proc_compra_id",
+                "cod_rep",
+                "dt_envio"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

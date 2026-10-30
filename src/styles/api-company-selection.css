@@ -1,0 +1,4 @@
+.api-company-selection {display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;padding:.45rem .65rem;}
+.api-company-selection label {white-space:nowrap;font-size:.85rem;font-weight:600;}
+.api-company-selection .k-picker {min-width:11rem;max-width:19rem;}
+@media (max-width:640px) {.api-company-selection {width:100%;padding:.35rem 0;} .api-company-selection .k-picker {flex:1;min-width:8rem;max-width:100%;}}

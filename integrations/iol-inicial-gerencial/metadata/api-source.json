@@ -1,0 +1,39 @@
+{
+  "providerType": "generic",
+  "code": "motor_progress_iol_gerencial",
+  "name": "Motor Progress — Painel Gerencial IOL",
+  "status": "active",
+  "baseUrl": "http://127.0.0.1:19910/med/web",
+  "authMode": "header_static",
+  "authHeaders": {
+    "X-Iol-Gerencial-Token": "__RUNTIME_SECRET__"
+  },
+  "timeoutSeconds": 60,
+  "responseContract": "sursum-programs",
+  "operations": [
+    {
+      "code": "read_resumo",
+      "name": "Resumo",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/iol-inicial-gerencial",
+      "itemsPath": "data.resumo",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "painel"
+      }
+    },
+    {
+      "code": "read_vendedores",
+      "name": "Vendedores",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/iol-inicial-gerencial",
+      "itemsPath": "data.vendedores",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "painel"
+      }
+    }
+  ]
+}

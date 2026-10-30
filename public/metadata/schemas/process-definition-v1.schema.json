@@ -3,28 +3,91 @@
   "$id": "https://construtor-pg.local/schemas/process-definition-v1.schema.json",
   "title": "Process Definition v1",
   "type": "object",
-  "required": ["schemaVersion", "pageType", "program", "process"],
+  "required": [
+    "schemaVersion",
+    "pageType",
+    "program",
+    "process"
+  ],
   "properties": {
-    "schemaVersion": { "type": "string" },
-    "pageType": { "const": "process" },
-    "screenId": { "type": "string" },
+    "schemaVersion": {
+      "type": "string"
+    },
+    "pageType": {
+      "const": "process"
+    },
+    "screenId": {
+      "type": "string"
+    },
+    "contextFields": {
+      "type": "array",
+      "maxItems": 8,
+      "items": {
+        "type": "object",
+        "required": [
+          "field",
+          "required",
+          "readonly"
+        ],
+        "properties": {
+          "field": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "required": {
+            "const": true
+          },
+          "readonly": {
+            "const": true
+          },
+          "filter": {
+            "type": "boolean"
+          },
+          "createDefault": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
     "program": {
       "type": "object",
-      "required": ["title"],
+      "required": [
+        "title"
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "screenId": { "type": "string" },
-        "title": { "type": "string" },
-        "subtitle": { "type": "string" },
-        "version": { "type": "string" },
-        "help": { "type": "object" },
-        "logs": { "type": "object" }
+        "id": {
+          "type": "string"
+        },
+        "screenId": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "subtitle": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "help": {
+          "type": "object"
+        },
+        "logs": {
+          "type": "object"
+        }
       },
       "additionalProperties": true
     },
     "permissions": {
       "type": "object",
-      "additionalProperties": { "type": "boolean" }
+      "additionalProperties": {
+        "type": [
+          "boolean",
+          "string"
+        ]
+      }
     },
     "dataSource": {
       "type": "object",
@@ -32,8 +95,12 @@
         "api": {
           "type": "object",
           "properties": {
-            "process": { "$ref": "#/$defs/endpoint" },
-            "status": { "$ref": "#/$defs/endpoint" }
+            "process": {
+              "$ref": "#/$defs/endpoint"
+            },
+            "status": {
+              "$ref": "#/$defs/endpoint"
+            }
           },
           "additionalProperties": true
         }
@@ -42,16 +109,24 @@
     },
     "process": {
       "type": "object",
-      "required": ["parameters"],
+      "required": [
+        "parameters"
+      ],
       "properties": {
         "parameters": {
           "type": "object",
-          "required": ["fields"],
+          "required": [
+            "fields"
+          ],
           "properties": {
-            "title": { "type": "string" },
+            "title": {
+              "type": "string"
+            },
             "fields": {
               "type": "array",
-              "items": { "$ref": "#/$defs/parameterField" }
+              "items": {
+                "$ref": "#/$defs/parameterField"
+              }
             }
           },
           "additionalProperties": true
@@ -62,9 +137,34 @@
             "process": {
               "type": "object",
               "properties": {
-                "label": { "type": "string" },
-                "icon": { "type": "string" },
-                "permission": { "type": "string" }
+                "label": {
+                  "type": "string"
+                },
+                "icon": {
+                  "type": "string"
+                },
+                "permission": {
+                  "type": "string"
+                },
+                "confirmation": {
+                  "type": "object",
+                  "required": [
+                    "message"
+                  ],
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 1000
+                    },
+                    "confirmText": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 80
+                    }
+                  },
+                  "additionalProperties": false
+                }
               },
               "additionalProperties": true
             }
@@ -74,26 +174,45 @@
         "endpoints": {
           "type": "object",
           "properties": {
-            "process": { "$ref": "#/$defs/endpoint" },
-            "status": { "$ref": "#/$defs/endpoint" }
+            "process": {
+              "$ref": "#/$defs/endpoint"
+            },
+            "status": {
+              "$ref": "#/$defs/endpoint"
+            }
           },
           "additionalProperties": true
         },
         "wait": {
           "type": "object",
           "properties": {
-            "mode": { "enum": ["auto", "sse", "polling", "none"] },
-            "message": { "type": "string" },
+            "mode": {
+              "enum": [
+                "auto",
+                "sse",
+                "polling",
+                "none"
+              ]
+            },
+            "message": {
+              "type": "string"
+            },
             "pollIntervalSeconds": {
               "type": "number",
               "minimum": 1
             },
-            "eventSourceUrl": { "type": "string" },
+            "eventSourceUrl": {
+              "type": "string"
+            },
             "events": {
               "type": "object",
               "properties": {
-                "enabled": { "type": "boolean" },
-                "url": { "type": "string" }
+                "enabled": {
+                  "type": "boolean"
+                },
+                "url": {
+                  "type": "string"
+                }
               },
               "additionalProperties": true
             }
@@ -103,26 +222,52 @@
         "result": {
           "type": "object",
           "properties": {
-            "type": { "enum": ["message", "grid", "report", "job", "properties"] },
-            "openReportInNewTab": { "type": "boolean" }
+            "type": {
+              "enum": [
+                "message",
+                "grid",
+                "report",
+                "job",
+                "properties"
+              ]
+            },
+            "openReportInNewTab": {
+              "type": "boolean"
+            }
           },
           "additionalProperties": true
         }
       },
       "additionalProperties": true
+    },
+    "apiCompany": {
+      "$ref": "#/$defs/apiCompanyDescriptor"
     }
   },
   "$defs": {
     "endpoint": {
       "oneOf": [
-        { "type": "string" },
+        {
+          "type": "string"
+        },
         {
           "type": "object",
           "properties": {
-            "endpointId": { "type": "string" },
-            "actionId": { "type": "string" },
-            "url": { "type": "string" },
-            "method": { "enum": ["GET", "POST"] }
+            "endpointId": {
+              "type": "string"
+            },
+            "actionId": {
+              "type": "string"
+            },
+            "url": {
+              "type": "string"
+            },
+            "method": {
+              "enum": [
+                "GET",
+                "POST"
+              ]
+            }
           },
           "additionalProperties": true
         }
@@ -130,36 +275,80 @@
     },
     "parameterField": {
       "type": "object",
-      "required": ["field", "label"],
+      "required": [
+        "field",
+        "label"
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "field": { "type": "string" },
-        "name": { "type": "string" },
-        "label": { "type": "string" },
-        "type": {
-          "enum": ["text", "string", "number", "integer", "decimal", "date", "datetime", "boolean", "enum", "option", "dropdown"]
+        "id": {
+          "type": "string"
         },
-        "required": { "type": "boolean" },
-        "readonly": { "type": "boolean" },
+        "field": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "text",
+            "string",
+            "number",
+            "integer",
+            "decimal",
+            "date",
+            "datetime",
+            "boolean",
+            "enum",
+            "option",
+            "dropdown",
+            "array"
+          ]
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "readonly": {
+          "type": "boolean"
+        },
         "defaultValue": {},
-        "placeholder": { "type": "string" },
-        "description": { "type": "string" },
+        "placeholder": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
         "technicalProperties": {
           "oneOf": [
             {
               "type": "array",
               "items": {
                 "oneOf": [
-                  { "type": "string" },
-                  { "type": "number" },
-                  { "type": "boolean" },
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  },
                   {
                     "type": "object",
                     "properties": {
-                      "section": { "type": "string" },
-                      "label": { "type": "string" },
+                      "section": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
                       "value": {},
-                      "critical": { "type": "boolean" }
+                      "critical": {
+                        "type": "boolean"
+                      }
                     },
                     "additionalProperties": true
                   }
@@ -176,22 +365,104 @@
           "type": "array",
           "items": {
             "oneOf": [
-              { "type": "string" },
+              {
+                "type": "string"
+              },
               {
                 "type": "object",
                 "properties": {
                   "value": {},
-                  "text": { "type": "string" },
-                  "label": { "type": "string" },
+                  "text": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
                   "id": {}
                 },
                 "additionalProperties": true
               }
             ]
           }
+        },
+        "itemType": {
+          "const": "integer"
+        },
+        "optionsSource": {
+          "type": "object",
+          "required": [
+            "endpointId"
+          ],
+          "properties": {
+            "endpointId": {
+              "type": "string",
+              "pattern": "^options\\.[A-Za-z_][A-Za-z0-9_]*$"
+            },
+            "parameterFields": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 2,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^(?!context$|operation$|resource$|parameters$)[a-z][a-z0-9_]*$"
+              }
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": true
+    },
+    "apiCompanyDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "moduleId",
+        "screenId",
+        "endpointModes"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "moduleId": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "screenId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "endpointModes": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode",
+              "operation"
+            ],
+            "properties": {
+              "mode": {
+                "enum": [
+                  "shared",
+                  "company",
+                  "record"
+                ]
+              },
+              "operation": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            }
+          }
+        }
+      }
     }
   },
   "additionalProperties": true

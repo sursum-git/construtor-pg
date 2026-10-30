@@ -1,0 +1,241 @@
+{
+  "entityDraft": {
+    "code": "container_versao_despesas_historico_med_progress",
+    "name": "Despesas históricas da versão",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1039,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "container_versao_despesas_historico_med_read",
+    "apiDetailOperationCode": "container_versao_despesas_historico_med_get",
+    "fields": [
+      {
+        "code": "record_key",
+        "label": "Chave da linha",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "record_key",
+        "apiWritePath": "record_key",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 2048
+      },
+      {
+        "code": "container_id",
+        "label": "Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "versao_id",
+        "label": "Versão",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "versao_id",
+        "apiWritePath": "versao_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "despesa_id",
+        "label": "ID da despesa",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "despesa_id",
+        "apiWritePath": "despesa_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_prev",
+        "label": "Valor previsto",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "vl_prev",
+        "apiWritePath": "vl_prev",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_base_imp",
+        "label": "Base de imposto",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "vl_base_imp",
+        "apiWritePath": "vl_base_imp",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_negociado",
+        "label": "Valor negociado",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "vl_negociado",
+        "apiWritePath": "vl_negociado",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "log_custo",
+        "label": "Indicador de custo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 70,
+        "apiJsonPath": "log_custo",
+        "apiWritePath": "log_custo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1039",
+    "programTitle": "Despesas históricas da versão",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "container_versao_despesas_historico_med_progress",
+    "screenId": "ciw.container-versao-despesas-historico",
+    "version": "1.0.0",
+    "subtitle": "Snapshot persistido da versão selecionada — MED",
+    "permissionPrefix": "container_versao_despesas_historico_med_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "container_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      },
+      {
+        "field": "versao_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "despesa_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_prev",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_base_imp",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_negociado",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "log_custo",
+          "hidden": false,
+          "width": 160
+        }
+      ],
+      "filterFields": [
+        "despesa_id",
+        "vl_prev",
+        "vl_base_imp",
+        "vl_negociado",
+        "log_custo"
+      ],
+      "defaultSort": [
+        {
+          "field": "despesa_id",
+          "dir": "asc"
+        }
+      ]
+    }
+  }
+}

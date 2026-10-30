@@ -1,0 +1,39 @@
+{
+  "entityDraft": {
+    "code": "empresas_progress",
+    "name": "Empresas Progress",
+    "entityType": "api",
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 90,
+    "createPhysicalTable": false,
+    "apiSourceCode": "motor_progress_empresas",
+    "apiListOperationCode": "read",
+    "apiDetailOperationCode": "get",
+    "apiCreateOperationCode": "create",
+    "apiUpdateOperationCode": "update",
+    "apiDeleteOperationCode": "delete",
+    "fields": [
+      { "code": "empresa_id", "label": "ID", "dataType": "integer", "primaryKey": true, "required": false, "position": 10, "readonlyField": true, "apiJsonPath": "empresa_id", "apiWritePath": "empresa_id", "apiShowInGrid": true, "apiShowInForm": true, "apiShowInFilter": true, "options": { "readonly": true, "writable": false } },
+      { "code": "nome", "label": "Nome", "dataType": "string", "length": 50, "required": false, "position": 20, "apiJsonPath": "nome", "apiWritePath": "nome", "apiShowInGrid": true, "apiShowInForm": true, "apiShowInFilter": true },
+      { "code": "cod_emp_ems2", "label": "Código EMS2", "dataType": "integer", "required": false, "position": 30, "apiJsonPath": "cod_emp_ems2", "apiWritePath": "cod_emp_ems2", "apiShowInGrid": true, "apiShowInForm": true, "apiShowInFilter": true },
+      { "code": "cod_emp_ems5", "label": "Código EMS5", "dataType": "integer", "required": false, "position": 40, "apiJsonPath": "cod_emp_ems5", "apiWritePath": "cod_emp_ems5", "apiShowInGrid": true, "apiShowInForm": true, "apiShowInFilter": true }
+    ]
+  },
+  "programDraft": {
+    "programCode": "cd0090",
+    "programTitle": "Empresas",
+    "module": "cadastros",
+    "builderEntityCode": "empresas_progress",
+    "pageType": "crud",
+    "screenId": "ciw.empresas",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": true,
+    "allowUpdate": true,
+    "allowDelete": true,
+    "permissionPrefix": "empresas_progress",
+    "subtitle": "Cadastro integrado ao Progress"
+  }
+}

@@ -1,0 +1,1377 @@
+{
+  "entityDraft": {
+    "code": "container_painel_progress",
+    "name": "Painel do Container",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1001,
+    "apiSourceCode": "motor_progress_container_cabecalho",
+    "apiListOperationCode": "painel_read",
+    "apiDetailOperationCode": "painel_get",
+    "fields": [
+      {
+        "code": "cod_estabel",
+        "label": "Cod Estabel",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "cod_estabel",
+        "apiWritePath": "values.cod_estabel",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 10,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "container_id",
+        "label": "Nr.Container",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": true,
+        "readonlyField": true,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 20,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "num_pedido",
+        "label": "Num Pedido",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "num_pedido",
+        "apiWritePath": "num_pedido",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 30,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "nome_ab_forn",
+        "label": "Nome Abrev",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "nome_ab_forn",
+        "apiWritePath": "nome_ab_forn",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 40,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_emit_forn",
+        "label": "Cod.Fornecedor",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "cod_emit_forn",
+        "apiWritePath": "values.cod_emit_forn",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 50,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "comprador",
+        "label": "Comprador",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "comprador",
+        "apiWritePath": "comprador",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 60,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "narrativa",
+        "label": "Narrativa",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "narrativa",
+        "apiWritePath": "values.narrativa",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 70,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "usuario",
+        "label": "usuario",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "usuario",
+        "apiWritePath": "usuario",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "position": 80,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_compra",
+        "label": "Dt Compra",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dt_compra",
+        "apiWritePath": "dt_compra",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 90,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_prev_chegada",
+        "label": "Dt.Prev.Chegada",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "dt_prev_chegada",
+        "apiWritePath": "values.dt_prev_chegada",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 100,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "dt_recebimento",
+        "label": "Dt.Recebimento",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "dt_recebimento",
+        "apiWritePath": "values.dt_recebimento",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 110,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "situacao",
+        "label": "Situação ERP",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "situacao",
+        "apiWritePath": "values.situacao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 120,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 1,
+              "text": "Aberto"
+            },
+            {
+              "value": 2,
+              "text": "Suspenso"
+            },
+            {
+              "value": 3,
+              "text": "Fechado"
+            }
+          ]
+        }
+      },
+      {
+        "code": "char_1",
+        "label": "char 1",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "char_1",
+        "apiWritePath": "char_1",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "position": 130,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dec_1",
+        "label": "dec 1",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dec_1",
+        "apiWritePath": "dec_1",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "position": 140,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 8
+      },
+      {
+        "code": "int_1",
+        "label": "int 1",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "int_1",
+        "apiWritePath": "int_1",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "position": 150,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "log_1",
+        "label": "log 1",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "log_1",
+        "apiWritePath": "log_1",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "position": 160,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "data_1",
+        "label": "data 1",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "data_1",
+        "apiWritePath": "data_1",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "position": 170,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vlr_frete",
+        "label": "Frete",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vlr_frete",
+        "apiWritePath": "vlr_frete",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 180,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vlr_seguro",
+        "label": "Seguro",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vlr_seguro",
+        "apiWritePath": "vlr_seguro",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 190,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vlr_despesas",
+        "label": "Despesas",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vlr_despesas",
+        "apiWritePath": "vlr_despesas",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 200,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "exclusivo",
+        "label": "Exclusivo?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "exclusivo",
+        "apiWritePath": "exclusivo",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 210,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_dolar_venda",
+        "label": "Vl Dolar Venda",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "vl_dolar_venda",
+        "apiWritePath": "values.vl_dolar_venda",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 220,
+        "options": {
+          "readonly": false,
+          "writable": true
+        },
+        "scale": 5
+      },
+      {
+        "code": "vl_dolar_compra",
+        "label": "Vl Dolar Compra",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "vl_dolar_compra",
+        "apiWritePath": "values.vl_dolar_compra",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 230,
+        "options": {
+          "readonly": false,
+          "writable": true
+        },
+        "scale": 5
+      },
+      {
+        "code": "log_liberar_custo_realizado",
+        "label": "Liberar Custo Realizado?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "log_liberar_custo_realizado",
+        "apiWritePath": "values.log_liberar_custo_realizado",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 240,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "medidas_container",
+        "label": "Medidas Container",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "medidas_container",
+        "apiWritePath": "values.medidas_container",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 250,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "dt_prev_embarque",
+        "label": "Dt Prev Embarque",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "dt_prev_embarque",
+        "apiWritePath": "values.dt_prev_embarque",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 260,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "dt_real_embarque",
+        "label": "Dt Real Embarque",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "dt_real_embarque",
+        "apiWritePath": "values.dt_real_embarque",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 270,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "ind_dt_embarque",
+        "label": "Ind Dt Embarque",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "ind_dt_embarque",
+        "apiWritePath": "values.ind_dt_embarque",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 280,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 1,
+              "text": "Previsão Inicial"
+            },
+            {
+              "value": 2,
+              "text": "Após Informação do Fornecedor"
+            },
+            {
+              "value": 3,
+              "text": "Confirmada Pelo Agente de Cargas"
+            }
+          ]
+        }
+      },
+      {
+        "code": "situacao_container_id",
+        "label": "Código Sit.Acompanhamento",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "situacao_container_id",
+        "apiWritePath": "values.situacao_container_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 290,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "ind_dt_prev_chegada",
+        "label": "Ind Dt Prev Chegada",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "ind_dt_prev_chegada",
+        "apiWritePath": "values.ind_dt_prev_chegada",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 300,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 1,
+              "text": "Previsão Inicial"
+            },
+            {
+              "value": 3,
+              "text": "Data Confirmada pelo Agente de Cargas"
+            }
+          ]
+        }
+      },
+      {
+        "code": "log_pagto_final",
+        "label": "Pagto Final Efetuado?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "log_pagto_final",
+        "apiWritePath": "values.log_pagto_final",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 310,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "cod_agente_cargas",
+        "label": "Código Agente de Cargas",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "cod_agente_cargas",
+        "apiWritePath": "values.cod_agente_cargas",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 320,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "cod_armador",
+        "label": "Código Armador",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "cod_armador",
+        "apiWritePath": "values.cod_armador",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 330,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "cod_tipo_calculo",
+        "label": "Tipo de cálculo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_tipo_calculo",
+        "apiWritePath": "cod_tipo_calculo",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 340,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "perc_custo",
+        "label": "% Custo",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "perc_custo",
+        "apiWritePath": "values.perc_custo",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 350,
+        "options": {
+          "readonly": false,
+          "writable": true
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_dolar_di",
+        "label": "Vl.Dolar DI",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "vl_dolar_di",
+        "apiWritePath": "values.vl_dolar_di",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 360,
+        "options": {
+          "readonly": false,
+          "writable": true
+        },
+        "scale": 5
+      },
+      {
+        "code": "log_gerar_saldo_a_pagar",
+        "label": "Considera Cta. Corrente Fornecedor?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "log_gerar_saldo_a_pagar",
+        "apiWritePath": "values.log_gerar_saldo_a_pagar",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 370,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "log_gerar_distr_custo",
+        "label": "Gerar Distr. Custo?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "log_gerar_distr_custo",
+        "apiWritePath": "values.log_gerar_distr_custo",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 380,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "ordem_busca_dolar_compra",
+        "label": "Ordem Busca Dólar Compra",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "ordem_busca_dolar_compra",
+        "apiWritePath": "values.ordem_busca_dolar_compra",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 390,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "ordem_busca_dolar_di",
+        "label": "Ordem Busca Dolar Di",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "ordem_busca_dolar_di",
+        "apiWritePath": "values.ordem_busca_dolar_di",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 400,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "cod_tipo_proj_dolar",
+        "label": "Tipo Projeção",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "cod_tipo_proj_dolar",
+        "apiWritePath": "values.cod_tipo_proj_dolar",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 410,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 1,
+              "text": "Valor exato (sem projeção)"
+            },
+            {
+              "value": 2,
+              "text": "Acréscimo monetário"
+            },
+            {
+              "value": 3,
+              "text": "Acréscimo percentual"
+            }
+          ]
+        }
+      },
+      {
+        "code": "vl_proj_dolar",
+        "label": "Vl. Acresc. Proj. Dolar",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "vl_proj_dolar",
+        "apiWritePath": "values.vl_proj_dolar",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 420,
+        "options": {
+          "readonly": false,
+          "writable": true
+        },
+        "scale": 5
+      },
+      {
+        "code": "log_versao_custo_desatualizada",
+        "label": "Versão de Custo Desatualizada?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "log_versao_custo_desatualizada",
+        "apiWritePath": "log_versao_custo_desatualizada",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 430,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_hr_ult_alt_versao_custo",
+        "label": "Dt.Hr.Ult.Alt.Versão Custo",
+        "dataType": "datetime",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dt_hr_ult_alt_versao_custo",
+        "apiWritePath": "dt_hr_ult_alt_versao_custo",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 440,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "ptax",
+        "label": "Ptax",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "ptax",
+        "apiWritePath": "values.ptax",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 450,
+        "options": {
+          "readonly": false,
+          "writable": true
+        },
+        "scale": 5
+      },
+      {
+        "code": "cod_depos",
+        "label": "Cod Depos",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "cod_depos",
+        "apiWritePath": "values.cod_depos",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 460,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "dt_prev_chegada_loja",
+        "label": "Dt Prev Chegada Loja",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "dt_prev_chegada_loja",
+        "apiWritePath": "values.dt_prev_chegada_loja",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 470,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "estacao",
+        "label": "Estação",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "estacao",
+        "apiWritePath": "estacao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 480,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "num_origem",
+        "label": "num origem",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "num_origem",
+        "apiWritePath": "num_origem",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "position": 490,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "log_rota_indefinida",
+        "label": "Rota indefinida?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "log_rota_indefinida",
+        "apiWritePath": "log_rota_indefinida",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 500,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ],
+    "apiCreateOperationCode": "containers_create",
+    "apiUpdateOperationCode": "containers_update",
+    "apiDeleteOperationCode": "containers_delete"
+  },
+  "programDraft": {
+    "programCode": "op1001",
+    "programTitle": "Painel do Container",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "container_painel_progress",
+    "screenId": "ciw.container-painel",
+    "version": "1.0.4",
+    "subtitle": "Dados, manutenção e processos do container",
+    "permissionPrefix": "container_painel_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": true,
+    "allowDelete": true,
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "container_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "container_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "nome_ab_forn",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "cod_estabel",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "situacao",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "dt_prev_chegada",
+          "hidden": false,
+          "width": 160
+        }
+      ],
+      "filterFields": [
+        "container_id"
+      ],
+      "defaultSort": [
+        {
+          "field": "container_id",
+          "dir": "asc"
+        }
+      ]
+    },
+    "formOptions": {
+      "mode": "embedded",
+      "openOnLoadField": "container_id",
+      "returnScreenId": "ciw.containers",
+      "tabs": [
+        {
+          "id": "dados",
+          "title": "Dados",
+          "sections": [
+            {
+              "id": "identificacao",
+              "title": "Identificação",
+              "columns": 3,
+              "fields": [
+                "container_id",
+                "cod_estabel",
+                "cod_emit_forn",
+                "nome_ab_forn",
+                "cod_agente_cargas",
+                "cod_armador",
+                "cod_depos",
+                "situacao",
+                "situacao_container_id",
+                "num_pedido",
+                "comprador",
+                "exclusivo",
+                "medidas_container",
+                "estacao",
+                "log_rota_indefinida"
+              ]
+            },
+            {
+              "id": "datas",
+              "title": "Datas e acompanhamento",
+              "columns": 3,
+              "fields": [
+                "dt_compra",
+                "dt_prev_embarque",
+                "ind_dt_embarque",
+                "dt_real_embarque",
+                "dt_prev_chegada",
+                "ind_dt_prev_chegada",
+                "dt_recebimento",
+                "dt_prev_chegada_loja",
+                "log_pagto_final"
+              ]
+            },
+            {
+              "id": "valores",
+              "title": "Valores e custo",
+              "columns": 3,
+              "fields": [
+                "vlr_frete",
+                "vlr_seguro",
+                "vlr_despesas",
+                "cod_tipo_calculo",
+                "perc_custo",
+                "log_liberar_custo_realizado",
+                "log_gerar_saldo_a_pagar",
+                "log_gerar_distr_custo",
+                "log_versao_custo_desatualizada",
+                "dt_hr_ult_alt_versao_custo"
+              ]
+            },
+            {
+              "id": "cotacoes",
+              "title": "Cotações e projeção",
+              "columns": 3,
+              "fields": [
+                "ordem_busca_dolar_compra",
+                "vl_dolar_compra",
+                "cod_tipo_proj_dolar",
+                "vl_proj_dolar",
+                "ordem_busca_dolar_di",
+                "vl_dolar_di",
+                "vl_dolar_venda",
+                "ptax"
+              ]
+            },
+            {
+              "id": "observacoes",
+              "title": "Observações",
+              "columns": 1,
+              "fields": [
+                "narrativa"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "resumo",
+          "title": "Resumo",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.container-resumo",
+            "engine": "crud",
+            "hideHeader": true,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "container_id",
+                "sourceField": "container_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "itens",
+          "title": "Itens",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.container-itens",
+            "engine": "crud",
+            "hideHeader": true,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "container_id",
+                "sourceField": "container_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "custos_itens",
+          "title": "Custos dos Itens",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.container-custos-itens",
+            "engine": "crud",
+            "hideHeader": true,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "container_id",
+                "sourceField": "container_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "despesas",
+          "title": "Despesas",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.container-despesas",
+            "engine": "crud",
+            "hideHeader": true,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "container_id",
+                "sourceField": "container_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "anexos",
+          "title": "Anexos",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.container-anexos",
+            "engine": "crud",
+            "hideHeader": true,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "container_id",
+                "sourceField": "container_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "versoes",
+          "title": "Versões Custo",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.container-versoes-custo",
+            "engine": "crud",
+            "hideHeader": true,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "container_id",
+                "sourceField": "container_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "pagamentos",
+          "title": "Pagamentos",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.container-pagamentos",
+            "engine": "crud",
+            "hideHeader": true,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "container_id",
+                "sourceField": "container_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "nfs",
+          "title": "Notas Fiscais",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.container-nfs",
+            "engine": "crud",
+            "hideHeader": true,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "container_id",
+                "sourceField": "container_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "comparativos",
+          "title": "Comparativos de Custo",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.container-comparativos",
+            "engine": "crud",
+            "hideHeader": true,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "container_id",
+                "sourceField": "container_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "rastro_dolar",
+          "title": "Rastro do Dólar Médio",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.container-rastro-dolar",
+            "engine": "crud",
+            "hideHeader": true,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "container_id",
+                "sourceField": "container_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "gerar_versao",
+          "title": "Gerar Versão de Custo",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.container-gerar-versao",
+            "engine": "process",
+            "hideHeader": true,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "container_id",
+                "sourceField": "container_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "fechar_custos",
+          "title": "Fechar Custos",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.container-fechar-custos",
+            "engine": "process",
+            "hideHeader": true,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "container_id",
+                "sourceField": "container_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "sincronizar_impostos",
+          "title": "Sincronizar Impostos",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.container-sincronizar-impostos",
+            "engine": "process",
+            "hideHeader": true,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "container_id",
+                "sourceField": "container_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "changeSummary": "Habilita alteração/exclusão do cabeçalho pelas regras transacionais e três processos explícitos; preserva onze abas, contexto e leitura sem efeitos. Inclusão pela UI permanece desabilitada por ID manual na raiz do contrato."
+  }
+}

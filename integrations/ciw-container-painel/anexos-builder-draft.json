@@ -1,0 +1,233 @@
+{
+  "entityDraft": {
+    "code": "container_anexos_progress",
+    "name": "Anexos do Container",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1004,
+    "apiSourceCode": "motor_progress_container_painel",
+    "apiListOperationCode": "anexos_read",
+    "apiDetailOperationCode": "anexos_get",
+    "fields": [
+      {
+        "code": "anexo_container_id",
+        "label": "Anexo",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": true,
+        "readonlyField": true,
+        "apiJsonPath": "anexo_container_id",
+        "apiWritePath": "anexo_container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 10,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "container_id",
+        "label": "Nr.Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 20,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "item_container_id",
+        "label": "Item do container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "item_container_id",
+        "apiWritePath": "item_container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 30,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "descricao",
+        "label": "Descrição",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "descricao",
+        "apiWritePath": "descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 40,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "tipos_anexo_id",
+        "label": "Código do tipo de anexo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "tipos_anexo_id",
+        "apiWritePath": "tipos_anexo_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 50,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_hr_arquivo",
+        "label": "Data/hora do arquivo",
+        "dataType": "datetime",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dt_hr_arquivo",
+        "apiWritePath": "dt_hr_arquivo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 60,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "tem_arquivo",
+        "label": "Possui arquivo?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "tem_arquivo",
+        "apiWritePath": "tem_arquivo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 70,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "tipo_anexo_descricao",
+        "label": "Tipo de anexo",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "tipo_anexo_descricao",
+        "apiWritePath": "tipo_anexo_descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 80,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1004",
+    "programTitle": "Anexos do Container",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "container_anexos_progress",
+    "screenId": "ciw.container-anexos",
+    "version": "1.0.0",
+    "subtitle": "Anexos do Container",
+    "permissionPrefix": "container_anexos_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "container_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "anexo_container_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "tipo_anexo_descricao",
+          "hidden": false,
+          "width": 280
+        },
+        {
+          "field": "descricao",
+          "hidden": false,
+          "width": 280
+        },
+        {
+          "field": "dt_hr_arquivo",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "tem_arquivo",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "item_container_id",
+          "hidden": false,
+          "width": 160
+        }
+      ],
+      "filterFields": [
+        "anexo_container_id",
+        "descricao",
+        "dt_hr_arquivo"
+      ],
+      "defaultSort": [
+        {
+          "field": "anexo_container_id",
+          "dir": "asc"
+        }
+      ]
+    }
+  }
+}

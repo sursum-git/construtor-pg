@@ -728,6 +728,7 @@
       this.programSubtitleElement = $("<button type=\"button\" class=\"home-program-subtitle\" hidden></button>").appendTo(meta);
       this.programSubtitleElement.on("click", () => this.openProgramSubtitleTooltip());
       this.renderCurrentSubscriber(meta);
+      this.apiCompanyHost = $("<div class=\"api-company-selection\"></div>").hide().appendTo(meta);
 
       const actions = $("<div class=\"home-appbar-actions\"></div>").appendTo(appbar);
       this.programActionsElement = $("<div class=\"home-program-actions\"></div>").appendTo(actions);
@@ -3790,10 +3791,74 @@
 
     renderMain(shell) {
       const main = $("<div class=\"home-main\"></div>").appendTo(shell);
+      this.mainElement = main[0];
       this.sidebar = $("<aside class=\"home-sidebar\"></aside>").appendTo(main);
       this.contentWrap = $("<section class=\"home-content-wrap\"></section>").appendTo(main);
       this.contentRoot = $("<div class=\"home-content\"></div>").appendTo(this.contentWrap);
       this.renderTreeView();
+      $(global).off("resize.homeSidebarWidth").on("resize.homeSidebarWidth", () => this.scheduleSidebarWidthUpdate());
+      if (global.document.fonts && global.document.fonts.ready) {
+        global.document.fonts.ready.then(() => this.scheduleSidebarWidthUpdate());
+      }
+    }
+
+    resolveSidebarWidth(contentWidth, availableWidth) {
+      const sidebar = this.definition.layout.sidebar || {};
+      const base = sidebar.width == null ? 280 : sidebar.width;
+      const maximum = sidebar.maxWidth == null ? Math.max(base, 480) : sidebar.maxWidth;
+      const desired = sidebar.autoWidth === true ? Math.min(maximum, Math.max(base, contentWidth || 0)) : base;
+      const viewportLimit = Math.floor(availableWidth * (availableWidth <= 860 ? 0.72 : 0.45));
+      return Math.max(0, Math.min(Math.ceil(desired), viewportLimit));
+    }
+
+    measureSidebarContentWidth() {
+      if (!this.treeHost || !this.treeHost[0] || !this.sidebar || !this.sidebar[0]) {
+        return 0;
+      }
+      // Mede uma copia inerte com o mesmo CSS, incluindo recuos, icones e botoes.
+      const probe = this.treeHost[0].cloneNode(true);
+      probe.removeAttribute("id");
+      probe.setAttribute("aria-hidden", "true");
+      probe.inert = true;
+      probe.style.cssText = "position:fixed;left:-100000px;top:0;visibility:hidden;width:max-content;max-width:none;height:auto;pointer-events:none;";
+      probe.querySelectorAll("[id]").forEach((node) => node.removeAttribute("id"));
+      probe.querySelectorAll(".k-treeview-group").forEach((node) => { node.style.display = "block"; node.style.height = "auto"; });
+      probe.querySelectorAll(".k-treeview-leaf,.home-tree-line").forEach((node) => { node.style.width = "max-content"; node.style.maxWidth = "none"; });
+      probe.querySelectorAll(".home-tree-text").forEach((node) => { node.style.flex = "0 0 auto"; node.style.overflow = "visible"; node.style.fontWeight = "700"; });
+      this.sidebar[0].appendChild(probe);
+      try {
+        const chrome = this.sidebar[0].offsetWidth - this.sidebar[0].clientWidth;
+        return Math.ceil(probe.getBoundingClientRect().width + chrome);
+      } finally {
+        probe.remove();
+      }
+    }
+
+    updateSidebarWidth() {
+      if (!this.sidebar || !this.sidebar.length || !this.mainElement) {
+        return;
+      }
+      const config = this.definition.layout.sidebar || {};
+      const moduleId = String(this.currentModuleId || "__all__");
+      this.measuredSidebarWidths = this.measuredSidebarWidths || {};
+      if (config.autoWidth === true) {
+        this.measuredSidebarWidths[moduleId] = Math.max(this.measuredSidebarWidths[moduleId] || 0, this.measureSidebarContentWidth());
+      }
+      const available = this.mainElement.clientWidth || global.innerWidth || 0;
+      const width = this.resolveSidebarWidth(this.measuredSidebarWidths[moduleId] || 0, available);
+      this.shell[0].style.setProperty("--home-sidebar-width", width + "px");
+    }
+
+    scheduleSidebarWidthUpdate() {
+      if (this.sidebarWidthFrame) {
+        global.cancelAnimationFrame(this.sidebarWidthFrame);
+      }
+      this.sidebarWidthFrame = global.requestAnimationFrame(() => {
+        this.sidebarWidthFrame = null;
+        if (this.mainElement && this.mainElement.isConnected) {
+          this.updateSidebarWidth();
+        }
+      });
     }
 
     renderTreeView() {
@@ -3905,6 +3970,7 @@
       if (this.currentProgram) {
         this.updateActiveMenu(this.currentProgram.id);
       }
+      this.updateSidebarWidth();
     }
 
     buildTreeData() {
@@ -4174,7 +4240,7 @@
         "<span class=\"home-tree-line\">" +
         "# } #" +
           "<span class=\"home-tree-icon k-icon k-i-#: item.iconClass #\"></span>" +
-          "<span class=\"home-tree-text\">#: item.text #</span>" +
+          "<span class=\"home-tree-text\" title=\"#: item.text #\">#: item.text #</span>" +
           "# if (item.programId) { #" +
           "<button type=\"button\" class=\"home-tree-open-button\" data-program-id=\"#: item.programId #\" title=\"Abrir em nova aba\" aria-label=\"Abrir #: item.text # em nova aba\"></button>" +
           "# } #" +
@@ -4229,10 +4295,13 @@
     }
 
     openInitialProgram() {
-      const initialId = this.getRequestedInitialProgramId() ||
-        this.getSavedInitialProgramId() ||
-        this.definition.layout.initialProgramId ||
-        (this.definition.programs[0] && this.definition.programs[0].id);
+      if (!this.definition.programs.length) {
+        this.renderContentMessage("Nenhuma aplicação está liberada para seu usuário. Consulte o administrador para verificar os acessos.", "info");
+        return Promise.resolve();
+      }
+      const initialId = [this.getRequestedInitialProgramId(), this.getSavedInitialProgramId(),
+        this.definition.layout.initialProgramId, this.definition.programs[0].id]
+        .find((id) => this.definition.programs.some((program) => program.id === id));
       return this.openProgram(initialId, { syncModule: false });
     }
 
@@ -4344,6 +4413,7 @@
         hideThemeSwitch: true,
         runtimeMessages: false,
         onLastUpdated: (date) => this.updateProgramLastUpdated(date),
+        apiCompanyHost: this.apiCompanyHost,
         httpClient: this.httpClient
       });
       this.currentProgramEngine = engine;
@@ -4374,6 +4444,7 @@
         hideHeader: true,
         onLastUpdated: (date) => this.updateProgramLastUpdated(date),
         onJobCompleted: (event) => this.handleProcessJobCompleted(event),
+        apiCompanyHost: this.apiCompanyHost,
         httpClient: this.httpClient
       });
       this.currentProgramEngine = engine;

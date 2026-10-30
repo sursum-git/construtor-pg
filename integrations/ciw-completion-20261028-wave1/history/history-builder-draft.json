@@ -1,0 +1,759 @@
+{
+  "entityDraft": {
+    "code": "container_versoes_historico_med_progress",
+    "name": "Itens históricos da versão de custo",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1035,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "container_versoes_historico_med_read",
+    "apiDetailOperationCode": "container_versoes_historico_med_get",
+    "fields": [
+      {
+        "code": "record_key",
+        "label": "Chave da linha",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "record_key",
+        "apiWritePath": "record_key",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 2048
+      },
+      {
+        "code": "container_id",
+        "label": "Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "item_container_custo_id",
+        "label": "Item da versão",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "item_container_custo_id",
+        "apiWritePath": "item_container_custo_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "versao_id",
+        "label": "Versão",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "versao_id",
+        "apiWritePath": "versao_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "item_container_id",
+        "label": "Item do container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "item_container_id",
+        "apiWritePath": "item_container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "it_codigo",
+        "label": "Código ERP",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "it_codigo",
+        "apiWritePath": "it_codigo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "item_custo_id",
+        "label": "Custo unitário vinculado",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "item_custo_id",
+        "apiWritePath": "item_custo_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "memoria_calculo",
+        "label": "Memória persistida",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 70,
+        "apiJsonPath": "memoria_calculo",
+        "apiWritePath": "memoria_calculo",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_desp_prev_real",
+        "label": "Despesa prevista R$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 80,
+        "apiJsonPath": "vl_desp_prev_real",
+        "apiWritePath": "vl_desp_prev_real",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_custo_prev_real",
+        "label": "Mercadoria prevista R$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 90,
+        "apiJsonPath": "vl_custo_prev_real",
+        "apiWritePath": "vl_custo_prev_real",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_pago_real",
+        "label": "Mercadoria realizada R$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 100,
+        "apiJsonPath": "vl_pago_real",
+        "apiWritePath": "vl_pago_real",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "qt_alocada",
+        "label": "Quantidade alocada",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 110,
+        "apiJsonPath": "qt_alocada",
+        "apiWritePath": "qt_alocada",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "qt_confirm_emb",
+        "label": "Quantidade confirmada",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 120,
+        "apiJsonPath": "qt_confirm_emb",
+        "apiWritePath": "qt_confirm_emb",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "qt_recebto_fisico",
+        "label": "Quantidade recebida",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 130,
+        "apiJsonPath": "qt_recebto_fisico",
+        "apiWritePath": "qt_recebto_fisico",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_desp_realiz_real",
+        "label": "Despesa realizada R$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 140,
+        "apiJsonPath": "vl_desp_realiz_real",
+        "apiWritePath": "vl_desp_realiz_real",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_unit_prev",
+        "label": "Unitário previsto R$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 150,
+        "apiJsonPath": "vl_unit_prev",
+        "apiWritePath": "vl_unit_prev",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "vl_unit_realiz",
+        "label": "Unitário realizado R$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 160,
+        "apiJsonPath": "vl_unit_realiz",
+        "apiWritePath": "vl_unit_realiz",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "vl_desp_prev_dolar",
+        "label": "Despesa prevista US$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 170,
+        "apiJsonPath": "vl_desp_prev_dolar",
+        "apiWritePath": "vl_desp_prev_dolar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_custo_prev_dolar",
+        "label": "Mercadoria prevista US$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 180,
+        "apiJsonPath": "vl_custo_prev_dolar",
+        "apiWritePath": "vl_custo_prev_dolar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "vl_pago_dolar",
+        "label": "Mercadoria realizada US$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 190,
+        "apiJsonPath": "vl_pago_dolar",
+        "apiWritePath": "vl_pago_dolar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_desp_realiz_dolar",
+        "label": "Despesa realizada US$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 200,
+        "apiJsonPath": "vl_desp_realiz_dolar",
+        "apiWritePath": "vl_desp_realiz_dolar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_desconto_utiliz_dolar",
+        "label": "Desconto utilizado US$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 210,
+        "apiJsonPath": "vl_desconto_utiliz_dolar",
+        "apiWritePath": "vl_desconto_utiliz_dolar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_unit_prev_dolar",
+        "label": "Unitário previsto US$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 220,
+        "apiJsonPath": "vl_unit_prev_dolar",
+        "apiWritePath": "vl_unit_prev_dolar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "vl_unit_realiz_dolar",
+        "label": "Unitário realizado US$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 230,
+        "apiJsonPath": "vl_unit_realiz_dolar",
+        "apiWritePath": "vl_unit_realiz_dolar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "vl_custo_distribuido",
+        "label": "Custo distribuído",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 240,
+        "apiJsonPath": "vl_custo_distribuido",
+        "apiWritePath": "vl_custo_distribuido",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_negociado",
+        "label": "Valor negociado",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 250,
+        "apiJsonPath": "vl_negociado",
+        "apiWritePath": "vl_negociado",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "vl_desp_prev_real_sem_distr_cust",
+        "label": "Despesa prevista sem distribuição R$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 260,
+        "apiJsonPath": "vl_desp_prev_real_sem_distr_cust",
+        "apiWritePath": "vl_desp_prev_real_sem_distr_cust",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_desp_prev_dolar_sem_distr_cus",
+        "label": "Despesa prevista sem distribuição US$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 270,
+        "apiJsonPath": "vl_desp_prev_dolar_sem_distr_cus",
+        "apiWritePath": "vl_desp_prev_dolar_sem_distr_cus",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "qt_embarcada",
+        "label": "Quantidade embarcada",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 280,
+        "apiJsonPath": "qt_embarcada",
+        "apiWritePath": "qt_embarcada",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_desconto_utiliz_real",
+        "label": "Desconto utilizado R$ (texto original)",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 290,
+        "apiJsonPath": "vl_desconto_utiliz_real",
+        "apiWritePath": "vl_desconto_utiliz_real",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1035",
+    "programTitle": "Itens históricos da versão de custo",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "container_versoes_historico_med_progress",
+    "screenId": "ciw.container-versao-itens-historico",
+    "version": "1.0.0",
+    "subtitle": "Snapshot persistido da versão selecionada — MED",
+    "permissionPrefix": "container_versoes_historico_med_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "container_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      },
+      {
+        "field": "versao_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "item_container_custo_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "item_container_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "it_codigo",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "item_custo_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_desp_prev_real",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_custo_prev_real",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_pago_real",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "qt_alocada",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "qt_confirm_emb",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "qt_recebto_fisico",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_desp_realiz_real",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_unit_prev",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_unit_realiz",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_desp_prev_dolar",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_custo_prev_dolar",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_pago_dolar",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_desp_realiz_dolar",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_desconto_utiliz_dolar",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_unit_prev_dolar",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_unit_realiz_dolar",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_custo_distribuido",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_negociado",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_desp_prev_real_sem_distr_cust",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_desp_prev_dolar_sem_distr_cus",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "qt_embarcada",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_desconto_utiliz_real",
+          "hidden": false,
+          "width": 160
+        }
+      ],
+      "filterFields": [
+        "item_container_custo_id",
+        "item_container_id",
+        "it_codigo",
+        "item_custo_id"
+      ],
+      "defaultSort": [
+        {
+          "field": "qt_embarcada",
+          "dir": "desc"
+        }
+      ]
+    }
+  }
+}

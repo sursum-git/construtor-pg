@@ -1,0 +1,125 @@
+{
+  "state": "ALREADY_PUBLISHED_REFERENCE_DO_NOT_REIMPORT",
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "preserveExistingAuthentication": true,
+  "previousOperations": 132,
+  "publishedOperations": 140,
+  "operations": [
+    {
+      "code": "import_descontos_geral_read",
+      "name": "Descontos de importação — consulta geral — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "import_descontos_geral",
+        "operation": "read"
+      },
+      "requestContextFields": [],
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "import_descontos_geral_get",
+      "name": "Descontos de importação — consulta geral — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "import_descontos_geral",
+        "operation": "get"
+      },
+      "requestContextFields": [],
+      "itemPath": "data"
+    },
+    {
+      "code": "import_descontos_lancamentos_read",
+      "name": "Utilização do desconto de importação — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "import_descontos_lancamentos",
+        "operation": "read"
+      },
+      "requestContextFields": [
+        "desconto_importacao_id"
+      ],
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "import_descontos_lancamentos_get",
+      "name": "Utilização do desconto de importação — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "import_descontos_lancamentos",
+        "operation": "get"
+      },
+      "requestContextFields": [
+        "desconto_importacao_id"
+      ],
+      "itemPath": "data"
+    },
+    {
+      "code": "custo_distribuicao_itens_aptos_read",
+      "name": "Itens aptos à distribuição de custo — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "custo_distribuicao_itens_aptos",
+        "operation": "read"
+      },
+      "requestContextFields": [],
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "custo_distribuicao_itens_aptos_get",
+      "name": "Itens aptos à distribuição de custo — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "custo_distribuicao_itens_aptos",
+        "operation": "get"
+      },
+      "requestContextFields": [],
+      "itemPath": "data"
+    },
+    {
+      "code": "custo_distribuicao_lancamentos_item_read",
+      "name": "Conta corrente de distribuição do item — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "custo_distribuicao_lancamentos_item",
+        "operation": "read"
+      },
+      "requestContextFields": [
+        "item_container_id"
+      ],
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "custo_distribuicao_lancamentos_item_get",
+      "name": "Conta corrente de distribuição do item — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "custo_distribuicao_lancamentos_item",
+        "operation": "get"
+      },
+      "requestContextFields": [
+        "item_container_id"
+      ],
+      "itemPath": "data"
+    }
+  ]
+}

@@ -1,0 +1,47 @@
+{
+  "programCode": "cd0097",
+  "programTitle": "Motivos de desconto",
+  "module": "cadastros",
+  "pageType": "crud",
+  "builderEntityCode": "motivos_desconto_progress",
+  "screenId": "ciw.motivos-desconto",
+  "version": "1.0.1",
+  "subtitle": "Cadastro CIW integrado ao Progress",
+  "icon": null,
+  "permissionPrefix": "motivos_desconto_progress",
+  "gridEditMode": "batch",
+  "crudOptions": {
+    "filterFields": [
+      "motivo_desconto_id",
+      "log_considerar_custo",
+      "descricao"
+    ]
+  },
+  "processOptions": null,
+  "formOptions": null,
+  "rowLinks": [],
+  "contextFields": [],
+  "allowCreate": true,
+  "allowUpdate": true,
+  "allowDelete": true,
+  "changeSummary": null,
+  "programOrigin": "standard",
+  "ownerScope": "system",
+  "customizationPolicy": "overlay_only",
+  "subscriberId": null,
+  "baseProgramCode": null,
+  "baseProgramVersionId": null,
+  "upgradeFrozen": false,
+  "frozenReason": null,
+  "publicationPolicy": {
+    "allowedDatabaseEnvironments": []
+  },
+  "analyticsConfig": null,
+  "reportConfig": null,
+  "specialDocumentConfig": null,
+  "regulatedDocumentConfig": null,
+  "masterDetailConfig": null,
+  "customMode": null,
+  "customEntryUrl": null,
+  "customFrameTitle": null
+}

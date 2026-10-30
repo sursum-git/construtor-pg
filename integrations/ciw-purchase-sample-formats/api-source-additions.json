@@ -1,0 +1,74 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "formatos_amostra_read",
+      "name": "Formatos de amostra — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "formatos_amostra"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "formatos_amostra_get",
+      "name": "Formatos de amostra — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "formatos_amostra"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "formatos_amostra_create",
+      "name": "Formatos de amostra — create",
+      "type": "create",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "create",
+        "resource": "formatos_amostra"
+      }
+    },
+    {
+      "code": "formatos_amostra_update",
+      "name": "Formatos de amostra — update",
+      "type": "update",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "update",
+        "resource": "formatos_amostra"
+      }
+    },
+    {
+      "code": "formatos_amostra_delete",
+      "name": "Formatos de amostra — delete",
+      "type": "delete",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "delete",
+        "resource": "formatos_amostra"
+      }
+    },
+    {
+      "code": "formatos_amostra_batch",
+      "name": "Formatos de amostra — batch",
+      "type": "batch",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "batch",
+        "resource": "formatos_amostra"
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "code": "read",
+  "name": "Consultar colorações",
+  "type": "list",
+  "method": "POST",
+  "path": "/SursumPrograms/coloracoes-consulta-manual",
+  "bodyTemplate": {},
+  "itemsPath": "data"
+}

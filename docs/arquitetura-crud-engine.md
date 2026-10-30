@@ -1587,3 +1587,25 @@ Operacao:
 - comando `php bin/console app:analytics:audit:init` cria a tabela `runtime_analytics_audit_entry` no banco configurado;
 - por padrao, falha na escrita da auditoria nao derruba a consulta;
 - se precisar endurecer isso, usar `ANALYTICS_AUDIT_STRICT=1`.
+
+## Edicao de varias linhas em lote
+
+O CRUD existente tambem aceita `crud.grid.editing.mode=batch`, publicado a partir de `programDraft.gridEditMode=batch`. Entidades API vinculam `apiBatchOperationCode` a uma operacao `type=batch`; o endpoint fechado `dataSource.api.batch` recebe uma unica colecao `changes`, com no maximo100 operacoes e os valores originais para concorrencia. O frontend usa Kendo incell, preserva o rascunho em erro e recarrega somente depois do commit. Veja [CRUD com edicao em lote](crud-edicao-lote.md) para configuracao, guardas e validacao. O padrao `form` permanece vigente para os programas existentes.
+
+
+## Largura do menu da Home
+
+`layout.sidebar.width` define a largura inicial/fixa em pixels (160..1200; padrão280). `autoWidth: true` permite aumentar pela dimensão real do texto, ícones, botão de nova aba e recuos do TreeView. `maxWidth` limita a expansão (padrão480, ou a largura inicial se maior); deve ser maior ou igual a `width`. Exemplo: `{"width":320,"autoWidth":true,"maxWidth":480}`. Sem novas propriedades, preserva280px e ajuste móvel anterior.
+
+O menu ocupa no máximo45% da área principal em desktop e72% em telas até860px, preservando espaço para o conteúdo. Labels que ainda ultrapassam o limite mostram reticências e título ao passar o mouse. A medição considera fonte em negrito para permitir seleção; inclui opções em grupos recolhidos. A largura não encolhe durante pesquisa/favoritos; guarda a maior medida durante a sessão para cada módulo. Recalcula ao reconstruir a árvore, carregar fontes e redimensionar a janela. Recolher menu continua zerando a coluna.
+
+Demo e produção compartilham HomeEngine, CSS e validador; produção continua exclusivamente por screenId/metadados autorizados, sem carregar examples/mocks.
+
+
+## Links por linha com ícones
+
+`grid.rowLinks` (ou `programDraft.rowLinks` no Builder) aceita `icon`, nome fechado de ícone Kendo, e `iconOnly`, booleano. Exemplo em `examples/row-link-icons.fragment.json`: `label: Empresas`, `icon: buildings-outline`, `iconOnly: true`. O cabeçalho mantém label; o link mostra somente o ícone com title e aria-label iguais ao label. Sem iconOnly, preserva texto; icon é opcional e pode acompanhar o texto. `iconOnly:true` exige icon. Não aceita HTML, URL de imagem nem nomes de classe livres.
+
+O link preserva destino screenId e contexto de cada registro; não altera permissões. A coluna somente ícone usa80px e a textual130px. Vale para grid e cartões móveis, que compartilham o renderizador. Produção continua por metadados autorizados do backend e publica pelo Builder oficial. Sem alteração em bibliotecas Kendo.
+
+AuditoriaCIW21/10: RuntimeAuditAccessPolicy aplicaescopoobrigatório antesfiltros/count/findRow; PublishedModuleCatalog obtémHomeassinada+filhas eexcluirootsdeoutrosmódulos. ciw.audit.read libera somente read/get das2telasnativas semadmin; AuthService.resolveLiveSubscriberAccess revalidalocalaccount/vínculoassinado eusa mergeexistente. Ausênciadevínculoneganãoadmin. RecursosORMauditguardados por RuntimeAuditResourceGuard. Generic entity.crud rejeita payload.entityCode divergentedaconfigassinada. Cachecontainerdeveserreconstruídoao adicionardependênciasopcionais epreflightcomprovarinjeção; ausênciadepolicynegaaudit503. Nenhumreseed/mudançadosJSONsassinadosnativos. Estadooperacionalemdocs/continuidade-codex.md.

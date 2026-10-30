@@ -235,3 +235,24 @@ Este arquivo resume os padroes visuais e comportamentais ja definidos no projeto
 - O backend e quem valida usuario, tenant, permissao, campos permitidos e acao solicitada.
 - O JSON continua apenas declarativo: sem JavaScript, `eval`, `Function`, `template` livre ou HTML bruto inseguro.
 - Valores enviados para paginas do backend por botoes do formulario sao conveniencia de UI; o backend deve revalidar permissao, tenant e quais campos pode aceitar.
+
+## Campos numéricos
+
+- Campos do tipo `integer` usam `format: "n0"` e `decimals: 0` no editor Kendo, para exibir valores inteiros sem casas decimais.
+- Campos decimais mantêm `n2`; campos monetários mantêm `c2`.
+
+
+## Largura do menu da Home
+
+`layout.sidebar.width` define a largura inicial/fixa em pixels (160..1200; padrão280). `autoWidth: true` permite aumentar pela dimensão real do texto, ícones, botão de nova aba e recuos do TreeView. `maxWidth` limita a expansão (padrão480, ou a largura inicial se maior); deve ser maior ou igual a `width`. Exemplo: `{"width":320,"autoWidth":true,"maxWidth":480}`. Sem novas propriedades, preserva280px e ajuste móvel anterior.
+
+O menu ocupa no máximo45% da área principal em desktop e72% em telas até860px, preservando espaço para o conteúdo. Labels que ainda ultrapassam o limite mostram reticências e título ao passar o mouse. A medição considera fonte em negrito para permitir seleção; inclui opções em grupos recolhidos. A largura não encolhe durante pesquisa/favoritos; guarda a maior medida durante a sessão para cada módulo. Recalcula ao reconstruir a árvore, carregar fontes e redimensionar a janela. Recolher menu continua zerando a coluna.
+
+Demo e produção compartilham HomeEngine, CSS e validador; produção continua exclusivamente por screenId/metadados autorizados, sem carregar examples/mocks.
+
+
+## Links por linha com ícones
+
+`grid.rowLinks` (ou `programDraft.rowLinks` no Builder) aceita `icon`, nome fechado de ícone Kendo, e `iconOnly`, booleano. Exemplo em `examples/row-link-icons.fragment.json`: `label: Empresas`, `icon: buildings-outline`, `iconOnly: true`. O cabeçalho mantém label; o link mostra somente o ícone com title e aria-label iguais ao label. Sem iconOnly, preserva texto; icon é opcional e pode acompanhar o texto. `iconOnly:true` exige icon. Não aceita HTML, URL de imagem nem nomes de classe livres.
+
+O link preserva destino screenId e contexto de cada registro; não altera permissões. A coluna somente ícone usa80px e a textual130px. Vale para grid e cartões móveis, que compartilham o renderizador. Produção continua por metadados autorizados do backend e publica pelo Builder oficial. Sem alteração em bibliotecas Kendo.

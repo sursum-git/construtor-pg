@@ -1,0 +1,333 @@
+{
+  "entityDraft": {
+    "code": "custo_distribuicao_itens_aptos_progress",
+    "name": "Itens aptos à distribuição de custo",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1049,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "custo_distribuicao_itens_aptos_read",
+    "apiDetailOperationCode": "custo_distribuicao_itens_aptos_get",
+    "fields": [
+      {
+        "code": "record_key",
+        "label": "Chave da linha",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "record_key",
+        "apiWritePath": "record_key",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "length": 2048,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "pedido_imp",
+        "label": "Pedido de importação",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "pedido_imp",
+        "apiWritePath": "pedido_imp",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "processo_fornec",
+        "label": "Processo do fornecedor",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "processo_fornec",
+        "apiWritePath": "processo_fornec",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "fornec_pi",
+        "label": "Fornecedor PI (código)",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "fornec_pi",
+        "apiWritePath": "fornec_pi",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "item_pedido",
+        "label": "Item do pedido",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "item_pedido",
+        "apiWritePath": "item_pedido",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "container",
+        "label": "Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "container",
+        "apiWritePath": "container",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "fornec",
+        "label": "Fornecedor do container (código)",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "fornec",
+        "apiWritePath": "fornec",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "item_container",
+        "label": "Item do container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 70,
+        "apiJsonPath": "item_container",
+        "apiWritePath": "item_container",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "descricao",
+        "label": "Descrição do item",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 80,
+        "apiJsonPath": "descricao",
+        "apiWritePath": "descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "codigo_erp",
+        "label": "Código ERP",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 90,
+        "apiJsonPath": "codigo_erp",
+        "apiWritePath": "codigo_erp",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "fornec_pi_nome_abrev_atual",
+        "label": "Fornecedor PI atual",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 100,
+        "apiJsonPath": "fornec_pi_nome_abrev_atual",
+        "apiWritePath": "fornec_pi_nome_abrev_atual",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "fornec_nome_abrev_atual",
+        "label": "Fornecedor do container atual",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 110,
+        "apiJsonPath": "fornec_nome_abrev_atual",
+        "apiWritePath": "fornec_nome_abrev_atual",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1049",
+    "programTitle": "Itens aptos à distribuição de custo",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "custo_distribuicao_itens_aptos_progress",
+    "screenId": "ciw.custo-distribuicao-itens-aptos",
+    "version": "1.0.0",
+    "subtitle": "Consulta global da origem; exclui containers na situação 3.",
+    "permissionPrefix": "custo_distribuicao_itens_aptos_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "rowLinks": [
+      {
+        "id": "conta_corrente_distribuicao_item",
+        "label": "Conta corrente de distribuição",
+        "screenId": "ciw.custo-distribuicao-lancamentos-item",
+        "parameters": [
+          {
+            "field": "item_container_id",
+            "sourceField": "item_container"
+          }
+        ],
+        "position": "end"
+      }
+    ],
+    "contextFields": [],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "pedido_imp",
+          "width": 170
+        },
+        {
+          "field": "processo_fornec",
+          "width": 300
+        },
+        {
+          "field": "fornec_pi",
+          "width": 170
+        },
+        {
+          "field": "item_pedido",
+          "width": 170
+        },
+        {
+          "field": "container",
+          "width": 170
+        },
+        {
+          "field": "fornec",
+          "width": 170
+        },
+        {
+          "field": "item_container",
+          "width": 170
+        },
+        {
+          "field": "descricao",
+          "width": 300
+        },
+        {
+          "field": "codigo_erp",
+          "width": 170
+        },
+        {
+          "field": "fornec_pi_nome_abrev_atual",
+          "width": 170
+        },
+        {
+          "field": "fornec_nome_abrev_atual",
+          "width": 170
+        }
+      ],
+      "filterFields": [
+        "pedido_imp",
+        "processo_fornec",
+        "fornec_pi",
+        "item_pedido",
+        "container",
+        "fornec",
+        "item_container",
+        "descricao",
+        "codigo_erp",
+        "fornec_pi_nome_abrev_atual",
+        "fornec_nome_abrev_atual"
+      ],
+      "defaultSort": [
+        {
+          "field": "container",
+          "dir": "asc"
+        }
+      ]
+    }
+  }
+}

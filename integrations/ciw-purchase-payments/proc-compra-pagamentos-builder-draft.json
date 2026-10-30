@@ -1,0 +1,461 @@
+{
+  "entityDraft": {
+    "code": "proc_compra_pagamentos_progress",
+    "name": "Pagamentos do Processo de Compra — MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureModuleCode": "operacional",
+    "structureType": "main",
+    "structureBaseNumber": 1013,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "proc_compra_pagamentos_read",
+    "apiDetailOperationCode": "proc_compra_pagamentos_get",
+    "apiCreateOperationCode": "proc_compra_pagamentos_create",
+    "apiDeleteOperationCode": "proc_compra_pagamentos_delete",
+    "fields": [
+      {
+        "code": "pagamento_key",
+        "label": "Identificador",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "pagamento_key",
+        "apiWritePath": "pagamento_key",
+        "apiShowInForm": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 66
+      },
+      {
+        "code": "proc_compra_id",
+        "label": "Processo de compra",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "proc_compra_id",
+        "apiWritePath": "proc_compra_id",
+        "apiShowInForm": true,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "num_id_tit_ap",
+        "label": "ID do título",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "num_id_tit_ap",
+        "apiWritePath": "num_id_tit_ap",
+        "apiShowInForm": true,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "empresa_id",
+        "label": "Empresa CIW",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "empresa_id",
+        "apiWritePath": "empresa_id",
+        "apiShowInForm": true,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "cod_empresa",
+        "label": "Empresa ERP",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "cod_empresa",
+        "apiWritePath": "cod_empresa",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_estab",
+        "label": "Estabelecimento",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "cod_estab",
+        "apiWritePath": "cod_estab",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_espec_docto",
+        "label": "Espécie",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "cod_espec_docto",
+        "apiWritePath": "cod_espec_docto",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_ser_docto",
+        "label": "Série",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 70,
+        "apiJsonPath": "cod_ser_docto",
+        "apiWritePath": "cod_ser_docto",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cdn_fornecedor",
+        "label": "Fornecedor ERP",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 80,
+        "apiJsonPath": "cdn_fornecedor",
+        "apiWritePath": "cdn_fornecedor",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "cod_tit_ap",
+        "label": "Título",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 90,
+        "apiJsonPath": "cod_tit_ap",
+        "apiWritePath": "cod_tit_ap",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_parcela",
+        "label": "Parcela",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 100,
+        "apiJsonPath": "cod_parcela",
+        "apiWritePath": "cod_parcela",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dat_emis_docto",
+        "label": "Emissão",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 110,
+        "apiJsonPath": "dat_emis_docto",
+        "apiWritePath": "dat_emis_docto",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dat_vencto_tit_ap",
+        "label": "Vencimento",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 120,
+        "apiJsonPath": "dat_vencto_tit_ap",
+        "apiWritePath": "dat_vencto_tit_ap",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_indic_econ",
+        "label": "Indicador econômico",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 130,
+        "apiJsonPath": "cod_indic_econ",
+        "apiWritePath": "cod_indic_econ",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "val_origin_tit_ap",
+        "label": "Valor original",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 140,
+        "apiJsonPath": "val_origin_tit_ap",
+        "apiWritePath": "val_origin_tit_ap",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2"
+        },
+        "precision": 20,
+        "scale": 2
+      },
+      {
+        "code": "valor_real",
+        "label": "Valor em reais",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 150,
+        "apiJsonPath": "valor_real",
+        "apiWritePath": "valor_real",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2"
+        },
+        "precision": 20,
+        "scale": 2
+      },
+      {
+        "code": "valor_dolar",
+        "label": "Valor em dólar",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 160,
+        "apiJsonPath": "valor_dolar",
+        "apiWritePath": "valor_dolar",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2"
+        },
+        "precision": 20,
+        "scale": 2
+      },
+      {
+        "code": "titulos",
+        "label": "Títulos disponíveis para associação",
+        "dataType": "json",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "position": 170,
+        "apiJsonPath": "titulos",
+        "apiWritePath": "values.titulos",
+        "apiShowInForm": true,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonlyOnEdit": true,
+          "api": {
+            "collection": {
+              "itemType": "integer"
+            },
+            "optionsSource": {
+              "operationCode": "proc_compra_titulos_disponiveis",
+              "valueField": "num_id_tit_ap",
+              "textField": "descricao"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1013",
+    "programTitle": "Pagamentos do Processo de Compra — MED",
+    "module": "operacional",
+    "builderEntityCode": "proc_compra_pagamentos_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.proc-compra-pagamentos",
+    "version": "1.0.1",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": true,
+    "allowUpdate": false,
+    "allowDelete": true,
+    "permissionPrefix": "proc_compra_pagamentos_progress",
+    "subtitle": "Empresa MED. Associe títulos disponíveis ou desvincule pagamentos do processo.",
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "proc_compra_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "defaultSort": [
+        {
+          "field": "dat_emis_docto",
+          "dir": "desc"
+        }
+      ],
+      "filterFields": [
+        "cod_empresa",
+        "cod_estab",
+        "cod_espec_docto",
+        "cod_ser_docto",
+        "cdn_fornecedor",
+        "cod_tit_ap",
+        "cod_parcela",
+        "dat_emis_docto",
+        "dat_vencto_tit_ap",
+        "cod_indic_econ"
+      ],
+      "gridFields": [
+        {
+          "field": "cod_empresa"
+        },
+        {
+          "field": "cod_estab"
+        },
+        {
+          "field": "cod_espec_docto"
+        },
+        {
+          "field": "cod_ser_docto"
+        },
+        {
+          "field": "cdn_fornecedor"
+        },
+        {
+          "field": "cod_tit_ap"
+        },
+        {
+          "field": "cod_parcela"
+        },
+        {
+          "field": "dat_emis_docto"
+        },
+        {
+          "field": "dat_vencto_tit_ap"
+        },
+        {
+          "field": "cod_indic_econ"
+        },
+        {
+          "field": "val_origin_tit_ap"
+        },
+        {
+          "field": "valor_real"
+        },
+        {
+          "field": "valor_dolar"
+        }
+      ]
+    }
+  }
+}

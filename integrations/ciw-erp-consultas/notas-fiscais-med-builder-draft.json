@@ -1,0 +1,303 @@
+{
+  "entityDraft": {
+    "code": "notas_fiscais_med_progress",
+    "name": "Notas Fiscais de Importação — MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 105,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "notas_fiscais_med_read",
+    "apiDetailOperationCode": "notas_fiscais_med_get",
+    "fields": [
+      {
+        "code": "record_key",
+        "label": "Chave do registro",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "length": 2048,
+        "position": 0,
+        "apiJsonPath": "record_key",
+        "apiWritePath": "record_key",
+        "apiShowInForm": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "nr_nota_fis",
+        "label": "Nota fiscal",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "nr_nota_fis",
+        "apiWritePath": "nr_nota_fis",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_emitente",
+        "label": "Emitente",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "cod_emitente",
+        "apiWritePath": "cod_emitente",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "nat_operacao",
+        "label": "Natureza",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "nat_operacao",
+        "apiWritePath": "nat_operacao",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_emis_nota",
+        "label": "Emissão",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "dt_emis_nota",
+        "apiWritePath": "dt_emis_nota",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_tot_nota",
+        "label": "Total da nota",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "vl_tot_nota",
+        "apiWritePath": "vl_tot_nota",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 5,
+          "format": "n5"
+        },
+        "precision": 20,
+        "scale": 5
+      },
+      {
+        "code": "vl_mercad",
+        "label": "Mercadorias",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "vl_mercad",
+        "apiWritePath": "vl_mercad",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 5,
+          "format": "n5"
+        },
+        "precision": 20,
+        "scale": 5
+      },
+      {
+        "code": "val_desp_outros",
+        "label": "Outras despesas",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 70,
+        "apiJsonPath": "val_desp_outros",
+        "apiWritePath": "val_desp_outros",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 5,
+          "format": "n5"
+        },
+        "precision": 20,
+        "scale": 5
+      },
+      {
+        "code": "val_desp_outros_inf",
+        "label": "Outras despesas informadas",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 80,
+        "apiJsonPath": "val_desp_outros_inf",
+        "apiWritePath": "val_desp_outros_inf",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 5,
+          "format": "n5"
+        },
+        "precision": 20,
+        "scale": 5
+      },
+      {
+        "code": "cod_estabel",
+        "label": "Estabelecimento",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 90,
+        "apiJsonPath": "cod_estabel",
+        "apiWritePath": "cod_estabel",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "serie",
+        "label": "Série",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 100,
+        "apiJsonPath": "serie",
+        "apiWritePath": "serie",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "cd0105",
+    "programTitle": "Notas Fiscais de Importação — MED",
+    "module": "cadastros",
+    "builderEntityCode": "notas_fiscais_med_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.notas-fiscais-med",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "permissionPrefix": "notas_fiscais_med_progress",
+    "subtitle": "Empresa MED. Notas fiscais com natureza de operação iniciada em 3.",
+    "crudOptions": {
+      "pageSize": 50,
+      "defaultSort": [
+        {
+          "field": "dt_emis_nota",
+          "dir": "desc"
+        },
+        {
+          "field": "nr_nota_fis",
+          "dir": "desc"
+        }
+      ],
+      "filterFields": [
+        "nr_nota_fis",
+        "cod_emitente",
+        "nat_operacao",
+        "dt_emis_nota",
+        "cod_estabel",
+        "serie"
+      ],
+      "gridFields": [
+        {
+          "field": "nr_nota_fis"
+        },
+        {
+          "field": "cod_emitente"
+        },
+        {
+          "field": "nat_operacao"
+        },
+        {
+          "field": "dt_emis_nota"
+        },
+        {
+          "field": "vl_tot_nota"
+        },
+        {
+          "field": "vl_mercad"
+        },
+        {
+          "field": "val_desp_outros"
+        },
+        {
+          "field": "val_desp_outros_inf"
+        },
+        {
+          "field": "cod_estabel"
+        },
+        {
+          "field": "serie"
+        }
+      ]
+    }
+  }
+}

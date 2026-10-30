@@ -1,0 +1,53 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "fornecedores_read",
+      "name": "Fornecedores — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "fornecedores"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "fornecedores_get",
+      "name": "Fornecedores — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "fornecedores"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "fornecedores_estrangeiros_read",
+      "name": "Fornecedores estrangeiros — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "fornecedores_estrangeiros"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "fornecedores_estrangeiros_get",
+      "name": "Fornecedores estrangeiros — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "fornecedores_estrangeiros"
+      },
+      "itemPath": "data"
+    }
+  ]
+}

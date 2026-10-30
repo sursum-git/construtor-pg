@@ -1,0 +1,574 @@
+{
+  "entityDraft": {
+    "code": "item_custos_manual_progress",
+    "name": "Custos manuais dos itens (global)",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1051,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "item_custos_manual_read",
+    "apiDetailOperationCode": "item_custos_manual_get",
+    "fields": [
+      {
+        "code": "item_custo_id",
+        "label": "ID Custo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "item_custo_id",
+        "apiWritePath": "item_custo_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 10,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_hr_custo",
+        "label": "Data/hora do custo",
+        "dataType": "datetime",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dt_hr_custo",
+        "apiWritePath": "dt_hr_custo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 20,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_unit_novo",
+        "label": "Valor unitario novo",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_unit_novo",
+        "apiWritePath": "vl_unit_novo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 30,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_referencia",
+        "label": "Data de referencia",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dt_referencia",
+        "apiWritePath": "dt_referencia",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 40,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "caminho_arquivo",
+        "label": "Arquivo (referencia)",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "caminho_arquivo",
+        "apiWritePath": "caminho_arquivo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 50,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 200
+      },
+      {
+        "code": "cod_tipo_custo",
+        "label": "Tipo de custo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_tipo_custo",
+        "apiWritePath": "cod_tipo_custo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 60,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "memoria_calculo",
+        "label": "Memoria persistida",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "memoria_calculo",
+        "apiWritePath": "memoria_calculo",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 70,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "editor": "textarea"
+        },
+        "length": 8000
+      },
+      {
+        "code": "it_codigo",
+        "label": "Item",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "it_codigo",
+        "apiWritePath": "it_codigo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 80,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 20
+      },
+      {
+        "code": "qt_estoque",
+        "label": "Quantidade estoque",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "qt_estoque",
+        "apiWritePath": "qt_estoque",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 90,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "qt_nf_mae",
+        "label": "qt_nf_mae",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "qt_nf_mae",
+        "apiWritePath": "qt_nf_mae",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 100,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "qt_etiq_container",
+        "label": "qt_etiq_container",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "qt_etiq_container",
+        "apiWritePath": "qt_etiq_container",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 110,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "qt_etiq_branco",
+        "label": "qt_etiq_branco",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "qt_etiq_branco",
+        "apiWritePath": "qt_etiq_branco",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 120,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "qt_etiq_outros_container",
+        "label": "qt_etiq_outros_container",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "qt_etiq_outros_container",
+        "apiWritePath": "qt_etiq_outros_container",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 130,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_unit_anterior",
+        "label": "vl_unit_anterior",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_unit_anterior",
+        "apiWritePath": "vl_unit_anterior",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 140,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_situacao",
+        "label": "Situacao",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_situacao",
+        "apiWritePath": "cod_situacao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 150,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_usuario",
+        "label": "Usuario registrado",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_usuario",
+        "apiWritePath": "cod_usuario",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 160,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 30
+      },
+      {
+        "code": "qt_estoque_selecionado",
+        "label": "Estoque selecionado",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "qt_estoque_selecionado",
+        "apiWritePath": "qt_estoque_selecionado",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 170,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "it_codigo_media",
+        "label": "it_codigo_media",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "it_codigo_media",
+        "apiWritePath": "it_codigo_media",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 180,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 20
+      },
+      {
+        "code": "qt_estoque_media",
+        "label": "qt_estoque_media",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "qt_estoque_media",
+        "apiWritePath": "qt_estoque_media",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 190,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_unit_media",
+        "label": "vl_unit_media",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_unit_media",
+        "apiWritePath": "vl_unit_media",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 200,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_unit_container",
+        "label": "vl_unit_container",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_unit_container",
+        "apiWritePath": "vl_unit_container",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 210,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "qt_container",
+        "label": "qt_container",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "qt_container",
+        "apiWritePath": "qt_container",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 220,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "media_custo_id",
+        "label": "media_custo_id",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "media_custo_id",
+        "apiWritePath": "media_custo_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 230,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "record_key",
+        "label": "Identidade da consulta",
+        "dataType": "string",
+        "length": 2048,
+        "primaryKey": true,
+        "required": true,
+        "readonlyField": true,
+        "apiJsonPath": "record_key",
+        "apiWritePath": "record_key",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "position": 240,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1051",
+    "programTitle": "Custos manuais dos itens",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "item_custos_manual_progress",
+    "screenId": "ciw.item-custos-manuais",
+    "version": "1.0.0",
+    "subtitle": "Consulta global de custos tipo1; manutencao ainda indisponivel.",
+    "permissionPrefix": "item_custos_manual_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "contextFields": [],
+    "rowLinks": [],
+    "changeSummary": "Consulta readonly completa do subconjunto tipo1 de cons_item_custos; sem habilitar os escritores legados divergentes.",
+    "crudOptions": {
+      "pageSize": 50,
+      "defaultSort": [
+        {
+          "field": "item_custo_id",
+          "dir": "desc"
+        }
+      ],
+      "gridFields": [
+        {
+          "field": "item_custo_id"
+        },
+        {
+          "field": "it_codigo"
+        },
+        {
+          "field": "dt_hr_custo"
+        },
+        {
+          "field": "cod_tipo_custo"
+        },
+        {
+          "field": "vl_unit_novo"
+        },
+        {
+          "field": "cod_situacao"
+        },
+        {
+          "field": "dt_referencia"
+        },
+        {
+          "field": "caminho_arquivo"
+        },
+        {
+          "field": "media_custo_id"
+        }
+      ],
+      "filterFields": [
+        "item_custo_id",
+        "it_codigo",
+        "cod_situacao",
+        "vl_unit_novo",
+        "dt_referencia",
+        "cod_usuario"
+      ]
+    },
+    "formOptions": {
+      "mode": "popup",
+      "tabs": [
+        {
+          "id": "custo",
+          "title": "Custo manual",
+          "sections": [
+            {
+              "id": "dados",
+              "title": "Dados persistidos",
+              "columns": 2,
+              "fields": [
+                "item_custo_id",
+                "dt_hr_custo",
+                "vl_unit_novo",
+                "dt_referencia",
+                "caminho_arquivo",
+                "cod_tipo_custo",
+                "it_codigo",
+                "qt_estoque",
+                "qt_nf_mae",
+                "qt_etiq_container",
+                "qt_etiq_branco",
+                "qt_etiq_outros_container",
+                "vl_unit_anterior",
+                "cod_situacao",
+                "cod_usuario",
+                "qt_estoque_selecionado",
+                "it_codigo_media",
+                "qt_estoque_media",
+                "vl_unit_media",
+                "vl_unit_container",
+                "qt_container",
+                "media_custo_id"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "memoria",
+          "title": "Memoria persistida",
+          "sections": [
+            {
+              "id": "memoria",
+              "title": "Texto original",
+              "columns": 1,
+              "fields": [
+                "memoria_calculo"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,282 @@
+{
+  "entityDraft": {
+    "code": "proc_compra_sinalizadores_med_progress",
+    "name": "Sinalizadores de Importação — MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureModuleCode": "operacional",
+    "structureType": "main",
+    "structureBaseNumber": 1031,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "proc_compra_sinalizadores_read",
+    "apiDetailOperationCode": "proc_compra_sinalizadores_get",
+    "apiCreateOperationCode": "",
+    "apiUpdateOperationCode": "",
+    "apiDeleteOperationCode": "",
+    "fields": [
+      {
+        "code": "record_key",
+        "label": "Chave do alerta",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "record_key",
+        "apiWritePath": "record_key",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 2048
+      },
+      {
+        "code": "sinaliz_imp_id",
+        "label": "Regra",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "sinaliz_imp_id",
+        "apiWritePath": "sinaliz_imp_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "tipo_registro",
+        "label": "Origem",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "tipo_registro",
+        "apiWritePath": "tipo_registro",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 256
+      },
+      {
+        "code": "nome_alerta",
+        "label": "Alerta",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "nome_alerta",
+        "apiWritePath": "nome_alerta",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 256
+      },
+      {
+        "code": "titulo_configurado",
+        "label": "Título configurado",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "titulo_configurado",
+        "apiWritePath": "titulo_configurado",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 256
+      },
+      {
+        "code": "descricao_alerta",
+        "label": "Descrição configurada",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 70,
+        "apiJsonPath": "descricao_alerta",
+        "apiWritePath": "descricao_alerta",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 2048
+      },
+      {
+        "code": "dias_alerta",
+        "label": "Dias configurados",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 80,
+        "apiJsonPath": "dias_alerta",
+        "apiWritePath": "dias_alerta",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "quantidade",
+        "label": "Quantidade",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 70,
+        "apiJsonPath": "quantidade",
+        "apiWritePath": "quantidade",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "data_consulta",
+        "label": "Data da consulta",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 110,
+        "apiJsonPath": "data_consulta",
+        "apiWritePath": "data_consulta",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1031",
+    "programTitle": "Sinalizadores de Importação — MED",
+    "module": "operacional",
+    "builderEntityCode": "proc_compra_sinalizadores_med_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.sinalizadores-importacao-med",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "permissionPrefix": "proc_compra_sinalizadores_med_progress",
+    "subtitle": "Empresa MED. Quantidade por regra, incluindo regras sem alertas.",
+    "rowLinks": [
+      {
+        "id": "alertas",
+        "label": "Registros sinalizados",
+        "screenId": "ciw.alertas-importacao-med",
+        "parameters": [
+          {
+            "field": "sinaliz_imp_id",
+            "sourceField": "sinaliz_imp_id"
+          }
+        ],
+        "position": "end"
+      }
+    ],
+    "contextFields": [],
+    "crudOptions": {
+      "defaultSort": [
+        {
+          "field": "sinaliz_imp_id",
+          "dir": "asc"
+        }
+      ],
+      "gridFields": [
+        {
+          "field": "sinaliz_imp_id"
+        },
+        {
+          "field": "tipo_registro"
+        },
+        {
+          "field": "nome_alerta"
+        },
+        {
+          "field": "dias_alerta"
+        },
+        {
+          "field": "quantidade"
+        }
+      ],
+      "filterFields": [
+        "sinaliz_imp_id",
+        "tipo_registro",
+        "nome_alerta",
+        "dias_alerta",
+        "quantidade"
+      ]
+    },
+    "formOptions": {
+      "mode": "popup",
+      "tabs": [
+        {
+          "id": "alerta",
+          "title": "Sinalizador",
+          "sections": [
+            {
+              "id": "regra",
+              "title": "Regra e registro",
+              "columns": 2,
+              "fields": [
+                "sinaliz_imp_id",
+                "tipo_registro",
+                "nome_alerta",
+                "titulo_configurado",
+                "descricao_alerta",
+                "dias_alerta",
+                "quantidade",
+                "data_consulta"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

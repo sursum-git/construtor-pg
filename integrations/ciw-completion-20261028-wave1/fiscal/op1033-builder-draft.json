@@ -1,0 +1,270 @@
+{
+  "entityDraft": {
+    "code": "container_calculos_impostos_med_progress",
+    "name": "Histórico de cálculos fiscais do container — MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureModuleCode": "operacional",
+    "structureType": "main",
+    "structureBaseNumber": 1033,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "container_calculos_impostos_med_read",
+    "apiDetailOperationCode": "container_calculos_impostos_med_get",
+    "apiCreateOperationCode": "",
+    "apiUpdateOperationCode": "",
+    "apiDeleteOperationCode": "",
+    "fields": [
+      {
+        "code": "calc_imp_container_id",
+        "label": "Cálculo",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "calc_imp_container_id",
+        "apiWritePath": "calc_imp_container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "container_id",
+        "label": "Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "dt_hr_calculo",
+        "label": "Data e hora do cálculo",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "dt_hr_calculo",
+        "apiWritePath": "dt_hr_calculo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 32
+      },
+      {
+        "code": "data_calculo",
+        "label": "Data do cálculo",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "data_calculo",
+        "apiWritePath": "data_calculo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "usuario_id",
+        "label": "Usuário legado",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "usuario_id",
+        "apiWritePath": "usuario_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "memoria_calculo",
+        "label": "Referência numérica legada",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "memoria_calculo",
+        "apiWritePath": "memoria_calculo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "desc_memoria_calc",
+        "label": "Memória de cálculo fiscal",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "desc_memoria_calc",
+        "apiWritePath": "desc_memoria_calc",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "editor": "textarea",
+          "rows": 16
+        },
+        "length": 8000
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1033",
+    "programTitle": "Histórico de cálculos fiscais do container — MED",
+    "module": "operacional",
+    "builderEntityCode": "container_calculos_impostos_med_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.container-calculos-impostos-med",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "permissionPrefix": "container_calculos_impostos_med_progress",
+    "subtitle": "Memória persistida selecionada; consulta não executa recálculo.",
+    "rowLinks": [
+      {
+        "id": "container",
+        "label": "Painel do container",
+        "screenId": "ciw.container-painel",
+        "parameters": [
+          {
+            "field": "container_id",
+            "sourceField": "container_id"
+          }
+        ],
+        "position": "end"
+      }
+    ],
+    "contextFields": [
+      {
+        "field": "container_id",
+        "filter": true,
+        "createDefault": false,
+        "readonly": true,
+        "required": true
+      },
+      {
+        "field": "calc_imp_container_id",
+        "filter": true,
+        "createDefault": false,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 50,
+      "defaultSort": [
+        {
+          "field": "calc_imp_container_id",
+          "dir": "desc"
+        }
+      ],
+      "gridFields": [
+        {
+          "field": "calc_imp_container_id"
+        },
+        {
+          "field": "container_id"
+        },
+        {
+          "field": "dt_hr_calculo"
+        },
+        {
+          "field": "data_calculo"
+        },
+        {
+          "field": "usuario_id"
+        },
+        {
+          "field": "memoria_calculo"
+        },
+        {
+          "field": "desc_memoria_calc"
+        }
+      ],
+      "filterFields": [
+        "calc_imp_container_id",
+        "container_id",
+        "dt_hr_calculo",
+        "data_calculo",
+        "usuario_id",
+        "memoria_calculo",
+        "desc_memoria_calc"
+      ]
+    },
+    "formOptions": {
+      "mode": "popup",
+      "tabs": [
+        {
+          "id": "memoria",
+          "title": "Memória persistida",
+          "sections": [
+            {
+              "id": "dados",
+              "title": "Consulta",
+              "columns": 1,
+              "fields": [
+                "calc_imp_container_id",
+                "container_id",
+                "dt_hr_calculo",
+                "data_calculo",
+                "usuario_id",
+                "memoria_calculo",
+                "desc_memoria_calc"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

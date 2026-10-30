@@ -234,9 +234,16 @@ class ProgramBuilderService
         $config = $this->normalizeApiSourceRegistryPayload($payload);
         $source = $this->apiSources->findOneBy(['code' => $config['code']]) ?? new BuilderApiSource();
         $existingMetadata = $source->getMetadata();
+        // Editors that do not expose this integration option must preserve it.
+        if (!array_key_exists('responseContract', $payload)) {
+            $config['responseContract'] = $this->normalizeApiResponseContract($existingMetadata['responseContract'] ?? null);
+        }
 
         $metadata = [
+            ...(array_key_exists('companyContext', $config) ? ['companyContext' => $config['companyContext']]
+                : (array_key_exists('companyContext', $existingMetadata) ? ['companyContext' => $existingMetadata['companyContext']] : [])),
             'providerType' => $config['providerType'],
+            'responseContract' => $config['responseContract'],
             'timeoutSeconds' => $config['timeoutSeconds'],
             'authHeaders' => $this->restoreMaskedApiHeaderSecrets($config['authHeaders'], is_array($existingMetadata['authHeaders'] ?? null) ? $existingMetadata['authHeaders'] : []),
             'operations' => $this->restoreMaskedApiOperationSecrets($config['operations'], is_array($existingMetadata['operations'] ?? null) ? $existingMetadata['operations'] : []),
@@ -1803,6 +1810,12 @@ class ProgramBuilderService
 
     private function applyEntityConfig(array $config): BuilderEntity
     {
+        // Check history before any entity/field flush or physical schema change.
+        foreach ($this->entityVersions->findByEntityCodeOrdered($config['code']) as $currentVersion) {
+            if ($currentVersion->getStatus() === 'current') {
+                $this->integrity->assertBuilderEntityVersion($currentVersion);
+            }
+        }
         $existingSnapshots = [];
         $entity = $this->entities->findOneBy(['code' => $config['code']]) ?? new BuilderEntity();
         $existingMetadata = $entity->getMetadata();
@@ -1836,6 +1849,7 @@ class ProgramBuilderService
                     is_array($existingMetadata['apiSource'] ?? null) ? $existingMetadata['apiSource'] : []
                 ),
                 'apiBinding' => $config['apiBinding'] ?? null,
+                ...(array_key_exists('apiCompanyContext', $config) ? ['apiCompanyContext' => $config['apiCompanyContext']] : []),
                 'versioning' => [
                     'enabled' => $config['versioningEnabled'],
                     'mode' => 'snapshot_on_change',
@@ -2049,8 +2063,8 @@ class ProgramBuilderService
         if (!$entityPayload || !$programPayload) {
             throw new RuntimeHttpException('PROGRAM_BUILDER_EXTERNAL_DRAFT_REQUIRED', 'Informe entityDraft e programDraft no JSON externo.', 422);
         }
-        if (($programPayload['pageType'] ?? 'crud') !== 'crud') {
-            throw new RuntimeHttpException('PROGRAM_BUILDER_EXTERNAL_PAGE_TYPE_NOT_SUPPORTED', 'Nesta etapa a importacao externa aceita apenas pageType=crud.', 422, [
+        if (!in_array($programPayload['pageType'] ?? 'crud', ['crud', 'process', 'analytics'], true)) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_EXTERNAL_PAGE_TYPE_NOT_SUPPORTED', 'A importacao externa aceita pageType crud, process ou analytics.', 422, [
                 'pageType' => $programPayload['pageType'] ?? null,
             ]);
         }
@@ -2100,6 +2114,7 @@ class ProgramBuilderService
             throw new RuntimeHttpException('PROGRAM_VERSION_NOT_FOUND', 'Versao do programa nao encontrada.', 404, ['id' => $id]);
         }
 
+        $this->assertApiOptionsPageType($version->getPageType(), null, $version->getGeneratedDefinition());
         $grant = null;
         try {
             if ($version->getProgramOrigin() === 'standard' && $version->getOwnerScope() === 'system') {
@@ -2129,10 +2144,21 @@ class ProgramBuilderService
             throw $error;
         }
 
-        foreach ($this->versions->findByProgramCodeOrdered($version->getProgramCode()) as $item) {
+        $programVersions = $this->versions->findByProgramCodeOrdered($version->getProgramCode());
+        // Verify every existing version before changing any signed publication state.
+        foreach ($programVersions as $item) {
+            if ($item->getId() !== $version->getId()) {
+                $this->integrity->assertProgramVersion($item);
+            }
+        }
+        foreach ($programVersions as $item) {
             if ($item->getStatus() === 'published' && $item->getId() !== $version->getId()) {
                 $item->setStatus('archived');
                 $this->entityManager->persist($item);
+                $this->integrity->signProgramVersion($item, [
+                    'source' => 'publishVersion.archive',
+                    'replacedByVersionId' => $version->getId(),
+                ]);
             }
         }
 
@@ -2722,6 +2748,7 @@ class ProgramBuilderService
             'apiCreateOperationCode' => (string) ($entity->getMetadata()['apiBinding']['createOperationCode'] ?? ''),
             'apiUpdateOperationCode' => (string) ($entity->getMetadata()['apiBinding']['updateOperationCode'] ?? ''),
             'apiDeleteOperationCode' => (string) ($entity->getMetadata()['apiBinding']['deleteOperationCode'] ?? ''),
+            'apiBatchOperationCode' => (string) ($entity->getMetadata()['apiBinding']['batchOperationCode'] ?? ''),
             'structureModuleCode' => (string) ($entity->getMetadata()['structure']['moduleCode'] ?? ''),
             'structureType' => (string) ($entity->getMetadata()['structure']['type'] ?? 'main'),
             'structureBaseNumber' => $entity->getMetadata()['structure']['baseNumber'] ?? null,
@@ -2742,11 +2769,21 @@ class ProgramBuilderService
             'versioningDeduplicate' => ($entity->getMetadata()['versioning']['deduplicate'] ?? true) !== false,
             'fields' => $fields,
             'supportsPhysicalCrud' => $entity->getEntityType() === 'persistence',
+            ...(array_key_exists('apiCompanyContext', $entity->getMetadata())
+                ? ['apiCompanyContext' => ApiCompanyContextValidator::validateEntityConfig($entity->getMetadata()['apiCompanyContext'], $entity->getEntityType())] : []),
         ];
     }
 
     private function entityVersionPayload(BuilderEntityVersion $version): array
     {
+        // Mask historical responses without modifying the stored, signed snapshot.
+        $snapshot = $version->getSnapshot();
+        if (is_array($snapshot['apiSource'] ?? null)) {
+            $snapshot['apiSource'] = $this->maskApiSourceSecrets($snapshot['apiSource']);
+        }
+        if (is_array($snapshot['metadata']['apiSource'] ?? null)) {
+            $snapshot['metadata']['apiSource'] = $this->maskApiSourceSecrets($snapshot['metadata']['apiSource']);
+        }
         return [
             'id' => $version->getId(),
             'builderEntityCode' => $version->getBuilderEntityCode(),
@@ -2758,7 +2795,7 @@ class ProgramBuilderService
             'action' => $version->getAction(),
             'sourceVersionId' => $version->getSourceVersionId(),
             'changeSummary' => $version->getChangeSummary(),
-            'snapshot' => $version->getSnapshot(),
+            'snapshot' => $snapshot,
             'createdAt' => $version->getCreatedAt()->format(DATE_ATOM),
             'updatedAt' => $version->getUpdatedAt()->format(DATE_ATOM),
         ];
@@ -2808,6 +2845,8 @@ class ProgramBuilderService
             'code' => $source->getCode(),
             'name' => $source->getName(),
             'providerType' => $providerType,
+            ...(array_key_exists('companyContext', $metadata) ? ['companyContext' => ApiCompanyContextValidator::validateSourceConfig($metadata['companyContext'])] : []),
+            'responseContract' => $this->normalizeApiResponseContract($metadata['responseContract'] ?? null),
             'authMode' => $source->getAuthMode(),
             'baseUrl' => $source->getBaseUrl(),
             'openapiUrl' => $source->getOpenapiUrl(),
@@ -2899,9 +2938,12 @@ class ProgramBuilderService
         $apiCreateOperationCode = $this->safeCode((string) ($payload['apiCreateOperationCode'] ?? ''));
         $apiUpdateOperationCode = $this->safeCode((string) ($payload['apiUpdateOperationCode'] ?? ''));
         $apiDeleteOperationCode = $this->safeCode((string) ($payload['apiDeleteOperationCode'] ?? ''));
+        $apiBatchOperationCode = $this->safeCode((string) ($payload['apiBatchOperationCode'] ?? ''));
         $apiSource = $entityType === 'api' && $apiSourceCode === ''
             ? $this->normalizeApiSource(is_array($payload['apiSource'] ?? null) ? $payload['apiSource'] : [])
             : null;
+        $apiCompanyContext = array_key_exists('apiCompanyContext', $payload)
+            ? ApiCompanyContextValidator::validateEntityConfig($payload['apiCompanyContext'], $entityType) : [];
         $apiBinding = null;
         if ($entityType === 'api' && $apiSourceCode !== '') {
             $apiSourceEntity = $this->apiSources->findOneBy(['code' => $apiSourceCode]);
@@ -2917,8 +2959,9 @@ class ProgramBuilderService
                 'createOperationCode' => $apiCreateOperationCode,
                 'updateOperationCode' => $apiUpdateOperationCode,
                 'deleteOperationCode' => $apiDeleteOperationCode,
+                'batchOperationCode' => $apiBatchOperationCode,
             ];
-            $apiSource = $this->resolveApiSourceBinding($apiSourceEntity, $apiListOperationCode, $apiDetailOperationCode, $apiCreateOperationCode, $apiUpdateOperationCode, $apiDeleteOperationCode);
+            $apiSource = $this->resolveApiSourceBinding($apiSourceEntity, $apiListOperationCode, $apiDetailOperationCode, $apiCreateOperationCode, $apiUpdateOperationCode, $apiDeleteOperationCode, $apiBatchOperationCode);
         }
 
         if ($code === '' || $name === '') {
@@ -2961,6 +3004,16 @@ class ProgramBuilderService
             $this->validateTableNamingPattern($tableName, $entityType, $originalTableName, $structure);
         }
 
+        $dependentOptionParameters = [];
+        if ($entityType === 'api') {
+            foreach ($rawFields as $rawField) {
+                $lookup = is_array($rawField) ? ($rawField['options']['api']['optionsSource'] ?? null) : null;
+                if (is_array($lookup) && array_key_exists('parameterFields', $lookup)) {
+                    $lookup = $this->normalizeApiOptionsSource($lookup);
+                    foreach ($lookup['parameterFields'] as $parameterName) { $dependentOptionParameters[$parameterName] = true; }
+                }
+            }
+        }
         $fields = [];
         $hasPrimaryKey = false;
         foreach ($rawFields as $index => $item) {
@@ -3003,7 +3056,10 @@ class ProgramBuilderService
             $foreignKeyOnDelete = $this->normalizeForeignKeyAction($item['foreignKeyOnDelete'] ?? null);
             $foreignKeyOnUpdate = $this->normalizeForeignKeyAction($item['foreignKeyOnUpdate'] ?? null);
             $foreignKeyDependencyType = $this->normalizeDependencyType($item['foreignKeyDependencyType'] ?? null);
-            $optionItems = $this->normalizeOptionItems($item['optionItems'] ?? null, $dataType);
+            $rawOptionItems = $item['optionItems'] ?? ($options['options'] ?? null);
+            $optionItems = isset($dependentOptionParameters[$fieldCode]) && $dataType === 'string' && ($options['editor'] ?? null) === 'dropdown'
+                ? $this->normalizeApiOptionsParameterItems($rawOptionItems)
+                : $this->normalizeOptionItems($rawOptionItems, $dataType);
             $includeInVersion = ($item['includeInVersion'] ?? true) !== false;
             $readonlyField = ($item['readonlyField'] ?? false) === true;
             $versionRefEntityCode = $this->safeSqlIdentifier((string) ($item['versionRefEntityCode'] ?? ''));
@@ -3045,8 +3101,10 @@ class ProgramBuilderService
                     'showInForm' => $apiShowInForm,
                     'showInFilter' => $apiShowInFilter,
                     'lookupResolver' => $apiLookupResolver,
+                    'collection' => $this->normalizeApiCollection($options['api']['collection'] ?? null, $dataType),
+                    'optionsSource' => $this->normalizeApiOptionsSource($options['api']['optionsSource'] ?? null),
                 ], static fn (mixed $entry): bool => $entry !== null);
-                $defaultValue = null;
+                $defaultValue = $this->normalizeDefaultValue($item['defaultValue'] ?? ($options['defaultValue'] ?? null), $dataType);
                 $unique = false;
                 $foreignKeyTable = '';
                 $foreignKeyColumn = '';
@@ -3199,6 +3257,34 @@ class ProgramBuilderService
             ]);
         }
 
+        if ($apiCompanyContext) {
+            if (($apiSource['providerType'] ?? 'generic') !== 'generic') { throw new RuntimeHttpException('API_COMPANY_CONFIG_INVALID', 'Contexto empresarial exige transporte API generico.', 422); }
+            if (!$apiBinding) { throw new RuntimeHttpException('API_COMPANY_CONFIG_INVALID', 'O contexto empresarial exige fonte API cadastrada.', 422); }
+            $adapters = ApiCompanyContextValidator::validateSourceConfig($apiSource['companyContext'] ?? [])['adapters'] ?? [];
+            foreach (ApiCompanyContextValidator::transportEntries($apiCompanyContext) as $companyOperation) {
+                if ($companyOperation['mode'] !== 'shared' && !isset($adapters[$companyOperation['adapter']])) {
+                    throw new RuntimeHttpException('API_COMPANY_CONFIG_INVALID', 'Adaptador empresarial nao cadastrado na fonte API.', 422);
+                }
+            }
+        }
+        if ($entityType === 'api' && is_array($apiSource)) {
+            $fieldTypes = array_column($fields, 'dataType', 'code');
+            $referencedOperations = [];
+            foreach ($fields as $field) {
+                foreach (['optionsSource', 'lookupResolver'] as $bindingKey) {
+                    $operationCode = $field['options']['api'][$bindingKey]['operationCode'] ?? null;
+                    if (is_string($operationCode) && $operationCode !== '') { $referencedOperations[$operationCode] = true; }
+                }
+            }
+            $fieldOperations = array_filter($apiSource['operations'] ?? [], static fn (array $operation): bool => isset($referencedOperations[$operation['code'] ?? '']));
+            $endpoints = array_merge(array_intersect_key($apiSource, array_flip(['listEndpoint', 'detailEndpoint', 'createEndpoint', 'updateEndpoint', 'deleteEndpoint', 'batchEndpoint'])), $fieldOperations);
+            foreach ($endpoints as $endpoint) {
+                foreach ($endpoint['requestContextFields'] ?? [] as $contextField) {
+                    if (($fieldTypes[$contextField] ?? null) !== 'integer') { throw new RuntimeHttpException('ENTITY_API_REQUEST_CONTEXT_INVALID', 'Campo de contexto da API exige campo integer existente na entidade.', 422); }
+                }
+            }
+        }
+
         $rules = $entityType === 'api' ? [] : $this->normalizeEntityRules($payload['rules'] ?? [], $fields);
         $uniqueKeys = $entityType === 'api' ? [] : $this->normalizeEntityUniqueKeys($payload['uniqueKeys'] ?? [], $fields);
         $this->validateUniqueKeyFieldPrefixes($uniqueKeys, $fields);
@@ -3210,6 +3296,7 @@ class ProgramBuilderService
             'tableName' => $entityType === 'persistence' ? $tableName : null,
             'apiSource' => $apiSource,
             'apiBinding' => $apiBinding,
+            ...(array_key_exists('apiCompanyContext', $payload) ? ['apiCompanyContext' => $apiCompanyContext] : []),
             'fields' => $fields,
             'primaryKey' => $this->resolvePrimaryKeyCode($fields),
             'situationEnabled' => $situationEnabled,
@@ -3324,6 +3411,14 @@ class ProgramBuilderService
         ];
     }
 
+    private function normalizeGridEditMode(mixed $value): string
+    {
+        if (!is_string($value) || !in_array($value, ['form', 'batch'], true)) {
+            throw new RuntimeHttpException('PROGRAM_GRID_EDIT_MODE_INVALID', 'Modo de edicao da grade invalido. Use form ou batch.', 422);
+        }
+        return $value;
+    }
+
     private function normalizeBuilderPayload(array $payload, ?BuilderEntity $overrideEntity = null): array
     {
         $programCode = $this->safeCode((string) ($payload['programCode'] ?? ''));
@@ -3345,12 +3440,13 @@ class ProgramBuilderService
         $upgradeFrozen = ($payload['upgradeFrozen'] ?? false) === true;
         $frozenReason = trim((string) ($payload['frozenReason'] ?? '')) ?: null;
         $publicationPolicy = $this->normalizePublicationPolicy($payload['publicationPolicy'] ?? null);
+        $gridEditMode = $this->normalizeGridEditMode($payload['gridEditMode'] ?? 'form');
         $reportSourceType = strtolower(trim((string) ((is_array($payload['reportConfig'] ?? null) ? $payload['reportConfig'] : [])['sourceType'] ?? 'operational')));
 
         if ($programCode === '' || $programTitle === '' || $moduleCode === '' || $screenId === '') {
             throw new RuntimeHttpException('PROGRAM_BUILDER_REQUIRED_FIELDS', 'Informe codigo, titulo, modulo e screenId.', 422);
         }
-        if (!in_array($pageType, ['crud', 'custom', 'analytics', 'report', 'special_document', 'regulated_document', 'master_detail'], true)) {
+        if (!in_array($pageType, ['crud', 'process', 'custom', 'analytics', 'report', 'special_document', 'regulated_document', 'master_detail'], true)) {
             throw new RuntimeHttpException('PROGRAM_BUILDER_PAGE_TYPE_NOT_SUPPORTED', 'Nesta etapa o construtor visual suporta programas CRUD, master_detail, analytics, report, special_document, regulated_document e custom.', 422, [
                 'pageType' => $pageType,
             ]);
@@ -3420,7 +3516,7 @@ class ProgramBuilderService
 
         $entity = $overrideEntity;
         if (
-            in_array($pageType, ['crud', 'analytics', 'master_detail'], true)
+            in_array($pageType, ['crud', 'process', 'analytics', 'master_detail'], true)
             || ($pageType === 'report' && $reportSourceType !== 'analytic')
             || ($pageType === 'special_document' && $reportSourceType !== 'analytic')
             || ($pageType === 'regulated_document' && $reportSourceType !== 'analytic')
@@ -3436,7 +3532,7 @@ class ProgramBuilderService
                     'builderEntityCode' => $builderEntityCode,
                 ]);
             }
-            if ($pageType === 'analytics' && $entity->getEntityType() !== 'persistence') {
+            if ($pageType === 'analytics' && !in_array($entity->getEntityType(), ['persistence','api'], true)) {
                 throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_TYPE_NOT_SUPPORTED', 'Analytics v1 aceita apenas entidades persistence.', 422, [
                     'builderEntityCode' => $builderEntityCode,
                     'entityType' => $entity->getEntityType(),
@@ -3448,6 +3544,7 @@ class ProgramBuilderService
                     'entityType' => $entity->getEntityType(),
                 ]);
             }
+            if ($pageType === 'process' && ($entity->getEntityType() !== 'api' || $this->isOdooApiEntity($entity))) { throw new RuntimeHttpException('PROGRAM_PROCESS_ENTITY_INVALID', 'Processo externo exige entidade API generica.', 422); }
             if ($pageType === 'crud' && !in_array($entity->getEntityType(), ['persistence', 'api'], true)) {
                 throw new RuntimeHttpException('PROGRAM_BUILDER_ENTITY_TYPE_NOT_SUPPORTED', 'Nesta etapa o gerador de programa suporta apenas entidades persistence e api.', 422, [
                     'builderEntityCode' => $builderEntityCode,
@@ -3478,6 +3575,11 @@ class ProgramBuilderService
             }
         }
 
+        if ($gridEditMode === 'batch' && ($pageType !== 'crud' || !$this->apiEntitySupportsOperation($entity, 'batch'))) {
+            throw new RuntimeHttpException('PROGRAM_GRID_BATCH_UNAVAILABLE', 'Edicao em lote exige programa CRUD com entidade API e operacao batch configurada.', 422);
+        }
+
+        $this->assertApiOptionsPageType($pageType, $entity);
         $existingProgram = $this->programs->findOneBy(['code' => $programCode]);
         if ($existingProgram) {
             if (
@@ -3505,9 +3607,15 @@ class ProgramBuilderService
             'subtitle' => trim((string) ($payload['subtitle'] ?? '')) ?: null,
             'icon' => trim((string) ($payload['icon'] ?? '')) ?: null,
             'permissionPrefix' => $this->safePermissionPrefix((string) ($payload['permissionPrefix'] ?? $programCode)),
-            'allowCreate' => $pageType === 'master_detail' ? (bool) ($payload['allowCreate'] ?? true) : ($pageType === 'crud' ? ($this->apiEntitySupportsOperation($entity, 'create') ? (bool) ($payload['allowCreate'] ?? true) : ($entity && $entity->getEntityType() === 'api' ? false : (bool) ($payload['allowCreate'] ?? true))) : false),
-            'allowUpdate' => $pageType === 'master_detail' ? (bool) ($payload['allowUpdate'] ?? true) : ($pageType === 'crud' ? ($this->apiEntitySupportsOperation($entity, 'update') ? (bool) ($payload['allowUpdate'] ?? true) : ($entity && $entity->getEntityType() === 'api' ? false : (bool) ($payload['allowUpdate'] ?? true))) : false),
-            'allowDelete' => $pageType === 'master_detail' ? (bool) ($payload['allowDelete'] ?? true) : ($pageType === 'crud' ? ($this->apiEntitySupportsOperation($entity, 'delete') ? (bool) ($payload['allowDelete'] ?? true) : ($entity && $entity->getEntityType() === 'api' ? false : (bool) ($payload['allowDelete'] ?? true))) : false),
+            'gridEditMode' => $gridEditMode,
+            'crudOptions' => $this->normalizeCrudOptions($payload['crudOptions'] ?? null, $entity, $pageType),
+            'processOptions' => $pageType === 'process' ? $this->normalizeProcessOptions($payload['processOptions'] ?? null, $entity, $payload['contextFields'] ?? []) : null,
+            'formOptions' => $this->normalizeFormOptions($payload['formOptions'] ?? null, $entity, $pageType, $payload['contextFields'] ?? []),
+            'rowLinks' => $this->normalizeRowLinks($payload['rowLinks'] ?? [], $entity),
+            'contextFields' => $this->normalizeContextFields($payload['contextFields'] ?? [], $entity, $pageType),
+            'allowCreate' => $pageType === 'master_detail' ? (bool) ($payload['allowCreate'] ?? true) : ($pageType === 'crud' ? (($this->apiEntitySupportsOperation($entity, 'create') || ($gridEditMode === 'batch' && $this->apiEntitySupportsOperation($entity, 'batch'))) ? (bool) ($payload['allowCreate'] ?? true) : ($entity && $entity->getEntityType() === 'api' ? false : (bool) ($payload['allowCreate'] ?? true))) : false),
+            'allowUpdate' => $pageType === 'master_detail' ? (bool) ($payload['allowUpdate'] ?? true) : ($pageType === 'crud' ? (($this->apiEntitySupportsOperation($entity, 'update') || ($gridEditMode === 'batch' && $this->apiEntitySupportsOperation($entity, 'batch'))) ? (bool) ($payload['allowUpdate'] ?? true) : ($entity && $entity->getEntityType() === 'api' ? false : (bool) ($payload['allowUpdate'] ?? true))) : false),
+            'allowDelete' => $pageType === 'master_detail' ? (bool) ($payload['allowDelete'] ?? true) : ($pageType === 'crud' ? (($this->apiEntitySupportsOperation($entity, 'delete') || ($gridEditMode === 'batch' && $this->apiEntitySupportsOperation($entity, 'batch'))) ? (bool) ($payload['allowDelete'] ?? true) : ($entity && $entity->getEntityType() === 'api' ? false : (bool) ($payload['allowDelete'] ?? true))) : false),
             'changeSummary' => trim((string) ($payload['changeSummary'] ?? '')) ?: null,
             'programOrigin' => $programOrigin,
             'ownerScope' => $ownerScope,
@@ -3529,6 +3637,183 @@ class ProgramBuilderService
             '_module' => $module,
             '_entity' => $entity,
         ];
+    }
+
+
+    private function normalizeProcessOptions(mixed $value, ?BuilderEntity $entity, mixed $contexts): array
+    {
+        $fail = static function (): never { throw new RuntimeHttpException('PROGRAM_PROCESS_OPTIONS_INVALID', 'Configure operacao custom POST, parametros e confirmacao do processo.', 422); };
+        if (!$entity || $entity->getEntityType() !== 'api') { $fail(); }
+        $value = $this->closedObject($value, ['operationCode', 'parameterFields', 'confirmation'], 'processOptions');
+        $fields = []; foreach ($entity->getFields() as $field) { $fields[$field->getCode()] = $field; }
+        if (!is_array($value['parameterFields'] ?? null) || !array_is_list($value['parameterFields']) || count($value['parameterFields']) > 30) { $fail(); }
+        $seen = [];
+        foreach ($value['parameterFields'] as $name) {
+            if (!is_string($name) || !isset($fields[$name]) || isset($seen[$name]) || (!in_array($fields[$name]->getDataType(), ['string','text','integer','decimal','boolean','date','datetime'], true) && !($fields[$name]->getDataType()==='json' && ($fields[$name]->getOptions()['api']['collection'] ?? null)===['itemType'=>'integer'])) || in_array($name, ['operation','resource','context','parameters','runtime','_runtime'], true)) { $fail(); }
+            $source=$fields[$name]->getOptions()['api']['optionsSource'] ?? null;
+            if($source){
+                $lookup=null;foreach($entity->getMetadata()['apiSource']['operations'] ?? [] as $candidate){if(($candidate['code'] ?? null)===($source['operationCode'] ?? null)){$lookup=$candidate;}}
+                if (!$lookup || !\App\Runtime\RuntimeProcessLookupPolicy::allows($lookup, array_column(is_array($contexts) ? $contexts : [], 'field'))) { $fail(); }
+                foreach ($source['parameterFields'] ?? [] as $dependency) { if (!in_array($dependency,$value['parameterFields'],true)) { $fail(); } }
+            }
+            $seen[$name] = true;
+        }
+        $contextCodes = [];
+        foreach (is_array($contexts) ? $contexts : [] as $context) {
+            if (($context['required'] ?? false) !== true || ($context['readonly'] ?? false) !== true) { $fail(); }
+            $contextCodes[] = $context['field'];
+        }
+        if (!$seen && !$contextCodes) { $fail(); }
+        $operation = null;
+        foreach ($entity->getMetadata()['apiSource']['operations'] ?? [] as $candidate) { if (($candidate['code'] ?? null) === ($value['operationCode'] ?? null)) { $operation = $candidate; } }
+        if (($entity->getMetadata()['apiSource']['responseContract'] ?? null) !== 'sursum-programs' || !$operation || ($operation['allowProcess'] ?? false) !== true || ($operation['type'] ?? null) !== 'custom' || ($operation['method'] ?? null) !== 'POST' || !is_string($operation['path'] ?? null) || $operation['path'] === '') { $fail(); }
+        $declared = $operation['requestContextFields'] ?? []; $expected = $contextCodes;
+        sort($declared); sort($expected); if ($declared !== $expected) { $fail(); }
+        if (!is_array($operation['bodyTemplate'] ?? []) || ($operation['bodyTemplate'] ?? []) !== [] && array_is_list($operation['bodyTemplate'])) { $fail(); }
+        if (array_intersect(array_keys($operation['bodyTemplate'] ?? []), array_merge($value['parameterFields'], $contextCodes))) { $fail(); }
+        $confirmation = $this->closedObject($value['confirmation'] ?? null, ['message', 'confirmText'], 'processOptions.confirmation');
+        if (!is_string($confirmation['message'] ?? null) || trim($confirmation['message']) === '' || mb_strlen($confirmation['message']) > 1000 || isset($confirmation['confirmText']) && (!is_string($confirmation['confirmText']) || trim($confirmation['confirmText']) === '' || mb_strlen($confirmation['confirmText']) > 80)) { $fail(); }
+        return $value;
+    }
+
+    private function normalizeFormOptions(mixed $value, ?BuilderEntity $entity, string $pageType, mixed $contexts): ?array
+    {
+        if ($value === null) { return null; }
+        $fail = static function (): never { throw new RuntimeHttpException('PROGRAM_BUILDER_FORM_OPTIONS_INVALID', 'Configuracao de formulario invalida.', 422); };
+        if ($pageType !== 'crud' || !$entity) { $fail(); }
+        $value = $this->closedObject($value, ['mode', 'openOnLoadField', 'returnScreenId', 'tabs'], 'formOptions');
+        $fields = []; foreach ($entity->getFields() as $field) { $fields[$field->getCode()] = $field; }
+        $identifier = static fn ($v): bool => is_string($v) && preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $v);
+        $title = static fn ($v): bool => is_string($v) && trim($v) !== '' && mb_strlen($v) <= 160;
+        if (isset($value['mode']) && !in_array($value['mode'], ['popup', 'embedded'], true)) { $fail(); }
+        if (array_key_exists('returnScreenId', $value) && (!is_string($value['returnScreenId']) || !preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]*$/D', $value['returnScreenId']))) { $fail(); }
+        if (isset($value['openOnLoadField'])) {
+            $key = $value['openOnLoadField'];
+            $required = false;
+            foreach (is_array($contexts) ? $contexts : [] as $context) { if (($context['field'] ?? null) === $key && ($context['required'] ?? false) === true) { $required = true; } }
+            if (!$identifier($key) || !isset($fields[$key]) || !$fields[$key]->isPrimaryKey() || $fields[$key]->getDataType() !== 'integer' || !$required) { $fail(); }
+        }
+        if (($value['mode'] ?? 'popup') === 'embedded' && !isset($value['openOnLoadField'])) { $fail(); }
+        if (array_key_exists('tabs', $value)) {
+            if (!is_array($value['tabs']) || !array_is_list($value['tabs']) || !$value['tabs'] || count($value['tabs']) > 20) { $fail(); }
+            $ids = [];
+            foreach ($value['tabs'] as $tab) {
+                $tab = $this->closedObject($tab, ['id', 'title', 'type', 'sections', 'linkedPage'], 'formOptions.tabs');
+                if (!$identifier($tab['id'] ?? null) || isset($ids[$tab['id']]) || !$title($tab['title'] ?? null)) { $fail(); }
+                $ids[$tab['id']] = true;
+                if (($tab['type'] ?? null) === 'linkedPage') {
+                    if (isset($tab['sections'])) { $fail(); }
+                    $link = $this->closedObject($tab['linkedPage'] ?? null, ['screenId', 'engine', 'hideHeader', 'requireRecord', 'filters'], 'formOptions.tabs.linkedPage');
+                    if (!is_string($link['screenId'] ?? null) || !preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]*$/D', $link['screenId']) || !in_array($link['engine'] ?? 'crud', ['crud', 'process'], true)) { $fail(); }
+                    foreach (['hideHeader', 'requireRecord'] as $boolean) { if (isset($link[$boolean]) && !is_bool($link[$boolean])) { $fail(); } }
+                    $filters = $link['filters'] ?? [];
+                    if (!is_array($filters) || !array_is_list($filters) || count($filters) > 10) { $fail(); }
+                    foreach ($filters as $filter) {
+                        $filter = $this->closedObject($filter, ['field', 'sourceField', 'operator'], 'formOptions.tabs.linkedPage.filters');
+                        if (!$identifier($filter['field'] ?? null) || !isset($fields[$filter['sourceField'] ?? '']) || ($filter['operator'] ?? 'eq') !== 'eq') { $fail(); }
+                    }
+                } else {
+                    if (isset($tab['type']) || isset($tab['linkedPage']) || !is_array($tab['sections'] ?? null) || !array_is_list($tab['sections']) || count($tab['sections']) > 20) { $fail(); }
+                    $sectionIds = [];
+                    foreach ($tab['sections'] as $section) {
+                        $section = $this->closedObject($section, ['id', 'title', 'columns', 'fields'], 'formOptions.tabs.sections');
+                        if (!$identifier($section['id'] ?? null) || isset($sectionIds[$section['id']]) || isset($section['title']) && !$title($section['title']) || isset($section['columns']) && (!is_int($section['columns']) || $section['columns'] < 1 || $section['columns'] > 4)) { $fail(); }
+                        $sectionIds[$section['id']] = true;
+                        if (!is_array($section['fields'] ?? null) || !array_is_list($section['fields']) || count($section['fields']) > 200) { $fail(); }
+                        $seen = [];
+                        foreach ($section['fields'] as $code) { if (!$identifier($code) || !isset($fields[$code]) || isset($seen[$code])) { $fail(); } $seen[$code] = true; }
+                    }
+                }
+            }
+        }
+        return $value;
+    }
+
+    private function generateFormTabs(?array $tabs, array $formFields): ?array
+    {
+        if ($tabs === null) { return null; }
+        $fields = []; foreach ($formFields as $field) { $fields[$field['field']] = $field; }
+        foreach ($tabs as &$tab) {
+            foreach ($tab['sections'] ?? [] as $index => $section) {
+                $tab['sections'][$index]['fields'] = array_map(static fn (string $code): array => $fields[$code] ?? ['field' => $code], $section['fields']);
+            }
+        }
+        return $tabs;
+    }
+
+    private function normalizeCrudOptions(mixed $value, ?BuilderEntity $entity, string $pageType): ?array
+    {
+        if ($value === null) {
+            return null;
+        }
+        if ($pageType !== 'crud' || !$entity instanceof BuilderEntity) {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_CRUD_OPTIONS_INVALID', 'crudOptions exige um programa CRUD com entidade.', 422);
+        }
+        $input = $this->closedObject($value, ['pageSize', 'gridFields', 'filterFields', 'defaultSort', 'defaultGroup', 'batchSnapshot'], 'crudOptions');
+        $fields = [];
+        foreach ($entity->getFields() as $field) {
+            if ($field->getDataType() !== 'json') {
+                $fields[$field->getCode()] = true;
+            }
+        }
+        $invalid = static function (string $name): never {
+            throw new RuntimeHttpException('PROGRAM_BUILDER_CRUD_OPTIONS_INVALID', 'Opcao de consulta invalida: ' . $name . '.', 422);
+        };
+        $result = [];
+        if (array_key_exists('pageSize', $input)) {
+            if (!is_int($input['pageSize']) || $input['pageSize'] < 1 || $input['pageSize'] > 500) {
+                $invalid('pageSize');
+            }
+            $result['pageSize'] = $input['pageSize'];
+        }
+        foreach (['gridFields' => 100, 'filterFields' => 64, 'defaultSort' => 8, 'defaultGroup' => 3] as $name => $limit) {
+            if (!array_key_exists($name, $input)) {
+                continue;
+            }
+            $items = $input[$name];
+            if (!is_array($items) || !array_is_list($items) || count($items) > $limit || ($name === 'gridFields' && !$items)) {
+                $invalid($name);
+            }
+            $seen = [];
+            $result[$name] = [];
+            foreach ($items as $item) {
+                $entry = $name === 'filterFields' ? null : $this->closedObject($item,
+                    $name === 'gridFields' ? ['field', 'hidden', 'width'] : ['field', 'dir'], 'crudOptions.' . $name);
+                $code = $name === 'filterFields' ? $item : ($entry['field'] ?? null);
+                if (!is_string($code) || !isset($fields[$code]) || isset($seen[$code])) {
+                    $invalid($name . '.field');
+                }
+                $seen[$code] = true;
+                if ($name === 'filterFields') {
+                    $result[$name][] = $code;
+                    continue;
+                }
+                if ($name === 'gridFields') {
+                    if (array_key_exists('hidden', $entry) && !is_bool($entry['hidden'])) {
+                        $invalid($name . '.hidden');
+                    }
+                    if (array_key_exists('width', $entry) && (!is_int($entry['width']) || $entry['width'] < 40 || $entry['width'] > 1200)) {
+                        $invalid($name . '.width');
+                    }
+                } elseif (!in_array($entry['dir'] ?? null, ['asc', 'desc'], true)) {
+                    $invalid($name . '.dir');
+                }
+                $result[$name][] = $entry;
+            }
+        }
+        if (array_key_exists('batchSnapshot', $input)) {
+            $snapshot = $this->closedObject($input['batchSnapshot'], ['originalFields','contextFields'], 'crudOptions.batchSnapshot');
+            $available = []; foreach ($entity->getFields() as $field) { $available[$field->getCode()] = $field; }
+            foreach (['originalFields','contextFields'] as $key) {
+                $items = $snapshot[$key] ?? null;
+                if (!is_array($items) || !array_is_list($items) || !$items || count($items)>64 || count(array_unique($items,SORT_REGULAR))!==count($items)) { $invalid('batchSnapshot.'.$key); }
+                foreach ($items as $name) {
+                    if (!is_string($name) || !isset($available[$name]) || !in_array($available[$name]->getDataType(),['integer','decimal','boolean','string','date','datetime'],true)) { $invalid('batchSnapshot.'.$key); }
+                }
+            }
+            $result['batchSnapshot'] = $snapshot;
+        }
+        return $result;
     }
 
     private function normalizeMasterDetailBuilderConfig(array $value, BuilderEntity $master): array
@@ -3865,6 +4150,11 @@ class ProgramBuilderService
     private function normalizeAnalyticsBuilderConfig(mixed $value, BuilderEntity $entity): array
     {
         $config = is_array($value) ? $value : [];
+        if ($entity->getEntityType() === 'api') {
+            $dashboard = $config['apiDashboard'] ?? $config;
+            if (!is_array($dashboard)) { throw new RuntimeHttpException('ANALYTICS_DASHBOARD_INVALID','Configuracao do painel invalida.',422); }
+            return ['apiDashboard'=>AnalyticsApiDashboardConfig::normalize($dashboard, fn(string $code) => $this->entities->findOneBy(['code'=>$code]))];
+        }
         $executionMode = strtolower(trim((string) ($config['executionMode'] ?? 'live')));
         if (!in_array($executionMode, ['live', 'cached', 'auto'], true)) {
             $executionMode = 'live';
@@ -4242,6 +4532,7 @@ class ProgramBuilderService
     private function generateProgramDefinition(array $config): array
     {
         $definition = match ($config['pageType']) {
+            'process' => $this->generateProcessDefinition($config),
             'master_detail' => $this->generateMasterDetailDefinition($config),
             'custom' => $this->generateCustomDefinition($config),
             'analytics' => $this->generateAnalyticsDefinition($config),
@@ -4476,6 +4767,8 @@ class ProgramBuilderService
         $fields = [];
         $filterFields = [];
         $gridColumns = [];
+        $columnCandidates = [];
+        $filterCandidates = [];
         $formFields = [];
         $primaryKey = 'id';
         $position = 0;
@@ -4494,11 +4787,53 @@ class ProgramBuilderService
                 'nullable' => !$field->isRequired(),
                 'technicalProperties' => $this->programFieldTechnicalProperties($entity, $field, $dataType, $options),
             ];
+            if (($config['gridEditMode'] ?? 'form') === 'batch') {
+                $fields[$code]['editable'] = !$field->isPrimaryKey()
+                    && ($options['readonly'] ?? false) !== true
+                    && ($options['virtual'] ?? false) !== true
+                    && ($options['writable'] ?? true) !== false
+                    && ($options['editable'] ?? true) !== false;
+                $fields[$code]['validation'] = ['required' => $field->isRequired()];
+                $maxLength = $field->getLength() ?? ($options['maxLength'] ?? null);
+                if ($maxLength !== null && (int) $maxLength > 0) {
+                    $fields[$code]['validation']['maxLength'] = (int) $maxLength;
+                }
+            }
             if (($options['readonly'] ?? false) === true || ($options['virtual'] ?? false) === true) {
                 $fields[$code]['readonly'] = true;
                 $fields[$code]['editable'] = false;
             }
-            if (($options['editor'] ?? '') === 'textarea' || $dataType === 'json') {
+            if ($apiEntity && ($apiField['collection'] ?? null)) {
+                $this->normalizeApiCollection($apiField['collection'], $field->getDataType());
+                $fields[$code]['type'] = 'array';
+                $fields[$code]['itemType'] = 'integer';
+                $fields[$code]['editor'] = 'multiselect';
+                $fields[$code]['defaultValue'] = [];
+            }
+            if ($apiEntity && ($apiField['optionsSource'] ?? null)) {
+                $this->validateApiOptionsOperation($entity, $this->normalizeApiOptionsSource($apiField['optionsSource']));
+                $fields[$code]['optionsSource'] = ['endpointId' => 'options.' . $code];
+                if (isset($apiField['optionsSource']['copyFields'])) { $fields[$code]['optionsSource']['copyFields'] = array_keys($apiField['optionsSource']['copyFields']); }
+                if (($apiField['optionsSource']['excludeCurrent'] ?? false) === true) { $fields[$code]['optionsSource']['excludeCurrent'] = true; }
+                if (isset($apiField['optionsSource']['parameterFields'])) { $fields[$code]['optionsSource']['parameterFields']=$apiField['optionsSource']['parameterFields']; }
+            }
+            if (in_array($options['editor'] ?? '', ['dropdown', 'multiselect', 'textarea'], true)) { $fields[$code]['editor'] = $options['editor']; }
+            if (($options['editor']??null)==='file') {
+                if (!$apiEntity || !\App\Runtime\RuntimePurchaseAttachmentAudit::supports(['entityCode'=>$entity->getCode()]) || $code!=='arquivo_upload' || $field->getDataType()!=='string') { throw new \InvalidArgumentException('Editor file exige perfil de anexos registrado.'); }
+                $fields[$code]['editor']='file';$fields[$code]['attachment']=['downloadEndpoint'=>'attachments.download','maxBytes'=>20971520];
+            }
+
+            foreach (['visibleWhen', 'enabledWhen'] as $conditionKey) {
+                if (isset($options[$conditionKey])) { $fields[$code][$conditionKey] = $this->normalizeFieldCondition($options[$conditionKey], $entity); }
+            }
+            if (($options['readonlyOnEdit'] ?? false) === true) { $fields[$code]['readonlyOnEdit'] = true; }
+            if (array_key_exists('defaultValue', $options) && !isset($apiField['collection'])) { $fields[$code]['defaultValue'] = $options['defaultValue']; }
+            if ($field->getDataType() === 'decimal') {
+                $decimals = max(0, min(10, $field->getScaleValue() ?? ($options['scale'] ?? 2)));
+                $fields[$code]['decimals'] = $decimals;
+                $fields[$code]['format'] = 'n' . $decimals;
+            }
+            if (($options['editor'] ?? '') === 'textarea' || ($dataType === 'json' && !isset($fields[$code]['editor']))) {
                 $fields[$code]['editor'] = 'textarea';
             }
             if ($field->getDataType() === 'custom_code') {
@@ -4509,6 +4844,9 @@ class ProgramBuilderService
             if (isset($options['options']) && is_array($options['options'])) {
                 $fields[$code]['options'] = $options['options'];
             }
+            $fields[$code]['validation'] = array_merge($fields[$code]['validation'] ?? [], ['required' => $field->isRequired()]);
+            if ($field->getLength()) { $fields[$code]['validation']['maxLength'] = $field->getLength(); }
+            foreach (['min', 'max'] as $limit) { if (isset($options[$limit]) && is_numeric($options[$limit])) { $fields[$code][$limit] = 0 + $options[$limit]; } }
             if ($field->isPrimaryKey()) {
                 $primaryKey = $code;
                 $fields[$code]['readonly'] = true;
@@ -4522,7 +4860,21 @@ class ProgramBuilderService
                 }
                 $formFields[] = $formItem;
             }
-            if ($showInGrid && $position < 6 && !in_array($dataType, ['json'], true)) {
+            if ($dataType !== 'json') {
+                $columnCandidates[$code] = [
+                    'field' => $code, 'title' => $field->getLabel(),
+                    'width' => in_array($dataType, ['datetime', 'text'], true) ? 220 : 150,
+                    'technicalProperties' => $this->programGridTechnicalProperties($entity, $field, $dataType, $options),
+                ];
+                $filterDataType = $field->getDataType() === 'decimal' ? 'decimal' : $dataType;
+                $filterCandidates[$code] = [
+                    'id' => $code, 'field' => $code, 'label' => $field->getLabel(),
+                    'type' => in_array($filterDataType, ['boolean', 'enum', 'integer', 'decimal', 'date', 'datetime'], true) ? $filterDataType : 'text',
+                    'operator' => in_array($filterDataType, ['boolean', 'enum', 'integer', 'decimal', 'date', 'datetime'], true) ? 'eq' : 'contains',
+                    'technicalProperties' => $this->programFilterTechnicalProperties($entity, $field, $dataType, $options),
+                ];
+            }
+            if ($showInGrid && count($gridColumns) < 6 && !in_array($dataType, ['json'], true)) {
                 $gridColumns[] = [
                     'field' => $code,
                     'title' => $field->getLabel(),
@@ -4530,13 +4882,13 @@ class ProgramBuilderService
                     'technicalProperties' => $this->programGridTechnicalProperties($entity, $field, $dataType, $options),
                 ];
             }
-            if ($showInFilter && $position < 5 && !in_array($dataType, ['json', 'text'], true)) {
+            if ($showInFilter && count($filterFields) < 5 && !in_array($dataType, ['json', 'text'], true)) {
                 $filterFields[] = [
                     'id' => $code,
                     'field' => $code,
                     'label' => $field->getLabel(),
-                    'type' => in_array($dataType, ['boolean', 'enum', 'integer', 'date', 'datetime'], true) ? $dataType : 'text',
-                    'operator' => in_array($dataType, ['boolean', 'enum', 'integer'], true) ? 'eq' : 'contains',
+                    'type' => in_array($filterDataType, ['boolean', 'enum', 'integer', 'decimal', 'date', 'datetime'], true) ? $filterDataType : 'text',
+                    'operator' => in_array($filterDataType, ['boolean', 'enum', 'integer', 'decimal'], true) ? 'eq' : 'contains',
                     'technicalProperties' => $this->programFilterTechnicalProperties($entity, $field, $dataType, $options),
                 ];
             }
@@ -4556,9 +4908,26 @@ class ProgramBuilderService
 
         $permissionPrefix = $config['permissionPrefix'];
 
-        $groups = array_values(array_filter((array) ($reportConfig['groups'] ?? []), 'is_array'));
-        $groupField = (string) ($reportConfig['groupField'] ?? '');
-        $hasGroups = $groups || $groupField !== '';
+        $crudOptions = $config['crudOptions'] ?? [];
+        if (isset($crudOptions['gridFields'])) {
+            $gridColumns = array_map(static function (array $item) use ($columnCandidates): array {
+                $column = $columnCandidates[$item['field']];
+                $column['visible'] = !($item['hidden'] ?? false);
+                if (isset($item['width'])) { $column['width'] = $item['width']; }
+                return $column;
+            }, $crudOptions['gridFields']);
+        }
+        if (isset($crudOptions['filterFields'])) {
+            $filterFields = array_map(static fn (string $code): array => $filterCandidates[$code], $crudOptions['filterFields']);
+        }
+        $query = ['pageSize' => 20, 'defaultSort' => [['field' => $primaryKey, 'dir' => 'asc']]];
+        if (isset($crudOptions['pageSize'])) {
+            $query['pageSize'] = $crudOptions['pageSize'];
+            $query['defaultPageSize'] = $crudOptions['pageSize'];
+        }
+        foreach (['defaultSort', 'defaultGroup'] as $name) {
+            if (isset($crudOptions[$name])) { $query[$name] = $crudOptions[$name]; }
+        }
 
         return [
             'schemaVersion' => '1.0',
@@ -4601,15 +4970,13 @@ class ProgramBuilderService
                     'events' => ['enabled' => !$apiEntity],
                 ],
             ],
+            'contextFields' => $config['contextFields'] ?? [],
             'dataModel' => [
                 'primaryKey' => $primaryKey,
                 'fields' => $fields,
             ],
             'crud' => [
-                'query' => [
-                    'pageSize' => 20,
-                    'defaultSort' => [['field' => $primaryKey, 'dir' => 'asc']],
-                ],
+                'query' => $query,
                 'filter' => [
                     'type' => 'window',
                     'mode' => 'basic',
@@ -4619,21 +4986,26 @@ class ProgramBuilderService
                     'fields' => $filterFields,
                 ],
                 'grid' => [
+                    'editing' => ['mode' => $config['gridEditMode'] ?? 'form'] + (isset($crudOptions['batchSnapshot']) ? ['snapshot' => $crudOptions['batchSnapshot']] : []),
                     'pageable' => true,
                     'sortable' => true,
                     'filterable' => !$apiEntity,
+                    'groupable' => array_key_exists('defaultGroup', $crudOptions),
                     'resizable' => true,
                     'reorderable' => true,
                     'columnMenu' => true,
                     'toolbar' => $this->toolbar($config),
                     'columns' => $gridColumns,
                     'rowActions' => $this->rowActions($config),
+                    'rowLinks' => $config['rowLinks'] ?? [],
                     'bulkActions' => ['enabled' => false, 'actions' => []],
                     'print' => ['enabled' => false, 'options' => []],
                 ],
                 'form' => [
                     'id' => str_replace('.', '-', $config['screenId']) . '-form',
-                    'mode' => 'popup',
+                    'mode' => $config['formOptions']['mode'] ?? 'popup',
+                    ...(isset($config['formOptions']['returnScreenId']) ? ['returnScreenId' => $config['formOptions']['returnScreenId']] : []),
+                    ...(isset($config['formOptions']['openOnLoadField']) ? ['openOnLoadField' => $config['formOptions']['openOnLoadField']] : []),
                     'layout' => 'tabs',
                     'maximizeForm' => true,
                     'title' => [
@@ -4646,7 +5018,7 @@ class ProgramBuilderService
                         'closeOnSave' => true,
                         'closeOnCancel' => true,
                     ],
-                    'tabs' => [
+                    'tabs' => $this->generateFormTabs($config['formOptions']['tabs'] ?? null, $formFields) ?? [
                         [
                             'id' => 'geral',
                             'title' => 'Geral',
@@ -4671,6 +5043,30 @@ class ProgramBuilderService
                 ],
             ],
         ];
+    }
+
+    private function generateProcessDefinition(array $config): array
+    {
+        $crud = $this->generateCrudDefinition($config);
+        $lookupParameters=[];foreach($config['_entity']->getFields() as $field) { $lookupParameters=array_merge($lookupParameters,$field->getOptions()['api']['optionsSource']['parameterFields'] ?? []); }
+        $contextCodes = array_column($config['contextFields'], 'field');
+        $names = array_values(array_unique(array_merge($config['processOptions']['parameterFields'], $contextCodes)));
+        $parameters = [];
+        foreach ($names as $name) {
+            $field = $crud['dataModel']['fields'][$name];
+            $parameters[] = ['id' => $name, 'field' => $name, 'label' => $field['label'], 'type' => in_array($name,$lookupParameters,true) ? 'dropdown' : $field['type'],
+                'required' => in_array($name, $contextCodes, true) || ($field['validation']['required'] ?? false),
+                'readonly' => in_array($name, $contextCodes, true) || ($field['readonly'] ?? false)]
+                + array_intersect_key($field, array_flip(['options', 'defaultValue', 'format', 'decimals', 'technicalProperties','itemType','editor','optionsSource']));
+        }
+        return ['schemaVersion' => '1.0', 'pageType' => 'process', 'screenId' => $config['screenId'],
+            'program' => $crud['program'], 'permissions' => ['read' => $crud['permissions']['read'], 'process' => $config['permissionPrefix'] . '.process'],
+            'contextFields' => $config['contextFields'], 'dataModel' => $crud['dataModel'],
+            'runtime' => ['entityCode' => $config['builderEntityCode'], 'programId' => $config['programCode'], 'mode' => 'api-process'],
+            'dataSource' => ['api' => ['process' => ['endpointId' => 'run', 'method' => 'POST']] + array_filter($crud['dataSource']['api'],static fn($key)=>str_starts_with($key,'options.') && in_array(substr($key,8),$names,true),ARRAY_FILTER_USE_KEY)],
+            'process' => ['parameters' => ['title' => 'Parametros', 'fields' => $parameters],
+                'actions' => ['process' => ['label' => 'Processar', 'icon' => 'play', 'permission' => 'process', 'confirmation' => $config['processOptions']['confirmation']]],
+                'wait' => ['mode' => 'none', 'message' => 'Processando...'], 'result' => ['type' => 'message']]];
     }
 
     private function generateCustomDefinition(array $config): array
@@ -4905,7 +5301,7 @@ class ProgramBuilderService
                 'entityCode' => $builderEntityCode,
             ];
 
-        return [
+        $definition = [
             'schemaVersion' => '1.0',
             'pageType' => 'analytics',
             'screenId' => $screenId,
@@ -4968,6 +5364,20 @@ class ProgramBuilderService
                 'views' => $views,
             ],
         ];
+        if (isset($analyticsConfig['apiDashboard'])) {
+            $dashboard = $analyticsConfig['apiDashboard'];
+            $definition['permissions']['materialize'] = false;
+            $definition['analytics']['datasets'] = $dashboard['datasets'];
+            $definition['analytics']['views'] = [$dashboard['dashboard']];
+            $definition['analytics']['navigation'] = $dashboard['navigation'];
+            $definition['analytics']['navigationHosts'] = $dashboard['navigationHosts'];
+            $definition['analytics']['presentation'] = ['mode'=>'dashboard'];
+            $definition['analytics']['semanticPipelines'] = [];
+            foreach (['materialize','pipelineSchema','pipelinePreview','pipelineRun','pipelinePublish','pipelineStatus','pipelineLogs','pipelineVersions','pipelineRollback'] as $key) {
+                unset($definition['dataSource']['api'][$key],$definition['analytics']['endpoints'][$key]);
+            }
+        }
+        return $definition;
     }
 
     private function generateReportDefinition(array $config): array
@@ -5404,6 +5814,7 @@ class ProgramBuilderService
             return;
         }
 
+        if ($version->getPageType() === 'process') { $this->upsertProcessRuntimeEndpoints($version); return; }
         if ($version->getPageType() === 'analytics') {
             $this->upsertAnalyticsRuntimeEndpoints($version);
             return;
@@ -5426,6 +5837,25 @@ class ProgramBuilderService
         }
 
         $this->disableRuntimeEndpointsForScreen($version->getScreenId());
+    }
+
+    private function upsertProcessRuntimeEndpoints(BuilderProgramVersion $version): void
+    {
+        $endpoint = $this->endpoints->findOneBy(['screenId' => $version->getScreenId(), 'endpointId' => 'run']) ?? new RuntimeEndpoint();
+        $endpoint->setScreenId($version->getScreenId())->setEndpointId('run')->setHandler('entity.api.crud')->setEnabled(true)
+            ->setPermission($this->endpointPermission($version, 'run', 'entity.api.crud'))->setConfig($this->endpointConfig($version, 'run', 'entity.api.crud'));
+        $this->entityManager->persist($endpoint); $this->integrity->signEndpoint($endpoint, ['source' => 'syncRuntimeEndpoints']);
+        $active=['run'];
+        $entity=$this->entities->findOneBy(['code'=>$version->getBuilderEntityCode()]);
+        $parameters=$version->getBuilderConfig()['processOptions']['parameterFields'] ?? [];
+        foreach ($entity?->getFields() ?? [] as $field) {
+            if (!in_array($field->getCode(),$parameters,true) || !($source=$field->getOptions()['api']['optionsSource'] ?? null)) { continue; }
+            $this->validateApiOptionsOperation($entity,$this->normalizeApiOptionsSource($source));
+            $id='options.'.$field->getCode();$option=$this->endpoints->findOneBy(['screenId'=>$version->getScreenId(),'endpointId'=>$id]) ?? new RuntimeEndpoint();
+            $option->setScreenId($version->getScreenId())->setEndpointId($id)->setHandler('entity.api.crud')->setEnabled(true)->setPermission($this->endpointPermission($version,$id,'entity.api.crud'))->setConfig($this->endpointConfig($version,$id,'entity.api.crud'));
+            $this->entityManager->persist($option);$this->integrity->signEndpoint($option,['source'=>'syncRuntimeEndpoints']);$active[]=$id;
+        }
+        $this->disableUnusedCrudGeneratedEndpoints($version->getScreenId(),$active);
     }
 
     private function upsertMasterDetailRuntimeEndpoints(BuilderProgramVersion $version): void
@@ -5637,6 +6067,10 @@ class ProgramBuilderService
             $handlers['create'] = 'entity.api.crud';
             $handlers['update'] = 'entity.api.crud';
             $handlers['delete'] = 'entity.api.crud';
+            if (($version->getBuilderConfig()['gridEditMode'] ?? 'form') === 'batch') {
+                $handlers['batch'] = 'entity.api.crud';
+                unset($handlers['create'], $handlers['update'], $handlers['delete']);
+            }
         } elseif (!$apiEntity && !$odooEntity) {
             $handlers['create'] = 'entity.crud';
             $handlers['update'] = 'entity.crud';
@@ -5648,6 +6082,17 @@ class ProgramBuilderService
             $handlers['runtime.messages.ack'] = 'runtime.messages.ack';
         }
 
+        if ($apiEntity && !$odooEntity) {
+            $entity = $this->entities->findOneBy(['code' => $version->getBuilderEntityCode()]);
+            foreach ($entity?->getFields() ?? [] as $field) {
+                $source = $field->getOptions()['api']['optionsSource'] ?? null;
+                if ($source) {
+                    $this->validateApiOptionsOperation($entity, $this->normalizeApiOptionsSource($source));
+                    $handlers['options.' . $field->getCode()] = 'entity.api.crud';
+                }
+            }
+        }
+        if ($apiEntity && !$odooEntity && \App\Runtime\RuntimePurchaseAttachmentAudit::supports(['entityCode'=>$version->getBuilderEntityCode()])) { $handlers['attachments.download']='attachments.download'; }
         $activeEndpointIds = [];
         foreach ($handlers as $endpointId => $handler) {
             if (in_array($endpointId, ['create', 'update', 'delete'], true)) {
@@ -5841,8 +6286,10 @@ class ProgramBuilderService
     private function disableUnusedCrudGeneratedEndpoints(string $screenId, array $activeEndpointIds): void
     {
         $generatedEndpointIds = [
+            'attachments.download',
             'read',
             'get',
+            'batch',
             'create',
             'update',
             'delete',
@@ -5890,7 +6337,7 @@ class ProgramBuilderService
         ];
 
         foreach ($this->endpoints->findBy(['screenId' => $screenId]) as $endpoint) {
-            if (!in_array($endpoint->getEndpointId(), $generatedEndpointIds, true)) {
+            if (!in_array($endpoint->getEndpointId(), $generatedEndpointIds, true) && !str_starts_with($endpoint->getEndpointId(), 'options.') && !($endpoint->getEndpointId() === 'run' && $endpoint->getHandler() === 'entity.api.crud' && ($endpoint->getConfig()['operation'] ?? null) === 'process' && ($endpoint->getConfig()['allowProcess'] ?? false) === true)) {
                 continue;
             }
             if (in_array($endpoint->getEndpointId(), $activeEndpointIds, true)) {
@@ -5916,8 +6363,10 @@ class ProgramBuilderService
             return null;
         }
 
+        if ($version->getPageType() === 'process' && $endpointId === 'run') { return $prefix . '.process'; }
+        if (str_starts_with($endpointId, 'options.')) { return $prefix . '.read'; }
         return match ($endpointId) {
-            'read', 'get' => $prefix . '.read',
+            'read', 'get', 'batch', 'attachments.download' => $prefix . '.read',
             'create' => $prefix . '.create',
             'update' => $prefix . '.edit',
             'delete' => $prefix . '.delete',
@@ -5926,15 +6375,48 @@ class ProgramBuilderService
         };
     }
 
+    private function assertApiOptionsPageType(string $pageType, ?BuilderEntity $entity = null, array $definition = []): void
+    {
+        if ($pageType === 'process') { return; }
+        $fail = static function (): never { throw new RuntimeHttpException('ENTITY_API_OPTIONS_PROCESS_ONLY','Opcoes dependentes sao permitidas somente em paginas de processo.',422); };
+        foreach ($entity?->getFields() ?? [] as $field) {
+            $source = $field->getOptions()['api']['optionsSource'] ?? null;
+            if (is_array($source) && array_key_exists('parameterFields',$source)) { $fail(); }
+        }
+        $pending = [$definition];
+        while ($pending) {
+            $node = array_pop($pending);
+            if (is_array($node['optionsSource'] ?? null) && array_key_exists('parameterFields',$node['optionsSource'])) { $fail(); }
+            foreach ($node as $value) { if (is_array($value)) { $pending[] = $value; } }
+        }
+    }
+
+    private function processLookupParameterConfig(BuilderProgramVersion $version,string $endpointId):array
+    {
+        if ($version->getPageType()!=='process' || !str_starts_with($endpointId,'options.')) { return []; }
+        $entity=$this->entities->findOneBy(['code'=>$version->getBuilderEntityCode()]);
+        foreach($entity?->getFields() ?? [] as $field) { if ($field->getCode()===substr($endpointId,8) && isset($field->getOptions()['api']['optionsSource']['parameterFields'])) { return ['lookupParameterFields'=>$field->getOptions()['api']['optionsSource']['parameterFields']]; } }
+        return [];
+    }
+
     private function endpointConfig(BuilderProgramVersion $version, string $endpointId, string $handler): array
     {
-        if (in_array($handler, ['entity.crud', 'entity.api.readonly', 'entity.api.crud', 'entity.api.odoo.readonly'], true)) {
+        if (in_array($handler, ['attachments.download','entity.crud', 'entity.api.readonly', 'entity.api.crud', 'entity.api.odoo.readonly'], true)) {
             return [
                 'entityCode' => $version->getBuilderEntityCode(),
-                'operation' => $endpointId,
+                'operation' => $handler==='attachments.download' ? 'download' : (str_starts_with($endpointId, 'options.') ? 'options' : ($version->getPageType() === 'process' ? 'process' : $endpointId)),
+                ...(\App\Runtime\RuntimePurchaseAttachmentAudit::supports(['entityCode'=>$version->getBuilderEntityCode()]) && in_array($endpointId,['create','update'],true) ? ['fileFields'=>['arquivo_upload']] : []),
+                ...($version->getPageType() === 'process' && $endpointId==='run' ? ['allowProcess' => true, 'processOptions' => $version->getBuilderConfig()['processOptions'], 'contextFields' => $version->getBuilderConfig()['contextFields'] ?? []] : []),
+                ...($version->getPageType() === 'process' && str_starts_with($endpointId, 'options.') ? ['processParameterOptions'=>true, 'contextFields'=>$version->getBuilderConfig()['contextFields'] ?? []] : []),
+                ...$this->processLookupParameterConfig($version,$endpointId),
+                'fieldCode' => str_starts_with($endpointId, 'options.') ? substr($endpointId, 8) : null,
                 'actionId' => $endpointId,
                 'programId' => $version->getProgramCode(),
                 'permissionPrefix' => $version->getPermissionPrefix(),
+                ...($endpointId === 'batch' && isset($version->getBuilderConfig()['crudOptions']['batchSnapshot']) ? ['batchSnapshot' => $version->getBuilderConfig()['crudOptions']['batchSnapshot']] : []),
+                'allowCreate' => $version->isAllowCreate(),
+                'allowUpdate' => $version->isAllowUpdate(),
+                'allowDelete' => $version->isAllowDelete(),
                 'traceability' => [
                     'programCode' => $version->getProgramCode(),
                     'programVersion' => $version->getVersion(),
@@ -6049,6 +6531,11 @@ class ProgramBuilderService
             $api['delete'] = ['endpointId' => 'delete', 'method' => 'POST'];
         }
 
+        if (($config['gridEditMode'] ?? 'form') === 'batch') {
+            $api['batch'] = ['endpointId' => 'batch', 'method' => 'POST'];
+            unset($api['create'], $api['update'], $api['delete']);
+        }
+
         $systemEndpoints = [
             'saveLayout' => ['endpointId' => 'saveLayout', 'method' => 'POST'],
             'restoreLayout' => ['endpointId' => 'restoreLayout', 'method' => 'POST'],
@@ -6073,6 +6560,12 @@ class ProgramBuilderService
             ] + $systemEndpoints;
         }
 
+        if ($this->isApiEntity($config['_entity'])) {
+            foreach ($config['_entity']->getFields() as $field) {
+                if ($field->getOptions()['api']['optionsSource'] ?? null) { $api['options.' . $field->getCode()] = ['endpointId' => 'options.' . $field->getCode(), 'method' => 'POST']; }
+            }
+        }
+        if (\App\Runtime\RuntimePurchaseAttachmentAudit::supports(['entityCode'=>$config['_entity']->getCode()])) { $api['attachments.download']=['endpointId'=>'attachments.download','method'=>'POST']; }
         return $api + $systemEndpoints;
     }
 
@@ -6171,6 +6664,9 @@ class ProgramBuilderService
             'allowCreate' => $version->isAllowCreate(),
             'allowUpdate' => $version->isAllowUpdate(),
             'allowDelete' => $version->isAllowDelete(),
+            'gridEditMode' => $version->getBuilderConfig()['gridEditMode'] ?? 'form',
+            'rowLinks' => $version->getBuilderConfig()['rowLinks'] ?? [],
+            'contextFields' => $version->getBuilderConfig()['contextFields'] ?? [],
             'changeSummary' => $version->getChangeSummary(),
             'programOrigin' => $version->getProgramOrigin(),
             'ownerScope' => $version->getOwnerScope(),
@@ -6195,7 +6691,7 @@ class ProgramBuilderService
     private function publicBuilderConfig(array $config): array
     {
         $copy = $config;
-        unset($copy['_entity']);
+        unset($copy['_entity'], $copy['_module']);
 
         return $copy;
     }
@@ -6277,6 +6773,7 @@ class ProgramBuilderService
                 'softDelete' => $config['softDelete'],
                 'apiSource' => $config['apiSource'] ?? null,
                 'apiBinding' => $config['apiBinding'] ?? null,
+                ...(array_key_exists('apiCompanyContext', $config) ? ['apiCompanyContext' => $config['apiCompanyContext']] : []),
                 'versioning' => [
                     'enabled' => $config['versioningEnabled'],
                     'deduplicate' => $config['versioningDeduplicate'],
@@ -6372,6 +6869,7 @@ class ProgramBuilderService
                 'softDelete' => $config['softDelete'],
                 'apiSource' => $this->maskApiSourceSecrets($config['apiSource'] ?? null),
                 'apiBinding' => $config['apiBinding'] ?? null,
+                ...(array_key_exists('apiCompanyContext', $config) ? ['apiCompanyContext' => $config['apiCompanyContext']] : []),
                 'versioning' => [
                     'enabled' => $config['versioningEnabled'],
                     'deduplicate' => $config['versioningDeduplicate'],
@@ -6383,6 +6881,7 @@ class ProgramBuilderService
             'apiCreateOperationCode' => (string) ($config['apiBinding']['createOperationCode'] ?? ''),
             'apiUpdateOperationCode' => (string) ($config['apiBinding']['updateOperationCode'] ?? ''),
             'apiDeleteOperationCode' => (string) ($config['apiBinding']['deleteOperationCode'] ?? ''),
+            'apiBatchOperationCode' => (string) ($config['apiBinding']['batchOperationCode'] ?? ''),
             'structureModuleCode' => (string) ($config['structure']['moduleCode'] ?? ''),
             'structureType' => (string) ($config['structure']['type'] ?? 'main'),
             'structureBaseNumber' => $config['structure']['baseNumber'] ?? null,
@@ -6422,6 +6921,13 @@ class ProgramBuilderService
             'allowCreate' => $config['allowCreate'],
             'allowUpdate' => $config['allowUpdate'],
             'allowDelete' => $config['allowDelete'],
+            'gridEditMode' => $config['gridEditMode'] ?? 'form',
+            'crudOptions' => $config['crudOptions'] ?? null,
+            'analyticsConfig' => $config['analyticsConfig'] ?? null,
+            'formOptions' => $config['formOptions'] ?? null,
+            'processOptions' => $config['processOptions'] ?? null,
+            'rowLinks' => $config['rowLinks'] ?? [],
+            'contextFields' => $config['contextFields'] ?? [],
             'changeSummary' => $config['changeSummary'],
             'programOrigin' => $config['programOrigin'],
             'ownerScope' => $config['ownerScope'],
@@ -6531,8 +7037,10 @@ class ProgramBuilderService
     ): BuilderEntityVersion {
         foreach ($this->entityVersions->findByEntityCodeOrdered($entity->getCode()) as $item) {
             if ($item->getStatus() === 'current') {
+                $this->integrity->assertBuilderEntityVersion($item);
                 $item->setStatus('archived');
                 $this->entityManager->persist($item);
+                $this->integrity->signBuilderEntityVersion($item, ['source' => 'createEntityVersionSnapshot.archive']);
             }
         }
 
@@ -6631,6 +7139,119 @@ class ProgramBuilderService
         };
     }
 
+    private function closedObject(mixed $value, array $allowed, string $label): array
+    {
+        if (!is_array($value) || ($value !== [] && array_is_list($value)) || array_diff(array_keys($value), $allowed)) {
+            throw new RuntimeHttpException('BUILDER_DECLARATIVE_CONFIG_INVALID', 'Configuracao declarativa invalida: ' . $label . '.', 422);
+        }
+        return $value;
+    }
+
+    private function normalizeApiCollection(mixed $value, string $dataType): ?array
+    {
+        if ($value === null) { return null; }
+        $value = $this->closedObject($value, ['itemType'], 'collection');
+        if ($dataType !== 'json' || ($value['itemType'] ?? '') !== 'integer') {
+            throw new RuntimeHttpException('ENTITY_API_COLLECTION_INVALID', 'Colecao exige campo JSON com itemType integer.', 422);
+        }
+        return ['itemType' => 'integer'];
+    }
+
+    private function normalizeApiOptionsSource(mixed $value): ?array
+    {
+        if ($value === null) { return null; }
+        $value = $this->closedObject($value, ['operationCode', 'valueField', 'textField', 'excludeCurrent', 'copyFields', 'parameterFields'], 'optionsSource');
+        foreach (['operationCode', 'valueField', 'textField'] as $key) {
+            if (!is_string($value[$key] ?? null) || !preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $value[$key])) {
+                throw new RuntimeHttpException('ENTITY_API_OPTIONS_INVALID', 'Opcao exige operacao e campos cadastrados validos.', 422);
+            }
+        }
+        if (isset($value['excludeCurrent']) && !is_bool($value['excludeCurrent'])) { throw new RuntimeHttpException('ENTITY_API_OPTIONS_INVALID', 'excludeCurrent precisa ser booleano.', 422); }
+        if (isset($value['copyFields'])) {
+            if (!is_array($value['copyFields'])) { throw new RuntimeHttpException('ENTITY_API_OPTIONS_INVALID', 'copyFields deve ser um objeto.', 422); }
+            $copy = $this->closedObject($value['copyFields'], array_keys($value['copyFields']), 'optionsSource.copyFields');
+            if (count($copy) > 10) { throw new RuntimeHttpException('ENTITY_API_OPTIONS_INVALID', 'Limite de campos de apresentacao excedido.', 422); }
+            foreach ($copy as $target => $path) { if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', (string) $target) || !is_string($path) || !preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $path)) { throw new RuntimeHttpException('ENTITY_API_OPTIONS_INVALID', 'Mapping de apresentacao invalido.', 422); } }
+        }
+        if (array_key_exists('parameterFields',$value)) {
+            $names=$value['parameterFields'];
+            if (!is_array($names) || !array_is_list($names) || !$names || count($names)>2 || count(array_unique($names,SORT_REGULAR))!==count($names)) { throw new RuntimeHttpException('ENTITY_API_OPTIONS_PARAMETERS','Parametros de opcoes invalidos.',422); }
+            foreach($names as $name) { if (!is_string($name) || !preg_match('/^[a-z][a-z0-9_]*$/D',$name) || in_array($name,['context','operation','resource','parameters'],true)) { throw new RuntimeHttpException('ENTITY_API_OPTIONS_PARAMETERS','Parametro de opcoes invalido.',422); } }
+        }
+        return $value;
+    }
+
+    private function validateApiOptionsOperation(BuilderEntity $entity, array $source): void
+    {
+        foreach ($source['parameterFields'] ?? [] as $name) {
+            $parameter=null;foreach($entity->getFields() as $field) { if ($field->getCode()===$name) { $parameter=$field; } }
+            $options=$parameter?->getOptions() ?? [];
+            if (!$parameter || $parameter->getDataType()!=='string' || ($options['editor']??null)!=='dropdown' || ($options['readonly']??false)) { throw new RuntimeHttpException('ENTITY_API_OPTIONS_PARAMETERS','Parametro exige enum escalar fechado.',422); }
+            $this->normalizeApiOptionsParameterItems($options['options'] ?? null);
+        }
+        foreach ($source['copyFields'] ?? [] as $target => $path) {
+            $valid = false;
+            foreach ($entity->getFields() as $field) { if ($field->getCode() === $target && !$field->isPrimaryKey() && (($field->getOptions()['readonly'] ?? false) || ($field->getOptions()['writable'] ?? true) === false)) { $valid = true; } }
+            if (!$valid) { throw new RuntimeHttpException('ENTITY_API_OPTIONS_COPY_INVALID', 'Campos copiados devem ser apenas de apresentacao e readonly.', 422); }
+        }
+        foreach ($entity->getMetadata()['apiSource']['operations'] ?? [] as $operation) {
+            if (($operation['code'] ?? '') === $source['operationCode'] && in_array($operation['type'] ?? '', ['custom', 'list'], true)) { return; }
+        }
+        throw new RuntimeHttpException('ENTITY_API_OPTIONS_OPERATION_INVALID', 'Operacao de opcoes nao cadastrada como consulta na mesma fonte API.', 422);
+    }
+
+    private function normalizeRowLinks(mixed $value, ?BuilderEntity $entity): array
+    {
+        if (!is_array($value) || !array_is_list($value) || count($value) > 10) { throw new RuntimeHttpException('BUILDER_ROW_LINKS_INVALID', 'Informe ate dez links por linha.', 422); }
+        $fields = []; foreach ($entity?->getFields() ?? [] as $field) { $fields[$field->getCode()] = $field; }
+        $ids = [];
+        foreach ($value as $link) {
+            $this->closedObject($link, ['id', 'label', 'screenId', 'parameters', 'position', 'icon', 'iconOnly'], 'rowLinks');
+            if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $link['id'] ?? '') || isset($ids[$link['id']]) || !is_string($link['label'] ?? null) || trim($link['label']) === '' || strlen($link['label']) > 100 || !preg_match('/^[A-Za-z0-9][A-Za-z0-9_.-]*$/', $link['screenId'] ?? '') || !is_array($link['parameters'] ?? null) || !array_is_list($link['parameters']) || count($link['parameters']) > 10) {
+                throw new RuntimeHttpException('BUILDER_ROW_LINKS_INVALID', 'Link por linha invalido.', 422);
+            }
+            if (array_key_exists('position', $link) && !in_array($link['position'], ['start', 'end'], true)) { throw new RuntimeHttpException('BUILDER_ROW_LINKS_INVALID', 'Posicao do link deve ser start ou end.', 422); }
+            if ((array_key_exists('icon', $link) && (!is_string($link['icon']) || !preg_match('/^[a-z][a-z0-9-]{0,79}$/D', $link['icon']))) || (array_key_exists('iconOnly', $link) && !is_bool($link['iconOnly'])) || (($link['iconOnly'] ?? false) === true && !isset($link['icon']))) {
+                throw new RuntimeHttpException('BUILDER_ROW_LINKS_INVALID', 'Icone do link invalido; use nome de icone e iconOnly booleano.', 422);
+            }
+            $ids[$link['id']] = true;
+            $parameters = [];
+            foreach ($link['parameters'] as $parameter) {
+                $this->closedObject($parameter, ['field', 'sourceField'], 'rowLinks.parameters');
+                if (!preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/', $parameter['field'] ?? '') || !isset($fields[$parameter['sourceField'] ?? '']) || isset($parameters[$parameter['field']])) { throw new RuntimeHttpException('BUILDER_ROW_LINKS_INVALID', 'Campo de link invalido.', 422); }
+                $parameters[$parameter['field']] = true;
+            }
+        }
+        return $value;
+    }
+
+    private function normalizeContextFields(mixed $value, ?BuilderEntity $entity, string $pageType = 'crud'): array
+    {
+        if (!is_array($value) || !array_is_list($value) || count($value) > 10) { throw new RuntimeHttpException('BUILDER_CONTEXT_INVALID', 'Contexto invalido.', 422); }
+        $fields = []; foreach ($entity?->getFields() ?? [] as $field) { $fields[$field->getCode()] = $field; }
+        $seen = [];
+        foreach ($value as $item) {
+            $this->closedObject($item, ['field', 'filter', 'createDefault', 'readonly', 'required', 'filterOnly'], 'contextFields');
+            $field = $item['field'] ?? '';
+            if (!isset($fields[$field]) || $fields[$field]->getDataType() !== 'integer' || isset($seen[$field])) { throw new RuntimeHttpException('BUILDER_CONTEXT_INVALID', 'Contexto exige campo integer existente e unico.', 422); }
+            $seen[$field] = true;
+            if (array_key_exists('filterOnly', $item)) {
+                if ($pageType !== 'crud' || !is_bool($item['filterOnly']) || ($item['filterOnly'] && (($item['required'] ?? null) !== false || ($item['filter'] ?? null) !== true || ($item['readonly'] ?? null) !== true || ($item['createDefault'] ?? null) !== false))) { throw new RuntimeHttpException('BUILDER_CONTEXT_INVALID', 'filterOnly exige CRUD, contexto opcional readonly, filtro ativo e sem default de criacao.', 422); }
+            }
+            foreach (['filter', 'createDefault', 'readonly', 'required'] as $key) { if (isset($item[$key]) && !is_bool($item[$key])) { throw new RuntimeHttpException('BUILDER_CONTEXT_INVALID', 'Propriedade de contexto deve ser booleana.', 422); } }
+        }
+        foreach ($value as $index => $item) { if (($item['filterOnly'] ?? null) === false) { unset($value[$index]['filterOnly']); } }
+        return $value;
+    }
+
+    private function normalizeFieldCondition(mixed $value, BuilderEntity $entity): array
+    {
+        $value = $this->closedObject($value, ['field', 'operator', 'value'], 'fieldCondition');
+        $found = false; foreach ($entity->getFields() as $field) { if ($field->getCode() === ($value['field'] ?? '')) { $found = true; } }
+        if (!$found || ($value['operator'] ?? 'eq') !== 'eq' || !array_key_exists('value', $value) || !is_scalar($value['value'])) { throw new RuntimeHttpException('BUILDER_FIELD_CONDITION_INVALID', 'Condicao exige campo existente, operador eq e valor escalar.', 422); }
+        return $value;
+    }
+
     private function normalizeBuilderFieldType(string $type): string
     {
         $normalized = strtolower(trim($type));
@@ -6659,6 +7280,15 @@ class ProgramBuilderService
         return $normalized;
     }
 
+    private function normalizeApiResponseContract(mixed $value): string
+    {
+        $contract = $value === null ? 'generic' : $value;
+        if (!is_string($contract) || !in_array($contract, ['generic', 'sursum-programs'], true)) {
+            throw new RuntimeHttpException('ENTITY_API_RESPONSE_CONTRACT_INVALID', 'Contrato de resposta da API invalido.', 422);
+        }
+        return $contract;
+    }
+
     private function normalizeApiSource(array $payload): array
     {
         $baseUrl = $this->normalizeApiUrl((string) ($payload['baseUrl'] ?? ''), false);
@@ -6684,9 +7314,14 @@ class ProgramBuilderService
         $updateResponse = is_array($payload['updateResponse'] ?? null) ? $payload['updateResponse'] : [];
         $updateItemPath = $updateEndpoint ? $this->normalizeApiJsonPath((string) ($updateResponse['itemPath'] ?? '$')) : '';
         $deleteEndpoint = $this->normalizeApiEndpointConfig(is_array($payload['deleteEndpoint'] ?? null) ? $payload['deleteEndpoint'] : [], 'delete', false, $baseUrl);
+        $batchEndpoint = $this->normalizeApiEndpointConfig(is_array($payload['batchEndpoint'] ?? null) ? $payload['batchEndpoint'] : [], 'batch', false, $baseUrl);
+        if ($batchEndpoint && $batchEndpoint['method'] !== 'POST') {
+            throw new RuntimeHttpException('ENTITY_API_BATCH_OPERATION_INVALID', 'Operacao de lote exige POST.', 422);
+        }
 
         return [
-            'mode' => ($createEndpoint || $updateEndpoint || $deleteEndpoint) ? 'crud' : 'readonly',
+            'mode' => ($createEndpoint || $updateEndpoint || $deleteEndpoint || $batchEndpoint) ? 'crud' : 'readonly',
+            'responseContract' => $this->normalizeApiResponseContract($payload['responseContract'] ?? null),
             'baseUrl' => $baseUrl !== '' ? $baseUrl : null,
             'authHeaders' => $this->normalizeApiKeyValueMap($payload['authHeaders'] ?? [], 'authHeaders'),
             'timeoutSeconds' => max(1, min(120, (int) ($payload['timeoutSeconds'] ?? 20))),
@@ -6702,11 +7337,16 @@ class ProgramBuilderService
             'updateEndpoint' => $updateEndpoint,
             'updateResponse' => $updateEndpoint ? ['itemPath' => $updateItemPath !== '' ? $updateItemPath : '$'] : null,
             'deleteEndpoint' => $deleteEndpoint,
+            'batchEndpoint' => $batchEndpoint,
+            'batchResponse' => $batchEndpoint ? ['itemsPath' => $this->normalizeApiJsonPath((string) ($payload['batchResponse']['itemsPath'] ?? 'data'))] : null,
         ];
     }
 
     private function normalizeApiSourceRegistryPayload(array $payload): array
     {
+        if (!empty($payload['companyContext']) && strtolower(trim((string)($payload['providerType'] ?? 'generic'))) !== 'generic') {
+            throw new RuntimeHttpException('API_COMPANY_CONFIG_INVALID', 'Contexto empresarial exige transporte API generico.', 422);
+        }
         $code = $this->safeCode((string) ($payload['code'] ?? ''));
         $name = trim((string) ($payload['name'] ?? ''));
         $providerType = strtolower(trim((string) ($payload['providerType'] ?? 'generic')));
@@ -6717,6 +7357,7 @@ class ProgramBuilderService
         $timeoutSeconds = max(1, min(120, (int) ($payload['timeoutSeconds'] ?? 20)));
         $authHeaders = $this->normalizeApiKeyValueMap($payload['authHeaders'] ?? [], 'apiSource.authHeaders');
         $operations = $this->normalizeApiOperationsRegistry($payload['operations'] ?? [], $baseUrl);
+        foreach ($operations as $operation) { if (($operation['allowProcess'] ?? false) === true && ($payload['responseContract'] ?? 'generic') !== 'sursum-programs') { throw new RuntimeHttpException('API_PROCESS_OPT_IN_INVALID', 'Execucao exige contrato sursum-programs.', 422); } }
 
         if ($code === '' || $name === '') {
             throw new RuntimeHttpException('API_SOURCE_REQUIRED_FIELDS', 'Informe codigo e nome do cadastro da API.', 422);
@@ -6739,6 +7380,8 @@ class ProgramBuilderService
             'code' => $code,
             'name' => $name,
             'providerType' => $providerType,
+            ...(array_key_exists('companyContext', $payload) ? ['companyContext' => ApiCompanyContextValidator::validateSourceConfig($payload['companyContext'])] : []),
+            'responseContract' => $this->normalizeApiResponseContract($payload['responseContract'] ?? null),
             'authMode' => $authMode,
             'baseUrl' => $baseUrl !== '' ? $baseUrl : null,
             'openapiUrl' => $providerType === 'generic' && $openapiUrl !== '' ? $openapiUrl : null,
@@ -6928,6 +7571,7 @@ class ProgramBuilderService
                 'headers' => $item['headers'] ?? [],
                 'queryParams' => $item['queryParams'] ?? [],
                 'bodyTemplate' => $item['bodyTemplate'] ?? null,
+                ...(array_key_exists('requestContextFields', $item) ? ['requestContextFields' => $item['requestContextFields']] : []),
             ], 'operation.' . $index, true, $baseUrl);
             $itemsPath = $this->normalizeApiJsonPath((string) ($item['itemsPath'] ?? ''));
             $itemPath = $this->normalizeApiJsonPath((string) ($item['itemPath'] ?? ''));
@@ -6935,15 +7579,18 @@ class ProgramBuilderService
             if ($code === '' || $name === '') {
                 continue;
             }
+            if (array_key_exists('allowProcess', $item) && (!is_bool($item['allowProcess']) || $item['allowProcess'] === true && ($type !== 'custom' || $endpoint['method'] !== 'POST'))) { throw new RuntimeHttpException('API_PROCESS_OPT_IN_INVALID', 'Execucao exige opt-in booleano em operacao custom POST.', 422); }
             $operations[] = [
                 'code' => $code,
+                ...(array_key_exists('allowProcess', $item) ? ['allowProcess' => $item['allowProcess']] : []),
                 'name' => $name,
-                'type' => in_array($type, ['list', 'detail', 'create', 'update', 'delete', 'custom'], true) ? $type : 'custom',
+                'type' => in_array($type, ['list', 'detail', 'create', 'update', 'delete', 'batch', 'custom'], true) ? $type : 'custom',
                 'method' => $endpoint['method'],
                 'path' => $endpoint['url'],
                 'headers' => $endpoint['headers'],
                 'queryParams' => $endpoint['queryParams'],
                 'bodyTemplate' => $endpoint['bodyTemplate'],
+                ...(isset($endpoint['requestContextFields']) ? ['requestContextFields' => $endpoint['requestContextFields']] : []),
                 'itemsPath' => $itemsPath !== '' ? $itemsPath : null,
                 'itemPath' => $itemPath !== '' ? $itemPath : null,
                 'totalPath' => $totalPath !== '' ? $totalPath : null,
@@ -6953,7 +7600,7 @@ class ProgramBuilderService
         return $operations;
     }
 
-    private function resolveApiSourceBinding(BuilderApiSource $source, string $listOperationCode, string $detailOperationCode, string $createOperationCode = '', string $updateOperationCode = '', string $deleteOperationCode = ''): array
+    private function resolveApiSourceBinding(BuilderApiSource $source, string $listOperationCode, string $detailOperationCode, string $createOperationCode = '', string $updateOperationCode = '', string $deleteOperationCode = '', string $batchOperationCode = ''): array
     {
         $metadata = $source->getMetadata();
         if ((string) ($metadata['providerType'] ?? 'generic') === 'odoo') {
@@ -6977,6 +7624,7 @@ class ProgramBuilderService
         $createOperation = null;
         $updateOperation = null;
         $deleteOperation = null;
+        $batchOperation = null;
         foreach ($operations as $operation) {
             if (!is_array($operation)) {
                 continue;
@@ -6996,6 +7644,9 @@ class ProgramBuilderService
             if ($deleteOperationCode !== '' && (string) ($operation['code'] ?? '') === $deleteOperationCode) {
                 $deleteOperation = $operation;
             }
+            if ($batchOperationCode !== '' && (string) ($operation['code'] ?? '') === $batchOperationCode) {
+                $batchOperation = $operation;
+            }
         }
         if (!$listOperation) {
             $listOperation = $this->findFirstApiOperationByType($operations, 'list');
@@ -7012,6 +7663,9 @@ class ProgramBuilderService
         if (!$deleteOperation && $deleteOperationCode === '') {
             $deleteOperation = $this->findFirstApiOperationByType($operations, 'delete');
         }
+        if ($batchOperationCode !== '' && (!is_array($batchOperation) || ($batchOperation['type'] ?? '') !== 'batch' || strtoupper((string) ($batchOperation['method'] ?? '')) !== 'POST')) {
+            throw new RuntimeHttpException('ENTITY_API_BATCH_OPERATION_INVALID', 'Selecione uma operacao de lote POST valida no cadastro da API.', 422);
+        }
         if (!is_array($listOperation)) {
             throw new RuntimeHttpException('ENTITY_API_LIST_OPERATION_REQUIRED', 'Selecione uma operacao de lista no cadastro da API.', 422, [
                 'apiSourceCode' => $source->getCode(),
@@ -7020,16 +7674,19 @@ class ProgramBuilderService
 
         return [
             'providerType' => 'generic',
-            'mode' => (is_array($createOperation) || is_array($updateOperation) || is_array($deleteOperation)) ? 'crud' : 'readonly',
+            'responseContract' => $this->normalizeApiResponseContract($metadata['responseContract'] ?? null),
+            'mode' => (is_array($createOperation) || is_array($updateOperation) || is_array($deleteOperation) || is_array($batchOperation)) ? 'crud' : 'readonly',
             'baseUrl' => $source->getBaseUrl(),
             'authHeaders' => is_array($metadata['authHeaders'] ?? null) ? $metadata['authHeaders'] : [],
             'timeoutSeconds' => max(1, min(120, (int) ($metadata['timeoutSeconds'] ?? 20))),
+            ...(array_key_exists('companyContext', $metadata) ? ['companyContext' => ApiCompanyContextValidator::validateSourceConfig($metadata['companyContext'])] : []),
             'listEndpoint' => [
                 'url' => (string) ($listOperation['path'] ?? ''),
                 'method' => strtoupper((string) ($listOperation['method'] ?? 'GET')),
                 'headers' => is_array($listOperation['headers'] ?? null) ? $listOperation['headers'] : [],
                 'queryParams' => is_array($listOperation['queryParams'] ?? null) ? $listOperation['queryParams'] : [],
                 'bodyTemplate' => $listOperation['bodyTemplate'] ?? null,
+                ...(isset($listOperation['requestContextFields']) ? ['requestContextFields' => $listOperation['requestContextFields']] : []),
             ],
             'listResponse' => [
                 'itemsPath' => (string) ($listOperation['itemsPath'] ?? ''),
@@ -7041,6 +7698,7 @@ class ProgramBuilderService
                 'headers' => is_array($detailOperation['headers'] ?? null) ? $detailOperation['headers'] : [],
                 'queryParams' => is_array($detailOperation['queryParams'] ?? null) ? $detailOperation['queryParams'] : [],
                 'bodyTemplate' => $detailOperation['bodyTemplate'] ?? null,
+                ...(isset($detailOperation['requestContextFields']) ? ['requestContextFields' => $detailOperation['requestContextFields']] : []),
             ] : null,
             'detailResponse' => is_array($detailOperation) ? [
                 'itemPath' => (string) ($detailOperation['itemPath'] ?? '$'),
@@ -7051,6 +7709,7 @@ class ProgramBuilderService
                 'headers' => is_array($createOperation['headers'] ?? null) ? $createOperation['headers'] : [],
                 'queryParams' => is_array($createOperation['queryParams'] ?? null) ? $createOperation['queryParams'] : [],
                 'bodyTemplate' => $createOperation['bodyTemplate'] ?? null,
+                ...(isset($createOperation['requestContextFields']) ? ['requestContextFields' => $createOperation['requestContextFields']] : []),
             ] : null,
             'createResponse' => is_array($createOperation) ? [
                 'itemPath' => (string) ($createOperation['itemPath'] ?? '$'),
@@ -7061,6 +7720,7 @@ class ProgramBuilderService
                 'headers' => is_array($updateOperation['headers'] ?? null) ? $updateOperation['headers'] : [],
                 'queryParams' => is_array($updateOperation['queryParams'] ?? null) ? $updateOperation['queryParams'] : [],
                 'bodyTemplate' => $updateOperation['bodyTemplate'] ?? null,
+                ...(isset($updateOperation['requestContextFields']) ? ['requestContextFields' => $updateOperation['requestContextFields']] : []),
             ] : null,
             'updateResponse' => is_array($updateOperation) ? [
                 'itemPath' => (string) ($updateOperation['itemPath'] ?? '$'),
@@ -7071,7 +7731,17 @@ class ProgramBuilderService
                 'headers' => is_array($deleteOperation['headers'] ?? null) ? $deleteOperation['headers'] : [],
                 'queryParams' => is_array($deleteOperation['queryParams'] ?? null) ? $deleteOperation['queryParams'] : [],
                 'bodyTemplate' => $deleteOperation['bodyTemplate'] ?? null,
+                ...(isset($deleteOperation['requestContextFields']) ? ['requestContextFields' => $deleteOperation['requestContextFields']] : []),
             ] : null,
+            'batchEndpoint' => is_array($batchOperation) ? [
+                'url' => (string) ($batchOperation['path'] ?? ''),
+                'method' => 'POST',
+                'headers' => is_array($batchOperation['headers'] ?? null) ? $batchOperation['headers'] : [],
+                'queryParams' => is_array($batchOperation['queryParams'] ?? null) ? $batchOperation['queryParams'] : [],
+                'bodyTemplate' => $batchOperation['bodyTemplate'] ?? null,
+                ...(isset($batchOperation['requestContextFields']) ? ['requestContextFields' => $batchOperation['requestContextFields']] : []),
+            ] : null,
+            'batchResponse' => is_array($batchOperation) ? ['itemsPath' => (string) ($batchOperation['itemsPath'] ?? 'data')] : null,
             'operations' => array_values(array_filter(array_map(static function (mixed $operation): ?array {
                 if (!is_array($operation) || trim((string) ($operation['code'] ?? '')) === '') {
                     return null;
@@ -7079,12 +7749,14 @@ class ProgramBuilderService
 
                 return [
                     'code' => (string) $operation['code'],
+                    ...(array_key_exists('allowProcess', $operation) ? ['allowProcess' => $operation['allowProcess']] : []),
                     'type' => (string) ($operation['type'] ?? 'custom'),
                     'method' => strtoupper((string) ($operation['method'] ?? 'GET')),
                     'path' => (string) ($operation['path'] ?? ''),
                     'headers' => is_array($operation['headers'] ?? null) ? $operation['headers'] : [],
                     'queryParams' => is_array($operation['queryParams'] ?? null) ? $operation['queryParams'] : [],
                     'bodyTemplate' => $operation['bodyTemplate'] ?? null,
+                    ...(isset($operation['requestContextFields']) ? ['requestContextFields' => $operation['requestContextFields']] : []),
                     'itemsPath' => $operation['itemsPath'] ?? null,
                     'itemPath' => $operation['itemPath'] ?? null,
                     'totalPath' => $operation['totalPath'] ?? null,
@@ -7154,13 +7826,27 @@ class ProgramBuilderService
             ]);
         }
 
+        if (($payload['requestContextFields'] ?? []) !== [] && $method !== 'POST') { throw new RuntimeHttpException('ENTITY_API_REQUEST_CONTEXT_INVALID', 'Operacao contextual exige POST.', 422); }
+
         return [
             'url' => $url,
             'method' => $method,
+            ...(array_key_exists('requestContextFields', $payload) ? ['requestContextFields' => $this->normalizeApiRequestContextFields($payload['requestContextFields'])] : []),
             'headers' => $this->normalizeApiKeyValueMap($payload['headers'] ?? [], $name . '.headers'),
             'queryParams' => $this->normalizeApiKeyValueMap($payload['queryParams'] ?? [], $name . '.queryParams'),
             'bodyTemplate' => in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true) ? $this->normalizeApiBodyTemplate($payload['bodyTemplate'] ?? null, $name . '.bodyTemplate') : null,
         ];
+    }
+
+    private function normalizeApiRequestContextFields(mixed $value): array
+    {
+        if (!is_array($value) || !array_is_list($value) || count($value) > 8) { throw new RuntimeHttpException('ENTITY_API_REQUEST_CONTEXT_INVALID', 'Contexto da requisicao invalido.', 422); }
+        $seen = [];
+        foreach ($value as $field) {
+            if (!is_string($field) || !preg_match('/\A[a-z][a-z0-9_]*\z/', $field) || isset($seen[$field])) { throw new RuntimeHttpException('ENTITY_API_REQUEST_CONTEXT_INVALID', 'Campos contextuais devem ser identificadores unicos.', 422); }
+            $seen[$field] = true;
+        }
+        return $value;
     }
 
     private function normalizeApiBodyTemplate(mixed $value, string $name): mixed
@@ -7253,6 +7939,16 @@ class ProgramBuilderService
             return $apiSource;
         }
 
+        foreach (['listEndpoint', 'detailEndpoint', 'createEndpoint', 'updateEndpoint', 'deleteEndpoint', 'batchEndpoint'] as $endpoint) {
+            if (is_array($apiSource[$endpoint] ?? null)) {
+                $apiSource[$endpoint]['bodyTemplate'] = $this->mapApiBodyTemplateSecrets($apiSource[$endpoint]['bodyTemplate'] ?? null);
+            }
+        }
+
+        if (is_array($apiSource['operations'] ?? null)) {
+            $apiSource['operations'] = $this->maskApiOperationSecrets($apiSource['operations']);
+        }
+
         return $this->mapApiSourceSecrets($apiSource, static fn (string $key, string $value, array $context = []): string => self::isSensitiveApiHeaderName($key) && $value !== '' ? '********' : $value);
     }
 
@@ -7267,6 +7963,22 @@ class ProgramBuilderService
                 is_array($existing['odoo'] ?? null) ? $existing['odoo'] : []
             );
             return $apiSource;
+        }
+
+        foreach (['listEndpoint', 'detailEndpoint', 'createEndpoint', 'updateEndpoint', 'deleteEndpoint', 'batchEndpoint'] as $endpoint) {
+            if (is_array($apiSource[$endpoint] ?? null)) {
+                $apiSource[$endpoint]['bodyTemplate'] = $this->mapApiBodyTemplateSecrets(
+                    $apiSource[$endpoint]['bodyTemplate'] ?? null,
+                    is_array($existing[$endpoint]['bodyTemplate'] ?? null) ? $existing[$endpoint]['bodyTemplate'] : []
+                );
+            }
+        }
+
+        if (is_array($apiSource['operations'] ?? null)) {
+            $apiSource['operations'] = $this->restoreMaskedApiOperationSecrets(
+                $apiSource['operations'],
+                is_array($existing['operations'] ?? null) ? $existing['operations'] : []
+            );
         }
 
         return $this->mapApiSourceSecrets($apiSource, static function (string $key, string $value, array $context) use ($existing): string {
@@ -7286,6 +7998,10 @@ class ProgramBuilderService
             ['group' => 'authHeaders', 'endpoint' => null],
             ['group' => 'listEndpoint', 'endpoint' => 'headers'],
             ['group' => 'detailEndpoint', 'endpoint' => 'headers'],
+            ['group' => 'createEndpoint', 'endpoint' => 'headers'],
+            ['group' => 'updateEndpoint', 'endpoint' => 'headers'],
+            ['group' => 'deleteEndpoint', 'endpoint' => 'headers'],
+            ['group' => 'batchEndpoint', 'endpoint' => 'headers'],
         ];
         foreach ($groups as $group) {
             if ($group['endpoint'] === null) {
@@ -7302,6 +8018,26 @@ class ProgramBuilderService
         }
 
         return $apiSource;
+    }
+
+    private function mapApiBodyTemplateSecrets(mixed $template, ?array $existing = null): mixed
+    {
+        if (!is_array($template)) {
+            return $template;
+        }
+        foreach ($template as $key => $value) {
+            if (is_array($value)) {
+                $template[$key] = $this->mapApiBodyTemplateSecrets($value, $existing === null ? null : (is_array($existing[$key] ?? null) ? $existing[$key] : []));
+                continue;
+            }
+            if (!is_string($value) || !self::isSensitiveApiHeaderName((string) $key)) {
+                continue;
+            }
+            $template[$key] = $existing === null
+                ? ($value !== '' ? '********' : '')
+                : ($value === '********' ? ($existing[$key] ?? '') : $value);
+        }
+        return $template;
     }
 
     private static function isSensitiveApiHeaderName(string $name): bool
@@ -7357,6 +8093,7 @@ class ProgramBuilderService
             }
             $copy = $operation;
             $copy['headers'] = $this->maskApiHeaderSecrets(is_array($copy['headers'] ?? null) ? $copy['headers'] : []);
+            $copy['bodyTemplate'] = $this->mapApiBodyTemplateSecrets($copy['bodyTemplate'] ?? null);
             return $copy;
         }, $operations);
     }
@@ -7376,6 +8113,7 @@ class ProgramBuilderService
             }
             $copy = $operation;
             $current = $existingByCode[(string) ($copy['code'] ?? '')] ?? [];
+            $copy['bodyTemplate'] = $this->mapApiBodyTemplateSecrets($copy['bodyTemplate'] ?? null, is_array($current['bodyTemplate'] ?? null) ? $current['bodyTemplate'] : []);
             $copy['headers'] = $this->restoreMaskedApiHeaderSecrets(
                 is_array($copy['headers'] ?? null) ? $copy['headers'] : [],
                 is_array($current['headers'] ?? null) ? $current['headers'] : []
@@ -7670,9 +8408,24 @@ class ProgramBuilderService
         };
     }
 
+    private function normalizeApiOptionsParameterItems(mixed $value): array
+    {
+        if (!is_array($value) || !array_is_list($value) || !$value || count($value) > 20) {
+            throw new RuntimeHttpException('ENTITY_API_OPTIONS_PARAMETERS','Parametro exige enum escalar fechado.',422);
+        }
+        $seen = [];
+        foreach ($value as $option) {
+            if (!is_array($option) || array_diff(array_keys($option), ['value','text']) || !is_string($option['value'] ?? null) || !is_string($option['text'] ?? null) || isset($seen[$option['value']])) {
+                throw new RuntimeHttpException('ENTITY_API_OPTIONS_PARAMETERS','Enum de opcoes invalido.',422);
+            }
+            $seen[$option['value']] = true;
+        }
+        return $value;
+    }
+
     private function normalizeOptionItems(mixed $value, string $dataType): array
     {
-        if (!in_array($dataType, ['enum', 'dropdown'], true) || !is_array($value)) {
+        if (!in_array($dataType, ['enum', 'dropdown', 'integer'], true) || !is_array($value)) {
             return [];
         }
 
@@ -7681,14 +8434,15 @@ class ProgramBuilderService
             if (!is_array($item)) {
                 continue;
             }
-            $optionValue = array_key_exists('value', $item) ? (string) $item['value'] : '';
+            $optionValue = array_key_exists('value', $item) ? ($dataType === 'integer' ? $item['value'] : (string) $item['value']) : '';
+            if ($dataType === 'integer' && !is_int($optionValue)) { throw new RuntimeHttpException('ENTITY_FIELD_OPTIONS_INVALID', 'Opcao integer exige valor inteiro.', 422); }
             $optionText = array_key_exists('text', $item) ? trim((string) $item['text']) : '';
             if ($optionValue === '' && $optionText === '') {
                 continue;
             }
             $items[] = [
                 'value' => $optionValue,
-                'text' => $optionText !== '' ? $optionText : $optionValue,
+                'text' => $optionText !== '' ? $optionText : (string) $optionValue,
             ];
         }
 

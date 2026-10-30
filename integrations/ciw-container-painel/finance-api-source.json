@@ -1,0 +1,75 @@
+{
+  "providerType": "generic",
+  "code": "motor_progress_container_financeiro",
+  "name": "Motor Progress — Financeiro do Container",
+  "status": "active",
+  "baseUrl": "http://127.0.0.1:19910/med/web",
+  "authMode": "header_static",
+  "authHeaders": {
+    "X-Containers-Token": "__RUNTIME_SECRET__"
+  },
+  "timeoutSeconds": 25,
+  "responseContract": "sursum-programs",
+  "operations": [
+    {
+      "code": "pagamentos_read",
+      "name": "Pagamentos do Container — read",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-financeiro",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "pagamentos"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "pagamentos_get",
+      "name": "Pagamentos do Container — get",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-financeiro",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "pagamentos"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "nfs_read",
+      "name": "Notas Fiscais do Container — read",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-financeiro",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "nfs"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "nfs_get",
+      "name": "Notas Fiscais do Container — get",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-financeiro",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "nfs"
+      },
+      "itemPath": "data"
+    }
+  ]
+}

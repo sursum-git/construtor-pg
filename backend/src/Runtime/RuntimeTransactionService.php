@@ -2,6 +2,7 @@
 
 namespace App\Runtime;
 
+use App\Auth\AuthenticatedSessionResolver;
 use App\Entity\RuntimeTransaction;
 use App\Entity\RuntimeTransactionLog;
 use Doctrine\ORM\EntityManagerInterface;
@@ -16,6 +17,8 @@ class RuntimeTransactionService
         private readonly RuntimeExecutionContext $executionContext,
         private readonly RuntimeEntityDefinitionResolver $definitions,
         private readonly RuntimeEnvironmentIdentityResolver $environmentIdentity,
+        private readonly ?AuthenticatedSessionResolver $authenticatedSessions = null,
+        private readonly ?ApiCompanyAuditClassifier $apiCompanyMetadata = null,
     ) {
     }
 
@@ -27,6 +30,9 @@ class RuntimeTransactionService
         $traceability = $this->buildTraceability($screenId, $endpointId, $handler, $payload, $entityCode);
         $impersonation = $this->currentImpersonation();
 
+        $requestContext = $this->compactPayload($payload, $entityCode, $traceability, $impersonation);
+        $pending = $this->apiCompanyMetadata?->pending($screenId, $endpointId, $handler);
+        if ($pending !== null) { $requestContext['apiCompany'] = $pending; }
         $transaction = (new RuntimeTransaction())
             ->setTenantId($this->permissions->getTenantId())
             ->setSessionId($this->permissions->getSessionId())
@@ -38,7 +44,7 @@ class RuntimeTransactionService
             ->setActionId((string) ($payload['actionId'] ?? $payload['action'] ?? $endpointId))
             ->setOperation($handler)
             ->setLockToken((string) ($runtime['lockToken'] ?? $payload['lockToken'] ?? ''))
-            ->setRequestContext($this->compactPayload($payload, $entityCode, $traceability, $impersonation));
+            ->setRequestContext($requestContext);
 
         $this->entityManager->persist($transaction);
         $this->current = $transaction;
@@ -67,9 +73,47 @@ class RuntimeTransactionService
         return $transaction;
     }
 
+    /** Bind the current request to the primary key confirmed by the server. */
+    public function bindRecordId(null|string|int $recordId): void
+    {
+        if (!$this->current) {
+            return;
+        }
+        $this->current->setRecordId($recordId);
+        $this->executionContext->open(array_replace($this->executionContext->all(), ['recordId' => $recordId]), $this->current);
+    }
+
     public function getCurrent(): ?RuntimeTransaction
     {
         return $this->current;
+    }
+
+    public function attachApiCompanyContext(ApiCompanyContext $context): void
+    {
+        $this->attachTrustedApiCompany($context->auditMetadata());
+    }
+
+    public function attachSharedApiCompanyContext(string $moduleId, string $sourceCode): void
+    {
+        \App\Builder\ApiCompanyContextValidator::key($moduleId);
+        \App\Builder\ApiCompanyContextValidator::key($sourceCode);
+        $this->attachTrustedApiCompany(['version'=>1, 'source'=>'authenticated-api-company', 'moduleId'=>$moduleId, 'sourceCode'=>$sourceCode, 'mode'=>'shared']);
+    }
+
+    private function attachTrustedApiCompany(array $company): void
+    {
+        if (!$this->current) { return; }
+        $context = $this->current->getRequestContext();
+        if (isset($context['apiCompany']) && $context['apiCompany'] !== $company
+            && !(($context['apiCompany']['mode'] ?? '') === 'pending'
+                && ($context['apiCompany']['source'] ?? '') === 'authenticated-api-company'
+                && ($context['apiCompany']['moduleId'] ?? null) === $company['moduleId']
+                && ($context['apiCompany']['sourceCode'] ?? null) === $company['sourceCode'])) {
+            throw new RuntimeHttpException('API_COMPANY_CONTEXT_CHANGED', 'A empresa da operacao mudou durante a execucao.', 409);
+        }
+        $context['apiCompany'] = $company;
+        $this->current->setRequestContext($context);
+        $this->entityManager->flush();
     }
 
     /**
@@ -77,6 +121,7 @@ class RuntimeTransactionService
      */
     public function beginOperational(array $context): RuntimeTransaction
     {
+        $context = $this->withAuthenticatedActor($context);
         $tenantId = (string) ($context['tenantId'] ?? $this->permissions->getTenantId());
         $sessionId = (string) ($context['sessionId'] ?? $this->permissions->getSessionId());
         $screenId = (string) ($context['screenId'] ?? 'system.eventbus');
@@ -164,6 +209,9 @@ class RuntimeTransactionService
             return;
         }
 
+        $before = $this->redactSensitiveValues($before);
+        $after = $this->redactSensitiveValues($after);
+
         $log = (new RuntimeTransactionLog())
             ->setTransaction($this->current)
             ->setEventType($eventType)
@@ -192,7 +240,8 @@ class RuntimeTransactionService
 
     private function compactPayload(array $payload, ?string $entityCode, array $traceability, array $impersonation): array
     {
-        $payload = $this->redactSensitiveValues($payload);
+        unset($payload['apiCompany']);
+        $payload = $this->withAuthenticatedActor($this->redactSensitiveValues($payload));
 
         if ($entityCode !== null && is_array($payload['values'] ?? null)) {
             try {
@@ -216,9 +265,20 @@ class RuntimeTransactionService
     private function mergeTraceabilityMetadata(array $metadata): array
     {
         $requestContext = $this->current?->getRequestContext() ?? [];
+        // The actor was captured once from the authenticated session when this transaction began.
+        unset($metadata['apiCompany']);
+        if (is_array($requestContext['apiCompany'] ?? null) && ($requestContext['apiCompany']['version'] ?? null) === 1
+            && ($requestContext['apiCompany']['source'] ?? '') === 'authenticated-api-company') {
+            $metadata['apiCompany'] = $requestContext['apiCompany'];
+        }
+        unset($metadata['actor']);
+        if (is_array($requestContext['actor'] ?? null) && ($requestContext['actor']['source'] ?? null) === 'authenticated-session'
+            && ($requestContext['actor']['version'] ?? null) === 1) {
+            $metadata['actor'] = $requestContext['actor'];
+        }
         $traceability = is_array($requestContext['traceability'] ?? null) ? $requestContext['traceability'] : [];
         foreach ($traceability as $key => $value) {
-            if (!array_key_exists($key, $metadata)) {
+            if ($key !== 'actor' && !array_key_exists($key, $metadata)) {
                 $metadata[$key] = $value;
             }
         }
@@ -233,6 +293,26 @@ class RuntimeTransactionService
         return $metadata;
     }
 
+    private function withAuthenticatedActor(array $context): array
+    {
+        unset($context['actor'], $context['apiCompany']);
+        $session = $this->authenticatedSessions?->resolve();
+        if (!$session || $session->getStatus() !== 'active') {
+            return $context;
+        }
+        $user = $this->permissions->getCurrentUserPayload();
+        $actor = [];
+        foreach (['userId' => $this->permissions->getUserId(), 'username' => $user['username'] ?? null,
+            'displayName' => $user['displayName'] ?? $user['name'] ?? null] as $field => $value) {
+            if (is_string($value) && trim($value) !== '') {
+                $actor[$field] = mb_substr($value, 0, 160);
+            }
+        }
+        if ($actor !== []) {
+            $context['actor'] = ['source' => 'authenticated-session', 'version' => 1] + $actor;
+        }
+        return $context;
+    }
     private function currentImpersonation(): array
     {
         $user = $this->permissions->getCurrentUserPayload();
@@ -392,7 +472,7 @@ class RuntimeTransactionService
             return false;
         }
 
-        return (bool) preg_match('/(senha|password|token|authorization|api[_-]?key|secret|private[_-]?key)/i', $key);
+        return (bool) preg_match('/(senha|password|token|authorization|api[_-]?key|secret|private[_-]?key)|^val[_-]param$/i', $key);
     }
 
     private function diff(array $before, array $after): array

@@ -1,0 +1,47 @@
+{
+  "programCode": "cd0098",
+  "programTitle": "Parâmetros IMA",
+  "module": "cadastros",
+  "pageType": "crud",
+  "builderEntityCode": "im_param_progress",
+  "screenId": "ciw.parametros-ima",
+  "version": "1.0.1",
+  "subtitle": "Parâmetros administrativos IMA",
+  "icon": null,
+  "permissionPrefix": "im_param_progress",
+  "gridEditMode": "form",
+  "crudOptions": {
+    "filterFields": [
+      "tp_param",
+      "codigo",
+      "val_param"
+    ]
+  },
+  "processOptions": null,
+  "formOptions": null,
+  "rowLinks": [],
+  "contextFields": [],
+  "allowCreate": true,
+  "allowUpdate": true,
+  "allowDelete": true,
+  "changeSummary": null,
+  "programOrigin": "standard",
+  "ownerScope": "system",
+  "customizationPolicy": "overlay_only",
+  "subscriberId": null,
+  "baseProgramCode": null,
+  "baseProgramVersionId": null,
+  "upgradeFrozen": false,
+  "frozenReason": null,
+  "publicationPolicy": {
+    "allowedDatabaseEnvironments": []
+  },
+  "analyticsConfig": null,
+  "reportConfig": null,
+  "specialDocumentConfig": null,
+  "regulatedDocumentConfig": null,
+  "masterDetailConfig": null,
+  "customMode": null,
+  "customEntryUrl": null,
+  "customFrameTitle": null
+}

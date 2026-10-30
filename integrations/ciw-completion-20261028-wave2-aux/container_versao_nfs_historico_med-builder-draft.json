@@ -1,0 +1,288 @@
+{
+  "entityDraft": {
+    "code": "container_versao_nfs_historico_med_progress",
+    "name": "NFs históricas da versão",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1037,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "container_versao_nfs_historico_med_read",
+    "apiDetailOperationCode": "container_versao_nfs_historico_med_get",
+    "fields": [
+      {
+        "code": "record_key",
+        "label": "Chave da linha",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "record_key",
+        "apiWritePath": "record_key",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 2048
+      },
+      {
+        "code": "container_id",
+        "label": "Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "versao_id",
+        "label": "Versão",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "versao_id",
+        "apiWritePath": "versao_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "documento",
+        "label": "Documento",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "documento",
+        "apiWritePath": "documento",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "serie",
+        "label": "Série",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "serie",
+        "apiWritePath": "serie",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "estab",
+        "label": "Estabelecimento",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "estab",
+        "apiWritePath": "estab",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "nat_operacao",
+        "label": "Natureza",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "nat_operacao",
+        "apiWritePath": "nat_operacao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_emitente",
+        "label": "Código do emitente",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 70,
+        "apiJsonPath": "cod_emitente",
+        "apiWritePath": "cod_emitente",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_mercadoria",
+        "label": "Mercadoria R$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 80,
+        "apiJsonPath": "vl_mercadoria",
+        "apiWritePath": "vl_mercadoria",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_despesa",
+        "label": "Despesa R$",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 90,
+        "apiJsonPath": "vl_despesa",
+        "apiWritePath": "vl_despesa",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1037",
+    "programTitle": "NFs históricas da versão",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "container_versao_nfs_historico_med_progress",
+    "screenId": "ciw.container-versao-nfs-historico",
+    "version": "1.0.0",
+    "subtitle": "Snapshot persistido da versão selecionada — MED",
+    "permissionPrefix": "container_versao_nfs_historico_med_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "container_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      },
+      {
+        "field": "versao_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "documento",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "serie",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "estab",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "nat_operacao",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "cod_emitente",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_mercadoria",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_despesa",
+          "hidden": false,
+          "width": 160
+        }
+      ],
+      "filterFields": [
+        "documento",
+        "serie",
+        "estab",
+        "nat_operacao",
+        "cod_emitente",
+        "vl_mercadoria",
+        "vl_despesa"
+      ],
+      "defaultSort": [
+        {
+          "field": "documento",
+          "dir": "asc"
+        }
+      ]
+    }
+  }
+}

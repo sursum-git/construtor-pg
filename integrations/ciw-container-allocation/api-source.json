@@ -1,0 +1,76 @@
+{
+  "providerType": "generic",
+  "code": "motor_progress_container_alocacao",
+  "name": "Motor Progress — Alocação em lote de itens do container",
+  "status": "active",
+  "baseUrl": "http://127.0.0.1:19910/med/web",
+  "authMode": "header_static",
+  "authHeaders": {
+    "X-Containers-Token": "__RUNTIME_SECRET__"
+  },
+  "timeoutSeconds": 120,
+  "responseContract": "sursum-programs",
+  "operations": [
+    {
+      "code": "painel_read",
+      "name": "Painel do Container — Consultar",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-painel",
+      "itemsPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "painel"
+      }
+    },
+    {
+      "code": "painel_get",
+      "name": "Painel do Container — Detalhar",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-painel",
+      "itemPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "painel"
+      }
+    },
+    {
+      "code": "itens_alocacao_disponiveis",
+      "name": "Itens de compra disponíveis para alocação",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/containers-itens",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "resource": "itens-alocacao-disponiveis",
+        "operation": "read"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "allocate",
+      "name": "Alocar itens selecionados",
+      "type": "custom",
+      "method": "POST",
+      "path": "/SursumPrograms/containers-itens",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "resource": "container-alocacoes",
+        "operation": "allocate"
+      },
+      "itemPath": "data",
+      "allowProcess": true
+    }
+  ]
+}

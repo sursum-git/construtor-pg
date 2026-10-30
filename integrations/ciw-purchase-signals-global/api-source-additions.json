@@ -1,0 +1,63 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "proc_compra_sinalizadores_read",
+      "name": "proc_compra_sinalizadores — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "proc_compra_sinalizadores",
+        "operation": "read"
+      },
+      "requestContextFields": [],
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "proc_compra_sinalizadores_get",
+      "name": "proc_compra_sinalizadores — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "proc_compra_sinalizadores",
+        "operation": "get"
+      },
+      "requestContextFields": [],
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_sinalizados_read",
+      "name": "proc_compra_sinalizados — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "proc_compra_sinalizados",
+        "operation": "read"
+      },
+      "requestContextFields": [
+        "sinaliz_imp_id"
+      ],
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "proc_compra_sinalizados_get",
+      "name": "proc_compra_sinalizados — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "proc_compra_sinalizados",
+        "operation": "get"
+      },
+      "requestContextFields": [
+        "sinaliz_imp_id"
+      ],
+      "itemPath": "data"
+    }
+  ]
+}

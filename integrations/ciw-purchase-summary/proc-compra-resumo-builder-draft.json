@@ -1,0 +1,228 @@
+{
+  "entityDraft": {
+    "code": "proc_compra_resumo_progress",
+    "name": "Resumo do Processo — MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureModuleCode": "operacional",
+    "structureType": "main",
+    "structureBaseNumber": 1023,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "proc_compra_resumo_read",
+    "apiDetailOperationCode": "proc_compra_resumo_get",
+    "apiCreateOperationCode": "",
+    "apiUpdateOperationCode": "",
+    "apiDeleteOperationCode": "",
+    "fields": [
+      {
+        "code": "proc_compra_id",
+        "label": "Processo",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "proc_compra_id",
+        "apiWritePath": "proc_compra_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "qt_container",
+        "label": "Quantidade de containers",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "qt_container",
+        "apiWritePath": "qt_container",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "cotacao_prevista",
+        "label": "Cotação prevista",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "cotacao_prevista",
+        "apiWritePath": "cotacao_prevista",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "precision": 28,
+        "scale": 10,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 8,
+          "format": "n8"
+        }
+      },
+      {
+        "code": "custo_prev_itens",
+        "label": "Custo previsto dos itens",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "custo_prev_itens",
+        "apiWritePath": "custo_prev_itens",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "precision": 28,
+        "scale": 10,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2"
+        }
+      },
+      {
+        "code": "despesas_base",
+        "label": "Despesas por container",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "despesas_base",
+        "apiWritePath": "despesas_base",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "precision": 28,
+        "scale": 10,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2"
+        }
+      },
+      {
+        "code": "custo_prev_despesas",
+        "label": "Custo previsto das despesas",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "custo_prev_despesas",
+        "apiWritePath": "custo_prev_despesas",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "precision": 28,
+        "scale": 10,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2"
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1023",
+    "programTitle": "Resumo do Processo — MED",
+    "module": "operacional",
+    "builderEntityCode": "proc_compra_resumo_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.proc-compra-resumo",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "permissionPrefix": "proc_compra_resumo_progress",
+    "subtitle": "Empresa MED. Custos previstos dos itens e despesas por quantidade de containers.",
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "proc_compra_id",
+        "filter": true,
+        "createDefault": false,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 10,
+      "defaultSort": [
+        {
+          "field": "proc_compra_id",
+          "dir": "asc"
+        }
+      ],
+      "gridFields": [
+        {
+          "field": "proc_compra_id"
+        },
+        {
+          "field": "qt_container"
+        },
+        {
+          "field": "cotacao_prevista"
+        },
+        {
+          "field": "custo_prev_itens"
+        },
+        {
+          "field": "despesas_base"
+        },
+        {
+          "field": "custo_prev_despesas"
+        }
+      ],
+      "filterFields": []
+    },
+    "formOptions": {
+      "mode": "popup",
+      "tabs": [
+        {
+          "id": "resumo",
+          "title": "Resumo",
+          "sections": [
+            {
+              "id": "valores",
+              "title": "Custos previstos",
+              "columns": 2,
+              "fields": [
+                "proc_compra_id",
+                "qt_container",
+                "cotacao_prevista",
+                "custo_prev_itens",
+                "despesas_base",
+                "custo_prev_despesas"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

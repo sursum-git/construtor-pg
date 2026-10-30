@@ -1,0 +1,151 @@
+{
+  "entityDraft": {
+    "code": "im_param_progress",
+    "name": "Parâmetros IMA",
+    "entityType": "api",
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 98,
+    "createPhysicalTable": false,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "fields": [
+      {
+        "code": "cod_param",
+        "label": "Código interno",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": false,
+        "position": 10,
+        "readonlyField": true,
+        "apiJsonPath": "cod_param",
+        "apiWritePath": "cod_param",
+        "apiShowInForm": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 50
+      },
+      {
+        "code": "codigo",
+        "label": "Código",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": true,
+        "position": 20,
+        "readonlyField": false,
+        "apiJsonPath": "cod_param",
+        "apiWritePath": "codigo",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonlyOnEdit": true
+        },
+        "length": 50
+      },
+      {
+        "code": "val_param",
+        "label": "Valor",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "position": 30,
+        "readonlyField": false,
+        "apiJsonPath": "val_param",
+        "apiWritePath": "val_param",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "editor": "textarea"
+        },
+        "length": 500
+      },
+      {
+        "code": "tp_param",
+        "label": "Tipo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": true,
+        "position": 40,
+        "readonlyField": false,
+        "apiJsonPath": "tp_param",
+        "apiWritePath": "tp_param",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "editor": "dropdown",
+          "defaultValue": 1,
+          "options": [
+            {
+              "value": 0,
+              "text": "Não definido (legado)"
+            },
+            {
+              "value": 1,
+              "text": "Caracter"
+            },
+            {
+              "value": 2,
+              "text": "Inteiro"
+            },
+            {
+              "value": 3,
+              "text": "Decimal"
+            },
+            {
+              "value": 4,
+              "text": "Data"
+            },
+            {
+              "value": 5,
+              "text": "Lógico"
+            }
+          ]
+        }
+      },
+      {
+        "code": "row_stamp",
+        "label": "Estado original",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "position": 50,
+        "readonlyField": false,
+        "apiJsonPath": "row_stamp",
+        "apiWritePath": "row_stamp",
+        "apiShowInForm": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "options": {},
+        "length": 64
+      }
+    ],
+    "apiListOperationCode": "im_param_read",
+    "apiDetailOperationCode": "im_param_get",
+    "apiCreateOperationCode": "im_param_create",
+    "apiUpdateOperationCode": "im_param_update",
+    "apiDeleteOperationCode": "im_param_delete"
+  },
+  "programDraft": {
+    "programCode": "cd0098",
+    "programTitle": "Parâmetros IMA",
+    "module": "cadastros",
+    "builderEntityCode": "im_param_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.parametros-ima",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": true,
+    "allowUpdate": true,
+    "allowDelete": true,
+    "permissionPrefix": "im_param_progress",
+    "subtitle": "Parâmetros administrativos IMA"
+  }
+}

@@ -1,0 +1,174 @@
+{
+  "programCode": "op1003",
+  "programTitle": "Despesas do Container",
+  "module": "operacional",
+  "pageType": "crud",
+  "builderEntityCode": "container_despesas_progress",
+  "screenId": "ciw.container-despesas",
+  "version": "1.0.4",
+  "subtitle": "Despesas do Container",
+  "icon": null,
+  "permissionPrefix": "container_despesas_progress",
+  "gridEditMode": "form",
+  "crudOptions": {
+    "pageSize": 30,
+    "gridFields": [
+      {
+        "field": "despesa_container_id",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "despesa_id",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "descricao",
+        "hidden": false,
+        "width": 280
+      },
+      {
+        "field": "vl_prev",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "vl_negociado",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "vl_distr",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "vl_a_distr",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "vl_base_imp",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "vl_proforma",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "perc_calc",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "log_custo",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "log_manual",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "log_utilizado",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "calc_imp_container_id",
+        "hidden": false,
+        "width": 160
+      }
+    ],
+    "filterFields": [
+      "despesa_container_id",
+      "descricao"
+    ],
+    "defaultSort": [
+      {
+        "field": "ordem",
+        "dir": "asc"
+      }
+    ]
+  },
+  "processOptions": null,
+  "formOptions": null,
+  "rowLinks": [
+    {
+      "id": "memoria_calculo",
+      "label": "Memória de cálculo",
+      "screenId": "ciw.container-despesa-memoria-med",
+      "parameters": [
+        {
+          "field": "container_id",
+          "sourceField": "container_id"
+        },
+        {
+          "field": "despesa_container_id",
+          "sourceField": "despesa_container_id"
+        }
+      ],
+      "position": "end"
+    },
+    {
+      "id": "calcular_impostos",
+      "label": "Calcular impostos",
+      "screenId": "ciw.container-calcular-impostos",
+      "parameters": [
+        {
+          "field": "container_id",
+          "sourceField": "container_id"
+        }
+      ],
+      "position": "end"
+    },
+    {
+      "id": "selecionar_despesas",
+      "label": "Gerar despesas",
+      "screenId": "ciw.container-selecionar-despesas",
+      "parameters": [
+        {
+          "field": "container_id",
+          "sourceField": "container_id"
+        }
+      ],
+      "position": "end"
+    }
+  ],
+  "contextFields": [
+    {
+      "field": "container_id",
+      "filter": true,
+      "createDefault": true,
+      "readonly": true,
+      "required": true
+    }
+  ],
+  "allowCreate": true,
+  "allowUpdate": true,
+  "allowDelete": true,
+  "changeSummary": "Acrescenta somente acesso contextual à seleção de despesas; preserva manutenção, memória e cálculo de impostos.",
+  "programOrigin": "standard",
+  "ownerScope": "system",
+  "customizationPolicy": "overlay_only",
+  "subscriberId": null,
+  "baseProgramCode": null,
+  "baseProgramVersionId": null,
+  "upgradeFrozen": false,
+  "frozenReason": null,
+  "publicationPolicy": {
+    "allowedDatabaseEnvironments": []
+  },
+  "analyticsConfig": null,
+  "reportConfig": null,
+  "specialDocumentConfig": null,
+  "regulatedDocumentConfig": null,
+  "masterDetailConfig": null,
+  "customMode": null,
+  "customEntryUrl": null,
+  "customFrameTitle": null
+}

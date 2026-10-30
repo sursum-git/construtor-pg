@@ -12,7 +12,8 @@
     "boolean",
     "enum",
     "option",
-    "dropdown"
+    "dropdown",
+    "array"
   ];
   const ALLOWED_WAIT_MODES = ["auto", "sse", "polling", "none"];
   const ALLOWED_RESULT_TYPES = ["message", "grid", "report", "job", "properties"];
@@ -29,6 +30,7 @@
       } else {
         this.validateRoot(definition, errors);
         this.validateParameters(definition, errors);
+        this.validateContext(definition, errors);
         this.validateEndpoints(definition, errors);
         this.validateWait(definition, errors);
         this.validateResult(definition, errors);
@@ -57,6 +59,20 @@
       if (!definition.process || typeof definition.process !== "object" || Array.isArray(definition.process)) {
         errors.push("process precisa ser um objeto.");
       }
+    }
+
+    validateContext(definition, errors) {
+      const contexts=definition.contextFields || [];
+      if (!Array.isArray(contexts) || contexts.length>8) { errors.push('Contexto do processo invalido.'); return; }
+      const fields=global.CrudUtils.ensureArray(definition.process && definition.process.parameters && definition.process.parameters.fields),seen={};
+      contexts.forEach(item=>{
+        if (!item || typeof item !== "object" || Array.isArray(item) || Object.keys(item).some(key=>!["field","filter","createDefault","readonly","required"].includes(key))) { errors.push("Contexto do processo invalido."); return; }
+        const field=fields.find(field=>(field.field || field.name || field.id)===item.field);
+        if (!item || !/^[a-z][a-z0-9_]*$/.test(item.field || '') || seen[item.field] || !field || field.type!=='integer' || item.required!==true || item.readonly!==true) { errors.push('Contexto exige parametro integer obrigatorio e readonly.'); }
+        seen[item.field]=true;
+      });
+      const confirmation=definition.process && definition.process.actions && definition.process.actions.process && definition.process.actions.process.confirmation;
+      if (confirmation && (typeof confirmation!=='object' || Array.isArray(confirmation) || Object.keys(confirmation).some(key=>!['message','confirmText'].includes(key)) || typeof confirmation.message!=='string' || !confirmation.message.trim() || confirmation.message.length>1000 || confirmation.confirmText!=null && (typeof confirmation.confirmText!=='string' || confirmation.confirmText.length>80))) { errors.push('Confirmacao do processo invalida.'); }
     }
 
     validateParameters(definition, errors) {
@@ -88,6 +104,15 @@
         const type = String(field.type || "text");
         if (ALLOWED_FIELD_TYPES.indexOf(type) === -1) {
           errors.push(label + ".type invalido: " + type + ".");
+        }
+        if (type === 'array' && (field.itemType !== 'integer' || field.editor !== 'multiselect')) { errors.push(label + '.colecao exige IDs inteiros e multiselect.'); }
+        if (field.optionsSource != null && (type!=='array' || !field.optionsSource || Array.isArray(field.optionsSource) || Object.keys(field.optionsSource).some(key=>!['endpointId','parameterFields'].includes(key)) || field.optionsSource.endpointId!=='options.'+name)) { errors.push(label + '.fonte de opcoes invalida.'); }
+        if (field.optionsSource && field.optionsSource.parameterFields != null) {
+          const names=field.optionsSource.parameterFields;
+          if (!Array.isArray(names) || !names.length || names.length>2 || new Set(names).size!==names.length || names.some(name=>{
+            const parameter=fields.find(value=>(value.field || value.name || value.id)===name);
+            return typeof name!=='string' || !parameter || name===(field.field || field.name || field.id) || parameter.type!=='dropdown' || parameter.readonly || !Array.isArray(parameter.options) || !parameter.options.length || parameter.options.some(option=>!option || typeof option.value!=='string' || typeof option.text!=='string');
+          })) { errors.push(label+'.parametros de opcoes exigem enums fechados.'); }
         }
         if (field.required != null && typeof field.required !== "boolean") {
           errors.push(label + ".required precisa ser booleano.");
@@ -223,7 +248,9 @@
       const pattern = new RegExp(this.securityPolicy.blockedKeyPattern, "i");
       Object.keys(value).forEach((key) => {
         const currentPath = path ? path + "." + key : key;
-        if (pattern.test(key)) {
+        // Session presentation flag is a boolean, never a credential.
+        const sessionFlag = currentPath === "currentUser.forcePasswordChange" && typeof value[key] === "boolean";
+        if (pattern.test(key) && !sessionFlag) {
           errors.push(currentPath + " nao deve existir no JSON de processamento. Segredos e tokens devem ficar no backend.");
         }
         this.validateSensitiveKeys(value[key], currentPath, errors);

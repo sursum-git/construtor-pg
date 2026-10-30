@@ -62,6 +62,9 @@
   "layout": {
     "initialProgramId": "painel",
     "sidebar": {
+      "width": 320,
+      "autoWidth": true,
+      "maxWidth": 480,
       "component": "kendoTreeView",
       "collapsible": true,
       "collapsed": false,

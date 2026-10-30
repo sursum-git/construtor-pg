@@ -1,0 +1,17 @@
+{
+  "rowLinks": [
+    {
+      "id": "empresas",
+      "label": "Empresas",
+      "screenId": "ciw.empresas-despesa",
+      "icon": "buildings-outline",
+      "iconOnly": true,
+      "parameters": [
+        {
+          "field": "despesa_id",
+          "sourceField": "despesa_id"
+        }
+      ]
+    }
+  ]
+}

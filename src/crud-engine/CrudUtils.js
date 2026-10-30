@@ -202,9 +202,21 @@
       });
     },
 
-    toKendoFormat(format, type) {
+    numericFormat(format, decimals) {
+      const explicit = typeof format === "string"
+        ? format.match(/^(?:([ncp])(10|[0-9])|\{0:([ncp])(10|[0-9])\})$/i)
+        : null;
+      if (explicit) { return ((explicit[1] || explicit[3]) + (explicit[2] || explicit[4])).toLowerCase(); }
+      const precision = Number.isInteger(decimals) && decimals >= 0 && decimals <= 10 ? decimals : null;
+      if (format === "currency") { return "c" + (precision == null ? 2 : precision); }
+      if (format === "number" || precision != null) { return "n" + (precision == null ? 2 : precision); }
+      return undefined;
+    },
+
+    toKendoFormat(format, type, decimals) {
+      if (type === "integer") { return this.numericFormat(format, decimals) ? "{0:n0}" : undefined; }
       if (format === "currency") {
-        return "{0:c2}";
+        return "{0:" + this.numericFormat(format, decimals) + "}";
       }
       if (format === "date" || type === "date") {
         return "{0:dd/MM/yyyy}";
@@ -212,6 +224,8 @@
       if (format === "datetime" || type === "datetime") {
         return "{0:dd/MM/yyyy HH:mm}";
       }
+      const numeric = this.numericFormat(format, decimals);
+      if (numeric) { return "{0:" + numeric + "}"; }
       if (format === "number" || type === "number" || type === "decimal") {
         return "{0:n2}";
       }
@@ -224,6 +238,14 @@
       }
       if (value instanceof Date) {
         return value;
+      }
+      const calendar = typeof value === "string" ? value.match(/^(\d{4})-(\d{2})-(\d{2})$/) : null;
+      if (calendar) {
+        const year = Number(calendar[1]), month = Number(calendar[2]) - 1, day = Number(calendar[3]);
+        const local = new Date(0);
+        local.setFullYear(year, month, day);
+        local.setHours(0, 0, 0, 0);
+        return local.getFullYear() === year && local.getMonth() === month && local.getDate() === day ? local : value;
       }
       const date = new Date(value);
       return Number.isNaN(date.getTime()) ? value : date;
@@ -1417,6 +1439,79 @@
         definition.dataSource.api = definition.api;
       }
       return definition;
+    },
+
+    normalizeGridReturnState(definition, value) {
+      const fields = definition && definition.dataModel && definition.dataModel.fields || {};
+      const closed = (item, keys) => item && typeof item === 'object' && !Array.isArray(item) && Object.keys(item).every(key => keys.includes(key));
+      const known = field => typeof field === 'string' && Object.prototype.hasOwnProperty.call(fields, field);
+      if (!closed(value, ['page','pageSize','sort','group','filter','filters']) || !Number.isInteger(value.page) || value.page < 1 || value.page > 1000000 || !Number.isInteger(value.pageSize) || value.pageSize < 1 || value.pageSize > 500) { return null; }
+      let leaves = 0;
+      const filter = (item, depth) => {
+        if (item == null) { return null; }
+        if (depth > 8 || ++leaves > 100) { throw new Error('Invalid filter'); }
+        if (Array.isArray(item.filters)) {
+          if (!closed(item, ['logic','filters']) || !['and','or'].includes(item.logic)) { throw new Error('Invalid group filter'); }
+          return {logic:item.logic,filters:item.filters.map(child=>filter(child,depth+1))};
+        }
+        if (!closed(item, ['id','field','operator','value','displayValue','dataType','type','label','ignoreCase']) || !known(item.field) || !['eq','neq','gt','gte','lt','lte','contains','doesnotcontain','startswith','endswith','isnull','isnotnull','isempty','isnotempty','in'].includes(item.operator)) { throw new Error('Invalid filter field'); }
+        const scalar = x => x == null || ['string','number','boolean'].includes(typeof x);
+        if (!(scalar(item.value) || Array.isArray(item.value) && item.value.length <= 100 && item.value.every(scalar))) { throw new Error('Invalid filter value'); }
+        const result = Object.assign({},item);
+        if (['date','datetime'].includes(fields[item.field].type) && typeof result.value === 'string') {
+          const date = new Date(result.value); if (!Number.isFinite(date.getTime())) { throw new Error('Invalid date'); } result.value = date;
+        }
+        return result;
+      };
+      const descriptors = (items, grouping) => {
+        if (!Array.isArray(items) || items.length > (grouping ? 3 : 20)) { throw new Error('Invalid descriptors'); }
+        return items.map(item=>{
+          if (!closed(item, grouping ? ['field','dir','aggregates'] : ['field','dir']) || !known(item.field) || !['asc','desc'].includes(item.dir)) { throw new Error('Invalid descriptor'); }
+          const result={field:item.field,dir:item.dir};
+          if (grouping && item.aggregates != null) {
+            if (!Array.isArray(item.aggregates) || item.aggregates.length > 20) { throw new Error('Invalid aggregate'); }
+            result.aggregates=item.aggregates.map(aggregate=>{
+              if (!closed(aggregate,['field','aggregate']) || !known(aggregate.field) || !['count','sum'].includes(aggregate.aggregate)) { throw new Error('Invalid aggregate'); }
+              return {field:aggregate.field,aggregate:aggregate.aggregate};
+            });
+          }
+          return result;
+        });
+      };
+      try {
+        if (!Array.isArray(value.filters) || value.filters.length > 100) { return null; }
+        return {page:value.page,pageSize:value.pageSize,sort:descriptors(value.sort,false),group:descriptors(value.group,true),filter:filter(value.filter,0),filters:value.filters.map(item=>filter(item,0))};
+      } catch (_) { return null; }
+    },
+
+    saveGridReturnState(definition, targetScreenId, state) {
+      const screenId=this.getDefinitionScreenId(definition), safe=/^[A-Za-z0-9][A-Za-z0-9_.-]{0,159}$/;
+      if (!safe.test(screenId) || !safe.test(targetScreenId)) { return false; }
+      try {
+        const json=JSON.stringify({screenId,targetScreenId,savedAt:Date.now(),state});
+        if (json.length > 65536 || !this.normalizeGridReturnState(definition,JSON.parse(json).state)) { return false; }
+        global.sessionStorage.setItem('crud.return-grid.'+screenId,json);return true;
+      } catch (_) { return false; }
+    },
+
+    readGridReturnState(definition, fromScreenId) {
+      const screenId=this.getDefinitionScreenId(definition), safe=/^[A-Za-z0-9][A-Za-z0-9_.-]{0,159}$/;
+      if (!safe.test(screenId) || !safe.test(fromScreenId || '')) { return null; }
+      try {
+        const key='crud.return-grid.'+screenId,raw=global.sessionStorage.getItem(key);
+        if (!raw || raw.length > 65536) { return null; }
+        const saved=JSON.parse(raw);
+        if (saved.screenId !== screenId || saved.targetScreenId !== fromScreenId) { return null; }
+        global.sessionStorage.removeItem(key);
+        if (!Number.isFinite(saved.savedAt) || saved.savedAt > Date.now() || Date.now()-saved.savedAt > 1800000) { return null; }
+        return this.normalizeGridReturnState(definition,saved.state);
+      } catch (_) { return null; }
+    },
+
+    buildGridReturnUrl(definition) {
+      const target=definition && definition.form && definition.form.returnScreenId;
+      if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(target || '')) { return null; }
+      return '../production/app.html?' + new URLSearchParams({screenId:target,restoreFrom:this.getDefinitionScreenId(definition)}).toString();
     },
 
     getDefinitionScreenId(definition) {

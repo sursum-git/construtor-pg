@@ -1,0 +1,53 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "itens_read",
+      "name": "Itens ERP — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "itens"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "itens_get",
+      "name": "Itens ERP — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "itens"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "representantes_ativos_read",
+      "name": "Representantes ativos — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "representantes_ativos"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "representantes_ativos_get",
+      "name": "Representantes ativos — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "representantes_ativos"
+      },
+      "itemPath": "data"
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "proc_compra_documentos_read",
+      "name": "Anexos do Processo — MED — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_documentos",
+        "operation": "read"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "proc_compra_documentos_get",
+      "name": "Anexos do Processo — MED — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_documentos",
+        "operation": "get"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_documentos_create",
+      "name": "Anexos do Processo — MED — create",
+      "type": "create",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_documentos",
+        "operation": "create"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_documentos_update",
+      "name": "Anexos do Processo — MED — update",
+      "type": "update",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_documentos",
+        "operation": "update"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_documentos_delete",
+      "name": "Anexos do Processo — MED — delete",
+      "type": "delete",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_documentos",
+        "operation": "delete"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_documentos_opcoes_tipo",
+      "name": "Tipos de anexo do processo",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_documentos",
+        "operation": "options",
+        "lookup": "tipo_anexo"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    }
+  ]
+}

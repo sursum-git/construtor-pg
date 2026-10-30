@@ -1,0 +1,689 @@
+{
+  "entityDraft": {
+    "code": "iol_gerencial_resumo_progress",
+    "name": "IOL Gerencial — Resumo",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1012,
+    "apiSourceCode": "motor_progress_iol_gerencial",
+    "apiListOperationCode": "read_resumo",
+    "fields": [
+      {
+        "code": "id",
+        "label": "ID",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": true,
+        "readonlyField": true,
+        "apiJsonPath": "id",
+        "apiWritePath": "id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 0,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "competencia",
+        "label": "Competência",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "competencia",
+        "apiWritePath": "competencia",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 1,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 120
+      },
+      {
+        "code": "data_referencia",
+        "label": "Referência",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "data_referencia",
+        "apiWritePath": "data_referencia",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 2,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "meta_mensal",
+        "label": "Meta Mensal",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "meta_mensal",
+        "apiWritePath": "meta_mensal",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 3,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "analytics": {
+            "format": "c2"
+          }
+        }
+      },
+      {
+        "code": "meta_quinzenal",
+        "label": "Meta Quinzenal",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "meta_quinzenal",
+        "apiWritePath": "meta_quinzenal",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 4,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "analytics": {
+            "format": "c2"
+          }
+        }
+      },
+      {
+        "code": "faturamento_liquido",
+        "label": "Faturado Líquido",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "faturamento_liquido",
+        "apiWritePath": "faturamento_liquido",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 5,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "analytics": {
+            "format": "c2"
+          }
+        }
+      },
+      {
+        "code": "percentual_meta",
+        "label": "Progresso",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "percentual_meta",
+        "apiWritePath": "percentual_meta",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 6,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "percentual_loja_vendido",
+        "label": "Vendido Loja",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "percentual_loja_vendido",
+        "apiWritePath": "percentual_loja_vendido",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 7,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "percentual_loja_ideal",
+        "label": "Ideal Loja",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "percentual_loja_ideal",
+        "apiWritePath": "percentual_loja_ideal",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 8,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dias_uteis_mes",
+        "label": "Dias Úteis no Mês",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dias_uteis_mes",
+        "apiWritePath": "dias_uteis_mes",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 9,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dias_uteis_passados",
+        "label": "Dias Úteis Passados",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dias_uteis_passados",
+        "apiWritePath": "dias_uteis_passados",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 10,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dias_uteis_restantes",
+        "label": "Dias Úteis Restantes",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dias_uteis_restantes",
+        "apiWritePath": "dias_uteis_restantes",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 11,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "pedidos_avaliacao",
+        "label": "Avaliação Gerencial",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "pedidos_avaliacao",
+        "apiWritePath": "pedidos_avaliacao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 12,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "pedidos_abertos",
+        "label": "Pedidos em Aberto",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "pedidos_abertos",
+        "apiWritePath": "pedidos_abertos",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 13,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1012",
+    "programTitle": "Painel Gerencial IOL",
+    "module": "operacional",
+    "pageType": "analytics",
+    "builderEntityCode": "iol_gerencial_resumo_progress",
+    "screenId": "iol.inicial-gerencial",
+    "version": "1.0.2",
+    "subtitle": "Metas, pedidos e atalhos gerenciais",
+    "icon": null,
+    "permissionPrefix": "iol.inicial-gerencial",
+    "gridEditMode": "form",
+    "crudOptions": null,
+    "processOptions": null,
+    "formOptions": null,
+    "rowLinks": [],
+    "contextFields": [],
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "changeSummary": "Nomes dos vendedores com inicial de cada palavra maiuscula; demais letras minusculas.",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "customizationPolicy": "overlay_only",
+    "subscriberId": null,
+    "baseProgramCode": null,
+    "baseProgramVersionId": null,
+    "upgradeFrozen": false,
+    "frozenReason": null,
+    "publicationPolicy": {
+      "allowedDatabaseEnvironments": []
+    },
+    "analyticsConfig": {
+      "apiDashboard": {
+        "datasets": [
+          {
+            "id": "resumo",
+            "title": "Resumo",
+            "source": {
+              "type": "api",
+              "entityCode": "iol_gerencial_resumo_progress"
+            },
+            "fields": [
+              {
+                "id": "id",
+                "field": "id",
+                "label": "ID",
+                "type": "integer",
+                "format": "n0"
+              },
+              {
+                "id": "competencia",
+                "field": "competencia",
+                "label": "Competência",
+                "type": "string"
+              },
+              {
+                "id": "data_referencia",
+                "field": "data_referencia",
+                "label": "Referência",
+                "type": "date"
+              },
+              {
+                "id": "meta_mensal",
+                "field": "meta_mensal",
+                "label": "Meta Mensal",
+                "type": "decimal",
+                "format": "c2"
+              },
+              {
+                "id": "meta_quinzenal",
+                "field": "meta_quinzenal",
+                "label": "Meta Quinzenal",
+                "type": "decimal",
+                "format": "c2"
+              },
+              {
+                "id": "faturamento_liquido",
+                "field": "faturamento_liquido",
+                "label": "Faturado Líquido",
+                "type": "decimal",
+                "format": "c2"
+              },
+              {
+                "id": "percentual_meta",
+                "field": "percentual_meta",
+                "label": "Progresso",
+                "type": "decimal"
+              },
+              {
+                "id": "percentual_loja_vendido",
+                "field": "percentual_loja_vendido",
+                "label": "Vendido Loja",
+                "type": "decimal"
+              },
+              {
+                "id": "percentual_loja_ideal",
+                "field": "percentual_loja_ideal",
+                "label": "Ideal Loja",
+                "type": "decimal"
+              },
+              {
+                "id": "dias_uteis_mes",
+                "field": "dias_uteis_mes",
+                "label": "Dias Úteis no Mês",
+                "type": "integer",
+                "format": "n0"
+              },
+              {
+                "id": "dias_uteis_passados",
+                "field": "dias_uteis_passados",
+                "label": "Dias Úteis Passados",
+                "type": "integer",
+                "format": "n0"
+              },
+              {
+                "id": "dias_uteis_restantes",
+                "field": "dias_uteis_restantes",
+                "label": "Dias Úteis Restantes",
+                "type": "integer",
+                "format": "n0"
+              },
+              {
+                "id": "pedidos_avaliacao",
+                "field": "pedidos_avaliacao",
+                "label": "Avaliação Gerencial",
+                "type": "integer",
+                "format": "n0"
+              },
+              {
+                "id": "pedidos_abertos",
+                "field": "pedidos_abertos",
+                "label": "Pedidos em Aberto",
+                "type": "integer",
+                "format": "n0"
+              }
+            ],
+            "limit": 1,
+            "defaultSort": [],
+            "executionMode": "live"
+          },
+          {
+            "id": "vendedores",
+            "title": "Vendedores",
+            "source": {
+              "type": "api",
+              "entityCode": "iol_gerencial_vendedores_progress"
+            },
+            "fields": [
+              {
+                "id": "representante_id",
+                "field": "representante_id",
+                "label": "Representante",
+                "type": "integer",
+                "format": "n0"
+              },
+              {
+                "id": "nome_abreviado",
+                "field": "nome_abreviado",
+                "label": "Vendedor",
+                "type": "string"
+              },
+              {
+                "id": "percentual_vendido",
+                "field": "percentual_vendido",
+                "label": "Vendido",
+                "type": "decimal"
+              }
+            ],
+            "limit": 1000,
+            "defaultSort": [
+              {
+                "field": "percentual_vendido",
+                "dir": "desc"
+              },
+              {
+                "field": "representante_id",
+                "dir": "asc"
+              }
+            ],
+            "executionMode": "live"
+          }
+        ],
+        "dashboard": {
+          "id": "inicio",
+          "type": "dashboard",
+          "title": "Painel Gerencial",
+          "datasetId": "resumo",
+          "tiles": [
+            {
+              "id": "metas",
+              "type": "group",
+              "title": "Meta de Faturamento",
+              "datasetId": "resumo",
+              "collapsed": false,
+              "children": [
+                {
+                  "id": "meta_mensal",
+                  "type": "kpi",
+                  "title": "Meta Mensal",
+                  "datasetId": "resumo",
+                  "valueField": "meta_mensal",
+                  "format": "c2"
+                },
+                {
+                  "id": "meta_quinzenal",
+                  "type": "kpi",
+                  "title": "Meta Quinzenal",
+                  "datasetId": "resumo",
+                  "valueField": "meta_quinzenal",
+                  "format": "c2"
+                },
+                {
+                  "id": "faturado",
+                  "type": "kpi",
+                  "title": "Faturado até o momento",
+                  "datasetId": "resumo",
+                  "valueField": "faturamento_liquido",
+                  "format": "c2"
+                },
+                {
+                  "id": "progresso",
+                  "type": "progress",
+                  "title": "Progresso",
+                  "datasetId": "resumo",
+                  "valueField": "percentual_meta",
+                  "format": "percent2"
+                }
+              ]
+            },
+            {
+              "id": "loja",
+              "type": "group",
+              "title": "Metas Loja",
+              "datasetId": "resumo",
+              "collapsed": false,
+              "children": [
+                {
+                  "id": "vendido",
+                  "type": "progress",
+                  "title": "Vendido",
+                  "datasetId": "resumo",
+                  "valueField": "percentual_loja_vendido",
+                  "format": "percent0"
+                },
+                {
+                  "id": "ideal",
+                  "type": "progress",
+                  "title": "Ideal",
+                  "datasetId": "resumo",
+                  "valueField": "percentual_loja_ideal",
+                  "format": "percent0"
+                },
+                {
+                  "id": "dias",
+                  "type": "kpi",
+                  "title": "Dias úteis restantes",
+                  "datasetId": "resumo",
+                  "valueField": "dias_uteis_restantes",
+                  "format": "n0"
+                }
+              ]
+            },
+            {
+              "id": "vendedores",
+              "type": "list",
+              "title": "Vendedores",
+              "datasetId": "vendedores",
+              "valueField": "percentual_vendido",
+              "format": "percent0",
+              "labelField": "nome_abreviado",
+              "labelCase": "title"
+            },
+            {
+              "id": "avaliacao",
+              "type": "kpi",
+              "title": "Avaliação Gerencial",
+              "datasetId": "resumo",
+              "valueField": "pedidos_avaliacao",
+              "format": "n0",
+              "navigationId": "avaliacao"
+            },
+            {
+              "id": "abertos",
+              "type": "kpi",
+              "title": "Pedidos Em Aberto",
+              "datasetId": "resumo",
+              "valueField": "pedidos_abertos",
+              "format": "n0",
+              "navigationId": "pedidos"
+            },
+            {
+              "id": "precos",
+              "type": "links",
+              "title": "Tabelas de Preços",
+              "datasetId": "resumo",
+              "items": [
+                {
+                  "navigationId": "estoque"
+                },
+                {
+                  "navigationId": "programado"
+                }
+              ]
+            },
+            {
+              "id": "rastreio",
+              "type": "links",
+              "title": "Rastreamento de Pedidos",
+              "datasetId": "resumo",
+              "items": [
+                {
+                  "navigationId": "rastreio"
+                }
+              ]
+            },
+            {
+              "id": "novidades",
+              "type": "links",
+              "title": "Novidades e Promoções",
+              "datasetId": "resumo",
+              "items": [
+                {
+                  "navigationId": "noticias"
+                },
+                {
+                  "navigationId": "credito"
+                },
+                {
+                  "navigationId": "rnc"
+                }
+              ]
+            },
+            {
+              "id": "apoio",
+              "type": "links",
+              "title": "Materiais de Apoio",
+              "datasetId": "resumo",
+              "items": [
+                {
+                  "navigationId": "apoio"
+                }
+              ]
+            },
+            {
+              "id": "certificacao",
+              "type": "links",
+              "title": "Item Certificação",
+              "datasetId": "resumo",
+              "items": [
+                {
+                  "navigationId": "certificacao"
+                }
+              ]
+            }
+          ]
+        },
+        "navigation": {
+          "avaliacao": {
+            "label": "Avaliação Gerencial",
+            "url": "https://imaonline.imatextil.com.br/iol/cons_ped_aprov_gerencial/"
+          },
+          "estoque": {
+            "label": "Tabela de Preços - Estoque",
+            "url": "https://imaonline.imatextil.com.br/iol/cons_tb_preco_estoque/"
+          },
+          "programado": {
+            "label": "Tabela de Preços - Programado",
+            "url": "https://imaonline.imatextil.com.br/iol/cons_tb_preco_prog_container/"
+          },
+          "pedidos": {
+            "label": "Pedidos Em Aberto",
+            "url": "https://imaonline.imatextil.com.br/iol/bl_painel_inicial_repres_ped_wp/"
+          },
+          "rastreio": {
+            "label": "Rastreamento de Pedidos",
+            "url": "https://imaonline.imatextil.com.br/iol/rastreamento_pedidos_venda/"
+          },
+          "noticias": {
+            "label": "Promoções e informações ativas",
+            "url": "https://imaonline.imatextil.com.br/iol/bl_noticias_ativas/"
+          },
+          "credito": {
+            "label": "Abertura de crédito de cliente",
+            "url": "https://imaonline.imatextil.com.br/iol/_lib/file/docnoticias/PAC_.rtf"
+          },
+          "rnc": {
+            "label": "Solicitação de não conformidade",
+            "url": "https://imaonline.imatextil.com.br/iol/_lib/file/docnoticias/RNC.rtf"
+          },
+          "apoio": {
+            "label": "Materiais de Apoio",
+            "url": "https://imaonline.imatextil.com.br/iol/bl_arquivos_estilo/bl_arquivos_estilo.php"
+          },
+          "certificacao": {
+            "label": "Item Certificação",
+            "url": "https://imaonline.imatextil.com.br/iol/cons_item_certificacao/"
+          }
+        },
+        "navigationHosts": [
+          "imaonline.imatextil.com.br"
+        ]
+      }
+    },
+    "reportConfig": null,
+    "specialDocumentConfig": null,
+    "regulatedDocumentConfig": null,
+    "masterDetailConfig": null,
+    "customMode": null,
+    "customEntryUrl": null,
+    "customFrameTitle": null
+  }
+}

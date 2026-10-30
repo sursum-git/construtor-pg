@@ -23,6 +23,7 @@
       const source = global.CrudUtils.clone(definition);
       const program = source.program || {};
       const crud = source.crud || {};
+      if (Object.prototype.hasOwnProperty.call(source, "contextFields")) { source.contextFields = this.normalizeContextFields(source.contextFields, source.dataModel || crud.dataModel); }
       const dataSource = source.dataSource || {};
       const query = this.normalizeQueryConfig(crud.query || source.query || {});
       const filter = this.normalizeFilterConfig(crud.filter || source.filter, crud.query || source.query || {});
@@ -71,6 +72,7 @@
 
     normalizeLegacyCrudDefinition(definition) {
       const source = global.CrudUtils.clone(definition);
+      if (Object.prototype.hasOwnProperty.call(source, "contextFields")) { source.contextFields = this.normalizeContextFields(source.contextFields, source.dataModel); }
       const query = this.normalizeQueryConfig(source.query || {});
       const filter = this.normalizeFilterConfig(source.filter, source.query || {});
       const program = {
@@ -110,6 +112,19 @@
         query,
         filter
       });
+    }
+
+    normalizeContextFields(value, model) {
+      if (!Array.isArray(value)) { return value; }
+      value.forEach((item) => {
+        if (!item || typeof item !== "object" || !Object.prototype.hasOwnProperty.call(item, "filterOnly")) { return; }
+        const field = model && model.fields && model.fields[item.field];
+        if (Object.keys(item).some((key) => ["field", "filter", "createDefault", "readonly", "required", "filterOnly"].indexOf(key) === -1) || typeof item.filterOnly !== "boolean" || (item.filterOnly && (!field || field.type !== "integer" || item.required !== false || item.filter !== true || item.readonly !== true || item.createDefault !== false))) {
+          throw global.CrudUtils.makeError("CRUD_CONTEXT_INVALID", "filterOnly exige contexto integer opcional readonly, filtro ativo e sem default de criacao.");
+        }
+        if (item.filterOnly === false) { delete item.filterOnly; }
+      });
+      return value;
     }
 
     normalizeQueryConfig(queryConfig) {

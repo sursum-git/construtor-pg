@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Runtime\RuntimeEndpointDispatcher;
+use App\Runtime\RuntimeFileTransferContext;
 use App\Runtime\RuntimeHttpException;
 use App\Runtime\RuntimeLiteralService;
 use App\Runtime\RuntimeMessageService;
@@ -26,6 +27,7 @@ class RuntimeController extends AbstractController
         private readonly RuntimeLiteralService $literals,
         private readonly RuntimeProcessHandler $process,
         private readonly RuntimeSessionGuard $sessions,
+        private readonly ?RuntimeFileTransferContext $files = null,
     ) {
     }
 
@@ -41,16 +43,19 @@ class RuntimeController extends AbstractController
     }
 
     #[Route('/api/runtime/screens/{screenId}/endpoints/{endpointId}', name: 'runtime_endpoint', methods: ['POST'])]
-    public function endpoint(string $screenId, string $endpointId, Request $request): JsonResponse
+    public function endpoint(string $screenId, string $endpointId, Request $request): Response
     {
         try {
-            $payload = json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
+            $payload = $this->files ? $this->files->beginRequest($request) : json_decode($request->getContent() ?: '{}', true, 512, JSON_THROW_ON_ERROR);
             if (!is_array($payload)) {
                 $payload = [];
             }
-            return $this->json($this->dispatcher->dispatch($screenId, $endpointId, $payload));
+            $result = $this->dispatcher->dispatch($screenId, $endpointId, $payload);
+            return $this->files?->takeDownload() ?? $this->json($result);
         } catch (\Throwable $error) {
             return $this->error($error);
+        } finally {
+            $this->files?->clear();
         }
     }
 
@@ -121,6 +126,10 @@ class RuntimeController extends AbstractController
                         $this->flushStream();
                     }
 
+                    // The built-in PHP server has one worker; reconnect after this authenticated poll.
+                    if (PHP_SAPI === 'cli-server') {
+                        break;
+                    }
                     sleep($intervalSeconds);
                 }
             });
@@ -206,6 +215,10 @@ class RuntimeController extends AbstractController
                     $this->flushStream();
                 }
 
+                // The built-in PHP server has one worker; reconnect after this authenticated poll.
+                if (PHP_SAPI === 'cli-server') {
+                    break;
+                }
                 sleep($intervalSeconds);
             }
         });

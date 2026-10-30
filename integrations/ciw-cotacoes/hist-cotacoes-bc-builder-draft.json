@@ -1,0 +1,218 @@
+{
+  "entityDraft": {
+    "code": "hist_cotacoes_bc_progress",
+    "name": "Cotações Banco Central",
+    "entityType": "api",
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 103,
+    "createPhysicalTable": false,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "fields": [
+      {
+        "code": "hist_cotacao_bc_id",
+        "label": "ID",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "position": 10,
+        "readonlyField": true,
+        "apiJsonPath": "hist_cotacao_bc_id",
+        "apiWritePath": "hist_cotacao_bc_id",
+        "apiShowInForm": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "options": {
+          "decimals": 0,
+          "format": "n0",
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "data",
+        "label": "Data",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": true,
+        "position": 20,
+        "readonlyField": false,
+        "apiJsonPath": "data",
+        "apiWritePath": "data",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {}
+      },
+      {
+        "code": "serie",
+        "label": "Série",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": true,
+        "position": 30,
+        "readonlyField": false,
+        "apiJsonPath": "serie",
+        "apiWritePath": "serie",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "defaultValue": 1,
+          "min": 1,
+          "max": 2147483647,
+          "decimals": 0,
+          "format": "n0",
+          "step": 1
+        }
+      },
+      {
+        "code": "valor",
+        "label": "Cotação",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": true,
+        "position": 40,
+        "readonlyField": false,
+        "apiJsonPath": "valor",
+        "apiWritePath": "valor",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "decimals": 5,
+          "format": "n5",
+          "step": 1e-05
+        },
+        "precision": 20,
+        "scale": 5
+      },
+      {
+        "code": "dt_hr_busca",
+        "label": "Data/hora da busca",
+        "dataType": "datetime",
+        "primaryKey": false,
+        "required": false,
+        "position": 50,
+        "readonlyField": false,
+        "apiJsonPath": "dt_hr_busca",
+        "apiWritePath": "dt_hr_busca",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {}
+      },
+      {
+        "code": "nome_serie",
+        "label": "Nome da série",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "position": 60,
+        "readonlyField": true,
+        "apiJsonPath": "nome_serie",
+        "apiWritePath": "nome_serie",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 200
+      },
+      {
+        "code": "log_ok",
+        "label": "Busca com sucesso",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "position": 70,
+        "readonlyField": true,
+        "apiJsonPath": "log_ok",
+        "apiWritePath": "log_ok",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "log_manual",
+        "label": "Manual",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "position": 80,
+        "readonlyField": true,
+        "apiJsonPath": "log_manual",
+        "apiWritePath": "log_manual",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "defaultValue": true,
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "row_stamp",
+        "label": "Estado original",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "position": 90,
+        "readonlyField": false,
+        "apiJsonPath": "row_stamp",
+        "apiWritePath": "row_stamp",
+        "apiShowInForm": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "options": {},
+        "length": 64
+      }
+    ],
+    "apiListOperationCode": "hist_cotacoes_bc_read",
+    "apiDetailOperationCode": "hist_cotacoes_bc_get",
+    "apiCreateOperationCode": "hist_cotacoes_bc_create",
+    "apiUpdateOperationCode": "hist_cotacoes_bc_update",
+    "apiDeleteOperationCode": "hist_cotacoes_bc_delete"
+  },
+  "programDraft": {
+    "programCode": "cd0103",
+    "programTitle": "Cotações Banco Central",
+    "module": "cadastros",
+    "builderEntityCode": "hist_cotacoes_bc_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.cotacoes-bc",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": true,
+    "allowUpdate": true,
+    "allowDelete": true,
+    "permissionPrefix": "hist_cotacoes_bc_progress",
+    "subtitle": "Histórico BC. Somente registros manuais podem ser alterados/excluídos; série 9999 invalida custos dos containers elegíveis.",
+    "crudOptions": {
+      "pageSize": 50,
+      "defaultSort": [
+        {
+          "field": "data",
+          "dir": "desc"
+        },
+        {
+          "field": "serie",
+          "dir": "desc"
+        },
+        {
+          "field": "hist_cotacao_bc_id",
+          "dir": "desc"
+        }
+      ]
+    }
+  }
+}

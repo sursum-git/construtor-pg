@@ -135,6 +135,9 @@
           "type": "object",
           "properties": {
             "component": { "const": "kendoTreeView" },
+            "width": { "type": "number", "minimum": 160, "maximum": 1200 },
+            "autoWidth": { "type": "boolean" },
+            "maxWidth": { "type": "number", "minimum": 160, "maximum": 1200 },
             "collapsible": { "type": "boolean" },
             "collapsed": { "type": "boolean" },
             "expanded": { "type": "boolean" }

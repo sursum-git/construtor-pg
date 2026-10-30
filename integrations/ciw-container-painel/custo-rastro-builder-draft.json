@@ -1,0 +1,281 @@
+{
+  "entityDraft": {
+    "code": "container_custo_rastro_progress",
+    "name": "Rastro do Dólar Médio",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1011,
+    "apiSourceCode": "motor_progress_container_custos",
+    "apiListOperationCode": "rastro_read",
+    "apiDetailOperationCode": "rastro_get",
+    "fields": [
+      {
+        "code": "container_id",
+        "label": "Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 10,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "rastro_id",
+        "label": "Etapa",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": true,
+        "readonlyField": true,
+        "apiJsonPath": "rastro_id",
+        "apiWritePath": "rastro_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 20,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "etapa",
+        "label": "Componente",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "etapa",
+        "apiWritePath": "etapa",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 30,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "valor",
+        "label": "Valor",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "valor",
+        "apiWritePath": "valor",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 40,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "origem",
+        "label": "Fórmula / origem",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "origem",
+        "apiWritePath": "origem",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 50,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "calculation_source",
+        "label": "Origem do cálculo",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "calculation_source",
+        "apiWritePath": "calculation_source",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 60,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "calculation_warning",
+        "label": "Avisos do cálculo",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "calculation_warning",
+        "apiWritePath": "calculation_warning",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 70,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "quotation_date",
+        "label": "Data da cotação utilizada",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "quotation_date",
+        "apiWritePath": "quotation_date",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 80,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "quotation_latest_date",
+        "label": "Última data de cotação cadastrada",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "quotation_latest_date",
+        "apiWritePath": "quotation_latest_date",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 90,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "quotation_warning",
+        "label": "Aviso da cotação",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "quotation_warning",
+        "apiWritePath": "quotation_warning",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 100,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1011",
+    "programTitle": "Rastro do Dólar Médio",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "container_custo_rastro_progress",
+    "screenId": "ciw.container-rastro-dolar",
+    "version": "1.0.0",
+    "subtitle": "Rastro do Dólar Médio",
+    "permissionPrefix": "container_custo_rastro_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "container_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "rastro_id",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "etapa",
+          "hidden": false,
+          "width": 300
+        },
+        {
+          "field": "valor",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "origem",
+          "hidden": false,
+          "width": 300
+        },
+        {
+          "field": "calculation_source",
+          "hidden": true,
+          "width": 170
+        },
+        {
+          "field": "calculation_warning",
+          "hidden": false,
+          "width": 300
+        },
+        {
+          "field": "quotation_date",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "quotation_latest_date",
+          "hidden": true,
+          "width": 170
+        },
+        {
+          "field": "quotation_warning",
+          "hidden": false,
+          "width": 170
+        }
+      ],
+      "filterFields": [],
+      "defaultSort": [
+        {
+          "field": "rastro_id",
+          "dir": "asc"
+        }
+      ]
+    }
+  }
+}

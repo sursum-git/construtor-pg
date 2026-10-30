@@ -1,0 +1,71 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "procs_compra_med_read",
+      "name": "Processos de Compra — MED — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "procs_compra_med"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "procs_compra_med_get",
+      "name": "Processos de Compra — MED — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "procs_compra_med"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "procs_compra_med_create",
+      "name": "Processos de Compra — MED — create",
+      "type": "create",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [],
+      "bodyTemplate": {
+        "operation": "create",
+        "resource": "procs_compra_med"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "procs_compra_med_update",
+      "name": "Processos de Compra — MED — update",
+      "type": "update",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [],
+      "bodyTemplate": {
+        "operation": "update",
+        "resource": "procs_compra_med"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "procs_compra_med_delete",
+      "name": "Processos de Compra — MED — delete",
+      "type": "delete",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [],
+      "bodyTemplate": {
+        "operation": "delete",
+        "resource": "procs_compra_med"
+      },
+      "itemPath": "data"
+    }
+  ]
+}

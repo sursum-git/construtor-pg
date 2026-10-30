@@ -1,0 +1,14 @@
+{
+  "childScreen": "ciw.proc-compra-documentos",
+  "programCode": "op1020",
+  "parentScreen": "ciw.processos-compra-med",
+  "parentVersion": "1.0.3",
+  "parentTabs": 5,
+  "itemVersionPreserved": "1.0.2",
+  "oldSourceOperations": 79,
+  "newSourceOperations": 85,
+  "homeChanged": false,
+  "newSequence": false,
+  "reuseStorage": true,
+  "reuseWriter": true
+}

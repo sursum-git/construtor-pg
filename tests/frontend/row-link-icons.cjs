@@ -1,0 +1,17 @@
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const canonical='D:/opencode/construtor-pg',source=process.argv[2]||canonical,win={kendo:{ui:{icon:({icon,type})=>{assert.equal(type,'svg');return '<span class="k-svg-icon k-svg-i-'+icon+'"><svg></svg></span>';}}}};const ctx=vm.createContext({window:win,console,URLSearchParams,jQuery:()=>{throw Error('DOM nao esperado');}});
+for(const [r,f]of [[canonical,'src/crud-engine/CrudUtils.js'],[source,'src/crud-engine/CrudDefinitionValidator.js'],[source,'src/crud-engine/CrudKendoGridRenderer.js']])vm.runInContext(fs.readFileSync(path.join(r,f),'utf8'),ctx,{filename:f});
+const link=()=>({id:'empresas',label:'Empresas',screenId:'ciw.empresas-despesa',parameters:[{field:'despesa_id',sourceField:'id'}]}),render=(l,row={id:7})=>win.CrudKendoGridRenderer.prototype.buildRowLinkHtml.call({},l,row);
+const errors=l=>{const errors=[];new win.CrudDefinitionValidator().validateDeclarativeCapabilities({dataModel:{fields:{id:{type:'integer'}}},grid:{rowLinks:[l]}},errors);return errors;};
+const cases=[],test=(n,f)=>cases.push([n,f]);
+test('link antigo preserva texto e contexto',()=>{const h=render(link());assert.match(h,/>Empresas<\/a>/);assert.match(h,/context__despesa_id=7/);});
+test('icone apenas mantem descricao acessivel e nao repete texto',()=>{const h=render({...link(),icon:'buildings-outline',iconOnly:true});assert.match(h,/k-svg-i-buildings-outline/);assert.match(h,/aria-label="Empresas"/);assert.match(h,/title="Empresas"/);assert.doesNotMatch(h,/>Empresas</);assert.match(h,/context__despesa_id=7/);});
+test('icone opcional junto com texto',()=>{const h=render({...link(),icon:'buildings-outline'});assert.match(h,/k-svg-i-buildings-outline/);assert.match(h,/Empresas<\/a>/);});
+test('validadores aceitam icone de classe fechada',()=>assert.equal(errors({...link(),icon:'buildings-outline',iconOnly:true}).length,0));
+test('icone apenas exige icone',()=>assert.ok(errors({...link(),iconOnly:true}).length));
+test('icone rejeita classe/HTML/URL livre',()=>{for(const icon of ['x" onclick="x','<img>','https://x','x y','','x'.repeat(81),'x\n',7]){const l={...link(),icon,iconOnly:true};assert.ok(errors(l).length);assert.equal(render(l),'');}});
+test('iconOnly precisa ser booleano',()=>assert.ok(errors({...link(),icon:'buildings-outline',iconOnly:'true'}).length));
+test('iconOnly nulo e rejeitado',()=>assert.ok(errors({...link(),icon:'buildings-outline',iconOnly:null}).length));
+test('label escapa HTML inclusive em atributos',()=>{const h=render({...link(),label:'Empresas "<x>',icon:'buildings-outline',iconOnly:true});assert.doesNotMatch(h,/<x>/);assert.match(h,/&quot;/);});
+test('destino e contexto continuam estritos',()=>{assert.equal(render({...link(),screenId:'javascript:alert(1)'}),'');assert.equal(render(link(),{}),'');assert.equal(render(link(),{id:{x:7}}),'');});
+let failed=0;for(const[n,f]of cases){try{f();console.log('PASS '+n);}catch(e){failed++;console.log('FAIL '+n+': '+e.message);}}console.log(`${cases.length-failed}/${cases.length} PASS`);process.exitCode=failed?1:0;

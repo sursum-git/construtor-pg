@@ -1,0 +1,63 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "proc_compra_quantidades_read",
+      "name": "Quantidades importadas — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "proc_compra_quantidades",
+        "operation": "read"
+      },
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "proc_compra_quantidades_get",
+      "name": "Quantidades importadas — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "proc_compra_quantidades",
+        "operation": "get"
+      },
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_quantidades_global_read",
+      "name": "Quantidades — geral MED — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "proc_compra_quantidades",
+        "operation": "read"
+      },
+      "requestContextFields": [],
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "proc_compra_quantidades_global_get",
+      "name": "Quantidades — geral MED — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "proc_compra_quantidades",
+        "operation": "get"
+      },
+      "requestContextFields": [],
+      "itemPath": "data"
+    }
+  ]
+}

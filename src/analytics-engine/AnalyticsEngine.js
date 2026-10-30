@@ -1,6 +1,107 @@
 (function(global, $) {
   "use strict";
 
+  // Declarative card rendering shared by every API dashboard; no screen-specific code.
+  class AnalyticsDashboardRenderer {
+    static validate(definition) {
+      const a = definition.analytics;
+      const invalid = () => { throw global.CrudUtils.makeError("ANALYTICS_DASHBOARD_INVALID", "Configuracao do painel analytics invalida."); };
+      const code = value => typeof value === "string" && /^[A-Za-z_][A-Za-z0-9_-]{0,119}$/.test(value) && !["__proto__", "prototype", "constructor"].includes(value);
+      const fields = Object.create(null);
+      a.datasets.forEach(d => {
+        if (!code(d.id) || fields[d.id]) invalid();
+        fields[d.id] = new Set((d.fields || []).map(f => typeof f === "string" ? f : f.field || f.id));
+      });
+      const navigation = a.navigation || {};
+      Object.entries(navigation).forEach(([id, link]) => {
+        if (!code(id) || !link || typeof link.url !== "string" || /[\s\\]/.test(link.url)) invalid();
+        let u; try { u = new URL(link.url); } catch (_) { invalid(); }
+        if (u.protocol !== "https:" || u.username || u.password || u.search || u.hash || u.port || !(a.navigationHosts || []).includes(u.hostname)) invalid();
+      });
+      const ids = new Set();
+      const walk = (tiles, dataset, depth) => {
+        if (depth > 2 || !Array.isArray(tiles) || !tiles.length || tiles.length > 50) invalid();
+        tiles.forEach(t => {
+          if (!t || !code(t.id) || ids.has(t.id) || !["group","kpi","progress","list","links"].includes(t.type)) invalid();
+          ids.add(t.id);
+          const ds = t.datasetId || dataset;
+          if (!fields[ds] || Object.keys(t).some(k => !["id","type","title","datasetId","valueField","labelField","labelCase","format","items","children","collapsed","navigationId"].includes(k))) invalid();
+          if (["kpi","progress","list"].includes(t.type) && !fields[ds].has(t.valueField)) invalid();
+          if (t.type === "list" && !fields[ds].has(t.labelField)) invalid();
+          if (t.labelCase !== undefined && (t.type !== "list" || !["none","title"].includes(t.labelCase))) invalid();
+          if (t.format && !["n0","n2","c2","percent0","percent2"].includes(t.format)) invalid();
+          if (t.navigationId && !Object.hasOwn(navigation,t.navigationId)) invalid();
+          if (t.type === "links" && (!Array.isArray(t.items) || t.items.some(i => !i || !Object.hasOwn(navigation,i.navigationId) || Object.keys(i).some(k => k !== "navigationId")))) invalid();
+          if (t.type === "group") walk(t.children,ds,depth+1);
+        });
+      };
+      a.views.forEach(v => { if (v.type !== "dashboard" || !fields[v.datasetId]) invalid(); walk(v.tiles,v.datasetId,0); });
+    }
+    constructor(engine) { this.engine = engine; }
+    format(value, format) {
+      if (typeof value !== "number" || !Number.isFinite(value)) return "Indisponível";
+      if (format === "percent0" || format === "percent2") return kendo.toString(value,format === "percent0" ? "n0" : "n2") + "%";
+      return kendo.toString(value,format || "n2");
+    }
+    link(container,id) {
+      const link = this.engine.definition.analytics.navigation[id];
+      return $("<a></a>").text(link.label).attr({href:link.url,target:"_blank",rel:"noopener noreferrer"}).appendTo(container);
+    }
+    render(container,view,results) {
+      const grid = $("<div class=\"analytics-dashboard-grid analytics-declarative-dashboard\"></div>").appendTo(container);
+      this.tiles(grid,view.tiles,view.datasetId,results);
+    }
+    tiles(container,tiles,dataset,results) {
+      tiles.forEach(tile => {
+        const ds = tile.datasetId || dataset;
+        const rows = results[ds] && results[ds].data || [];
+        const card = $("<section class=\"analytics-dashboard-tile\"></section>").attr("data-tile-id",tile.id).appendTo(container);
+        $("<h3></h3>").text(tile.title || "").appendTo(card);
+        if (tile.type === "group") {
+          card.addClass("analytics-dashboard-group");
+          const button = $("<button type=\"button\"></button>").appendTo(card);
+          const body = $("<div class=\"analytics-dashboard-group-body\"></div>").prop("hidden",tile.collapsed === true).appendTo(card);
+          const update = () => {
+            const open = !body.prop("hidden");
+            button.attr({"aria-expanded":String(open),"aria-label":(open ? "Ocultar" : "Mostrar") + " indicadores de " + tile.title});
+            button.text(open ? "Ocultar indicadores" : "Mostrar indicadores");
+          };
+          button.kendoButton({click:() => { body.prop("hidden",!body.prop("hidden")); update(); }});
+          update(); this.tiles(body,tile.children,ds,results); return;
+        }
+        if (tile.type === "links") {
+          const links = $("<ul class=\"analytics-dashboard-links\"></ul>").appendTo(card);
+          tile.items.forEach(item => this.link($("<li></li>").appendTo(links),item.navigationId)); return;
+        }
+        if (tile.type === "list") {
+          const list = $("<ul class=\"analytics-dashboard-list\"></ul>").appendTo(card);
+          rows.forEach(row => {
+            const li = $("<li></li>").appendTo(list);
+            let label = row[tile.labelField] == null ? "Indisponível" : String(row[tile.labelField]);
+            if (row[tile.labelField] != null && tile.labelCase === "title") {
+              label = label.toLocaleLowerCase("pt-BR").replace(/\p{L}[\p{L}\p{M}]*/gu, word => {
+                const letters = Array.from(word);
+                return letters[0].toLocaleUpperCase("pt-BR") + letters.slice(1).join("");
+              });
+            }
+            $("<span></span>").text(label).appendTo(li);
+            $("<strong></strong>").text(this.format(row[tile.valueField],tile.format)).appendTo(li);
+          });
+          if (!rows.length) $("<p></p>").text("Nenhum registro disponível.").appendTo(card);
+          return;
+        }
+        const value = rows.length === 1 ? rows[0][tile.valueField] : null;
+        const metric = $("<div class=\"analytics-kpi\"></div>").appendTo(card);
+        $("<strong></strong>").text(this.format(value,tile.format || (tile.type === "progress" ? "percent0" : "n2"))).appendTo(metric);
+        if (tile.type === "progress") {
+          metric.addClass("analytics-dashboard-progress");
+          if (typeof value === "number" && Number.isFinite(value)) $("<div></div>").appendTo(metric).kendoProgressBar({min:0,max:100,value:Math.max(0,Math.min(100,value)),type:"percent"});
+        }
+        if (tile.navigationId) this.link(card,tile.navigationId);
+      });
+    }
+  }
+
   class AnalyticsEngine {
     constructor(options) {
       this.options = options || {};
@@ -15,6 +116,9 @@
       this.parameterWidgets = {};
       this.viewContainers = {};
       this.isLoading = false;
+      this.resultsByDataset = Object.create(null);
+      this.queryGeneration = 0;
+      this.destroyed = false;
     }
 
     init() {
@@ -39,6 +143,10 @@
     }
 
     destroy() {
+      this.destroyed = true;
+      this.queryGeneration++;
+      this.currentResult = null;
+      this.resultsByDataset = Object.create(null);
       if (global.kendo) {
         global.kendo.destroy(this.root);
       }
@@ -127,6 +235,7 @@
         materialize: source.analytics.endpoints && source.analytics.endpoints.materialize || source.api.materialize,
         cacheStatus: source.analytics.endpoints && source.analytics.endpoints.cacheStatus || source.api.cacheStatus
       });
+      if (source.analytics.presentation && source.analytics.presentation.mode === "dashboard") AnalyticsDashboardRenderer.validate(source);
       return source;
     }
 
@@ -215,9 +324,11 @@
         this.renderHeader(screen);
       }
       this.renderToolbar(screen);
-      this.renderParameters(screen);
+      if (!this.isDashboardMode()) this.renderParameters(screen);
       this.renderViews(screen);
     }
+
+    isDashboardMode() { return this.definition && this.definition.analytics.presentation && this.definition.analytics.presentation.mode === "dashboard"; }
 
     renderHeader(screen) {
       const program = this.definition.program || {};
@@ -234,6 +345,13 @@
     }
 
     renderToolbar(screen) {
+      if (this.isDashboardMode()) {
+        const toolbar = $("<section class=\"analytics-toolbar\"></section>").appendTo(screen);
+        this.refreshButton = $("<button type=\"button\"></button>").text("Atualizar").appendTo(toolbar);
+        this.refreshButton.kendoButton({icon:"arrow-rotate-cw",themeColor:"primary",click:()=>this.runQuery()});
+        this.statusElement = $("<span class=\"analytics-status\"></span>").appendTo(toolbar);
+        return;
+      }
       const toolbar = $("<section class=\"analytics-toolbar\"></section>").appendTo(screen);
       const datasetField = $("<label class=\"analytics-dataset-field\"></label>").appendTo(toolbar);
       $("<span></span>").text("Dataset").appendTo(datasetField);
@@ -343,6 +461,13 @@
     }
 
     renderViews(screen) {
+      if (this.isDashboardMode()) {
+        this.viewContainers = {};
+        this.definition.analytics.views.forEach((view,index) => {
+          this.viewContainers[String(view.id || view.type || index)] = $("<section class=\"analytics-view\"></section>").appendTo(screen);
+        });
+        return;
+      }
       const panel = $("<section class=\"analytics-views-panel\"></section>").appendTo(screen);
       const tabRoot = $("<div class=\"analytics-tabs\"></div>").appendTo(panel);
       const list = $("<ul></ul>").appendTo(tabRoot);
@@ -361,6 +486,7 @@
     }
 
     runQuery(options) {
+      if (this.isDashboardMode()) return this.runDashboardQuery();
       if (!this.currentDataset || this.isLoading) {
         return Promise.resolve(null);
       }
@@ -442,6 +568,43 @@
       return values;
     }
 
+    runDashboardQuery() {
+      if (this.destroyed || this.isLoading || !this.currentDataset) return Promise.resolve(null);
+      const generation = ++this.queryGeneration;
+      const endpoint = this.getEndpoint("run");
+      if (!endpoint || !endpoint.url) return Promise.reject(global.CrudUtils.makeError("ANALYTICS_ENDPOINT_MISSING","Endpoint de consulta indisponivel."));
+      const ids = new Set();
+      const walk = (tiles,base) => tiles.forEach(t => { const id=t.datasetId||base; if (t.type!=="links" && t.type!=="group") ids.add(id); if(t.children) walk(t.children,id); });
+      this.definition.analytics.views.forEach(view => walk(view.tiles,view.datasetId));
+      this.isLoading=true; this.setLoadingState(true);
+      const datasetIds=Array.from(ids);
+      const grouped=datasetIds.length>0 && datasetIds.length<=10 && datasetIds.every(id=>this.definition.analytics.datasets.find(d=>d.id===id)?.source?.type==='api');
+      const pending=grouped
+        ? this.httpClient.request({url:endpoint.url,method:endpoint.method||"POST",data:{datasetIds}}).then(response=>{
+          if(!response || !response.datasets || typeof response.datasets!=="object")throw global.CrudUtils.makeError("ANALYTICS_DATA_INVALID","Resposta de indicadores invalida.");
+          return datasetIds.map(id=>[id,response.datasets[id]]);
+        })
+        : Promise.all(datasetIds.map(id => {
+        const dataset=this.definition.analytics.datasets.find(d=>d.id===id);
+        return this.httpClient.request({url:endpoint.url,method:endpoint.method||"POST",data:{datasetId:id,take:dataset.limit||1000}}).then(result=>[id,result]);
+      }));
+      return pending.then(entries => {
+        if(this.destroyed || generation!==this.queryGeneration) return null;
+        const results=Object.create(null);
+        entries.forEach(([id,result])=>{if(!result||!Array.isArray(result.data))throw global.CrudUtils.makeError("ANALYTICS_DATA_INVALID","Resposta de indicadores invalida.");results[id]=result;});
+        this.resultsByDataset=results;this.currentResult=results[this.currentDataset.id]||null;this.renderResult();
+        const row=this.currentResult && this.currentResult.data[0];
+        if(row && row.competencia) this.statusElement.text("Competência: "+row.competencia+" — atualizado "+kendo.toString(new Date(),"HH:mm"));
+        if(typeof this.options.onLastUpdated==="function")this.options.onLastUpdated(new Date());
+        return this.currentResult;
+      }).catch(error=>{
+        if(this.destroyed || generation!==this.queryGeneration) return null;
+        this.currentResult=null;this.resultsByDataset=Object.create(null);
+        Object.values(this.viewContainers).forEach(container=>{if(global.kendo)global.kendo.destroy(container);container.empty().append($("<p class=\"crud-message crud-message-error\"></p>").text(global.CrudUtils.unwrapError(error,"Indicadores indisponíveis.").message));});
+        return null;
+      }).finally(()=>{if(!this.destroyed && generation===this.queryGeneration){this.isLoading=false;this.setLoadingState(false);}});
+    }
+
     getEndpoint(key) {
       const endpoints = this.definition.analytics && this.definition.analytics.endpoints || {};
       const api = this.definition.api || {};
@@ -459,6 +622,10 @@
       if (!this.currentResult) {
         return "";
       }
+      if (this.definition.analytics.presentation && this.definition.analytics.presentation.mode === "dashboard") {
+        const row = this.currentResult.data && this.currentResult.data[0];
+        if (row && typeof row.competencia === "string") return "Competência: " + row.competencia + " — ao vivo";
+      }
       const total = Number(this.currentResult.total || 0);
       const cache = this.currentResult._runtime && this.currentResult._runtime.analyticsCache || {};
       const cacheText = cache.status === "hit" ? "cache" : "ao vivo";
@@ -473,6 +640,7 @@
         if (!container) {
           return;
         }
+        if (global.kendo) global.kendo.destroy(container);
         container.empty();
         const type = String(view.type || "grid");
         if (type === "chart") {
@@ -567,6 +735,7 @@
     }
 
     renderDashboard(container, view, result) {
+      if(this.isDashboardMode()) { new AnalyticsDashboardRenderer(this).render(container,view,this.resultsByDataset); return; }
       const tiles = global.CrudUtils.ensureArray(view.tiles);
       const normalizedTiles = tiles.length ? tiles : [
         { id: "kpi", type: "kpi", title: "Total" },

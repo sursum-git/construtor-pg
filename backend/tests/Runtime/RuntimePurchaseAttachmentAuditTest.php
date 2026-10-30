@@ -1,0 +1,21 @@
+<?php
+namespace App\Tests\Runtime;
+use App\Runtime\RuntimePurchaseAttachmentAudit as A;
+use App\Runtime\RuntimePurchaseContextAudit;
+use App\Runtime\RuntimePurchaseContextPayload;
+use App\Runtime\RuntimeHttpException;
+use PHPUnit\Framework\TestCase;
+final class RuntimePurchaseAttachmentAuditTest extends TestCase
+{
+ public static function definition():array{return ['entityCode'=>'proc_compra_anexos_progress','primaryKey'=>'anexo_proc_compra_id','apiBinding'=>['sourceCode'=>'motor_progress_ciw_cadastros'],'apiSource'=>['responseContract'=>'sursum-programs']];}
+ public static function endpoint(string $op='update'):array{return ['method'=>'POST','url'=>'http://127.0.0.1:19910/med/web/SursumPrograms/ciw-cadastros','requestContextFields'=>['proc_compra_id','item_proc_compra_id'],'bodyTemplate'=>['resource'=>'proc_compra_anexos','operation'=>$op]];}
+ public static function image():array{return ['anexo_proc_compra_id'=>101,'proc_compra_id'=>999,'item_proc_compra_id'=>11,'descricao'=>'Antes','tipos_anexo_id'=>0,'caminho_arquivo'=>'arquivo antigo.pdf','dt_hr_arquivo'=>null,'owner_proc_compra_id'=>10];}
+ public static function data():array{$r=self::image();unset($r['owner_proc_compra_id']);$r['proc_compra_id_registro']=$r['proc_compra_id'];$r['proc_compra_id']=10;return $r+['row_stamp'=>str_repeat('A',64),'tipo_anexo_descricao'=>'','arquivo_upload'=>null];}
+ public static function body():array{return ['success'=>true,'committed'=>true,'data'=>self::data(),'audit'=>['version'=>1,'source'=>'progress-transaction','resource'=>'anexos-proc-compra','operation'=>'update','recordId'=>101,'actor'=>['login'=>'real'],'before'=>self::image(),'after'=>self::image(),'changes'=>[],'warnings'=>[]]];}
+ private function inspect(array $b):array{return A::inspect(self::definition(),self::endpoint(),$b,'update',101,['proc_compra_id'=>10,'item_proc_compra_id'=>11],'real');}
+ public function testLegacyPhysicalParentAndActualOwnershipStayDistinctAndAudited():void{$a=$this->inspect(self::body());self::assertTrue($a['metadata']['available']);self::assertSame(999,$a['before']['proc_compra_id']);self::assertSame(10,$a['metadata']['procCompraId']);self::assertCount(8,$a['before']);self::assertTrue(RuntimePurchaseContextAudit::dataRow(self::data(),self::definition()));}
+ public function testForgedActorContextMissingFieldsOrDataNeverBecomeConfirmedAudit():void{foreach(['actor','owner','item','physical','data','date','commit']as$case){$b=self::body();switch($case){case'actor':$b['audit']['actor']['login']='forged';break;case'owner':$b['audit']['after']['owner_proc_compra_id']=20;break;case'item':$b['audit']['before']['item_proc_compra_id']=12;break;case'physical':unset($b['audit']['before']['dt_hr_arquivo']);break;case'data':$b['data']['proc_compra_id_registro']=10;break;case'date':$b['audit']['after']['dt_hr_arquivo']='2026-02-30T00:00:00';break;case'commit':$b['committed']=false;break;}self::assertFalse($this->inspect($b)['metadata']['available'],$case);}}
+ public function testNativeFlatPayloadRetainsTwoParentsAndNeverAcceptsFreePathAuthority():void{$r=self::data();$r['arquivo_upload']='local-file:'.str_repeat('a',32);$p=RuntimePurchaseContextPayload::normalize(self::definition(),'update',$r);self::assertSame(101,$p['id']);self::assertSame(['proc_compra_id'=>10,'item_proc_compra_id'=>11],$p['context']);self::assertSame('arquivo antigo.pdf',$p['record']['caminho_arquivo']);self::assertFalse(A::editableField('caminho_arquivo'));self::assertFalse(A::editableField('dt_hr_arquivo'));self::assertTrue(A::editableField('arquivo_upload'));}
+ public function testNativeConflictingOwnerIsRejected():void{$this->expectException(RuntimeHttpException::class);RuntimePurchaseContextPayload::normalize(self::definition(),'update',['record'=>self::data(),'context'=>['proc_compra_id'=>20,'item_proc_compra_id'=>11]]);}
+ public function testDeletionHasOnlyThePhysicalBeforeImageAndNoCurrentFile():void{$b=self::body();$b['audit']['operation']='delete';$b['audit']['after']=[];$b['data']=['anexo_proc_compra_id'=>101];$a=A::inspect(self::definition(),self::endpoint('delete'),$b,'delete',101,['proc_compra_id'=>10,'item_proc_compra_id'=>11],'real');self::assertTrue($a['metadata']['available']);self::assertSame(self::image(),$a['before']);self::assertSame([],$a['after']);}
+}

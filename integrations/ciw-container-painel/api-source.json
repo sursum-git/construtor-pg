@@ -1,0 +1,165 @@
+{
+  "providerType": "generic",
+  "code": "motor_progress_container_painel",
+  "name": "Motor Progress — Painel do Container (leitura)",
+  "status": "active",
+  "baseUrl": "http://127.0.0.1:19910/med/web",
+  "authMode": "header_static",
+  "authHeaders": {
+    "X-Containers-Token": "__RUNTIME_SECRET__"
+  },
+  "timeoutSeconds": 25,
+  "responseContract": "sursum-programs",
+  "operations": [
+    {
+      "code": "painel_read",
+      "name": "Painel do Container — Consultar",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-painel",
+      "itemsPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "painel"
+      }
+    },
+    {
+      "code": "painel_get",
+      "name": "Painel do Container — Detalhar",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-painel",
+      "itemPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "painel"
+      }
+    },
+    {
+      "code": "itens_read",
+      "name": "Itens do Container — Consultar",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-painel",
+      "itemsPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "itens"
+      }
+    },
+    {
+      "code": "itens_get",
+      "name": "Itens do Container — Detalhar",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-painel",
+      "itemPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "itens"
+      }
+    },
+    {
+      "code": "despesas_read",
+      "name": "Despesas do Container — Consultar",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-painel",
+      "itemsPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "despesas"
+      }
+    },
+    {
+      "code": "despesas_get",
+      "name": "Despesas do Container — Detalhar",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-painel",
+      "itemPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "despesas"
+      }
+    },
+    {
+      "code": "anexos_read",
+      "name": "Anexos do Container — Consultar",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-painel",
+      "itemsPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "anexos"
+      }
+    },
+    {
+      "code": "anexos_get",
+      "name": "Anexos do Container — Detalhar",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-painel",
+      "itemPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "anexos"
+      }
+    },
+    {
+      "code": "versoes_read",
+      "name": "Versões de Custo do Container — Consultar",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-painel",
+      "itemsPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "versoes"
+      }
+    },
+    {
+      "code": "versoes_get",
+      "name": "Versões de Custo do Container — Detalhar",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-painel",
+      "itemPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "versoes"
+      }
+    }
+  ]
+}

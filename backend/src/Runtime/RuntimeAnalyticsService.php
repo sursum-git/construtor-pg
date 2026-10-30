@@ -22,6 +22,8 @@ class RuntimeAnalyticsService
         private readonly ProgramCustomizationResolver $customizations,
         private readonly ?RuntimeAnalyticsPipelineService $pipelines = null,
         private readonly ?RuntimeAnalyticsAuditStore $auditStore = null,
+        private readonly ?RuntimeAnalyticsApiDatasetService $apiDatasets = null,
+        private readonly ?RuntimeExternalJsonClient $externalJsonClient = null,
     ) {
     }
 
@@ -53,8 +55,14 @@ class RuntimeAnalyticsService
     public function run(string $screenId, array $payload, ?string $tenantId = null): array
     {
         $definition = $this->loadDefinition($screenId);
+        if (array_key_exists('datasetIds', $payload)) {
+            return $this->runGrouped($screenId,$definition,$payload,$tenantId);
+        }
         $dataset = $this->resolveDataset($definition, $payload['datasetId'] ?? null);
         $viewId = $this->normalizeOptionalCode($payload['viewId'] ?? null);
+        if (($dataset['source']['type'] ?? '') === 'api') {
+            return $this->runApiDataset($screenId,$definition,$dataset,$payload,$tenantId);
+        }
         $executionMode = $this->resolveExecutionMode($dataset, $payload);
         $fingerprint = $this->filterFingerprint($payload);
 
@@ -112,6 +120,38 @@ class RuntimeAnalyticsService
         return $result;
     }
 
+    private function runGrouped(string $screenId,array $definition,array $payload,?string $tenantId):array
+    {
+        $invalid=static function():never{throw new RuntimeHttpException('ANALYTICS_BATCH_INVALID','Consulta agrupada invalida.',422);};
+        $ids=$payload['datasetIds'];
+        if (($definition['analytics']['presentation']['mode']??null)!=='dashboard' || !is_array($ids) || !array_is_list($ids)
+            || count($ids)<1 || count($ids)>10 || array_diff(array_keys($payload),['datasetIds','entityCode','operation','programId','actionId','_runtimeEndpoint'])) { $invalid(); }
+        $selected=[];
+        foreach($ids as $id){
+            if(!is_string($id)||isset($selected[$id]))$invalid();
+            $dataset=$this->resolveDataset($definition,$id);
+            if($dataset['id']!==$id||($dataset['source']['type']??null)!=='api')$invalid();
+            $code=$dataset['source']['entityCode']??null;
+            if(!is_string($code)||!preg_match('/^[A-Za-z_][A-Za-z0-9_]{0,119}$/D',$code))$invalid();
+            if(!$this->permissions->hasPermission($code.'.read'))throw new RuntimeHttpException('ANALYTICS_API_FORBIDDEN','Sem permissao para consultar esta fonte.',403);
+            $selected[$id]=$dataset;
+        }
+        if(!$this->externalJsonClient)throw new RuntimeHttpException('ANALYTICS_BATCH_UNAVAILABLE','Consulta agrupada indisponivel.',503);
+        return $this->externalJsonClient->withReadBatch(function()use($screenId,$definition,$selected,$tenantId){
+            $results=[];
+            foreach($selected as $id=>$dataset)$results[$id]=$this->runApiDataset($screenId,$definition,$dataset,['datasetId'=>$id],$tenantId);
+            return ['datasets'=>$results];
+        });
+    }
+
+    private function runApiDataset(string $screenId,array $definition,array $dataset,array $payload,?string $tenantId):array
+    {
+        $result=$this->executeApiDataset($screenId,$dataset,$payload,$tenantId);
+        $result['_runtime']['analyticsCache']=['status'=>'bypassed','screenId'=>$screenId,'datasetId'=>$dataset['id'],'viewId'=>$this->normalizeOptionalCode($payload['viewId']??null)];
+        $this->recordAudit($definition,$dataset,$payload,$result,'live',$this->filterFingerprint($payload),$tenantId);
+        return $result;
+    }
+
     /**
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
@@ -121,6 +161,9 @@ class RuntimeAnalyticsService
         $definition = $this->loadDefinition($screenId);
         $dataset = $this->resolveDataset($definition, $payload['datasetId'] ?? null);
         $datasetId = (string) $dataset['id'];
+        if (($dataset['source']['type'] ?? '') === 'api') {
+            throw new RuntimeHttpException('ANALYTICS_API_MATERIALIZE_DISABLED', 'Materializacao indisponivel para fontes API.', 422);
+        }
         $viewId = $this->normalizeOptionalCode($payload['viewId'] ?? null);
         $fingerprint = $this->filterFingerprint($payload);
 
@@ -170,6 +213,9 @@ class RuntimeAnalyticsService
     {
         $definition = $this->loadDefinition($screenId);
         $dataset = $this->resolveDataset($definition, $payload['datasetId'] ?? null);
+        if (($dataset['source']['type'] ?? '') === 'api') {
+            return ['status'=>'bypassed','screenId'=>$screenId,'datasetId'=>$dataset['id']];
+        }
         $viewId = $this->normalizeOptionalCode($payload['viewId'] ?? null);
         $fingerprint = $this->filterFingerprint($payload);
         $cache = $this->findCache($screenId, (string) $dataset['id'], $viewId, $fingerprint, $tenantId, includeExpired: true);
@@ -292,6 +338,14 @@ class RuntimeAnalyticsService
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
+    private function executeApiDataset(string $screenId, array $dataset, array $payload, ?string $tenantId): array
+    {
+        if (!$this->apiDatasets) {
+            throw new RuntimeHttpException('ANALYTICS_API_SERVICE_MISSING', 'Servico de dataset API nao configurado.', 500);
+        }
+        return $this->apiDatasets->run($screenId,$dataset,$payload,$tenantId);
+    }
+
     private function executeDataset(array $definition, array $dataset, array $payload, ?string $tenantId): array
     {
         $source = is_array($dataset['source'] ?? null) ? $dataset['source'] : [];

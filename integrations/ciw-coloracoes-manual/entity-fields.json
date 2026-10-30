@@ -1,0 +1,5 @@
+[
+  { "code": "coloracao_id", "label": "ID", "dataType": "integer", "primaryKey": true, "required": false, "position": 10, "readonlyField": true, "apiJsonPath": "coloracao_id", "apiShowInGrid": true, "apiShowInForm": true, "apiShowInFilter": true, "options": { "readonly": true, "writable": false } },
+  { "code": "descricao", "label": "Descrição", "dataType": "string", "length": 50, "required": false, "position": 20, "readonlyField": true, "apiJsonPath": "descricao", "apiShowInGrid": true, "apiShowInForm": true, "apiShowInFilter": true, "options": { "readonly": true, "writable": false } },
+  { "code": "log_inativo", "label": "Inativo", "dataType": "boolean", "required": false, "position": 30, "readonlyField": true, "apiJsonPath": "log_inativo", "apiShowInGrid": true, "apiShowInForm": true, "apiShowInFilter": true, "options": { "readonly": true, "writable": false } }
+]

@@ -1,0 +1,395 @@
+{
+  "entityDraft": {
+    "code": "empresas_despesa_progress",
+    "apiUpdateOperationCode": "empresas_despesa_update",
+    "structureBaseNumber": 93,
+    "apiDetailOperationCode": "empresas_despesa_get",
+    "apiCreateOperationCode": "empresas_despesa_create",
+    "apiDeleteOperationCode": "empresas_despesa_delete",
+    "name": "Empresas por despesa",
+    "apiListOperationCode": "empresas_despesa_read",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "fields": [
+      {
+        "apiShowInForm": true,
+        "readonlyField": true,
+        "dataType": "integer",
+        "options": {
+          "writable": false,
+          "readonly": true
+        },
+        "code": "empresa_despesa_id",
+        "primaryKey": true,
+        "apiWritePath": "empresa_despesa_id",
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "label": "ID",
+        "required": false,
+        "position": 10,
+        "apiJsonPath": "empresa_despesa_id"
+      },
+      {
+        "code": "empresa_nome",
+        "apiShowInForm": false,
+        "readonlyField": true,
+        "dataType": "string",
+        "options": {
+          "writable": false,
+          "readonly": true
+        },
+        "apiJsonPath": "empresa_nome",
+        "label": "Empresa",
+        "required": false,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "position": 20,
+        "apiWritePath": "empresa_nome"
+      },
+      {
+        "code": "codigo_desp_erp",
+        "apiShowInForm": true,
+        "dataType": "integer",
+        "options": {
+          "min": 0,
+          "defaultValue": 0
+        },
+        "apiJsonPath": "codigo_desp_erp",
+        "label": "Código despesa ERP",
+        "required": false,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "position": 30,
+        "apiWritePath": "codigo_desp_erp"
+      },
+      {
+        "code": "log_ativo",
+        "apiShowInForm": true,
+        "dataType": "integer",
+        "options": {
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 0,
+              "text": "Não"
+            },
+            {
+              "value": 1,
+              "text": "Sim"
+            }
+          ]
+        },
+        "apiJsonPath": "log_ativo",
+        "label": "Ativo?",
+        "required": false,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "position": 40,
+        "apiWritePath": "log_ativo"
+      },
+      {
+        "apiShowInForm": true,
+        "dataType": "decimal",
+        "options": {
+          "min": 0,
+          "defaultValue": 0,
+          "enabledWhen": {
+            "field": "eh_imposto",
+            "operator": "eq",
+            "value": false
+          }
+        },
+        "scale": 2,
+        "code": "vl_padrao",
+        "apiWritePath": "vl_padrao",
+        "apiShowInGrid": true,
+        "apiShowInFilter": false,
+        "precision": 10,
+        "label": "Valor padrão",
+        "required": false,
+        "position": 50,
+        "apiJsonPath": "vl_padrao"
+      },
+      {
+        "apiShowInForm": true,
+        "dataType": "decimal",
+        "options": {
+          "min": 0,
+          "defaultValue": 0,
+          "enabledWhen": {
+            "field": "eh_imposto",
+            "operator": "eq",
+            "value": true
+          }
+        },
+        "scale": 2,
+        "code": "percentual",
+        "apiWritePath": "percentual",
+        "apiShowInGrid": true,
+        "apiShowInFilter": false,
+        "precision": 8,
+        "label": "Percentual",
+        "required": false,
+        "position": 60,
+        "apiJsonPath": "percentual"
+      },
+      {
+        "code": "cod_nat_operacao",
+        "apiShowInForm": true,
+        "length": 12,
+        "dataType": "string",
+        "options": {
+          "enabledWhen": {
+            "field": "eh_imposto",
+            "operator": "eq",
+            "value": true
+          },
+          "defaultValue": ""
+        },
+        "apiJsonPath": "cod_nat_operacao",
+        "label": "Natureza de operação",
+        "required": false,
+        "apiShowInGrid": true,
+        "apiShowInFilter": false,
+        "position": 70,
+        "apiWritePath": "cod_nat_operacao"
+      },
+      {
+        "code": "despesa_id",
+        "apiShowInForm": true,
+        "dataType": "integer",
+        "options": {
+          "editor": "dropdown",
+          "api": {
+            "optionsSource": {
+              "valueField": "despesa_id",
+              "textField": "descricao",
+              "operationCode": "opcoes_despesas",
+              "excludeCurrent": false,
+              "copyFields": {
+                "eh_imposto": "log_imposto"
+              }
+            }
+          }
+        },
+        "apiJsonPath": "despesa_id",
+        "label": "Despesa",
+        "required": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": true,
+        "position": 80,
+        "apiWritePath": "despesa_id"
+      },
+      {
+        "code": "empresa_id",
+        "apiShowInForm": true,
+        "dataType": "integer",
+        "options": {
+          "api": {
+            "optionsSource": {
+              "valueField": "empresa_id",
+              "textField": "nome",
+              "operationCode": "opcoes_empresas",
+              "excludeCurrent": false
+            }
+          },
+          "editor": "dropdown",
+          "readonlyOnEdit": true
+        },
+        "apiJsonPath": "empresa_id",
+        "label": "Empresa",
+        "required": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "position": 90,
+        "apiWritePath": "empresa_id"
+      },
+      {
+        "code": "log_custo",
+        "apiShowInForm": true,
+        "dataType": "integer",
+        "options": {
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 0,
+              "text": "Não"
+            },
+            {
+              "value": 1,
+              "text": "Sim"
+            }
+          ]
+        },
+        "apiJsonPath": "log_custo",
+        "label": "Considera no custo?",
+        "required": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "position": 100,
+        "apiWritePath": "log_custo"
+      },
+      {
+        "apiShowInForm": true,
+        "dataType": "decimal",
+        "options": {
+          "min": 0,
+          "defaultValue": 0,
+          "enabledWhen": {
+            "field": "eh_imposto",
+            "operator": "eq",
+            "value": true
+          }
+        },
+        "scale": 4,
+        "code": "percentual_custo",
+        "apiWritePath": "percentual_custo",
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "precision": 8,
+        "label": "% Custo",
+        "required": false,
+        "position": 110,
+        "apiJsonPath": "percentual_custo"
+      },
+      {
+        "code": "despesa_custo_id",
+        "apiShowInForm": true,
+        "dataType": "integer",
+        "options": {
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "enabledWhen": {
+            "field": "eh_imposto",
+            "operator": "eq",
+            "value": true
+          },
+          "api": {
+            "optionsSource": {
+              "valueField": "despesa_id",
+              "textField": "descricao",
+              "operationCode": "opcoes_custo",
+              "excludeCurrent": false
+            }
+          }
+        },
+        "apiJsonPath": "despesa_custo_id",
+        "label": "Despesa de custo",
+        "required": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "position": 120,
+        "apiWritePath": "despesa_custo_id"
+      },
+      {
+        "code": "impostos",
+        "apiShowInForm": true,
+        "dataType": "json",
+        "options": {
+          "defaultValue": [],
+          "editor": "multiselect",
+          "api": {
+            "optionsSource": {
+              "valueField": "despesa_id",
+              "textField": "descricao",
+              "operationCode": "opcoes_impostos",
+              "excludeCurrent": true
+            },
+            "collection": {
+              "itemType": "integer"
+            }
+          }
+        },
+        "apiJsonPath": "impostos",
+        "label": "Impostos que usam esta despesa na base",
+        "required": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "position": 130,
+        "apiWritePath": "impostos"
+      },
+      {
+        "code": "perc_custo",
+        "apiShowInForm": false,
+        "readonlyField": true,
+        "dataType": "integer",
+        "options": {
+          "writable": false,
+          "readonly": true
+        },
+        "apiJsonPath": "perc_custo",
+        "label": "Percentual legado",
+        "required": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "position": 140,
+        "apiWritePath": "perc_custo"
+      },
+      {
+        "code": "descricao_despesa",
+        "apiShowInForm": false,
+        "readonlyField": true,
+        "dataType": "string",
+        "options": {
+          "writable": false,
+          "readonly": true
+        },
+        "apiJsonPath": "descricao_despesa",
+        "label": "Descrição da despesa",
+        "required": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "position": 150,
+        "apiWritePath": "descricao_despesa"
+      },
+      {
+        "code": "eh_imposto",
+        "apiShowInForm": false,
+        "readonlyField": true,
+        "dataType": "boolean",
+        "options": {
+          "writable": false,
+          "readonly": true
+        },
+        "apiJsonPath": "eh_imposto",
+        "label": "É imposto",
+        "required": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "position": 160,
+        "apiWritePath": "eh_imposto"
+      }
+    ],
+    "apiSourceCode": "motor_progress_despesas",
+    "entityType": "api",
+    "structureModuleCode": "cadastros"
+  },
+  "programDraft": {
+    "allowDelete": true,
+    "permissionPrefix": "empresas_despesa_progress",
+    "allowCreate": true,
+    "screenId": "ciw.empresas-despesa",
+    "builderEntityCode": "empresas_despesa_progress",
+    "allowUpdate": true,
+    "ownerScope": "system",
+    "version": "1.0.1",
+    "pageType": "crud",
+    "subtitle": "Configuração da despesa por empresa",
+    "programCode": "cd0093",
+    "programTitle": "Empresas por despesa",
+    "contextFields": [
+      {
+        "createDefault": true,
+        "field": "despesa_id",
+        "required": true,
+        "filter": true,
+        "readonly": true
+      }
+    ],
+    "programOrigin": "standard",
+    "gridEditMode": "form",
+    "module": "cadastros"
+  }
+}

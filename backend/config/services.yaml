@@ -18,6 +18,9 @@ services:
     # this creates a service per class whose id is the fully-qualified class name
     App\:
         resource: '../src/'
+        exclude:
+            - '../src/Attachments/AttachmentStorageBroker.php'
+            - '../src/Attachments/AttachmentPolicyViolation.php'
 
     App\Runtime\RuntimeBusinessRuleRegistry:
         arguments:
@@ -33,6 +36,11 @@ services:
 
     App\Auth\LocalPasswordAuthProvider:
         tags: ['app.auth_provider']
+
+    App\Auth\ImaUserWebAuthProvider:
+        tags: ['app.auth_provider']
+
+    App\Auth\ImaUserWebClientInterface: '@App\Auth\ImaUserWebClient'
 
     App\Auth\LdapAuthProvider:
         tags: ['app.auth_provider']
@@ -62,3 +70,6 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+    App\Ciw\CiwSqlGrantReaderInterface: '@App\Ciw\PdoCiwSqlGrantReader'
+    App\Ciw\CiwProgressIdentityClientInterface: '@App\Ciw\CiwProgressIdentityClient'

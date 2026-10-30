@@ -1,0 +1,71 @@
+{
+  "entityDraft": {
+    "code": "tipos_versao_custo_progress",
+    "name": "Tipos de versão de custo Progress",
+    "entityType": "api",
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 96,
+    "createPhysicalTable": false,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "tipos_versao_custo_read",
+    "apiDetailOperationCode": "tipos_versao_custo_get",
+    "apiCreateOperationCode": "tipos_versao_custo_create",
+    "apiUpdateOperationCode": "tipos_versao_custo_update",
+    "apiDeleteOperationCode": "tipos_versao_custo_delete",
+    "apiBatchOperationCode": "tipos_versao_custo_batch",
+    "fields": [
+      {
+        "code": "tipo_versao_custo_id",
+        "label": "ID",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "position": 10,
+        "readonlyField": true,
+        "apiJsonPath": "tipo_versao_custo_id",
+        "apiWritePath": "tipo_versao_custo_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "descricao",
+        "label": "Descrição",
+        "dataType": "string",
+        "required": false,
+        "position": 20,
+        "apiJsonPath": "descricao",
+        "apiWritePath": "descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "defaultValue": ""
+        },
+        "length": 100
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "cd0096",
+    "programTitle": "Tipos de versão de custo",
+    "module": "cadastros",
+    "builderEntityCode": "tipos_versao_custo_progress",
+    "pageType": "crud",
+    "gridEditMode": "batch",
+    "screenId": "ciw.tipos-versao-custo",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": true,
+    "allowUpdate": true,
+    "allowDelete": true,
+    "permissionPrefix": "tipos_versao_custo_progress",
+    "subtitle": "Cadastro CIW integrado ao Progress"
+  }
+}

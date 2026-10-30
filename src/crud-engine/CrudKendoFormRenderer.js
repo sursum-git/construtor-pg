@@ -4,8 +4,10 @@
   class CrudKendoFormRenderer {
     constructor(options) {
       this.definition = options.definition;
+      this.host = options.host;
       this.httpClient = options.httpClient;
       this.config = options.config || {};
+      this.contextValues = options.contextValues || {};
       this.securityPolicy = options.securityPolicy || {};
       this.onSaved = options.onSaved || function() {};
       this.onCreate = options.onCreate || function() {};
@@ -24,13 +26,24 @@
       this.linkedPageEngines = {};
       this.submitInProgress = false;
       this.submitButton = null;
+      this.attachmentTokens = new Set();
     }
 
     open(mode, data) {
+      this.releaseAttachmentFiles();
+      const embedded = this.definition.form.mode === "embedded";
+      if (embedded && this.wrapper) { this.destroyLinkedPageEngines(); kendo.destroy(this.wrapper); this.wrapper.remove(); }
+
       this.passiveData = mode === "create" ? {} : global.CrudUtils.clone(data || {});
       this.mode = this.normalizeMode(mode);
       this.actionMode = this.getActionMode(this.mode);
       this.data = data ? global.CrudUtils.clone(data) : {};
+      if (this.mode === "create") {
+        Object.keys(this.definition.dataModel.fields).forEach((name) => {
+          const field = this.definition.dataModel.fields[name];
+          if (!Object.prototype.hasOwnProperty.call(this.data, name) && Object.prototype.hasOwnProperty.call(field, "defaultValue")) { this.data[name] = global.CrudUtils.clone(field.defaultValue); }
+        });
+      }
       this.currentStepIndex = 0;
       this.formRuntime = {
         readonly: {},
@@ -38,17 +51,27 @@
         visible: {},
         steps: {}
       };
+      global.CrudUtils.ensureArray(this.definition.contextFields).forEach((item) => {
+        if (item.readonly && Object.prototype.hasOwnProperty.call(this.contextValues, item.field)) { this.formRuntime.readonly[item.field] = true; }
+      });
       this.customCodeState = {};
       this.linkedPageEngines = {};
 
-      const wrapper = $("<div></div>").appendTo(document.body);
+      const wrapper = $("<div></div>").toggleClass("crud-form-embedded", embedded).appendTo(embedded ? this.host : document.body);
       const content = $("<form class=\"crud-form\"></form>").appendTo(wrapper);
       this.wrapper = wrapper;
       this.formElement = content;
       this.inputs = {};
 
       this.renderForm();
+      this.applyFieldConditions();
+      this.optionsReady = this.loadRemoteOptions();
       this.resetDirtyState();
+
+      if (embedded) {
+        this.executeFormLifecycleEvents("open");
+        return;
+      }
 
       wrapper.kendoWindow({
         title: this.getTitle(mode),
@@ -75,6 +98,7 @@
             return;
           }
           this.destroyLinkedPageEngines();
+          this.releaseAttachmentFiles();
           this.onClosed();
           wrapper.data("kendoWindow").destroy();
           wrapper.remove();
@@ -90,6 +114,15 @@
     }
 
     close(force) {
+      if (this.definition.form.mode === "embedded" && this.wrapper) {
+        if (force !== true && this.hasUnsavedChanges()) { return; }
+        this.destroyLinkedPageEngines();
+        this.releaseAttachmentFiles();
+        kendo.destroy(this.wrapper);
+        this.wrapper.remove();
+        this.wrapper = null;
+        this.onClosed();
+      }
       if (this.window) {
         this.forceClosing = force === true;
         this.window.close();
@@ -130,6 +163,7 @@
     }
 
     activateAction(mode) {
+      this.releaseAttachmentFiles();
       const nextMode = this.normalizeMode(mode);
       this.mode = nextMode;
       this.actionMode = this.getActionMode(nextMode);
@@ -230,7 +264,7 @@
           icon: "list-unordered",
           config: this.getFormButton("logs"),
           visible: this.isLogsEnabled(),
-          disabled: !hasRecord,
+          disabled: !this.canOpenCurrentRecordLogs(),
           click: () => this.openCurrentRecordLogs()
         });
         printButton = this.renderPrintButton(appbar);
@@ -836,9 +870,22 @@
       return Object.assign({}, logsButton || {}, form.logs || {});
     }
 
+    logsRequireRecord() {
+      const logs = this.getLogsConfig();
+      return ["transactions", "transactionEvents", "recordEvents"].indexOf(logs.mode) !== -1 || logs.requiresRecord !== false;
+    }
+
+    canOpenCurrentRecordLogs() {
+      if (!this.isLogsEnabled()) { return false; }
+      if (!this.logsRequireRecord()) { return true; }
+      const primaryKey = this.definition.dataModel && this.definition.dataModel.primaryKey;
+      const id = primaryKey && this.data && this.data[primaryKey];
+      return this.mode !== "create" && this.hasCurrentRecord() && id !== 0 && id !== "0" && String(id).trim() !== "";
+    }
+
     openCurrentRecordLogs() {
       const logs = this.getLogsConfig();
-      if (!this.isLogsEnabled() || !this.hasCurrentRecord()) {
+      if (!this.canOpenCurrentRecordLogs()) {
         return;
       }
       this.onLogs(global.CrudUtils.clone(this.passiveData || this.data || {}), global.CrudUtils.clone(logs));
@@ -1190,6 +1237,7 @@
     }
 
     isNavigationEnabled() {
+      if (this.definition.form.mode === "embedded") { return false; }
       const form = this.getFormConfig();
       const navigation = form.navigation || {};
       if (navigation.enabled != null) {
@@ -1281,9 +1329,9 @@
         return;
       }
 
-      if (String(config.engine || "crud").toLowerCase() !== "crud") {
+      if (["crud", "process"].indexOf(String(config.engine || "crud").toLowerCase()) === -1) {
         $("<div class=\"crud-linked-page-empty crud-linked-page-error\"></div>")
-          .text("Pagina ligada suporta apenas engine CRUD nesta versao.")
+          .text("Engine de pagina ligada nao suportado.")
           .appendTo(host);
         return;
       }
@@ -1332,18 +1380,25 @@
 
     mountLinkedPageEngine(key, host, config) {
       this.destroyLinkedPageEngine(key);
-      if (typeof global.CrudEngine !== "function") {
-        this.renderLinkedPageError(host, "CrudEngine nao esta carregado para renderizar a pagina ligada.");
+      const Engine = String(config.engine || "crud").toLowerCase() === "process" ? global.ProcessEngine : global.CrudEngine;
+      if (typeof Engine !== "function") {
+        this.renderLinkedPageError(host, "Engine da pagina ligada nao esta carregado.");
         return Promise.resolve(null);
       }
       const values = this.collectAllValues();
       const initialFilters = this.buildLinkedPageInitialFilters(config, values);
+      const contextValues = {};
+      initialFilters.forEach((filter) => {
+        const conflicting = initialFilters.some((other) => other.field === filter.field && other.operator === "eq" && String(other.value) !== String(filter.value));
+        if (filter.operator === "eq" && !conflicting) { contextValues[filter.field] = typeof filter.value === "number" ? String(filter.value) : filter.value; }
+      });
       const options = {
         root: host,
         config: this.config || {},
         httpClient: this.httpClient,
         hideHeader: config.hideHeader !== false,
         initialFilters,
+        contextValues,
         runtimeMessages: config.runtimeMessages === true,
         contextPayload: {
           parentScreenId: this.definition.screenId || this.definition.program && this.definition.program.screenId || "",
@@ -1365,7 +1420,7 @@
       host.empty();
       $("<div class=\"crud-loading\"></div>").text("Carregando pagina ligada...").appendTo(host);
 
-      const engine = new global.CrudEngine(options);
+      const engine = new Engine(options);
       const entry = { engine, host };
       this.linkedPageEngines[key] = entry;
 
@@ -1934,11 +1989,13 @@
       const readonly = this.mode === "view" ||
         this.mode === "delete" ||
         item.readonly ||
+        (field.readonlyOnEdit && this.mode !== "create") ||
         runtimeReadonly === true ||
         settings.stepReadonly === true ||
         field.editable === false ||
         renderAs === "label" ||
-        renderAs === "readonly";
+        renderAs === "readonly" ||
+        renderAs === "audit-diff";
       const wrapper = $("<div class=\"crud-field\"></div>")
         .attr("data-field", item.field)
         .toggleClass("crud-col-span-2", item.colSpan === 2)
@@ -1965,12 +2022,24 @@
         return;
       }
 
+      if (renderAs === "audit-diff") {
+        const readonlyElement = $("<div class=\"crud-readonly-value crud-audit-diff\"></div>").attr("id", fieldDomId).appendTo(wrapper);
+        this.renderAuditDiffValue(readonlyElement, item);
+        this.inputs[item.field] = { wrapper, labelElement, readonlyElement, field, item, id: fieldDomId, kind: "audit-diff", readonly: true, baseReadonly: true };
+        return;
+      }
+
+      if (field.editor === "file") {
+        this.renderFileField(wrapper, labelElement, field, item, fieldDomId, readonly);
+        return;
+      }
+
       if ((field.editor || field.type) === "customCode" && !readonly) {
         this.renderCustomCodeField(wrapper, labelElement, field, item, fieldDomId);
         return;
       }
 
-      if (readonly) {
+      if (readonly && !field.optionsSource) {
         const readonlyElement = $("<div class=\"crud-readonly-value\"></div>")
           .attr("id", fieldDomId)
           .text(this.formatReadonly(field, this.data[item.field]))
@@ -2004,6 +2073,112 @@
         readonly,
         baseReadonly: readonly
       };
+    }
+
+    releaseAttachmentFiles() {
+      if (!this.attachmentTokens) { return; }
+      this.attachmentTokens.forEach((token) => this.httpClient.releaseFile(token));this.attachmentTokens.clear();
+    }
+
+    renderFileField(wrapper, labelElement, field, item, fieldDomId, readonly) {
+      const config = field.attachment || {};
+      const input = $("<input type=\"hidden\">").attr("name", item.field).val(this.data[item.field] || "").appendTo(wrapper);
+      const picker = $("<input type=\"file\">").attr("id", fieldDomId).attr("accept", ".pdf,.png,.jpg,.jpeg,.gif,.bmp,.tif,.tiff,.webp,.doc,.xls,.ppt,.docx,.xlsx,.pptx,.odt,.ods,.odp,.zip").prop("disabled", Boolean(readonly)).appendTo(wrapper);
+      const selected = this.httpClient.registeredFile(this.data[item.field]);
+      const label = $("<div class=\"crud-readonly-value\"></div>").text(selected ? selected.name : (this.data.caminho_arquivo || "Nenhum arquivo")).appendTo(wrapper);
+      $("<small></small>").text("PDF, imagens, Office e ZIP — ate 20 MB. O arquivo sera enviado ao salvar.").appendTo(wrapper);
+      picker.on("change", () => {
+        try {
+          const file = picker[0].files && picker[0].files[0];if (!file) { return; }
+          const urls = [this.definition.api.create, this.definition.api.update].filter(Boolean).map((endpoint) => endpoint.url);
+          const token = this.httpClient.registerFile(item.field, file, urls);
+          const previous = input.val();this.httpClient.releaseFile(previous);this.attachmentTokens.delete(previous);this.attachmentTokens.add(token);
+          this.data[item.field] = token;input.val(token).trigger("change");label.text(file.name);
+        } catch (error) { picker.val("");global.CrudUtils.showMessage(global.CrudUtils.unwrapError(error, "Arquivo invalido.").message, "error"); }
+      });
+      if (this.mode !== "create" && this.data.caminho_arquivo && config.downloadEndpoint && this.definition.api[config.downloadEndpoint]) {
+        const button = $("<button type=\"button\"></button>").text("Baixar arquivo").appendTo(wrapper).kendoButton({ icon: "download" });
+        button.on("click", async () => {
+          const widget = button.data("kendoButton");widget.enable(false);
+          try {
+            const endpoint = this.definition.api[config.downloadEndpoint];
+            const data = { id: this.data[this.definition.dataModel.primaryKey], context: this.getRemoteOptionsContext() };
+            const blob = await this.httpClient.download({ url: endpoint.url, data });
+            const url = global.URL.createObjectURL(blob);const anchor = document.createElement("a");anchor.href = url;anchor.download = String(this.data.caminho_arquivo).replace(/[\\/\u0000-\u001f\u007f]/g, "_");document.body.appendChild(anchor);anchor.click();anchor.remove();global.setTimeout(() => global.URL.revokeObjectURL(url), 1000);
+          } catch (error) { global.CrudUtils.showMessage(global.CrudUtils.unwrapError(error, "Falha ao baixar arquivo.").message, "error"); }
+          finally { widget.enable(true); }
+        });
+      }
+      this.inputs[item.field] = { input, picker, wrapper, labelElement, field, item, id: fieldDomId, kind: "file", readonly, baseReadonly: readonly };
+    }
+
+    renderAuditDiffValue(container, item, record) {
+      const values = record || this.data;
+      const parse = (value) => {
+        if (typeof value === "string") {
+          try { value = JSON.parse(value); } catch (error) { return null; }
+        }
+        return value && typeof value === "object" ? value : null;
+      };
+      const diff = parse(values[item.field]);
+      const config = item.auditDiff || {};
+      const before = parse(values[config.beforeField]);
+      const after = parse(values[config.afterField]);
+      const sensitive = (key) => /password|senha|token|secret|segredo|credential|authorization|api[_-]?key/i.test(key);
+      const protect = (value) => {
+        if (Array.isArray(value)) { return value.map(protect); }
+        if (value && typeof value === "object") {
+          return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, sensitive(key) ? "[protegido]" : protect(entry)]));
+        }
+        return value;
+      };
+      const format = (value, key) => {
+        if (sensitive(key)) { return "[protegido]"; }
+        if (value === "") { return '""'; }
+        return value && typeof value === "object" ? JSON.stringify(protect(value)) : String(value);
+      };
+      const keys = diff && !Array.isArray(diff) ? Object.keys(diff).filter((key) => {
+        const change = diff[key];
+        return change && typeof change === "object" && Object.prototype.hasOwnProperty.call(change, "before") && Object.prototype.hasOwnProperty.call(change, "after");
+      }) : [];
+      container.empty();
+      const eventType = config.eventTypeField && values[config.eventTypeField];
+      const metadata = config.metadataField && parse(values[config.metadataField]);
+      const audit = metadata && metadata.audit;
+      const confirmed = audit && audit.available === true && audit.version === 1 && audit.source === "progress-transaction";
+      if (typeof eventType === "string" && /\.(read|get|list|options)$/.test(eventType)) {
+        $("<p></p>").text("Esta transação não registrou alteração de dados. Operação de consulta.").appendTo(container);
+        return;
+      }
+      if (typeof eventType === "string" && eventType.indexOf(".api.") !== -1 &&
+          !confirmed) {
+        $("<p></p>").text("Comparação anterior/atual não disponível para este evento.").appendTo(container);
+        return;
+      }
+      if (confirmed && audit.operation === "batch" && typeof eventType === "string" && /\.api\.batch$/.test(eventType)) {
+        $("<p></p>").text("Lote confirmado. As alterações estão nos eventos de cada registro.").appendTo(container);
+        return;
+      }
+      const operationLabels = { create: "Inclusão", update: "Alteração", delete: "Exclusão" };
+      if (confirmed && Object.prototype.hasOwnProperty.call(operationLabels, audit.operation) &&
+          Number.isInteger(audit.recordId) && audit.recordId > 0 && audit.recordId <= 2147483647) {
+        $("<h4 class=\"crud-audit-diff-record\"></h4>").text("Registro " + audit.recordId + " — " + operationLabels[audit.operation]).appendTo(container);
+      }
+      if (!keys.length) {
+        $("<p></p>").text("Este evento não contém comparação de alterações.").appendTo(container);
+        return;
+      }
+      const table = $("<table class=\"k-table k-table-md crud-audit-diff-table\"></table>").css("width", "100%").attr("aria-label", "Comparação de alterações").appendTo(container);
+      const head = $("<tr class=\"k-table-row\"></tr>").appendTo($("<thead class=\"k-table-thead\"></thead>").appendTo(table));
+      ["Campo", "Anterior", "Atual"].forEach((label) => $("<th class=\"k-table-th\" scope=\"col\"></th>").text(label).appendTo(head));
+      const body = $("<tbody class=\"k-table-tbody\"></tbody>").appendTo(table);
+      keys.forEach((key) => {
+        const change = diff[key];
+        const left = before && !Object.prototype.hasOwnProperty.call(before, key) ? "Ausente" : format(change.before, key);
+        const right = after && !Object.prototype.hasOwnProperty.call(after, key) ? "Ausente" : format(change.after, key);
+        const row = $("<tr class=\"k-table-row\"></tr>").appendTo(body);
+        [key, left, right].forEach((value) => $("<td class=\"k-table-td\"></td>").text(value).css({ whiteSpace: "pre-wrap", overflowWrap: "anywhere", verticalAlign: "top" }).appendTo(row));
+      });
     }
 
     renderCustomCodeField(wrapper, labelElement, field, item, fieldDomId) {
@@ -2062,7 +2237,110 @@
       };
     }
 
+    applyFieldConditions() {
+      const context = { values: this.collectAllValues(), response: {} };
+      Object.keys(this.inputs || {}).forEach((name) => {
+        const item = this.inputs[name];
+        if (item.field.visibleWhen) { item.wrapper.toggle(this.evaluateCondition(item.field.visibleWhen, context)); }
+        if (item.field.enabledWhen) { this.setFieldReadonly(name, item.baseReadonly || !this.evaluateCondition(item.field.enabledWhen, context)); }
+      });
+    }
+
+    applyOptionFields(item, option) {
+      const allowed = global.CrudUtils.ensureArray(item.field.optionsSource && item.field.optionsSource.copyFields);
+      allowed.forEach((name) => {
+        const target = this.definition.dataModel.fields[name];
+        if (!target || !(target.readonly || target.editable === false) || !option || !option.fields || !Object.prototype.hasOwnProperty.call(option.fields, name)) { return; }
+        this.data[name] = option.fields[name];
+        if (this.inputs[name]) { this.setFieldValue(name, option.fields[name]); }
+      });
+      this.applyFieldConditions();
+    }
+
+    getRemoteOptionsContext() {
+      const result = {};
+      global.CrudUtils.ensureArray(this.definition.contextFields).forEach((item) => {
+        if (item.filterOnly === true) { return; }
+        const raw = (this.contextValues || {})[item.field];
+        if (raw == null || raw === "") {
+          if (item.required) { throw global.CrudUtils.makeError("CRUD_OPTIONS_CONTEXT_REQUIRED", "Informe o contexto de " + item.field + "."); }
+          return;
+        }
+        const field = this.definition.dataModel.fields[item.field];
+        let value;
+        if (field && field.type === "integer" && ["number", "string"].includes(typeof raw) && /^[1-9][0-9]*$/.test(String(raw)) && Number(raw) <= 2147483647) {
+          value = Number(raw);
+        } else if (field && field.type === "string" && typeof raw === "string" && raw.trim() && raw.length <= (field.validation && field.validation.maxLength || 160) && !/[\u0000-\u001f\u007f]/.test(raw)) {
+          value = raw;
+        } else { throw global.CrudUtils.makeError("CRUD_OPTIONS_CONTEXT_INVALID", "Contexto invalido: " + item.field + "."); }
+        const current = this.data[item.field];
+        if (current != null && current !== "" && String(current) !== String(value)) { throw global.CrudUtils.makeError("CRUD_OPTIONS_CONTEXT_CONFLICT", "O registro diverge do contexto de " + item.field + "."); }
+        result[item.field] = value;
+      });
+      return result;
+    }
+
+    loadRemoteOptions() {
+      this.optionsLoading = 0;
+      this.optionsFailed = false;
+      const generation = this.optionsGeneration = (this.optionsGeneration || 0) + 1;
+      const tasks = Object.keys(this.inputs).map((name) => {
+        const item = this.inputs[name], source = item.field.optionsSource;
+        if (!source || !item.input) { return null; }
+        const endpoint = (this.definition.api || {})[source.endpointId];
+        if (!endpoint || !endpoint.url) { this.optionsFailed = true; return null; }
+        const widget = item.input.data("kendoMultiSelect") || item.input.data("kendoDropDownList");
+        if (!widget) { this.optionsFailed = true; return null; }
+        const value = this.data[name];
+        const requestData = {};
+        try {
+          const context = this.getRemoteOptionsContext();
+          if (Object.keys(context).length) { requestData.context = context; }
+        } catch (error) {
+          this.optionsFailed = true;
+          widget.enable(false);
+          global.CrudUtils.showMessage(global.CrudUtils.unwrapError(error, "Contexto de opcoes invalido.").message, "error");
+          return null;
+        }
+        const currentId = Object.values(this.contextValues || {})[0] || this.data[this.definition.dataModel.primaryKey];
+        if (source.excludeCurrent && Number.isInteger(currentId) && currentId > 0) { requestData.id = currentId; }
+        this.optionsLoading++;
+        item.optionsLoading = true;
+        widget.enable(false);
+        return this.httpClient.request({ url: endpoint.url, method: endpoint.method || "POST", data: requestData }).then((response) => {
+          if (generation !== this.optionsGeneration || !this.wrapper || !this.wrapper[0].isConnected) { return; }
+          const wasDirty = this.hasUnsavedChanges();
+          const options = global.CrudUtils.ensureArray(response.data).slice();
+          if (item.field.editor === "multiselect") {
+            global.CrudUtils.ensureArray(value).forEach((id) => { if (!options.some((option) => String(option.value) === String(id))) { options.push({ value: id, text: String(id) }); } });
+          }
+          if (source.copyFields && value != null && !options.some((option) => String(option.value) === String(value))) { throw global.CrudUtils.makeError("CRUD_OPTIONS_CONTEXT_NOT_FOUND", "Registro de contexto nao encontrado nas opcoes."); }
+          item.optionsLoading = false;
+          widget.setDataSource(new kendo.data.DataSource({ data: options }));
+          widget.value(value == null ? (item.field.editor === "multiselect" ? [] : "") : value);
+          this.applyOptionFields(item, options.find((option) => String(option.value) === String(value)));
+          if (item.readonlyElement) { item.readonlyElement.text((options.find((option) => String(option.value) === String(value)) || {}).text || value || ""); }
+          widget.enable(!item.readonly);
+          widget.bind("change", () => {
+            this.applyOptionFields(item, options.find((option) => String(option.value) === String(widget.value())));
+          });
+          if (!wasDirty) { this.resetDirtyState(); }
+        }).catch((error) => {
+          if (generation === this.optionsGeneration) {
+            this.optionsFailed = true;
+            global.CrudUtils.showMessage(global.CrudUtils.unwrapError(error, "Erro ao carregar opcoes de " + item.field.label + ".").message, "error");
+          }
+        }).finally(() => { if (generation === this.optionsGeneration) { this.optionsLoading--; } });
+      }).filter(Boolean);
+      return Promise.all(tasks);
+    }
+
     createWidget(input, field, value) {
+      if (field.editor === "multiselect") {
+        input.kendoMultiSelect({ dataTextField: "text", dataValueField: "value", valuePrimitive: true,
+          dataSource: global.CrudUtils.ensureArray(field.options), value: global.CrudUtils.ensureArray(value) });
+        return;
+      }
       switch (field.editor || field.type) {
         case "textarea":
         case "text":
@@ -2076,8 +2354,10 @@
         case "currency":
           input.kendoNumericTextBox({
             value: value == null ? null : Number(value),
-            format: field.format === "currency" ? "c2" : "n2",
-            decimals: field.type === "integer" ? 0 : 2
+            format: field.type === "integer" ? "n0" : (field.format === "currency" ? "c2" : (field.format || "n2")),
+            decimals: field.type === "integer" ? 0 : (field.decimals == null ? 2 : field.decimals),
+            min: field.min,
+            max: field.max
           });
           break;
         case "date":
@@ -2104,8 +2384,10 @@
           input.kendoDropDownList({
             dataTextField: "text",
             dataValueField: "value",
+            valuePrimitive: true,
+            optionLabel: field.optionsSource ? "Selecione" : undefined,
             dataSource: options,
-            value: value == null || value === "" ? (options[0] && options[0].value || "") : value
+            value: value == null || value === "" ? (options[0] ? options[0].value : "") : value
           });
           break;
         default:
@@ -2156,7 +2438,7 @@
         if (!item || !item.input) {
           return;
         }
-        const handler = () => this.updateDirtyState();
+        const handler = () => { this.applyFieldConditions(); this.updateDirtyState(); };
         item.input.off("input.crudDirty change.crudDirty").on("input.crudDirty change.crudDirty", handler);
         const widget = this.getInputWidget(item.input);
         if (widget && typeof widget.bind === "function") {
@@ -2630,6 +2912,10 @@
       }
 
       this.data[fieldName] = value;
+      if (item.kind === "audit-diff") {
+        this.renderAuditDiffValue(item.readonlyElement, item.item);
+        return;
+      }
       if (item.readonlyElement) {
         item.readonlyElement.text(this.formatReadonly(item.field, value));
         return;
@@ -2668,9 +2954,11 @@
       item.readonly = readonly;
       item.wrapper.toggleClass("crud-field-readonly", readonly);
 
+      if (item.kind === "file") { item.picker.prop("disabled", Boolean(readonly));return; }
+
       const widget = item.input ? this.getInputWidget(item.input) : null;
       if (widget && typeof widget.enable === "function") {
-        widget.enable(!readonly);
+        widget.enable(!readonly && !item.optionsLoading);
       } else if (item.input) {
         item.input.prop("disabled", readonly);
       }
@@ -2863,12 +3151,21 @@
         input.data("kendoDatePicker") ||
         input.data("kendoDateTimePicker") ||
         input.data("kendoSwitch") ||
+        input.data("kendoMultiSelect") ||
         input.data("kendoDropDownList") ||
         null;
     }
 
     renderFooterAppbar(container) {
       const actions = $("<div class=\"crud-form-appbar crud-form-footer-appbar\"></div>").appendTo(container);
+      if (this.definition.form.mode === "embedded" && !this.actionMode) {
+        const target = this.definition.form.returnScreenId;
+        if (target && /^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(target)) {
+          const href = global.CrudUtils.buildGridReturnUrl(this.definition);
+          $('<a></a>').attr('href', href).text('Voltar').appendTo(actions).kendoButton({icon:'arrow-left'});
+        }
+        return;
+      }
       const canConfirm = this.canConfirm();
       const closeOnCancel = this.shouldCloseOnCancel();
       const canCancel = Boolean(this.actionMode) || closeOnCancel;
@@ -2982,9 +3279,8 @@
     }
 
     save(buttonConfig, confirmButton) {
-      if (this.submitInProgress) {
-        return;
-      }
+      if (this.submitInProgress) { return; }
+      if (this.optionsLoading || this.optionsFailed) { global.CrudUtils.showMessage("Aguarde o carregamento das opcoes ou reabra o formulario apos corrigir a consulta.", "error"); return; }
       const payload = this.collectValues();
       payload._runtime = Object.assign({}, this.data && this.data._runtime || {}, payload._runtime || {});
       const validationErrors = this.validatePayload(payload);
@@ -3019,6 +3315,7 @@
           return;
         }
         const savedMode = this.mode;
+        this.releaseAttachmentFiles();
         this.clearBackendValidation();
         this.applyEffects(response && response.effects, {
           event: "save",
@@ -3137,9 +3434,7 @@
       const values = Object.assign({}, this.data);
       Object.keys(this.inputs).forEach((fieldName) => {
         const item = this.inputs[fieldName];
-        if (item.readonly) {
-          return;
-        }
+        if (item.readonly && (!item.field.enabledWhen || item.baseReadonly)) { return; }
         const value = this.readWidgetValue(item.input, item.field);
         values[fieldName] = value;
       });
@@ -3152,6 +3447,14 @@
 
     validatePayload(payload) {
       const errors = [];
+      Object.keys(this.inputs || {}).forEach((name) => {
+        const field = this.inputs[name].field;
+        if (field.type !== "array") { return; }
+        const value = payload[name];
+        if (!Array.isArray(value) || value.length > 100 || new Set(value).size !== value.length || value.some((id) => !Number.isInteger(id) || id < 1 || id > 2147483647)) {
+          errors.push(field.label + " exige ate 100 IDs inteiros positivos distintos.");
+        }
+      });
       Object.keys(this.inputs).forEach((fieldName) => {
         const item = this.inputs[fieldName];
         if (item.readonly) {
@@ -3188,6 +3491,14 @@
     }
 
     readWidgetValue(input, field) {
+      if (field.editor === "multiselect") { return input.data("kendoMultiSelect").value().map(Number); }
+      if (field.type === "enum" || field.editor === "dropdown") {
+        const value = input.data("kendoDropDownList").value();
+        if (value === "" || value == null) { return field.type === "integer" && field.defaultValue === 0 ? 0 : null; }
+        if (field.type === "integer") { return Number(value); }
+        const option = global.CrudUtils.ensureArray(field.options).find((item) => String(item.value) === String(value));
+        return option ? option.value : value;
+      }
       if (field.type === "integer" || field.type === "decimal" || field.type === "number" || field.editor === "currency") {
         return input.data("kendoNumericTextBox").value();
       }
@@ -3455,16 +3766,18 @@
       if (value == null || value === "") {
         return "";
       }
-      if (field.type === "enum" && field.options) {
+      if ((field.type === "enum" || field.editor === "dropdown") && field.options) {
         const option = field.options.find(function(item) { return item.value === value; });
         return option ? option.text : value;
       }
-      if (field.format === "currency") {
-        return kendo.toString(Number(value), "c2");
+      const numericFormat = global.CrudUtils.numericFormat(field.format, field.decimals);
+      if (numericFormat && (["integer", "decimal", "number", "currency"].includes(field.type) || field.format === "currency")) {
+        return kendo.toString(Number(value), field.type === "integer" ? "n0" : numericFormat);
       }
       if (field.type === "date") {
         return kendo.toString(global.CrudUtils.normalizeDateValue(value), "dd/MM/yyyy");
       }
+      if (field.type === "boolean") { return value ? "Sim" : "Não"; }
       return String(value);
     }
 

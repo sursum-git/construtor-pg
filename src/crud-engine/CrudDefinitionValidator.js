@@ -30,9 +30,11 @@
       } else {
         this.validateRoot(normalizedDefinition, errors);
         this.validateFields(normalizedDefinition, errors);
+        this.validateDeclarativeCapabilities(normalizedDefinition, errors);
         this.validateTextLimits(normalizedDefinition, errors);
         this.validateFilter(normalizedDefinition, errors);
         this.validateGrid(normalizedDefinition, errors);
+        this.validateDefaultGroup(normalizedDefinition, errors);
         this.validateMobileGrid(normalizedDefinition, errors);
         this.validateFreezeColumns(normalizedDefinition, errors);
         this.validateSavedSorts(normalizedDefinition, errors);
@@ -40,6 +42,7 @@
         this.validateSavedFilters(normalizedDefinition, errors);
         this.validateUserLayoutGroup(normalizedDefinition, errors);
         this.validateForm(normalizedDefinition, errors);
+        this.validateAuditSummary(normalizedDefinition, errors);
         this.validatePermissions(normalizedDefinition, errors);
         this.validateSensitiveKeys(normalizedDefinition, "", errors);
         this.validateUrls(normalizedDefinition, errors);
@@ -104,6 +107,60 @@
       if (String(value).length > maxLength) {
         errors.push(fieldName + " deve ter no maximo " + maxLength + " caracteres." + (hint ? " " + hint : ""));
       }
+    }
+
+    validateDeclarativeCapabilities(definition, errors) {
+      const fields = definition.dataModel && definition.dataModel.fields || {};
+      const closed = (value, keys, label) => {
+        if (!value || typeof value !== "object" || Array.isArray(value) || Object.keys(value).some((key) => keys.indexOf(key) === -1)) { errors.push(label + " possui configuracao invalida."); return false; }
+        return true;
+      };
+      const identifier = /^[A-Za-z_][A-Za-z0-9_]*$/;
+      global.CrudUtils.ensureArray(definition.contextFields).forEach((item) => {
+        if (!closed(item, ["field", "filter", "createDefault", "readonly", "required", "filterOnly"], "contextFields")) { return; }
+        if (Object.prototype.hasOwnProperty.call(item, "filterOnly") && (typeof item.filterOnly !== "boolean" || (item.filterOnly && (definition.pageType !== "crud" || !fields[item.field] || fields[item.field].type !== "integer" || item.required !== false || item.filter !== true || item.readonly !== true || item.createDefault !== false)))) { errors.push("filterOnly exige contexto integer opcional readonly, filtro ativo e sem default de criacao."); }
+        if (!fields[item.field] || ["integer", "string"].indexOf(fields[item.field].type) === -1) { errors.push("Contexto exige campo integer ou string existente."); }
+        ["filter", "createDefault", "readonly", "required"].forEach((key) => { if (item[key] != null && typeof item[key] !== "boolean") { errors.push("Contexto exige propriedades booleanas."); } });
+      });
+      const snapshot = definition.grid && definition.grid.editing && definition.grid.editing.snapshot;
+      if (snapshot != null) {
+        if (closed(snapshot, ["originalFields", "contextFields"], "grid.editing.snapshot")) {
+          if (definition.grid.editing.mode !== "batch") { errors.push("Snapshot exige modo batch."); }
+          ["originalFields", "contextFields"].forEach((key) => {
+            const names = snapshot[key];
+            if (!Array.isArray(names) || !names.length || names.length > 64 || new Set(names).size !== names.length || names.some((name) => typeof name !== "string" || !fields[name] || ["integer","decimal","number","boolean","string","text","date","datetime"].indexOf(fields[name].type) === -1)) { errors.push("Campos de snapshot invalidos."); }
+          });
+          global.CrudUtils.ensureArray(snapshot.contextFields).forEach((name) => {
+            if (!global.CrudUtils.ensureArray(definition.contextFields).some((item) => item.field === name && item.required && item.readonly)) { errors.push("Snapshot exige contexto obrigatorio readonly."); }
+          });
+        }
+      }
+      global.CrudUtils.ensureArray(definition.grid && definition.grid.rowLinks).forEach((link) => {
+        if (!closed(link, ["id", "label", "screenId", "parameters", "position", "icon", "iconOnly"], "rowLinks")) { return; }
+        if (!identifier.test(link.id || "") || !link.label || !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(link.screenId || "") || !Array.isArray(link.parameters)) { errors.push("Link de linha invalido."); }
+        if (Object.prototype.hasOwnProperty.call(link, "position") && ["start", "end"].indexOf(link.position) === -1) { errors.push("Posicao do link deve ser start ou end."); }
+        if (Object.prototype.hasOwnProperty.call(link, "icon") && (typeof link.icon !== "string" || !/^[a-z][a-z0-9-]{0,79}$/.test(link.icon))) { errors.push("Icone do link invalido."); }
+        if (Object.prototype.hasOwnProperty.call(link, "iconOnly") && typeof link.iconOnly !== "boolean") { errors.push("iconOnly do link precisa ser booleano."); }
+        if (link.iconOnly === true && !link.icon) { errors.push("Link somente icone exige icon."); }
+        global.CrudUtils.ensureArray(link.parameters).forEach((param) => {
+          if (closed(param, ["field", "sourceField"], "rowLinks.parameters") && (!identifier.test(param.field || "") || !fields[param.sourceField])) { errors.push("Campo de link inexistente."); }
+        });
+      });
+      Object.keys(fields).forEach((name) => {
+        const field = fields[name];
+        if (field.type === "array" && (field.itemType !== "integer" || field.editor !== "multiselect")) { errors.push("Colecao exige itemType integer e multiselect."); }
+        if (field.editor === "multiselect" && field.type !== "array") { errors.push("Multiselect exige campo array."); }
+        if (field.decimals != null && (!Number.isInteger(field.decimals) || field.decimals < 0 || field.decimals > 10)) { errors.push("Precisao decimal invalida."); }
+        if (field.optionsSource && closed(field.optionsSource, ["endpointId", "excludeCurrent", "copyFields"], "optionsSource")) {
+          if (!(definition.api || {})[field.optionsSource.endpointId] || !/^options\.[A-Za-z_][A-Za-z0-9_]*$/.test(field.optionsSource.endpointId || "")) { errors.push("Endpoint de opcoes inexistente."); }
+          global.CrudUtils.ensureArray(field.optionsSource.copyFields).forEach((target) => { if (!fields[target] || !(fields[target].readonly || fields[target].editable === false)) { errors.push("Destino de apresentacao deve ser readonly."); } });
+        }
+        ["visibleWhen", "enabledWhen"].forEach((key) => {
+          if (field[key] && closed(field[key], ["field", "operator", "value"], key)) {
+            if (!fields[field[key].field] || (field[key].operator || "eq") !== "eq" || !Object.prototype.hasOwnProperty.call(field[key], "value") || typeof field[key].value === "object") { errors.push("Condicao de campo invalida."); }
+          }
+        });
+      });
     }
 
     validateFields(definition, errors) {
@@ -313,6 +370,13 @@
     }
 
     validateGrid(definition, errors) {
+      const editing = definition.grid && definition.grid.editing;
+      if (editing && ["form", "batch"].indexOf(editing.mode) === -1) {
+        errors.push(this.path(definition, "grid.editing.mode") + " deve ser form ou batch.");
+      }
+      if (editing && editing.mode === "batch" && !(definition.api && definition.api.batch)) {
+        errors.push(this.path(definition, "grid.editing") + " exige endpoint transacional api.batch.");
+      }
       const fields = definition.dataModel && definition.dataModel.fields ? definition.dataModel.fields : {};
       if (definition.grid && definition.grid.groupable != null && typeof definition.grid.groupable !== "boolean") {
         errors.push(this.path(definition, "grid.groupable") + " precisa ser booleano.");
@@ -343,6 +407,29 @@
         if (column.groupable != null && typeof column.groupable !== "boolean") {
           errors.push(this.path(definition, "grid.columns.groupable") + " precisa ser booleano.");
         }
+      });
+    }
+
+    validateDefaultGroup(definition, errors) {
+      const group = definition.query && definition.query.defaultGroup;
+      if (group == null) { return; }
+      const label = this.path(definition, "query.defaultGroup");
+      if (!Array.isArray(group) || group.length > 3) {
+        errors.push(label + " deve ser uma lista com no maximo tres campos.");
+        return;
+      }
+      const fields = definition.dataModel && definition.dataModel.fields || {};
+      const seen = new Set();
+      group.forEach((item) => {
+        if (!item || typeof item !== "object" || Array.isArray(item) ||
+            Object.keys(item).some(key => ["field", "dir"].indexOf(key) === -1) ||
+            typeof item.field !== "string" || !FIELD_NAME_PATTERN.test(item.field) ||
+            !Object.prototype.hasOwnProperty.call(fields, item.field) || ["json", "array"].indexOf(fields[item.field].type) !== -1 ||
+            ["asc", "desc"].indexOf(item.dir) === -1 || seen.has(item.field)) {
+          errors.push(label + " referencia um campo ou descritor invalido.");
+          return;
+        }
+        seen.add(item.field);
       });
     }
 
@@ -580,8 +667,16 @@
       const fields = definition.dataModel && definition.dataModel.fields ? definition.dataModel.fields : {};
       const form = definition.form || {};
 
-      if (form.mode && form.mode !== "popup") {
-        errors.push(this.path(definition, "form.mode") + " implementado nesta versao: popup.");
+      if (form.mode && ['popup', 'embedded'].indexOf(form.mode) === -1) {
+        errors.push(this.path(definition, 'form.mode') + ' deve ser popup ou embedded.');
+      }
+      if (form.returnScreenId != null && !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(form.returnScreenId)) { errors.push('returnScreenId invalido.'); }
+      if (form.mode === 'embedded' && !form.openOnLoadField) { errors.push('Formulario embedded exige openOnLoadField.'); }
+      if (form.openOnLoadField) {
+        const field = fields[form.openOnLoadField];
+        const context = global.CrudUtils.ensureArray(definition.contextFields).find((item) => item.field === form.openOnLoadField);
+        if (form.openOnLoadField !== definition.dataModel.primaryKey || !field || field.type !== 'integer' || !context || context.required !== true) { errors.push('openOnLoadField exige chave primaria integer e contexto obrigatorio.'); }
+        if (!definition.api || !definition.api.get) { errors.push('openOnLoadField exige endpoint get.'); }
       }
 
       if (!form.id) {
@@ -608,8 +703,11 @@
           errors.push(this.path(definition, "form") + " referencia campo inexistente: " + (item.field || "(vazio)") + ".");
         }
         const displayMode = item.renderAs || item.display || item.mode;
-        if (displayMode && ["label", "readonly"].indexOf(displayMode) === -1) {
-          errors.push(this.path(definition, "form.fields.renderAs") + " deve ser label ou readonly.");
+        if (displayMode && ["label", "readonly", "audit-diff"].indexOf(displayMode) === -1) {
+          errors.push(this.path(definition, "form.fields.renderAs") + " deve ser label, readonly ou audit-diff.");
+        }
+        if (displayMode === "audit-diff" || item.auditDiff != null) {
+          this.validateAuditDiffMapping(definition, item, errors);
         }
         const fieldDomId = this.buildFieldDomId(definition, form, item);
         if (fieldDomIds[fieldDomId]) {
@@ -689,6 +787,35 @@
       this.validateFormEvents(definition, form, errors);
     }
 
+    validateAuditDiffMapping(definition, item, errors) {
+      const fields = definition.dataModel && definition.dataModel.fields || {};
+      const comparison = item.auditDiff;
+      if (!comparison || typeof comparison !== "object" || Array.isArray(comparison) ||
+          Object.keys(comparison).some((key) => ["beforeField", "afterField", "eventTypeField", "metadataField"].indexOf(key) === -1) ||
+          !fields[item.field] || fields[item.field].type !== "json" ||
+          !fields[comparison.beforeField] || fields[comparison.beforeField].type !== "json" ||
+          !fields[comparison.afterField] || fields[comparison.afterField].type !== "json" ||
+          ((comparison.eventTypeField != null || comparison.metadataField != null) &&
+            (!fields[comparison.eventTypeField] || fields[comparison.eventTypeField].type !== "string" ||
+              !fields[comparison.metadataField] || fields[comparison.metadataField].type !== "json"))) {
+        errors.push(this.path(definition, "form.fields.auditDiff") + " exige campos JSON beforeField/afterField e, para proveniência, eventTypeField string/metadataField JSON existentes.");
+      }
+    }
+
+    validateAuditSummary(definition, errors) {
+      const config = definition.crud && definition.crud.auditSummary || definition.auditSummary;
+      if (!config || config.enabled === false) { return; }
+      const fields = definition.dataModel && definition.dataModel.fields || {};
+      if (typeof config !== "object" || Array.isArray(config) || Object.keys(config).some((key) => ["enabled", "contextField", "field", "maxRows", "actorNameField", "actorIdField", "auditDiff"].indexOf(key) === -1) ||
+          config.enabled != null && typeof config.enabled !== "boolean" || !fields[config.contextField] || fields[config.contextField].type !== "integer" ||
+          config.maxRows != null && (!Number.isInteger(config.maxRows) || config.maxRows < 1 || config.maxRows > 500) ||
+          ["actorNameField", "actorIdField"].some((key) => config[key] != null && (!fields[config[key]] || fields[config[key]].type !== "string")) ||
+          !config.auditDiff || !config.auditDiff.eventTypeField || !config.auditDiff.metadataField) {
+        errors.push("auditSummary exige contexto integer, mapping auditDiff completo, limite até 500 e propriedades fechadas.");
+      }
+      this.validateAuditDiffMapping(definition, { field: config.field, auditDiff: config.auditDiff }, errors);
+    }
+
     isLinkedPageFormTab(tab) {
       const type = String(tab && (tab.type || tab.kind || "") || "").toLowerCase();
       return type === "linkedpage" || type === "linked_page" || Boolean(tab && tab.linkedPage);
@@ -705,8 +832,8 @@
 
       const label = this.path(definition, "form.tabs.linkedPage");
       const engine = String(config.engine || "crud").toLowerCase();
-      if (engine !== "crud") {
-        errors.push(label + ".engine suporta apenas crud nesta versao.");
+      if (["crud", "process"].indexOf(engine) === -1) {
+        errors.push(label + ".engine suporta crud ou process.");
       }
       if (config.url || config.entryUrl) {
         errors.push(label + " nao usa url ou iframe. Configure screenId para injetar a pagina.");

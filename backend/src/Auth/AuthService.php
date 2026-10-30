@@ -41,7 +41,38 @@ class AuthService
         private readonly SystemParameterResolver $parameters,
         private readonly MailerInterface $mailer,
         private readonly ?RuntimeTransactionService $transactions = null,
+        private readonly ?\App\Runtime\StructuralIntegrityService $accessIntegrity = null,
     ) {
+    }
+
+    /** Resolve persisted access again for sensitive reads; do not trust login snapshots. */
+    public function resolveLiveSubscriberAccess(string $userTenantId, string $username, string $subscriberCode): ?AuthenticatedUser
+    {
+        $user = $this->users->findOneByTenantAndUsername($userTenantId, $username);
+        if (!$user) { return null; }
+        $this->entityManager->refresh($user);
+        if ($user->getStatus() !== 'active') { return null; }
+        $link = $this->userSubscribers->findOneEnabledForUserAndSubscriber($userTenantId, $username, $subscriberCode);
+        $overrides = [];
+        if (!$link) {
+            $base = new AuthenticatedUser($userTenantId, $user->getUsername(), $user->getUsername(), $user->getDisplayName(),
+                $user->getEmail(), $user->getGroups(), $user->getPermissions(), $user->getAuthSource());
+            if (!$this->isAdminUser($base)) { return null; }
+            if ($subscriberCode !== $userTenantId) {
+                $subscriber = $this->subscribers->findEnabledByCode($subscriberCode);
+                if (!$subscriber || !$this->accessIntegrity) { return null; }
+                $this->accessIntegrity->assertAuthSubscriber($subscriber);
+            }
+        }
+        if ($link) {
+            $this->entityManager->refresh($link);
+            if (!$link->isEnabled()) { return null; }
+            if (!$this->accessIntegrity) { throw new \LogicException('Live access requires integrity verification.'); }
+            $this->accessIntegrity->assertAuthUserSubscriber($link);
+            $overrides = $link->getPermissionOverrides();
+        }
+        return new AuthenticatedUser($userTenantId, $user->getUsername(), $user->getUsername(), $user->getDisplayName(),
+            $user->getEmail(), $user->getGroups(), $this->mergePermissions($user->getPermissions(), $overrides), $user->getAuthSource());
     }
 
     public function listProviders(): array
@@ -70,7 +101,7 @@ class AuthService
             ],
             'externalProviders' => $externalProviders,
             'providers' => $externalProviders,
-            'supportedTypes' => ['local', 'ldap', 'sso', 'oauth', 'oidc'],
+            'supportedTypes' => ['local', 'ldap', 'sso', 'oauth', 'oidc', 'ima-user-web'],
         ];
     }
 
@@ -343,12 +374,7 @@ class AuthService
                 $subscriberContext,
             );
         }
-        if (($subscriberContext['enabled'] ?? false) === true && !empty($subscriberContext['selected']['id'])) {
-            $authenticated = $this->resolveUserPermissionsForSubscriber(
-                $authenticated,
-                (string) $subscriberContext['selected']['id'],
-            );
-        }
+        $authenticated = $this->resolveUserPermissionsForContext($authenticated, $subscriberContext);
 
         $response = $this->createRuntimeSession(
             $authenticated,
@@ -702,12 +728,7 @@ class AuthService
             ];
         }
 
-        if (($subscriberContext['enabled'] ?? false) === true && !empty($subscriberContext['selected']['id'])) {
-            $user = $this->resolveUserPermissionsForSubscriber(
-                $user,
-                (string) $subscriberContext['selected']['id'],
-            );
-        }
+        $user = $this->resolveUserPermissionsForContext($user, $subscriberContext);
 
         return $this->createRuntimeSession(
             $user,
@@ -849,6 +870,17 @@ class AuthService
         return $this->hasResolvedPermission($user->getPermissions(), 'admin')
             || $this->hasResolvedPermission($user->getPermissions(), 'admin.*')
             || $this->hasResolvedPermission($user->getPermissions(), '*');
+    }
+
+    private function resolveUserPermissionsForContext(AuthenticatedUser $user, array $context): AuthenticatedUser
+    {
+        // Sem seletor, o vinculo do proprio tenant continua definindo os acessos.
+        $subscriberCode = ($context['enabled'] ?? false)
+            ? (string) ($context['selected']['id'] ?? '')
+            : $user->getTenantId();
+        return $subscriberCode === ''
+            ? $user
+            : $this->resolveUserPermissionsForSubscriber($user, $subscriberCode);
     }
 
     private function resolveUserPermissionsForSubscriber(AuthenticatedUser $user, string $subscriberCode): AuthenticatedUser

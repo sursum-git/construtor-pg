@@ -37,7 +37,7 @@
     }
   },
   "theme": {
-    "kendoTheme": "../kendo/styles/default-urban.css",
+    "kendoTheme": "../src/styles/material-ima.css",
     "defaultMode": "light",
     "allowUserSwitch": true,
     "persistUserChoice": true,

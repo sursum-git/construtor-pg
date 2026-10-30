@@ -1,0 +1,192 @@
+{
+    "entityDraft": {
+        "code": "sinalizadores_importacao_progress",
+        "name": "Sinalizadores de importação",
+        "entityType": "api",
+        "structureModuleCode": "cadastros",
+        "structureType": "main",
+        "structureBaseNumber": 110,
+        "createPhysicalTable": false,
+        "apiSourceCode": "motor_progress_ciw_cadastros",
+        "apiListOperationCode": "sinalizadores_importacao_read",
+        "apiDetailOperationCode": "sinalizadores_importacao_get",
+        "apiUpdateOperationCode": "sinalizadores_importacao_update",
+        "fields": [
+            {
+                "code": "sinaliz_imp_id",
+                "label": "Código",
+                "dataType": "integer",
+                "primaryKey": true,
+                "required": false,
+                "readonlyField": true,
+                "position": 10,
+                "apiJsonPath": "sinaliz_imp_id",
+                "apiWritePath": "sinaliz_imp_id",
+                "apiShowInGrid": true,
+                "apiShowInForm": true,
+                "apiShowInFilter": true,
+                "options": {
+                    "readonly": true,
+                    "writable": false,
+                    "decimals": 0,
+                    "format": "n0"
+                }
+            },
+            {
+                "code": "nome",
+                "label": "Nome",
+                "dataType": "string",
+                "primaryKey": false,
+                "required": true,
+                "readonlyField": false,
+                "position": 20,
+                "apiJsonPath": "nome",
+                "apiWritePath": "nome",
+                "apiShowInGrid": true,
+                "apiShowInForm": true,
+                "apiShowInFilter": true,
+                "options": {
+                    "readonly": false,
+                    "writable": true
+                },
+                "length": 100
+            },
+            {
+                "code": "titulo",
+                "label": "Título",
+                "dataType": "string",
+                "primaryKey": false,
+                "required": true,
+                "readonlyField": false,
+                "position": 30,
+                "apiJsonPath": "titulo",
+                "apiWritePath": "titulo",
+                "apiShowInGrid": true,
+                "apiShowInForm": true,
+                "apiShowInFilter": true,
+                "options": {
+                    "readonly": false,
+                    "writable": true
+                },
+                "length": 300
+            },
+            {
+                "code": "descricao",
+                "label": "Descrição",
+                "dataType": "string",
+                "primaryKey": false,
+                "required": false,
+                "readonlyField": false,
+                "position": 40,
+                "apiJsonPath": "descricao",
+                "apiWritePath": "descricao",
+                "apiShowInGrid": true,
+                "apiShowInForm": true,
+                "apiShowInFilter": true,
+                "options": {
+                    "readonly": false,
+                    "writable": true,
+                    "editor": "textarea"
+                },
+                "length": 600
+            },
+            {
+                "code": "qt_dias_alerta",
+                "label": "Dias para alerta",
+                "dataType": "integer",
+                "primaryKey": false,
+                "required": false,
+                "readonlyField": false,
+                "position": 50,
+                "apiJsonPath": "qt_dias_alerta",
+                "apiWritePath": "qt_dias_alerta",
+                "apiShowInGrid": true,
+                "apiShowInForm": true,
+                "apiShowInFilter": true,
+                "options": {
+                    "readonly": false,
+                    "writable": true,
+                    "decimals": 0,
+                    "format": "n0",
+                    "min": 0,
+                    "max": 9999
+                }
+            }
+        ]
+    },
+    "programDraft": {
+        "programCode": "cd0110",
+        "programTitle": "Sinalizadores de importação",
+        "module": "cadastros",
+        "builderEntityCode": "sinalizadores_importacao_progress",
+        "pageType": "crud",
+        "gridEditMode": "form",
+        "screenId": "ciw.sinalizadores-importacao",
+        "version": "1.0.0",
+        "programOrigin": "standard",
+        "ownerScope": "system",
+        "allowCreate": false,
+        "allowUpdate": true,
+        "allowDelete": false,
+        "permissionPrefix": "sinalizadores_importacao_progress",
+        "subtitle": "Configuração das cinco regras de alerta de importação.",
+        "contextFields": [],
+        "rowLinks": [],
+        "crudOptions": {
+            "pageSize": 50,
+            "defaultSort": [
+                {
+                    "field": "sinaliz_imp_id",
+                    "dir": "asc"
+                }
+            ],
+            "gridFields": [
+                {
+                    "field": "sinaliz_imp_id"
+                },
+                {
+                    "field": "nome"
+                },
+                {
+                    "field": "titulo"
+                },
+                {
+                    "field": "descricao"
+                },
+                {
+                    "field": "qt_dias_alerta"
+                }
+            ],
+            "filterFields": [
+                "sinaliz_imp_id",
+                "nome",
+                "titulo",
+                "descricao",
+                "qt_dias_alerta"
+            ]
+        },
+        "formOptions": {
+            "mode": "popup",
+            "tabs": [
+                {
+                    "id": "principal",
+                    "title": "Principal",
+                    "sections": [
+                        {
+                            "id": "sinalizador",
+                            "title": "Sinalizador",
+                            "columns": 2,
+                            "fields": [
+                                "sinaliz_imp_id",
+                                "nome",
+                                "titulo",
+                                "descricao",
+                                "qt_dias_alerta"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

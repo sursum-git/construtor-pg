@@ -1,18 +1,26 @@
 (function(global, $) {
   "use strict";
 
+  let rowActionSequence = 0;
+
   class CrudKendoGridRenderer {
     constructor(options) {
       this.definition = options.definition;
       this.httpClient = options.httpClient;
       this.handlers = options.handlers || {};
+      this.initialNavigationState = options.initialNavigationState || null;
+      this.rowActionNamespace = ".crudRowAction" + (++rowActionSequence);
       this.deferInitialRead = Boolean(options.deferInitialRead);
       this.filters = global.CrudUtils.ensureArray(options.initialFilters);
+      this.contextValues = options.contextValues || {};
       this.lastColumnMenuField = null;
       this.initialReadPromise = Promise.resolve(null);
       this.resolveInitialRead = null;
       this.rejectInitialRead = null;
       this.initialReadSettled = false;
+      this.batchOriginals = new Map();
+      this.batchDeleted = new Set();
+      this.batchSaving = false;
     }
 
     render(container) {
@@ -32,6 +40,7 @@
 
       gridElement.kendoGrid(this.buildOptions());
       this.grid = gridElement.data("kendoGrid");
+      this.bindBatchEditing();
       this.bindRowDoubleClick();
       this.bindHeaderFreezeButtons();
       this.bindColumnMenuTracker();
@@ -47,20 +56,33 @@
       if (this.grid && this.grid.tbody) {
         this.grid.tbody.off(".crudRowOpen");
       }
-      $(document).off(".crudRowAction");
-      $(document).off(".crudRowActionItem");
-      $(global).off(".crudRowAction");
+      $(document).off(this.rowActionNamespace);
+      $(global).off(this.rowActionNamespace);
+      if (this.grid && this.grid.wrapper) {
+        this.grid.wrapper.off(this.rowActionNamespace);
+        this.grid.wrapper.off(".crudBatchLogs");
+        this.grid.wrapper.find(".k-grid-content, .k-grid-content-locked").off(this.rowActionNamespace);
+      }
       this.unbindMobileModeChange();
+      if (this.batchBeforeUnload) {
+        global.removeEventListener("beforeunload", this.batchBeforeUnload);
+        document.removeEventListener("click", this.batchLinkNavigation, true);
+      }
     }
 
     buildOptions() {
       const grid = this.definition.grid || {};
       const isMobileTemplate = this.isMobileTemplateMode();
+      const configuredPageSizes = this.definition.query && this.definition.query.pageSizes || [10, 20, 50];
+      const defaultPageSize = this.definition.query && this.definition.query.defaultPageSize || 20;
+      const pageSizes = Array.isArray(configuredPageSizes)
+        ? Array.from(new Set(configuredPageSizes.concat(defaultPageSize))).sort((a, b) => Number(a) - Number(b))
+        : configuredPageSizes;
       const options = {
         dataSource: this.buildDataSource(),
         autoBind: !this.deferInitialRead,
         height: grid.height === "auto" ? undefined : grid.height,
-        pageable: grid.pageable ? { pageSizes: this.definition.query && this.definition.query.pageSizes || [10, 20, 50] } : false,
+        pageable: grid.pageable ? { pageSizes: pageSizes } : false,
         sortable: isMobileTemplate ? Boolean(grid.sortable) : Boolean(grid.sortable),
         filterable: isMobileTemplate ? false : Boolean(grid.filterable),
         groupable: isMobileTemplate ? false : Boolean(grid.groupable),
@@ -85,6 +107,15 @@
         }
       };
 
+      if (this.isBatchMode()) {
+        options.editable = { mode: "incell", confirmation: false };
+        options.navigatable = true;
+        options.beforeEdit = (event) => {
+          const action = event.model.isNew() ? "create" : "edit";
+          if (this.batchSaving || this.batchDeleted.has(event.model.uid) || !global.CrudUtils.getPermission(this.definition, action)) { event.preventDefault(); }
+        };
+        ["page", "sort", "filter", "group"].forEach((name) => { options[name] = (event) => this.guardBatchNavigation(event); });
+      }
       if (isMobileTemplate) {
         options.rowTemplate = (row) => this.buildMobileTemplateRow(row, false);
         options.altRowTemplate = (row) => this.buildMobileTemplateRow(row, true);
@@ -99,6 +130,235 @@
       }
 
       return options;
+    }
+
+    isBatchMode() {
+      return Boolean(this.definition.grid && this.definition.grid.editing && this.definition.grid.editing.mode === "batch");
+    }
+
+    getBatchLogsConfig() {
+      const form = this.definition.form || this.definition.crud && this.definition.crud.form || {};
+      const logs = form.logs;
+      return logs && logs.enabled !== false && logs.mode === "recordEvents" && global.CrudUtils.getPermission(this.definition, "read") ? logs : null;
+    }
+
+    canOpenBatchLogs(row) {
+      const id = row && row[this.definition.dataModel.primaryKey];
+      return Boolean(this.getBatchLogsConfig() && row && id != null && id !== "" && this.batchOriginals.has(String(id)) && !this.batchDeleted.has(row.uid) && !this.batchSaving);
+    }
+
+    openBatchLogs(row) {
+      if (!this.canOpenBatchLogs(row) || typeof this.handlers.logs !== "function") { return false; }
+      const primaryKey = this.definition.dataModel.primaryKey;
+      this.handlers.logs({ [primaryKey]: row[primaryKey] }, global.CrudUtils.clone(this.getBatchLogsConfig()));
+      return true;
+    }
+
+    buildBatchActionsHtml(row) {
+      const classes = "k-button k-button-md k-rounded-md k-button-solid k-button-solid-base";
+      const uid = global.CrudUtils.escapeHtml(row.uid);
+      let html = global.CrudUtils.getPermission(this.definition, "delete")
+        ? '<button type="button" class="crud-batch-delete ' + classes + '" data-uid="' + uid + '">' + (this.batchDeleted.has(row.uid) ? "Desfazer exclusao" : "Excluir linha") + '</button>' : "";
+      const logs = this.getBatchLogsConfig();
+      if (logs) {
+        html += ' <button type="button" class="crud-batch-logs ' + classes + '" data-uid="' + uid + '"' + (this.canOpenBatchLogs(row) ? "" : " disabled") + '>' + global.CrudUtils.escapeHtml(logs.title || "Logs") + '</button>';
+      }
+      return html;
+    }
+
+    batchFieldNames() {
+      return Object.keys(this.definition.dataModel.fields).filter((name) => name !== this.definition.dataModel.primaryKey && this.definition.dataModel.fields[name].editable === true);
+    }
+
+    batchValues(row) {
+      const values = {};
+      this.batchFieldNames().forEach((name) => { values[name] = row[name] == null ? null : row[name]; });
+      return values;
+    }
+
+    batchOriginalValues(row) {
+      const snapshot = this.definition.grid && this.definition.grid.editing && this.definition.grid.editing.snapshot;
+      if (!snapshot) { return this.batchValues(row); }
+      const original = {};
+      snapshot.originalFields.forEach((name) => { original[name] = row[name] == null ? null : row[name]; });
+      return original;
+    }
+
+    batchValuesEqual(left, right) {
+      return this.batchFieldNames().every((name) => {
+        const field = this.definition.dataModel.fields[name];
+        if (field.type === "date" || field.type === "datetime") {
+          const a = global.kendo.parseDate(left[name]), b = global.kendo.parseDate(right[name]);
+          return a && b ? a.getTime() === b.getTime() : left[name] === right[name];
+        }
+        return JSON.stringify(left[name]) === JSON.stringify(right[name]);
+      });
+    }
+
+    collectBatchChanges() {
+      if (!this.isBatchMode() || !this.grid) { return []; }
+      const changes = [];
+      this.grid.dataSource.data().forEach((row) => {
+        const id = row[this.definition.dataModel.primaryKey], original = this.batchOriginals.get(String(id)), data = this.batchValues(row);
+        if (this.batchDeleted.has(row.uid)) {
+          if (original) { changes.push({ operation: "delete", clientId: row.uid, id, original }); }
+        } else if (!original) { changes.push({ operation: "create", clientId: row.uid, data }); }
+        else if (!this.batchValuesEqual(data, original)) { changes.push({ operation: "update", clientId: row.uid, id, data, original }); }
+      });
+      return changes;
+    }
+
+    hasUnsavedChanges() {
+      return this.isBatchMode() && (this.batchSaving || this.collectBatchChanges().length > 0 ||
+        Boolean(this.grid && this.grid.editable && this.grid.editable.element.find(":input").length));
+    }
+
+    notifyBatchChange() {
+      if (!this.isBatchMode()) { return; }
+      if (this.handlers.batchChange) { this.handlers.batchChange(this.hasUnsavedChanges(), this.batchSaving); }
+      if (this.grid && this.grid.tbody) {
+        this.grid.tbody.children("tr[data-uid]").each((_, element) => {
+          const row = $(element), deleted = this.batchDeleted.has(row.attr("data-uid"));
+          row.toggleClass("crud-batch-deleted", deleted).attr("aria-label", deleted ? "Linha marcada para exclusao" : null);
+          row.find(".crud-batch-logs").prop("disabled", !this.canOpenBatchLogs(this.grid.dataSource.getByUid(row.attr("data-uid"))));
+        });
+      }
+    }
+
+    bindBatchEditing() {
+      if (!this.isBatchMode()) { return; }
+      this.grid.wrapper.on("click.crudBatch", ".crud-batch-delete", (event) => {
+        event.preventDefault(); this.toggleBatchDelete(this.grid.dataSource.getByUid($(event.currentTarget).attr("data-uid")));
+      });
+      this.grid.wrapper.on("click.crudBatchLogs", ".crud-batch-logs", (event) => {
+        event.preventDefault();event.stopPropagation();
+        this.openBatchLogs(this.grid.dataSource.getByUid($(event.currentTarget).attr("data-uid")));
+      });
+      ["dataBound", "edit", "cellClose"].forEach((name) => this.grid.bind(name, () => this.notifyBatchChange()));
+      this.batchBeforeUnload = (event) => { if (this.hasUnsavedChanges()) { event.preventDefault(); event.returnValue = ""; } };
+      this.batchLinkNavigation = (event) => {
+        const link = event.target.closest && event.target.closest("a[href]");
+        if (!link || link.target === "_blank" || link.hasAttribute("download") || link.getAttribute("href").startsWith("#") || !this.hasUnsavedChanges()) { return; }
+        event.preventDefault(); event.stopImmediatePropagation();
+        global.CrudUtils.confirm("Existem alteracoes no lote. Deseja descarta-las e sair?", {
+          title: "Descartar alteracoes", confirmText: "Descartar e sair", cancelText: "Continuar editando"
+        }).then((confirmed) => { if (confirmed && !this.batchSaving) { this.discardBatch(); global.location.assign(link.href); } });
+      };
+      global.addEventListener("beforeunload", this.batchBeforeUnload);
+      document.addEventListener("click", this.batchLinkNavigation, true);
+    }
+
+    renderBatchEditor(container, options, field) {
+      const validation = field.validation || {};
+      const input = $("<input>").attr("name", options.field).attr("data-bind", "value:" + options.field).appendTo(container);
+      if (validation.required) { input.attr("required", "required").attr("data-required-msg", (field.label || options.field) + " e obrigatorio."); }
+      if (validation.maxLength) { input.attr("maxlength", validation.maxLength); }
+      if (["integer", "number", "decimal"].indexOf(field.type) >= 0) {
+        input.kendoNumericTextBox({ format: field.type === "integer" ? "n0" : "n2", decimals: field.type === "integer" ? 0 : 2, min: validation.min, max: validation.max });
+      } else if (field.type === "boolean") { input.attr("type", "checkbox").kendoCheckBox(); }
+      else if (field.type === "date" || field.type === "datetime") { input[field.type === "datetime" ? "kendoDateTimePicker" : "kendoDatePicker"](); }
+      else { input.attr("type", field.type === "email" ? "email" : "text").kendoTextBox(); }
+    }
+
+    guardBatchNavigation(event) {
+      if (!this.isBatchMode() || !this.hasUnsavedChanges()) { return true; }
+      if (event && event.preventDefault) { event.preventDefault(); }
+      global.CrudUtils.showMessage("Salve ou cancele as alteracoes do lote antes de navegar, filtrar ou atualizar.", "warning");
+      return false;
+    }
+
+    addBatchRow() {
+      if (!this.isBatchMode() || this.batchSaving || !global.CrudUtils.getPermission(this.definition, "create")) { return null; }
+      if (this.collectBatchChanges().length >= 100) { global.CrudUtils.showMessage("O lote permite no maximo 100 alteracoes.", "warning"); return null; }
+      if (!this.closeBatchCell()) { return null; }
+      const row = this.grid.dataSource.insert(0, {});
+      this.notifyBatchChange(); return row;
+    }
+
+    toggleBatchDelete(model) {
+      if (!model || this.batchSaving || !global.CrudUtils.getPermission(this.definition, "delete")) { return; }
+      if (!this.closeBatchCell()) { return; }
+      if (!this.batchOriginals.has(String(model[this.definition.dataModel.primaryKey]))) { this.grid.dataSource.remove(model); }
+      else if (this.batchDeleted.has(model.uid)) { this.batchDeleted.delete(model.uid); }
+      else { this.batchDeleted.add(model.uid); }
+      this.grid.refresh(); this.notifyBatchChange();
+    }
+
+    closeBatchCell() {
+      if (this.grid.editable && !this.grid.editable.end()) { return false; }
+      this.grid.closeCell(); return true;
+    }
+
+    validateBatch(changes) {
+      if (changes.length > 100) { throw new Error("O lote permite no maximo 100 alteracoes."); }
+      changes.forEach((change, index) => {
+        if (!global.CrudUtils.getPermission(this.definition, change.operation === "update" ? "edit" : change.operation)) { throw new Error("Linha " + (index + 1) + ": acao sem permissao."); }
+        if (change.operation === "delete") { return; }
+        this.batchFieldNames().forEach((name) => {
+          const field = this.definition.dataModel.fields[name], rules = field.validation || {}, value = change.data[name];
+          const invalid = rules.required && (value == null || String(value).trim() === "") ||
+            rules.maxLength && value != null && Array.from(String(value)).length > rules.maxLength ||
+            field.type === "integer" && value != null && !Number.isInteger(value) ||
+            rules.min != null && value != null && value < rules.min || rules.max != null && value != null && value > rules.max;
+          if (invalid) { throw new Error("Linha " + (index + 1) + ": valor invalido em " + (field.label || name) + "."); }
+        });
+      });
+    }
+
+    async saveBatch() {
+      if (!this.isBatchMode() || this.batchSaving || !this.closeBatchCell()) { return false; }
+      const endpoint = this.definition.api.batch;
+      try {
+        const changes = this.collectBatchChanges();
+        this.validateBatch(changes);
+        if (!changes.length) { this.notifyBatchChange(); return false; }
+        if (!endpoint || !endpoint.url) { throw new Error("Endpoint transacional do lote nao configurado."); }
+        this.batchSaving = true;
+        this.grid.wrapper.attr("aria-busy", "true");
+        this.notifyBatchChange();
+        const data = {changes};
+        const snapshot = this.definition.grid && this.definition.grid.editing && this.definition.grid.editing.snapshot;
+        if (snapshot) {
+          data.context = {};
+          snapshot.contextFields.forEach((name) => {
+            if (!Object.prototype.hasOwnProperty.call(this.contextValues, name)) { throw new Error("Contexto obrigatorio do lote: " + name + "."); }
+            data.context[name] = this.contextValues[name];
+          });
+        }
+        await this.httpClient.request({url: endpoint.url, method: endpoint.method || "POST", data});
+        // The transaction committed. Prevent resending the draft even if reload fails.
+        this.discardBatch();
+        this.batchReloading = true;
+        try {
+          await this.grid.dataSource.read();
+          global.CrudUtils.showMessage("Lote salvo com sucesso.", "success");
+        } catch (error) {
+          global.CrudUtils.showMessage("Lote salvo. Nao foi possivel recarregar a consulta; use Atualizar.", "warning");
+        }
+        return true;
+      } catch (error) {
+        global.CrudUtils.showMessage(global.CrudUtils.unwrapError(error, "Falha ao salvar lote.").message, "error");
+        return false;
+      } finally {
+        this.batchReloading = false;
+        this.batchSaving = false;
+        this.grid.wrapper.attr("aria-busy", "false");
+        this.notifyBatchChange();
+      }
+    }
+
+    discardBatch() {
+      if (this.grid.editable) { this.grid.closeCell(true); }
+      this.batchDeleted.clear(); this.grid.dataSource.cancelChanges(); this.notifyBatchChange();
+    }
+
+    async cancelBatch() {
+      if (this.batchSaving) { return false; }
+      if (!this.hasUnsavedChanges()) { return true; }
+      const confirmed = await global.CrudUtils.confirm("Descartar todas as alteracoes deste lote?", {
+        title: "Cancelar lote", confirmText: "Descartar alteracoes", cancelText: "Continuar editando"
+      });
+      if (confirmed) { this.discardBatch(); } return confirmed;
     }
 
     buildNativeExportOptions() {
@@ -258,7 +518,7 @@
       if (value == null) {
         return "";
       }
-      if (field.type === "enum" && field.options) {
+      if ((field.type === "enum" || field.editor === "dropdown") && Array.isArray(field.options)) {
         const option = field.options.find(function(item) {
           return String(item.value) === String(value);
         });
@@ -292,6 +552,7 @@
       }
 
       this.grid.tbody.off(".crudRowOpen").on("dblclick.crudRowOpen", "tr", (event) => {
+        if (this.isBatchMode()) { return; }
         if (!global.CrudUtils.getPermission(this.definition, "read")) {
           return;
         }
@@ -670,7 +931,14 @@
               method: endpoint.method || "GET",
               data: payload
             }).then((response) => {
+              if (this.isBatchMode()) {
+                this.batchOriginals.clear(); this.batchDeleted.clear();
+                global.CrudUtils.ensureArray(response.data).forEach((row) => {
+                  this.batchOriginals.set(String(row[this.definition.dataModel.primaryKey]), this.batchOriginalValues(row));
+                });
+              }
               options.success(response);
+              this.notifyBatchChange();
             }).catch((error) => {
               this.completeInitialRead(error);
               options.error(error);
@@ -682,10 +950,13 @@
           total: "total",
           model: this.buildModel()
         },
+        requestStart: (event) => { if (this.isBatchMode() && !this.batchReloading && this.hasUnsavedChanges()) { this.guardBatchNavigation(event); } },
+        change: () => this.notifyBatchChange(),
         serverPaging: true,
         serverSorting: true,
         serverFiltering: true,
-        pageSize: definition.query && definition.query.defaultPageSize || 20,
+        page: this.initialNavigationState && this.initialNavigationState.page || 1,
+        pageSize: this.initialNavigationState && this.initialNavigationState.pageSize || definition.query && definition.query.defaultPageSize || 20,
         aggregate: this.getInitialGroupAggregates(),
         sort: isMobileTemplate ? this.mergeGroupSortWithSort(initialGroup, initialSort) : initialSort,
         filter: this.getInitialFilter(),
@@ -721,7 +992,9 @@
         const field = this.definition.dataModel.fields[fieldName];
         modelFields[fieldName] = {
           type: this.toKendoType(field.type),
-          editable: Boolean(field.editable)
+          editable: Boolean(field.editable) && (!this.isBatchMode() || fieldName !== this.definition.dataModel.primaryKey),
+          nullable: Boolean(field.nullable),
+          validation: Object.assign({}, field.validation || {})
         };
       });
       return {
@@ -731,6 +1004,7 @@
     }
 
     toKendoType(type) {
+      if (type === "array" || type === "json") { return "object"; }
       if (type === "integer" || type === "decimal" || type === "number") {
         return "number";
       }
@@ -741,6 +1015,24 @@
         return "boolean";
       }
       return "string";
+    }
+
+    buildRowLinkHtml(link, row) {
+      if (!link || !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(link.screenId || "")) { return ""; }
+      const hasIcon = Object.prototype.hasOwnProperty.call(link, "icon");
+      if ((hasIcon && (typeof link.icon !== "string" || !/^[a-z][a-z0-9-]{0,79}$/.test(link.icon))) ||
+          (Object.prototype.hasOwnProperty.call(link, "iconOnly") && typeof link.iconOnly !== "boolean") || (link.iconOnly === true && !hasIcon)) { return ""; }
+      const params = new URLSearchParams({ screenId: link.screenId });
+      for (const parameter of global.CrudUtils.ensureArray(link.parameters)) {
+        const value = row[parameter.sourceField];
+        if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(parameter.field || "") || value == null || typeof value === "object") { return ""; }
+        params.set("context__" + parameter.field, String(value));
+      }
+      const url = { href: "../production/app.html?" + params.toString() };
+      const label = global.CrudUtils.escapeHtml(link.label);
+      const icon = hasIcon ? '<span aria-hidden="true">' + global.kendo.ui.icon({ icon: link.icon, type: "svg" }) + '</span>' : '';
+      const classes = "crud-row-link" + (hasIcon ? " crud-row-link-has-icon" : "") + (link.iconOnly === true ? " crud-row-link-icon-only" : "");
+      return '<a class="' + classes + '" data-screen-id="' + global.CrudUtils.escapeHtml(link.screenId) + '" href="' + global.CrudUtils.escapeHtml(url.href) + '" title="' + label + '" aria-label="' + label + '">' + icon + (link.iconOnly === true ? '' : label) + '</a>';
     }
 
     buildColumns() {
@@ -754,28 +1046,40 @@
           filterable: column.filterable !== false,
           sortable: column.sortable !== false,
           groupable: column.groupable !== false,
-          format: global.CrudUtils.toKendoFormat(column.format || field.format, field.type),
+          format: this.isBatchMode() && field.type === "integer" ? "{0:n0}" : global.CrudUtils.toKendoFormat(column.format || field.format, field.type, field.decimals),
           groupHeaderTemplate: (data) => this.buildGroupHeaderTemplate(column, data),
           attributes: column.align ? { style: "text-align:" + column.align } : undefined,
           headerAttributes: column.align ? { style: "text-align:" + column.align } : undefined
         };
 
+        if (this.isBatchMode() && field.editable && column.field !== this.definition.dataModel.primaryKey) {
+          kendoColumn.editor = (container, options) => this.renderBatchEditor(container, options, field);
+        }
         if (this.isColumnFreezeEnabled()) {
           kendoColumn.lockable = true;
         }
 
-        if (field.type === "enum" && field.options) {
+        if ((field.type === "enum" || field.editor === "dropdown") && Array.isArray(field.options)) {
           kendoColumn.template = (row) => {
             const option = field.options.find(function(item) { return item.value === row[column.field]; });
             return global.CrudUtils.escapeHtml(option ? option.text : row[column.field]);
           };
         }
 
+        if (field.type === "boolean") {
+          kendoColumn.template = (row) => row[column.field] == null ? "" : (row[column.field] ? "Sim" : "Não");
+        }
         return kendoColumn;
       });
 
       columns = this.applyMobileColumnConfig(columns);
       columns = this.applyUserLayout(columns);
+      const links = global.CrudUtils.ensureArray(this.definition.grid.rowLinks);
+      const makeLinkColumn = (link) => ({ title: link.label, width: link.iconOnly === true ? 100 : 130, sortable: false, filterable: false, groupable: false, menu: false, lockable: false,
+        locked: link.position === 'start' && this.getFrozenFields().length > 0,
+        template: (row) => this.buildRowLinkHtml(link, row) });
+      columns = links.filter(link => link.position === 'start').map(makeLinkColumn)
+        .concat(columns, links.filter(link => link.position !== 'start').map(makeLinkColumn));
 
       if (this.isBulkActionsEnabled()) {
         columns.unshift({
@@ -789,10 +1093,20 @@
         });
       }
 
-      const actions = this.buildActionColumn();
+      const actions = this.isBatchMode() ? (global.CrudUtils.getPermission(this.definition, "delete") || this.getBatchLogsConfig() ? {
+        title: "Acoes", width: this.getBatchLogsConfig() ? 260 : 160, sortable: false, filterable: false, menu: false,
+        template: (row) => this.buildBatchActionsHtml(row)
+      } : null) : this.buildActionColumn();
       if (actions) {
         columns.unshift(actions);
       }
+      this.getInitialGroup().forEach((group) => {
+        const field = this.definition.dataModel.fields[group.field];
+        if (!field || ["json", "array"].includes(field.type) || columns.some(column => column.field === group.field)) { return; }
+        const column = {field: group.field, title: field.label || group.field, hidden: true, menu: false, lockable: false};
+        column.groupHeaderTemplate = data => this.buildGroupHeaderTemplate(column, data);
+        columns.push(column);
+      });
       return columns;
     }
 
@@ -821,7 +1135,7 @@
 
     isMobileTemplateMode() {
       const mobile = this.getMobileConfig();
-      return this.isMobileConfigEnabled() && mobile.mode === "template" && this.isMobileViewport();
+      return !this.isBatchMode() && this.isMobileConfigEnabled() && mobile.mode === "template" && this.isMobileViewport();
     }
 
     bindMobileModeChange() {
@@ -831,6 +1145,7 @@
       }
       this.mobileMediaQuery = global.matchMedia("(max-width: " + this.getMobileBreakpoint() + "px)");
       this.mobileMediaHandler = () => {
+        if (this.hasUnsavedChanges()) { return; }
         if (this.handlers.mobileModeChange) {
           this.handlers.mobileModeChange();
         }
@@ -903,7 +1218,7 @@
         return "<span class=\"crud-mobile-card-badge\">" + this.formatFieldValue(fieldName, data) + "</span>";
       }).join("");
       const content = this.buildMobileTemplateContent(data, template);
-      const actions = this.buildMobileCardActionsHtml(data);
+      const actions = this.buildMobileCardActionsHtml(data) + global.CrudUtils.ensureArray(this.definition.grid.rowLinks).map((link) => this.buildRowLinkHtml(link, data)).join(" ");
       const className = "crud-mobile-template-row k-table-row" + (alt ? " k-alt" : "");
 
       return "<tr class=\"" + className + "\" data-uid=\"" + global.CrudUtils.escapeHtml(row.uid || "") + "\">" +
@@ -1159,14 +1474,14 @@
       if (value == null || value === "") {
         return "";
       }
-      if (field.type === "enum" && field.options) {
+      if ((field.type === "enum" || field.editor === "dropdown") && Array.isArray(field.options)) {
         const option = field.options.find(function(item) {
           return String(item.value) === String(value);
         });
         return global.CrudUtils.escapeHtml(option ? option.text : value);
       }
       if (field.format === "currency") {
-        return global.CrudUtils.escapeHtml(kendo.toString(Number(value), "c2"));
+        return global.CrudUtils.escapeHtml(kendo.toString(Number(value), field.type === "integer" ? "n0" : global.CrudUtils.numericFormat(field.format, field.decimals)));
       }
       if (field.type === "date") {
         return global.CrudUtils.escapeHtml(kendo.toString(global.CrudUtils.normalizeDateValue(value), "dd/MM/yyyy"));
@@ -1175,10 +1490,11 @@
         return global.CrudUtils.escapeHtml(kendo.toString(global.CrudUtils.normalizeDateValue(value), "dd/MM/yyyy HH:mm"));
       }
       if (field.type === "boolean") {
-        return value ? "Sim" : "Nao";
+        return value ? "Sim" : "Não";
       }
       if (field.type === "integer" || field.type === "decimal" || field.type === "number") {
-        return global.CrudUtils.escapeHtml(kendo.toString(Number(value), field.type === "integer" ? "n0" : "n2"));
+        const format = field.type === "integer" ? "n0" : (global.CrudUtils.numericFormat(field.format, field.decimals) || "n2");
+        return global.CrudUtils.escapeHtml(kendo.toString(Number(value), format));
       }
       return global.CrudUtils.escapeHtml(value);
     }
@@ -1774,6 +2090,7 @@
     }
 
     getInitialSort() {
+      if (this.initialNavigationState) { return this.initialNavigationState.sort; }
       const savedPresetSort = this.getInitialSavedSort();
       if (savedPresetSort.length) {
         return savedPresetSort;
@@ -1798,20 +2115,26 @@
     }
 
     getInitialFilter() {
+      if (this.initialNavigationState) { return this.initialNavigationState.filter; }
       return this.definition.userLayout && this.definition.userLayout.grid
         ? this.definition.userLayout.grid.filter || null
         : null;
     }
 
     getInitialGroup() {
+      if (this.initialNavigationState) { return this.initialNavigationState.group; }
       const savedPreset = this.getInitialSavedGroupPreset();
       if (savedPreset) {
         return this.buildGroupDescriptors(savedPreset.group, savedPreset.aggregates);
       }
 
-      const saved = this.definition.userLayout && this.definition.userLayout.grid
-        ? this.definition.userLayout.grid.group
-        : null;
+      const layout = this.definition.userLayout || {};
+      const gridLayout = layout.grid;
+      const generatedEmpty = layout.source === "default" && !layout.activeLayoutId && !layout.activeGroupId
+        && gridLayout && Array.isArray(gridLayout.group) && gridLayout.group.length === 0;
+      const saved = gridLayout && Object.prototype.hasOwnProperty.call(gridLayout, "group") && !generatedEmpty
+        ? gridLayout.group
+        : this.definition.query && this.definition.query.defaultGroup;
       return this.buildGroupDescriptors(saved || [], this.getInitialGroupAggregates());
     }
 
@@ -1957,7 +2280,7 @@
       const column = global.CrudUtils.ensureArray(this.definition.grid && this.definition.grid.columns).find(function(item) {
         return item.field === fieldName;
       }) || {};
-      const format = global.CrudUtils.toKendoFormat(column.format || field.format, field.type);
+      const format = global.CrudUtils.toKendoFormat(column.format || field.format, field.type, field.decimals);
       return format && global.kendo ? kendo.format(format, value) : String(value);
     }
 
@@ -1965,7 +2288,8 @@
       const field = this.definition.dataModel && this.definition.dataModel.fields
         ? this.definition.dataModel.fields[fieldName]
         : {};
-      if (field.type === "enum" && field.options) {
+      if (field.type === "boolean") { return value == null ? "" : (value ? "Sim" : "Não"); }
+      if ((field.type === "enum" || field.editor === "dropdown") && Array.isArray(field.options)) {
         const option = field.options.find(function(item) {
           return item.value === value;
         });
@@ -1974,7 +2298,7 @@
       const column = global.CrudUtils.ensureArray(this.definition.grid && this.definition.grid.columns).find(function(item) {
         return item.field === fieldName;
       }) || {};
-      const format = global.CrudUtils.toKendoFormat(column.format || field.format, field.type);
+      const format = global.CrudUtils.toKendoFormat(column.format || field.format, field.type, field.decimals);
       return format && global.kendo ? kendo.format(format, value) : String(value == null ? "" : value);
     }
 
@@ -1985,7 +2309,7 @@
 
     buildRowActionsHtml(row, extraClass) {
       const actions = this.getPermittedRowActions();
-      if (!actions.length) {
+      if (this.isBatchMode() || !actions.length) {
         return "";
       }
       const id = row[this.definition.dataModel.primaryKey];
@@ -2043,21 +2367,35 @@
 
     bindRowActions() {
       const wrapper = this.grid.wrapper;
+      const namespace = this.rowActionNamespace;
 
-      wrapper.off("click.crudRowAction").on("click.crudRowAction", ".crud-row-actions-toggle", (event) => {
+      wrapper.off("click" + namespace).on("click" + namespace, ".crud-row-actions-toggle", (event) => {
         event.preventDefault();
         event.stopPropagation();
         this.toggleRowActionsMenu($(event.currentTarget));
       });
 
-      wrapper.find(".k-grid-content, .k-grid-content-locked").off("scroll.crudRowAction").on("scroll.crudRowAction", () => {
+      wrapper.on('click'+namespace, '.crud-row-link', (event) => {
+        if (!this.guardBatchNavigation(event)) { return; }
+        const data=this.grid.dataSource;
+        global.CrudUtils.saveGridReturnState(this.definition,$(event.currentTarget).attr('data-screen-id'),{
+          page:data.page(),pageSize:data.pageSize(),sort:data.sort() || [],group:data.group() || [],filter:data.filter() || null,filters:this.filters
+        });
+      });
+
+      wrapper.find(".k-grid-content, .k-grid-content-locked").off("scroll" + namespace).on("scroll" + namespace, () => {
         this.closeRowActionsMenu();
       });
 
-      $(document).off("click.crudRowActionItem").on("click.crudRowActionItem", ".crud-row-action", (event) => {
+      $(document).off(namespace).on("click" + namespace, ".crud-row-action", (event) => {
         const button = $(event.currentTarget);
+        const menu = this.rowActionsMenu && this.rowActionsMenu.menu;
+        const ownsPopup = menu && menu[0] && $.contains(menu[0], button[0]);
+        const ownsGrid = button.closest(".crud-grid")[0] === this.grid.element[0];
+        if (!ownsPopup && !ownsGrid) { return; }
+        event.preventDefault();
         const action = button.data("action");
-        const id = button.data("id");
+        const id = button.attr("data-id");
         const record = this.getRecordById(id);
         this.closeRowActionsMenu();
         if (this.handlers[action]) {
@@ -2065,7 +2403,7 @@
         }
       });
 
-      $(document).off("click.crudRowAction").on("click.crudRowAction", (event) => {
+      $(document).on("click" + namespace, (event) => {
         const target = $(event.target);
         if (target.closest(".crud-row-actions-popup, .crud-row-actions-toggle").length) {
           return;
@@ -2073,13 +2411,13 @@
         this.closeRowActionsMenu();
       });
 
-      $(document).off("keydown.crudRowAction").on("keydown.crudRowAction", (event) => {
+      $(document).on("keydown" + namespace, (event) => {
         if (event.key === "Escape") {
           this.closeRowActionsMenu();
         }
       });
 
-      $(global).off("resize.crudRowAction").on("resize.crudRowAction", () => {
+      $(global).off("resize" + namespace).on("resize" + namespace, () => {
         this.closeRowActionsMenu();
       });
     }
@@ -2313,6 +2651,7 @@
     }
 
     setFilters(filters) {
+      if (!this.guardBatchNavigation()) { return false; }
       this.filters = global.CrudUtils.ensureArray(filters);
       if (this.grid) {
         if (this.grid.dataSource.page() === 1) {
@@ -2324,6 +2663,7 @@
     }
 
     refresh() {
+      if (!this.guardBatchNavigation()) { return false; }
       if (this.grid) {
         this.grid.dataSource.read();
       }
@@ -2341,6 +2681,7 @@
     }
 
     setSort(sort) {
+      if (!this.guardBatchNavigation()) { return false; }
       if (!this.grid) {
         return;
       }
@@ -2382,6 +2723,7 @@
     }
 
     setGroup(group, aggregates) {
+      if (!this.guardBatchNavigation()) { return false; }
       if (!this.grid) {
         return;
       }

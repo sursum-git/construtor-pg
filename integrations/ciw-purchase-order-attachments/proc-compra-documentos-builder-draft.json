@@ -1,0 +1,349 @@
+{
+  "entityDraft": {
+    "code": "proc_compra_documentos_progress",
+    "name": "Anexos do Processo — MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureModuleCode": "operacional",
+    "structureType": "main",
+    "structureBaseNumber": 1020,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "proc_compra_documentos_read",
+    "apiDetailOperationCode": "proc_compra_documentos_get",
+    "apiCreateOperationCode": "proc_compra_documentos_create",
+    "apiUpdateOperationCode": "proc_compra_documentos_update",
+    "apiDeleteOperationCode": "proc_compra_documentos_delete",
+    "fields": [
+      {
+        "code": "anexo_proc_compra_id",
+        "label": "Anexo",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "anexo_proc_compra_id",
+        "apiWritePath": "anexo_proc_compra_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647
+        }
+      },
+      {
+        "code": "proc_compra_id",
+        "label": "Pedido de importação",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "proc_compra_id",
+        "apiWritePath": "proc_compra_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647
+        }
+      },
+      {
+        "code": "item_proc_compra_id",
+        "label": "Item do pedido",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "item_proc_compra_id",
+        "apiWritePath": "item_proc_compra_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "defaultValue": 0
+        }
+      },
+      {
+        "code": "descricao",
+        "label": "Descrição",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 30,
+        "length": 800,
+        "apiJsonPath": "descricao",
+        "apiWritePath": "values.descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "editor": "textarea",
+          "defaultValue": ""
+        }
+      },
+      {
+        "code": "tipos_anexo_id",
+        "label": "Tipo de anexo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 40,
+        "apiJsonPath": "tipos_anexo_id",
+        "apiWritePath": "values.tipos_anexo_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647,
+          "editor": "dropdown",
+          "defaultValue": 0,
+          "api": {
+            "optionsSource": {
+              "operationCode": "proc_compra_documentos_opcoes_tipo",
+              "valueField": "value",
+              "textField": "text"
+            }
+          }
+        }
+      },
+      {
+        "code": "caminho_arquivo",
+        "label": "Arquivo gravado",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "length": 4000,
+        "apiJsonPath": "caminho_arquivo",
+        "apiWritePath": "caminho_arquivo",
+        "apiShowInGrid": true,
+        "apiShowInForm": false,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_hr_arquivo",
+        "label": "Data do arquivo",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "length": 23,
+        "apiJsonPath": "dt_hr_arquivo",
+        "apiWritePath": "dt_hr_arquivo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "proc_compra_id_registro",
+        "label": "Processo gravado no vínculo original",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 70,
+        "apiJsonPath": "proc_compra_id_registro",
+        "apiWritePath": "proc_compra_id_registro",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0",
+          "min": 0,
+          "max": 2147483647
+        }
+      },
+      {
+        "code": "row_stamp",
+        "label": "Controle de concorrência",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 80,
+        "length": 64,
+        "apiJsonPath": "row_stamp",
+        "apiWritePath": "row_stamp",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "tipo_anexo_descricao",
+        "label": "Descrição do tipo",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 90,
+        "length": 4000,
+        "apiJsonPath": "tipo_anexo_descricao",
+        "apiWritePath": "tipo_anexo_descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": false,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "arquivo_upload",
+        "label": "Arquivo",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 100,
+        "length": 180,
+        "apiJsonPath": "arquivo_upload",
+        "apiWritePath": "values.caminho_arquivo",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "editor": "file",
+          "defaultValue": null
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1020",
+    "programTitle": "Anexos do Processo — MED",
+    "module": "operacional",
+    "builderEntityCode": "proc_compra_documentos_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.proc-compra-documentos",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": true,
+    "allowUpdate": true,
+    "allowDelete": true,
+    "permissionPrefix": "proc_compra_documentos_progress",
+    "subtitle": "Empresa MED. Documentos gerais e anexos dos itens do processo selecionado.",
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "proc_compra_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 50,
+      "defaultSort": [
+        {
+          "field": "anexo_proc_compra_id",
+          "dir": "desc"
+        }
+      ],
+      "gridFields": [
+        {
+          "field": "anexo_proc_compra_id"
+        },
+        {
+          "field": "item_proc_compra_id"
+        },
+        {
+          "field": "descricao"
+        },
+        {
+          "field": "tipos_anexo_id"
+        },
+        {
+          "field": "tipo_anexo_descricao"
+        },
+        {
+          "field": "caminho_arquivo"
+        },
+        {
+          "field": "dt_hr_arquivo"
+        }
+      ],
+      "filterFields": [
+        "anexo_proc_compra_id",
+        "descricao",
+        "tipos_anexo_id",
+        "tipo_anexo_descricao",
+        "caminho_arquivo",
+        "item_proc_compra_id"
+      ]
+    },
+    "formOptions": {
+      "mode": "popup",
+      "tabs": [
+        {
+          "id": "principal",
+          "title": "Anexo do processo",
+          "sections": [
+            {
+              "id": "anexo",
+              "title": "Dados e arquivo",
+              "columns": 2,
+              "fields": [
+                "anexo_proc_compra_id",
+                "proc_compra_id",
+                "item_proc_compra_id",
+                "descricao",
+                "tipos_anexo_id",
+                "arquivo_upload",
+                "dt_hr_arquivo"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

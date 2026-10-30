@@ -1,0 +1,38 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "container_versoes_historico_med_read",
+      "name": "Histórico de itens da versão — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "container_versoes_historico_med",
+        "operation": "read"
+      },
+      "requestContextFields": [
+        "container_id",
+        "versao_id"
+      ],
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "container_versoes_historico_med_get",
+      "name": "Histórico de itens da versão — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "resource": "container_versoes_historico_med",
+        "operation": "get"
+      },
+      "requestContextFields": [
+        "container_id",
+        "versao_id"
+      ],
+      "itemPath": "data"
+    }
+  ]
+}

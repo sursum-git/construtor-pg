@@ -1,0 +1,254 @@
+{
+  "entityDraft": {
+    "code": "custo_distribuicao_lancamentos_item_progress",
+    "name": "Conta corrente de distribuição do item",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1050,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "custo_distribuicao_lancamentos_item_read",
+    "apiDetailOperationCode": "custo_distribuicao_lancamentos_item_get",
+    "fields": [
+      {
+        "code": "record_key",
+        "label": "Chave da linha",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "record_key",
+        "apiWritePath": "record_key",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "length": 2048,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cta_corren_custo_distr_id",
+        "label": "Lançamento",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "cta_corren_custo_distr_id",
+        "apiWritePath": "cta_corren_custo_distr_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "data",
+        "label": "Data",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "data",
+        "apiWritePath": "data",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "historico",
+        "label": "Histórico",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "historico",
+        "apiWritePath": "historico",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_lancto",
+        "label": "Valor BRL",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "vl_lancto",
+        "apiWritePath": "vl_lancto",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "login",
+        "label": "Login original",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "login",
+        "apiWritePath": "login",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "item_container_custo_id",
+        "label": "Snapshot do item",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "item_container_custo_id",
+        "apiWritePath": "item_container_custo_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "item_container_id",
+        "label": "Item do container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 70,
+        "apiJsonPath": "item_container_id",
+        "apiWritePath": "item_container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_tipo_movto",
+        "label": "Tipo do movimento",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 80,
+        "apiJsonPath": "cod_tipo_movto",
+        "apiWritePath": "cod_tipo_movto",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1050",
+    "programTitle": "Conta corrente de distribuição do item",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "custo_distribuicao_lancamentos_item_progress",
+    "screenId": "ciw.custo-distribuicao-lancamentos-item",
+    "version": "1.0.0",
+    "subtitle": "Lançamentos vinculados ao item selecionado; somente leitura.",
+    "permissionPrefix": "custo_distribuicao_lancamentos_item_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "item_container_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "cta_corren_custo_distr_id",
+          "width": 160
+        },
+        {
+          "field": "data",
+          "width": 160
+        },
+        {
+          "field": "historico",
+          "width": 400
+        },
+        {
+          "field": "vl_lancto",
+          "width": 160
+        },
+        {
+          "field": "login",
+          "width": 160
+        },
+        {
+          "field": "item_container_custo_id",
+          "width": 160
+        },
+        {
+          "field": "item_container_id",
+          "width": 160
+        },
+        {
+          "field": "cod_tipo_movto",
+          "width": 160
+        }
+      ],
+      "filterFields": [
+        "cta_corren_custo_distr_id",
+        "data",
+        "historico",
+        "vl_lancto",
+        "login",
+        "item_container_custo_id",
+        "item_container_id",
+        "cod_tipo_movto"
+      ]
+    }
+  }
+}

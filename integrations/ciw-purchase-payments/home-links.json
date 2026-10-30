@@ -1,0 +1,12 @@
+[
+  {
+    "id": "ciw-processos-compra-financeiro-med",
+    "code": "cd0107",
+    "title": "Processos de Compra — Financeiro MED",
+    "subtitle": "Empresa MED. Consulta de processos e acesso aos pagamentos.",
+    "type": "crud",
+    "screenId": "ciw.processos-compra-financeiro-med",
+    "moduleId": "ciw",
+    "permission": "procs_compra_financeiro_med_progress.read"
+  }
+]

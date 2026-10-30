@@ -13,6 +13,13 @@
     "crud"
   ],
   "properties": {
+    "contextFields": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "$ref": "#/$defs/contextField"
+      }
+    },
     "schemaVersion": {
       "type": "string"
     },
@@ -22,7 +29,12 @@
     },
     "program": {
       "type": "object",
-      "required": ["id", "module", "entity", "title"],
+      "required": [
+        "id",
+        "module",
+        "entity",
+        "title"
+      ],
       "properties": {
         "id": {
           "type": "string"
@@ -124,7 +136,11 @@
               "type": "array",
               "items": {
                 "type": "string",
-                "enum": ["edit", "update", "delete"]
+                "enum": [
+                  "edit",
+                  "update",
+                  "delete"
+                ]
               }
             }
           },
@@ -163,7 +179,9 @@
     },
     "dataSource": {
       "type": "object",
-      "required": ["api"],
+      "required": [
+        "api"
+      ],
       "properties": {
         "api": {
           "type": "object",
@@ -175,7 +193,10 @@
     },
     "dataModel": {
       "type": "object",
-      "required": ["primaryKey", "fields"],
+      "required": [
+        "primaryKey",
+        "fields"
+      ],
       "properties": {
         "primaryKey": {
           "type": "string"
@@ -190,8 +211,14 @@
     },
     "crud": {
       "type": "object",
-      "required": ["grid", "form"],
+      "required": [
+        "grid",
+        "form"
+      ],
       "properties": {
+        "auditSummary": {
+          "$ref": "#/$defs/auditSummary"
+        },
         "features": {
           "type": "object",
           "properties": {
@@ -218,9 +245,78 @@
           "type": "object"
         }
       }
+    },
+    "apiCompany": {
+      "$ref": "#/$defs/apiCompanyDescriptor"
     }
   },
   "$defs": {
+    "auditDiffMapping": {
+      "type": "object",
+      "required": [
+        "beforeField",
+        "afterField"
+      ],
+      "properties": {
+        "beforeField": {
+          "type": "string"
+        },
+        "afterField": {
+          "type": "string"
+        },
+        "eventTypeField": {
+          "type": "string"
+        },
+        "metadataField": {
+          "type": "string"
+        }
+      },
+      "dependentRequired": {
+        "eventTypeField": [
+          "metadataField"
+        ],
+        "metadataField": [
+          "eventTypeField"
+        ]
+      },
+      "additionalProperties": false
+    },
+    "auditSummary": {
+      "type": "object",
+      "required": [
+        "contextField",
+        "field",
+        "auditDiff"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "contextField": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "maxRows": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500,
+          "default": 500
+        },
+        "actorNameField": {
+          "type": "string"
+        },
+        "actorIdField": {
+          "type": "string"
+        },
+        "auditDiff": {
+          "$ref": "#/$defs/auditDiffMapping"
+        }
+      },
+      "additionalProperties": false
+    },
     "endpoint": {
       "type": "object",
       "properties": {
@@ -238,7 +334,13 @@
         },
         "method": {
           "type": "string",
-          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
         }
       },
       "additionalProperties": true
@@ -267,7 +369,11 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["excel", "pdf", "csv"]
+            "enum": [
+              "excel",
+              "pdf",
+              "csv"
+            ]
           }
         },
         "options": {
@@ -276,7 +382,11 @@
             "oneOf": [
               {
                 "type": "string",
-                "enum": ["excel", "pdf", "csv"]
+                "enum": [
+                  "excel",
+                  "pdf",
+                  "csv"
+                ]
               },
               {
                 "$ref": "#/$defs/printOption"
@@ -301,11 +411,19 @@
         },
         "format": {
           "type": "string",
-          "enum": ["excel", "pdf", "csv"]
+          "enum": [
+            "excel",
+            "pdf",
+            "csv"
+          ]
         },
         "type": {
           "type": "string",
-          "enum": ["excel", "pdf", "csv"]
+          "enum": [
+            "excel",
+            "pdf",
+            "csv"
+          ]
         },
         "label": {
           "type": "string"
@@ -318,11 +436,17 @@
         },
         "source": {
           "type": "string",
-          "enum": ["browser", "api"]
+          "enum": [
+            "browser",
+            "api"
+          ]
         },
         "mode": {
           "type": "string",
-          "enum": ["browser", "api"]
+          "enum": [
+            "browser",
+            "api"
+          ]
         },
         "action": {
           "type": "string"
@@ -347,23 +471,43 @@
         },
         "method": {
           "type": "string",
-          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
         },
         "pageMethod": {
           "type": "string",
-          "enum": ["GET", "POST"]
+          "enum": [
+            "GET",
+            "POST"
+          ]
         },
         "submitMethod": {
           "type": "string",
-          "enum": ["GET", "POST"]
+          "enum": [
+            "GET",
+            "POST"
+          ]
         },
         "target": {
           "type": "string",
-          "enum": ["request", "window", "newTab"]
+          "enum": [
+            "request",
+            "window",
+            "newTab"
+          ]
         },
         "openAs": {
           "type": "string",
-          "enum": ["request", "window", "newTab"]
+          "enum": [
+            "request",
+            "window",
+            "newTab"
+          ]
         },
         "successMessage": {
           "type": "string"
@@ -389,7 +533,11 @@
         },
         "kind": {
           "type": "string",
-          "enum": ["text", "link", "video"]
+          "enum": [
+            "text",
+            "link",
+            "video"
+          ]
         },
         "summary": {
           "type": "string"
@@ -419,7 +567,10 @@
     },
     "helpItem": {
       "type": "object",
-      "required": ["id", "title"],
+      "required": [
+        "id",
+        "title"
+      ],
       "properties": {
         "id": {
           "type": "string"
@@ -429,7 +580,11 @@
         },
         "kind": {
           "type": "string",
-          "enum": ["text", "link", "video"]
+          "enum": [
+            "text",
+            "link",
+            "video"
+          ]
         },
         "summary": {
           "type": "string"
@@ -465,13 +620,41 @@
         "linkText": {
           "type": "string",
           "default": "Abrir logs em nova aba"
+        },
+        "documentId": {
+          "type": "string"
+        },
+        "endpointId": {
+          "type": "string"
+        },
+        "actionId": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "transactions",
+            "transactionEvents",
+            "deletions",
+            "recordEvents"
+          ]
+        },
+        "requiresRecord": {
+          "type": "boolean",
+          "default": true
+        },
+        "screenId": {
+          "type": "string"
         }
       },
       "additionalProperties": false
     },
     "field": {
       "type": "object",
-      "required": ["type", "label"],
+      "required": [
+        "type",
+        "label"
+      ],
       "properties": {
         "type": {
           "type": "string",
@@ -487,7 +670,9 @@
             "email",
             "enum",
             "lookup",
-            "hidden"
+            "hidden",
+            "array",
+            "json"
           ]
         },
         "label": {
@@ -510,6 +695,58 @@
         },
         "options": {
           "type": "array"
+        },
+        "itemType": {
+          "const": "integer"
+        },
+        "decimals": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "defaultValue": {},
+        "readonlyOnEdit": {
+          "type": "boolean"
+        },
+        "visibleWhen": {
+          "$ref": "#/$defs/fieldCondition"
+        },
+        "enabledWhen": {
+          "$ref": "#/$defs/fieldCondition"
+        },
+        "optionsSource": {
+          "type": "object",
+          "required": [
+            "endpointId"
+          ],
+          "properties": {
+            "endpointId": {
+              "type": "string",
+              "pattern": "^options\\.[A-Za-z_][A-Za-z0-9_]*$"
+            },
+            "excludeCurrent": {
+              "type": "boolean"
+            },
+            "copyFields": {
+              "type": "array",
+              "maxItems": 10,
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            },
+            "parameterFields": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 2,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^(?!context$|operation$|resource$|parameters$)[a-z][a-z0-9_]*$"
+              }
+            }
+          },
+          "additionalProperties": false
         }
       }
     },
@@ -527,6 +764,31 @@
         },
         "defaultSort": {
           "type": "array"
+        },
+        "defaultGroup": {
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "type": "object",
+            "required": [
+              "field",
+              "dir"
+            ],
+            "properties": {
+              "field": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$"
+              },
+              "dir": {
+                "type": "string",
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
         }
       }
     },
@@ -535,11 +797,15 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["window"]
+          "enum": [
+            "window"
+          ]
         },
         "mode": {
           "type": "string",
-          "enum": ["basic"]
+          "enum": [
+            "basic"
+          ]
         },
         "title": {
           "type": "string"
@@ -579,7 +845,11 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["id", "title", "fields"],
+                "required": [
+                  "id",
+                  "title",
+                  "fields"
+                ],
                 "properties": {
                   "id": {
                     "type": "string"
@@ -610,8 +880,77 @@
     },
     "grid": {
       "type": "object",
-      "required": ["columns"],
+      "required": [
+        "columns"
+      ],
       "properties": {
+        "editing": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "form",
+                "batch"
+              ],
+              "default": "form"
+            },
+            "snapshot": {
+              "type": "object",
+              "properties": {
+                "originalFields": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$"
+                  }
+                },
+                "contextFields": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 64,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 128,
+                    "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$"
+                  }
+                }
+              },
+              "required": [
+                "originalFields",
+                "contextFields"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "required": [
+                  "snapshot"
+                ]
+              },
+              "then": {
+                "properties": {
+                  "mode": {
+                    "const": "batch"
+                  }
+                }
+              }
+            }
+          ]
+        },
         "id": {
           "type": "string"
         },
@@ -674,7 +1013,11 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["id", "label", "action"],
+                "required": [
+                  "id",
+                  "label",
+                  "action"
+                ],
                 "properties": {
                   "id": {
                     "type": "string"
@@ -717,6 +1060,13 @@
         },
         "rowActions": {
           "type": "array"
+        },
+        "rowLinks": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/rowLink"
+          }
         }
       }
     },
@@ -729,17 +1079,25 @@
         },
         "provider": {
           "type": "string",
-          "enum": ["mock", "service"],
+          "enum": [
+            "mock",
+            "service"
+          ],
           "default": "mock"
         },
         "tool": {
           "type": "string",
-          "enum": ["smartbox"],
+          "enum": [
+            "smartbox"
+          ],
           "default": "smartbox"
         },
         "activeMode": {
           "type": "string",
-          "enum": ["Search", "AIAssistant"]
+          "enum": [
+            "Search",
+            "AIAssistant"
+          ]
         },
         "placeholder": {
           "type": "string"
@@ -780,7 +1138,10 @@
     },
     "gridColumn": {
       "type": "object",
-      "required": ["field", "title"],
+      "required": [
+        "field",
+        "title"
+      ],
       "properties": {
         "field": {
           "type": "string"
@@ -789,7 +1150,10 @@
           "type": "string"
         },
         "width": {
-          "type": ["integer", "string"]
+          "type": [
+            "integer",
+            "string"
+          ]
         },
         "visible": {
           "type": "boolean"
@@ -808,7 +1172,11 @@
         },
         "align": {
           "type": "string",
-          "enum": ["left", "center", "right"]
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ]
         }
       }
     },
@@ -825,7 +1193,10 @@
         },
         "mode": {
           "type": "string",
-          "enum": ["columns", "template"]
+          "enum": [
+            "columns",
+            "template"
+          ]
         },
         "columns": {
           "type": "array",
@@ -878,7 +1249,11 @@
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["id", "title", "fields"],
+                "required": [
+                  "id",
+                  "title",
+                  "fields"
+                ],
                 "properties": {
                   "id": {
                     "type": "string"
@@ -904,18 +1279,38 @@
     },
     "form": {
       "type": "object",
-      "required": ["id", "mode", "layout"],
+      "required": [
+        "id",
+        "mode",
+        "layout"
+      ],
       "properties": {
         "id": {
           "type": "string"
         },
         "mode": {
           "type": "string",
-          "enum": ["popup"]
+          "enum": [
+            "popup",
+            "embedded"
+          ]
+        },
+        "returnScreenId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+        },
+        "openOnLoadField": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
         },
         "layout": {
           "type": "string",
-          "enum": ["tabs", "sections", "single", "steps"]
+          "enum": [
+            "tabs",
+            "sections",
+            "single",
+            "steps"
+          ]
         },
         "width": {
           "type": "integer"
@@ -1055,7 +1450,10 @@
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "enum": ["edit", "delete"]
+                    "enum": [
+                      "edit",
+                      "delete"
+                    ]
                   }
                 }
               ]
@@ -1069,7 +1467,10 @@
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "enum": ["edit", "delete"]
+                    "enum": [
+                      "edit",
+                      "delete"
+                    ]
                   }
                 }
               ]
@@ -1083,7 +1484,10 @@
                   "type": "array",
                   "items": {
                     "type": "string",
-                    "enum": ["edit", "delete"]
+                    "enum": [
+                      "edit",
+                      "delete"
+                    ]
                   }
                 }
               ]
@@ -1122,7 +1526,12 @@
             },
             "type": {
               "type": "string",
-              "enum": ["success", "error", "info", "warning"]
+              "enum": [
+                "success",
+                "error",
+                "info",
+                "warning"
+              ]
             },
             "width": {
               "type": "integer"
@@ -1197,7 +1606,12 @@
         },
         "type": {
           "type": "string",
-          "enum": ["success", "error", "info", "warning"]
+          "enum": [
+            "success",
+            "error",
+            "info",
+            "warning"
+          ]
         },
         "width": {
           "type": "integer"
@@ -1207,7 +1621,9 @@
     },
     "formSituation": {
       "type": "object",
-      "required": ["field"],
+      "required": [
+        "field"
+      ],
       "properties": {
         "enabled": {
           "type": "boolean",
@@ -1221,23 +1637,37 @@
         },
         "display": {
           "type": "string",
-          "enum": ["stepper", "arrowstep", "badge"],
+          "enum": [
+            "stepper",
+            "arrowstep",
+            "badge"
+          ],
           "default": "stepper"
         },
         "mode": {
           "type": "string",
-          "enum": ["stepper", "arrowstep", "badge"]
+          "enum": [
+            "stepper",
+            "arrowstep",
+            "badge"
+          ]
         },
         "orientation": {
           "type": "string",
-          "enum": ["horizontal", "vertical"],
+          "enum": [
+            "horizontal",
+            "vertical"
+          ],
           "default": "horizontal"
         },
         "steps": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["value", "text"],
+            "required": [
+              "value",
+              "text"
+            ],
             "properties": {
               "value": {},
               "text": {
@@ -1279,14 +1709,23 @@
         },
         "method": {
           "type": "string",
-          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
         }
       },
       "additionalProperties": false
     },
     "formTab": {
       "type": "object",
-      "required": ["id", "title"],
+      "required": [
+        "id",
+        "title"
+      ],
       "properties": {
         "id": {
           "type": "string"
@@ -1296,11 +1735,19 @@
         },
         "type": {
           "type": "string",
-          "enum": ["fields", "linkedPage", "linked_page"]
+          "enum": [
+            "fields",
+            "linkedPage",
+            "linked_page"
+          ]
         },
         "kind": {
           "type": "string",
-          "enum": ["fields", "linkedPage", "linked_page"]
+          "enum": [
+            "fields",
+            "linkedPage",
+            "linked_page"
+          ]
         },
         "screenId": {
           "type": "string"
@@ -1341,7 +1788,10 @@
       "properties": {
         "engine": {
           "type": "string",
-          "enum": ["crud"]
+          "enum": [
+            "crud",
+            "process"
+          ]
         },
         "screenId": {
           "type": "string"
@@ -1356,7 +1806,10 @@
           "type": "string"
         },
         "height": {
-          "type": ["integer", "string"]
+          "type": [
+            "integer",
+            "string"
+          ]
         },
         "hideHeader": {
           "type": "boolean",
@@ -1411,7 +1864,25 @@
         },
         "operator": {
           "type": "string",
-          "enum": ["eq", "neq", "startsWith", "contains", "notContains", "isEmpty", "isNotEmpty", "isNull", "isNotNull", "between", "in", "notIn", "gt", "gte", "lt", "lte", "relative"]
+          "enum": [
+            "eq",
+            "neq",
+            "startsWith",
+            "contains",
+            "notContains",
+            "isEmpty",
+            "isNotEmpty",
+            "isNull",
+            "isNotNull",
+            "between",
+            "in",
+            "notIn",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "relative"
+          ]
         },
         "value": {},
         "displayValue": {},
@@ -1459,7 +1930,11 @@
           "additionalProperties": {
             "oneOf": [
               {
-                "type": ["string", "number", "boolean"]
+                "type": [
+                  "string",
+                  "number",
+                  "boolean"
+                ]
               },
               {
                 "$ref": "#/$defs/linkedPageSource"
@@ -1530,7 +2005,11 @@
     },
     "formSection": {
       "type": "object",
-      "required": ["id", "title", "fields"],
+      "required": [
+        "id",
+        "title",
+        "fields"
+      ],
       "properties": {
         "id": {
           "type": "string"
@@ -1552,7 +2031,9 @@
     },
     "formField": {
       "type": "object",
-      "required": ["field"],
+      "required": [
+        "field"
+      ],
       "properties": {
         "id": {
           "type": "string"
@@ -1569,17 +2050,30 @@
         "readonly": {
           "type": "boolean"
         },
+        "auditDiff": {
+          "$ref": "#/$defs/auditDiffMapping"
+        },
         "renderAs": {
           "type": "string",
-          "enum": ["label", "readonly"]
+          "enum": [
+            "label",
+            "readonly",
+            "audit-diff"
+          ]
         },
         "display": {
           "type": "string",
-          "enum": ["label", "readonly"]
+          "enum": [
+            "label",
+            "readonly"
+          ]
         },
         "mode": {
           "type": "string",
-          "enum": ["label", "readonly"]
+          "enum": [
+            "label",
+            "readonly"
+          ]
         }
       },
       "additionalProperties": false
@@ -1608,7 +2102,10 @@
     },
     "formStep": {
       "type": "object",
-      "required": ["id", "title"],
+      "required": [
+        "id",
+        "title"
+      ],
       "properties": {
         "id": {
           "type": "string"
@@ -1656,7 +2153,9 @@
               },
               {
                 "type": "object",
-                "required": ["field"],
+                "required": [
+                  "field"
+                ],
                 "properties": {
                   "field": {
                     "type": "string"
@@ -1740,7 +2239,13 @@
         },
         "method": {
           "type": "string",
-          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
         },
         "requiresRecord": {
           "type": "boolean",
@@ -1772,7 +2277,10 @@
         },
         "placement": {
           "type": "string",
-          "enum": ["header", "footer"]
+          "enum": [
+            "header",
+            "footer"
+          ]
         },
         "permission": {
           "type": "string"
@@ -1787,7 +2295,12 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["create", "edit", "view", "delete"]
+            "enum": [
+              "create",
+              "edit",
+              "view",
+              "delete"
+            ]
           }
         },
         "requiresRecord": {
@@ -1811,23 +2324,43 @@
         },
         "method": {
           "type": "string",
-          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
         },
         "pageMethod": {
           "type": "string",
-          "enum": ["GET", "POST"]
+          "enum": [
+            "GET",
+            "POST"
+          ]
         },
         "submitMethod": {
           "type": "string",
-          "enum": ["GET", "POST"]
+          "enum": [
+            "GET",
+            "POST"
+          ]
         },
         "target": {
           "type": "string",
-          "enum": ["request", "window", "newTab"]
+          "enum": [
+            "request",
+            "window",
+            "newTab"
+          ]
         },
         "openAs": {
           "type": "string",
-          "enum": ["request", "window", "newTab"]
+          "enum": [
+            "request",
+            "window",
+            "newTab"
+          ]
         },
         "endpoints": {
           "type": "object",
@@ -1901,20 +2434,48 @@
             },
             "source": {
               "type": "string",
-              "enum": ["record", "values", "data"],
+              "enum": [
+                "record",
+                "values",
+                "data"
+              ],
               "default": "record"
             },
             "transport": {
               "type": "string",
-              "enum": ["auto", "query", "post", "form", "body", "querystring", "get"]
+              "enum": [
+                "auto",
+                "query",
+                "post",
+                "form",
+                "body",
+                "querystring",
+                "get"
+              ]
             },
             "mode": {
               "type": "string",
-              "enum": ["auto", "query", "post", "form", "body", "querystring", "get"]
+              "enum": [
+                "auto",
+                "query",
+                "post",
+                "form",
+                "body",
+                "querystring",
+                "get"
+              ]
             },
             "submitAs": {
               "type": "string",
-              "enum": ["auto", "query", "post", "form", "body", "querystring", "get"]
+              "enum": [
+                "auto",
+                "query",
+                "post",
+                "form",
+                "body",
+                "querystring",
+                "get"
+              ]
             },
             "fields": {
               "type": "array",
@@ -1974,7 +2535,13 @@
             },
             "method": {
               "type": "string",
-              "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+              "enum": [
+                "GET",
+                "POST",
+                "PUT",
+                "PATCH",
+                "DELETE"
+              ]
             }
           },
           "additionalProperties": false
@@ -1995,7 +2562,14 @@
         },
         "event": {
           "type": "string",
-          "enum": ["change", "blur", "focus", "enter", "open", "afterLoad"]
+          "enum": [
+            "change",
+            "blur",
+            "focus",
+            "enter",
+            "open",
+            "afterLoad"
+          ]
         },
         "endpointId": {
           "type": "string"
@@ -2014,7 +2588,13 @@
         },
         "method": {
           "type": "string",
-          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"]
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
         },
         "request": {
           "type": "object"
@@ -2051,7 +2631,9 @@
     },
     "formEffect": {
       "type": "object",
-      "required": ["action"],
+      "required": [
+        "action"
+      ],
       "properties": {
         "target": {
           "type": "string"
@@ -2061,7 +2643,20 @@
         },
         "action": {
           "type": "string",
-          "enum": ["setValue", "clearValue", "readonly", "enabled", "disabled", "visible", "show", "hide", "required", "setOptions", "reloadOptions", "showMessage"]
+          "enum": [
+            "setValue",
+            "clearValue",
+            "readonly",
+            "enabled",
+            "disabled",
+            "visible",
+            "show",
+            "hide",
+            "required",
+            "setOptions",
+            "reloadOptions",
+            "showMessage"
+          ]
         },
         "value": {},
         "options": {
@@ -2099,7 +2694,12 @@
         },
         "type": {
           "type": "string",
-          "enum": ["success", "error", "info", "warning"]
+          "enum": [
+            "success",
+            "error",
+            "info",
+            "warning"
+          ]
         },
         "when": {
           "$ref": "#/$defs/formCondition"
@@ -2121,7 +2721,19 @@
         },
         "operator": {
           "type": "string",
-          "enum": ["eq", "neq", "in", "notIn", "contains", "isEmpty", "isNotEmpty", "isNull", "isNotNull", "truthy", "falsy"]
+          "enum": [
+            "eq",
+            "neq",
+            "in",
+            "notIn",
+            "contains",
+            "isEmpty",
+            "isNotEmpty",
+            "isNull",
+            "isNotNull",
+            "truthy",
+            "falsy"
+          ]
         },
         "value": {},
         "all": {
@@ -2141,6 +2753,192 @@
         }
       },
       "additionalProperties": false
+    },
+    "contextField": {
+      "type": "object",
+      "required": [
+        "field"
+      ],
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "filter": {
+          "type": "boolean"
+        },
+        "createDefault": {
+          "type": "boolean"
+        },
+        "readonly": {
+          "type": "boolean"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "filterOnly": {
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"filterOnly": {"const": true}}, "required": ["filterOnly"]},
+          "then": {
+            "required": ["filter", "required", "readonly", "createDefault"],
+            "properties": {"filter": {"const": true}, "required": {"const": false}, "readonly": {"const": true}, "createDefault": {"const": false}}
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "fieldCondition": {
+      "type": "object",
+      "required": [
+        "field",
+        "value"
+      ],
+      "properties": {
+        "field": {
+          "type": "string"
+        },
+        "operator": {
+          "const": "eq"
+        },
+        "value": {
+          "type": [
+            "string",
+            "number",
+            "boolean"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "rowLink": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "screenId",
+        "parameters"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "screenId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+        },
+        "position": {
+          "type": "string",
+          "enum": [
+            "start",
+            "end"
+          ],
+          "default": "end"
+        },
+        "parameters": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "required": [
+              "field",
+              "sourceField"
+            ],
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "sourceField": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "icon": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,79}$"
+        },
+        "iconOnly": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "iconOnly": {
+                "const": true
+              }
+            },
+            "required": [
+              "iconOnly"
+            ]
+          },
+          "then": {
+            "required": [
+              "icon"
+            ]
+          }
+        }
+      ]
+    },
+    "apiCompanyDescriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "moduleId",
+        "screenId",
+        "endpointModes"
+      ],
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "moduleId": {
+          "type": "string",
+          "pattern": "^[a-z0-9_-]{1,64}$"
+        },
+        "screenId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "endpointModes": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "mode",
+              "operation"
+            ],
+            "properties": {
+              "mode": {
+                "enum": [
+                  "shared",
+                  "company",
+                  "record"
+                ]
+              },
+              "operation": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

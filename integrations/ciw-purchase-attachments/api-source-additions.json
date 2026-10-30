@@ -1,0 +1,104 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "proc_compra_anexos_read",
+      "name": "Anexos dos Itens — MED — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id",
+        "item_proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_anexos",
+        "operation": "read"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "proc_compra_anexos_get",
+      "name": "Anexos dos Itens — MED — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id",
+        "item_proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_anexos",
+        "operation": "get"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_anexos_create",
+      "name": "Anexos dos Itens — MED — create",
+      "type": "create",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id",
+        "item_proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_anexos",
+        "operation": "create"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_anexos_update",
+      "name": "Anexos dos Itens — MED — update",
+      "type": "update",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id",
+        "item_proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_anexos",
+        "operation": "update"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_anexos_delete",
+      "name": "Anexos dos Itens — MED — delete",
+      "type": "delete",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id",
+        "item_proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_anexos",
+        "operation": "delete"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_anexos_opcoes_tipo",
+      "name": "Tipos de anexo do item",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id",
+        "item_proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_anexos",
+        "operation": "options",
+        "lookup": "tipo_anexo"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "programCode": "cd0095",
+  "programTitle": "Situações do container",
+  "module": "cadastros",
+  "pageType": "crud",
+  "builderEntityCode": "situacoes_container_progress",
+  "screenId": "ciw.situacoes-container",
+  "version": "1.0.1",
+  "subtitle": "Cadastro CIW integrado ao Progress",
+  "icon": null,
+  "permissionPrefix": "situacoes_container_progress",
+  "gridEditMode": "batch",
+  "crudOptions": {
+    "filterFields": [
+      "situacao_container_id",
+      "log_gerar_saldo_a_pagar",
+      "log_gerar_distr_custo",
+      "num_ordem",
+      "descricao"
+    ]
+  },
+  "processOptions": null,
+  "formOptions": null,
+  "rowLinks": [],
+  "contextFields": [],
+  "allowCreate": true,
+  "allowUpdate": true,
+  "allowDelete": true,
+  "changeSummary": null,
+  "programOrigin": "standard",
+  "ownerScope": "system",
+  "customizationPolicy": "overlay_only",
+  "subscriberId": null,
+  "baseProgramCode": null,
+  "baseProgramVersionId": null,
+  "upgradeFrozen": false,
+  "frozenReason": null,
+  "publicationPolicy": {
+    "allowedDatabaseEnvironments": []
+  },
+  "analyticsConfig": null,
+  "reportConfig": null,
+  "specialDocumentConfig": null,
+  "regulatedDocumentConfig": null,
+  "masterDetailConfig": null,
+  "customMode": null,
+  "customEntryUrl": null,
+  "customFrameTitle": null
+}

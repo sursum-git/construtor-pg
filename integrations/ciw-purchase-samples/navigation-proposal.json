@@ -1,0 +1,16 @@
+{
+  "itemScreen": "ciw.proc-compra-itens",
+  "itemVersion": "1.0.1",
+  "childScreen": "ciw.proc-compra-amostras",
+  "childVersion": "1.0.0",
+  "context": [
+    "proc_compra_id",
+    "item_proc_compra_id"
+  ],
+  "formatMaintenance": "Existing formato_amostra_id field, existing PurchaseItemsApi/Service",
+  "homeChange": false,
+  "deferred": [
+    "binaryAttachments",
+    "unlinkedBulkShipmentControl"
+  ]
+}

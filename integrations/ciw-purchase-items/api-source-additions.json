@@ -1,0 +1,132 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "proc_compra_itens_read",
+      "name": "Itens do Processo de Compra — MED — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_itens",
+        "operation": "read"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "proc_compra_itens_get",
+      "name": "Itens do Processo de Compra — MED — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_itens",
+        "operation": "get"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_itens_create",
+      "name": "Itens do Processo de Compra — MED — create",
+      "type": "create",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_itens",
+        "operation": "create"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_itens_update",
+      "name": "Itens do Processo de Compra — MED — update",
+      "type": "update",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_itens",
+        "operation": "update"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_itens_delete",
+      "name": "Itens do Processo de Compra — MED — delete",
+      "type": "delete",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_itens",
+        "operation": "delete"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_itens_opcoes_coloracao",
+      "name": "Opções de coloracao do item",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_itens",
+        "operation": "options",
+        "lookup": "coloracao"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "proc_compra_itens_opcoes_formato_amostra",
+      "name": "Opções de formato_amostra do item",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_itens",
+        "operation": "options",
+        "lookup": "formato_amostra"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "proc_compra_itens_opcoes_estacao",
+      "name": "Opções de estacao do item",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_itens",
+        "operation": "options",
+        "lookup": "estacao"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    }
+  ]
+}

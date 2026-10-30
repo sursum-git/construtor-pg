@@ -1,5 +1,6 @@
 (function(global) {
   "use strict";
+  const selectedFiles = new Map();
 
   class CrudHttpClient {
     constructor(options) {
@@ -11,7 +12,25 @@
       this.tenantId = settings.tenantId || this.resolveRuntimeTenantId();
     }
 
-    request(options) {
+    registerFile(field, file, urls) {
+      if (!/^[a-z][a-z0-9_]{0,79}$/.test(field) || !(file instanceof global.File) || !file.size || file.size > 20971520 || !Array.isArray(urls) || !urls.length) {
+        throw new Error("Selecione um arquivo de ate 20 MB.");
+      }
+      const allowed = urls.map((url) => this.fileEndpointUrl(url));
+      const bytes = new Uint8Array(16); global.crypto.getRandomValues(bytes);
+      const token = "local-file:" + Array.from(bytes, (v) => v.toString(16).padStart(2, "0")).join("");
+      selectedFiles.set(token, { field, file, urls: allowed }); return token;
+    }
+
+    registeredFile(token) { const entry = selectedFiles.get(token); return entry ? entry.file : null; }
+    releaseFile(token) { selectedFiles.delete(token); }
+    fileEndpointUrl(url) {
+      const target = new URL(url, global.location.href);
+      if (target.origin !== new URL(global.location.href).origin || !/^\/api\/runtime\/screens\/[^/]+\/endpoints\/[^/]+$/.test(target.pathname) || target.search || target.hash) { throw new Error("Endpoint de arquivo invalido."); }
+      return target.href;
+    }
+
+    async request(options) {
       const request = options || {};
       const method = request.method || "GET";
       const headers = Object.assign({
@@ -26,12 +45,21 @@
         headers["X-Runtime-Auth-Token"] = this.authToken;
       }
       const requestUrl = this.buildRequestUrl(request.url, method, request.data);
+      let body = method !== "GET" ? JSON.stringify(request.data || {}) : undefined;
+      const record = request.data && (request.data.record || request.data);
+      const tokens = record && typeof record === "object" ? Object.keys(record).filter((field) => typeof record[field] === "string" && record[field].indexOf("local-file:") === 0) : [];
+      if (tokens.length) {
+        const entry = selectedFiles.get(record[tokens[0]]);
+        if (method !== "POST" || tokens.length !== 1 || !entry || entry.field !== tokens[0] || entry.urls.indexOf(this.fileEndpointUrl(request.url)) < 0) { throw new Error("Selecione novamente o arquivo para este formulario."); }
+        body = new global.FormData();body.append("payload", JSON.stringify(request.data));body.append(entry.field, entry.file, entry.file.name);
+        Object.keys(headers).forEach((name) => { if (name.toLowerCase() === "content-type") { delete headers[name]; } });
+      }
 
       return fetch(requestUrl, {
         method,
         headers,
         credentials: request.credentials || "include",
-        body: method !== "GET" ? JSON.stringify(request.data || {}) : undefined
+        body
       }).then(function(response) {
         return response.text().then(function(text) {
           const payload = text ? JSON.parse(text) : {};
@@ -54,6 +82,17 @@
         }
         throw error;
       });
+    }
+
+    async download(options) {
+      const request = options || {};
+      const headers = { "Accept": "application/octet-stream", "Content-Type": "application/json", "X-Runtime-Tenant-Id": this.tenantId, "X-Runtime-User-Id": this.userId, "X-Runtime-Session-Id": this.sessionId };
+      if (this.authToken) { headers.Authorization = "Bearer " + this.authToken; headers["X-Runtime-Auth-Token"] = this.authToken; }
+      try {
+        const response = await fetch(this.fileEndpointUrl(request.url), { method: "POST", headers, credentials: "include", body: JSON.stringify(request.data || {}) });
+        if (!response.ok) { const text = await response.text(); let error;try { error = JSON.parse(text); } catch (_) { error = new Error("Falha ao baixar arquivo."); }throw error; }
+        return await response.blob();
+      } catch (error) { this.handleAuthError(error);throw error; }
     }
 
     buildRequestUrl(url, method, data) {

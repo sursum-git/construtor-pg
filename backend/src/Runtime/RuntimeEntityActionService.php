@@ -4,6 +4,7 @@ namespace App\Runtime;
 
 use App\Builder\BuilderAiSettingsService;
 use App\Privacy\PrivacySubjectRequestService;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Query\QueryBuilder;
 
@@ -26,16 +27,22 @@ class RuntimeEntityActionService
         private readonly StructuralIntegrityService $integrity,
         private readonly PermissionResolver $permissions,
         private readonly RuntimeEventService $events,
+        private readonly ?RuntimeAuditAccessPolicy $auditAccess = null,
     ) {
     }
 
     public function handle(string $screenId, string $endpointId, array $config, array $payload): array
     {
-        $entityCode = (string) ($payload['entityCode'] ?? $config['entityCode'] ?? '');
+        $configuredEntity = (string) ($config['entityCode'] ?? '');
+        if ($configuredEntity !== '' && array_key_exists('entityCode', $payload) && $payload['entityCode'] !== $configuredEntity) {
+            throw new RuntimeHttpException('ENTITY_CONTEXT_CONFLICT', 'A entidade informada diverge do endpoint publicado.', 422);
+        }
+        $entityCode = $configuredEntity !== '' ? $configuredEntity : (string) ($payload['entityCode'] ?? '');
         $operation = (string) ($config['operation'] ?? $payload['operation'] ?? $endpointId);
         $actionId = (string) ($payload['actionId'] ?? $config['actionId'] ?? $operation);
         $definition = $this->definitions->resolve($entityCode);
         $payload = $this->withResolvedRuntimePayload($definition, $payload, $actionId, $operation);
+        $payload = $this->withAuditLogScope($definition, $payload, $operation);
 
         return match ($operation) {
             'read' => $this->read($definition, $payload),
@@ -59,6 +66,8 @@ class RuntimeEntityActionService
             ->from($definition['quotedTableName'], 't');
         $this->applySubscriberIsolation($qb, $definition, 't');
         $this->applySoftDeleteFilter($qb, $definition, 't', $payload);
+        $this->applyRequiredAuditAccess($qb, $definition);
+        $this->applyAuditLogScope($qb, $payload['_auditLogScope']);
         $this->applyCustomFilters($qb, $definition, $payload['filters'] ?? []);
         $this->applyKendoFilter($qb, $definition, $payload['filter'] ?? null);
 
@@ -69,6 +78,7 @@ class RuntimeEntityActionService
         $take = max(1, min(500, (int) ($payload['take'] ?? $payload['pageSize'] ?? 20)));
         $skip = max(0, (int) ($payload['skip'] ?? 0));
         $rows = $qb->setFirstResult($skip)->setMaxResults($take)->executeQuery()->fetchAllAssociative();
+        $rows = $this->withStoredAuditActors($definition, $rows);
         $data = array_map(fn (array $row) => $this->formatRow($definition, $row), $rows);
 
         $this->transactions->log($definition['entityCode'] . '.read', 'Listagem executada pelo runtime generico.', metadata: [
@@ -83,10 +93,393 @@ class RuntimeEntityActionService
         ];
     }
 
+    /** Reserved context is accepted only as closed, flat EQ filters on the log entity. */
+    private function withAuditLogScope(array $definition, array $payload, string $operation): array
+    {
+        $invalid = static function (): never {
+            throw new RuntimeHttpException('AUDIT_LOG_SCOPE_INVALID', 'Escopo de logs invalido. Use filtros de contexto EQ validos para tela, exclusao ou registro.', 422);
+        };
+        $containsReserved = function (mixed $value) use (&$containsReserved, $definition): bool {
+            if (!is_array($value)) { return false; }
+            foreach (['field', 'id'] as $key) {
+                if (is_string($value[$key] ?? null) && (in_array($value[$key], ['audit_screen_id', 'audit_operation', 'audit_record_id'], true)
+                    || $definition['entityCode'] === 'runtime_transaction_log' && str_starts_with($value[$key], 'audit_'))) { return true; }
+            }
+            foreach ($value as $child) { if ($containsReserved($child)) { return true; } }
+            return false;
+        };
+        foreach (['filter', 'sort', 'group'] as $key) {
+            if ($containsReserved($payload[$key] ?? null)) { $invalid(); }
+        }
+        $scope = [];
+        $filters = $payload['filters'] ?? [];
+        if (!is_array($filters) || !array_is_list($filters)) {
+            if ($definition['entityCode'] === 'runtime_transaction_log' || $containsReserved($filters)) { $invalid(); }
+            $payload['_auditLogScope'] = [];
+            return $payload;
+        }
+        $remaining = [];
+        foreach ($filters as $filter) {
+            if ($definition['entityCode'] === 'runtime_transaction_log' && (!is_array($filter) || !is_string($filter['field'] ?? null))) { $invalid(); }
+            if (!$containsReserved($filter)) { $remaining[] = $filter; continue; }
+            $field = $filter['field'] ?? null;
+            if ($definition['entityCode'] !== 'runtime_transaction_log' || $operation !== 'read' || !is_string($field)
+                || !in_array($field, ['audit_screen_id', 'audit_operation', 'audit_record_id'], true)
+                || ($filter['operator'] ?? null) !== 'eq' || isset($scope[$field])
+                || array_diff(array_keys($filter), ['id', 'field', 'operator', 'value'])) { $invalid(); }
+            $value = $filter['value'] ?? null;
+            if ($field === 'audit_screen_id') {
+                if (!is_string($value) || !preg_match('/\A[A-Za-z_][A-Za-z0-9_.:-]{0,159}\z/D', $value)) { $invalid(); }
+            } elseif ($field === 'audit_operation') {
+                if ($value !== 'delete') { $invalid(); }
+            } else {
+                $termIdentity = is_string($value) && mb_strlen($value) <= 50 && preg_match("/\A[\p{L}0-9.'-]+\z/uD", $value) && preg_match('/\p{L}/u', $value);
+                if (!(is_string($value) && preg_match('/\Ap_[A-F0-9]{64}\z/D', $value)) && !$termIdentity) {
+                    if (!(is_int($value) || is_string($value) && preg_match('/\A[1-9][0-9]{0,9}\z/D', $value)) || (int) $value < 1 || (int) $value > 2147483647) { $invalid(); }
+                    $value = (int) $value;
+                }
+            }
+            $scope[$field] = $value;
+        }
+        if ($scope && !isset($scope['audit_screen_id'])) { $invalid(); }
+        if (isset($scope['audit_record_id'])) {
+            $stockTerms = $scope['audit_screen_id'] === 'iol.estoque-termos-busca';
+            $payments = in_array($scope['audit_screen_id'], ['ciw.container-pagamentos','ciw.proc-compra-pagamentos'], true);
+            if (($stockTerms || $payments) !== is_string($scope['audit_record_id'])) { $invalid(); }
+            if ($stockTerms && !(mb_strlen($scope['audit_record_id']) <= 50 && preg_match("/\A[\p{L}0-9.'-]+\z/uD", $scope['audit_record_id']) && preg_match('/\p{L}/u', $scope['audit_record_id']))) { $invalid(); }
+            if ($payments && !preg_match('/\Ap_[A-F0-9]{64}\z/D', $scope['audit_record_id'])) { $invalid(); }
+        }
+        if (($scope['audit_screen_id']??null)==='ciw.proc-compra-itens' && isset($payload['context'])) {
+            $ctx=$payload['context'];
+            if (!RuntimeProgressAuditSchema::exact($ctx,['proc_compra_id']) || RuntimePurchaseItemAudit::recordId($ctx['proc_compra_id'])===null) { $invalid(); }
+            $scope['audit_proc_compra_id']=RuntimePurchaseItemAudit::recordId($ctx['proc_compra_id']);
+        }
+        $payload['filters'] = $remaining;
+        // Always replace any caller-supplied internal representation.
+        $payload['_auditLogScope'] = $scope;
+        return $payload;
+    }
+
+    private function applyAuditLogScope(QueryBuilder $qb, array $scope): void
+    {
+        if (!$scope) { return; }
+        if (($scope['audit_screen_id']??null)==='ciw.proc-compra-despesas') { $this->applyPurchaseExpenseAuditScope($qb,$scope); return; }
+        if (in_array($scope['audit_screen_id']??null,['ciw.proc-compra-amostras','ciw.proc-compra-anexos','ciw.proc-compra-documentos'],true)) { $this->applyPurchaseSampleAuditScope($qb,$scope); return; }
+        if (($scope['audit_screen_id']??null)==='ciw.proc-compra-itens') { $this->applyPurchaseItemAuditScope($qb,$scope); return; }
+        if ((isset($scope['audit_record_id']) || ($scope['audit_screen_id'] ?? null) === 'ciw.processos-compra-med' && isset($scope['audit_operation'])) && $this->applyPurchasePaymentAuditScope($qb, $scope)) { return; }
+        if (isset($scope['audit_record_id']) && !isset($scope['audit_operation']) && $this->applyContainerAuditScope($qb, $scope)) { return; }
+        $conditions = ['audit_scope.id = t.' . $this->quote('transaction_id'), 'audit_scope.tenant_id = :auditScopeTenant', 'audit_scope.screen_id = :auditScopeScreen'];
+        $qb->setParameter('auditScopeTenant', $this->permissions->getTenantId())->setParameter('auditScopeScreen', $scope['audit_screen_id']);
+        if (isset($scope['audit_operation'])) {
+            // A successful CRUD delete confirms the operation even when its optional snapshot is absent.
+            $conditions[] = "audit_scope.status = 'succeeded'";
+            $conditions[] = "t." . $this->quote('event_type') . " LIKE '%.delete'";
+        }
+        if (isset($scope['audit_record_id'])) {
+            $payment = in_array($scope['audit_screen_id'], ['ciw.container-pagamentos','iol.estoque-termos-busca'], true);
+            $json = 't.' . $this->quote('metadata');
+            if ($this->connection->getDatabasePlatform() instanceof \Doctrine\DBAL\Platforms\SQLitePlatform) {
+                $confirmed = "COALESCE((json_type($json, '$.audit.available') = 'true' AND json_type($json, '$.audit.version') = 'integer' AND json_extract($json, '$.audit.version') = 1 AND json_extract($json, '$.audit.source') = 'progress-transaction'), FALSE)";
+                $record = "json_type($json, '$.audit.recordId') = '".($payment ? 'text' : 'integer')."' AND json_extract($json, '$.audit.recordId') = :auditScopeRecord";
+            } else {
+                $json = 'CAST(' . $json . ' AS jsonb)';
+                $confirmed = "COALESCE(($json #> '{audit,available}' = 'true'::jsonb AND $json #> '{audit,version}' = '1'::jsonb AND $json #>> '{audit,source}' = 'progress-transaction'), FALSE)";
+                $record = "jsonb_typeof($json #> '{audit,recordId}') = '".($payment ? 'string' : 'number')."' AND $json #>> '{audit,recordId}' = :auditScopeRecordText";
+                $qb->setParameter('auditScopeRecordText', (string) $scope['audit_record_id']);
+            }
+            $conditions[] = "(($confirmed AND $record) OR (NOT $confirmed AND COALESCE(audit_scope.operation, '') <> 'batch' AND audit_scope.record_id = :auditScopeParentRecord))";
+            if ($scope['audit_screen_id'] === 'ciw.cotacoes-bc' && !isset($scope['audit_operation'])) {
+                // Processo separado, mesmo registro: alias fechado, confirmado e sem ampliar o tenant.
+                $import = $this->connection->getDatabasePlatform() instanceof \Doctrine\DBAL\Platforms\SQLitePlatform
+                    ? "json_extract($json, '$.audit.resource') = 'hist_cotacoes_bc' AND json_extract($json, '$.audit.operation') = 'import-bc'"
+                    : "$json #>> '{audit,resource}' = 'hist_cotacoes_bc' AND $json #>> '{audit,operation}' = 'import-bc'";
+                $conditions[2] = "(audit_scope.screen_id = :auditScopeScreen OR (audit_scope.screen_id = 'ciw.cotacoes-bc-buscar' AND audit_scope.status = 'succeeded' AND t." . $this->quote('event_type') . " = 'hist_cotacoes_bc_progress.api.process' AND $confirmed AND $import))";
+            }
+            if ($this->connection->getDatabasePlatform() instanceof \Doctrine\DBAL\Platforms\SQLitePlatform) {
+                $qb->setParameter('auditScopeRecord', $scope['audit_record_id'], $payment ? \Doctrine\DBAL\ParameterType::STRING : \Doctrine\DBAL\ParameterType::INTEGER);
+            }
+            $qb->setParameter('auditScopeParentRecord', (string) $scope['audit_record_id']);
+        }
+        $qb->andWhere('EXISTS (SELECT 1 FROM runtime_transaction audit_scope WHERE ' . implode(' AND ', $conditions) . ')');
+    }
+
+    /** Closed purchase screens; actual and initiating parents remain distinct and tenant bound. */
+    private function applyPurchasePaymentAuditScope(QueryBuilder $qb, array $scope): bool
+    {
+        if (!in_array($scope['audit_screen_id'], ['ciw.proc-compra-pagamentos','ciw.processos-compra-financeiro-med','ciw.processos-compra-med'], true)) { return false; }
+        $payment = $scope['audit_screen_id'] === 'ciw.proc-compra-pagamentos';
+        $headerDeletion = $scope['audit_screen_id'] === 'ciw.processos-compra-med' && ($scope['audit_operation'] ?? null) === 'delete';
+        $hasRecord = isset($scope['audit_record_id']);
+        if (!$hasRecord && !$headerDeletion) { return false; }
+        $column = $payment ? 'paymentKey' : 'procCompraId';
+        $json = 't.'.$this->quote('metadata');
+        $sqlite = $this->connection->getDatabasePlatform() instanceof \Doctrine\DBAL\Platforms\SQLitePlatform;
+        if ($sqlite) {
+            $field = static fn(string $name): string => "json_extract($json, '$.audit.$name')";
+            $confirmed = "COALESCE((json_type($json, '$.audit.available') = 'true' AND json_type($json, '$.audit.version') = 'integer' AND ".$field('version')." = 1 AND ".$field('source')." = 'progress-transaction'), FALSE)";
+            $actual = "json_type($json, '$.audit.procCompraId') = 'integer' AND ".$field('procCompraId')." > 0";
+            $paymentIdentity = "$actual AND json_type($json, '$.audit.paymentKey') = 'text'";
+            $headerIdentity = "$actual AND json_type($json, '$.audit.originProcCompraId') = 'integer' AND ".$field('originProcCompraId')." > 0 AND json_type($json, '$.audit.recordId') = 'integer' AND ".$field('recordId')." > 0";
+            if ($hasRecord) { $qb->setParameter('purchaseAuditRecord', $scope['audit_record_id'], $payment ? \Doctrine\DBAL\ParameterType::STRING : \Doctrine\DBAL\ParameterType::INTEGER); }
+        } else {
+            $json = 'CAST('.$json.' AS jsonb)';
+            $field = static fn(string $name): string => "($json #>> '{audit,$name}')";
+            $confirmed = "COALESCE(($json #> '{audit,available}' = 'true'::jsonb AND $json #> '{audit,version}' = '1'::jsonb AND ".$field('source')." = 'progress-transaction'), FALSE)";
+            $actual = "jsonb_typeof($json #> '{audit,procCompraId}') = 'number' AND ".$field('procCompraId')." ~ '^[1-9][0-9]{0,9}$'";
+            $paymentIdentity = "$actual AND jsonb_typeof($json #> '{audit,paymentKey}') = 'string'";
+            $headerIdentity = "$actual AND jsonb_typeof($json #> '{audit,originProcCompraId}') = 'number' AND ".$field('originProcCompraId')." ~ '^[1-9][0-9]{0,9}$' AND jsonb_typeof($json #> '{audit,recordId}') = 'number' AND ".$field('recordId')." ~ '^[1-9][0-9]{0,9}$'";
+            if ($hasRecord) { $qb->setParameter('purchaseAuditRecord', (string) $scope['audit_record_id']); }
+        }
+        $main = $field('resource')." = 'procs_compra' AND ".$field('recordId').' = '.$field('procCompraId').' AND '.$field('originProcCompraId').' = '.$field('procCompraId');
+        if ($headerDeletion) {
+            // Header deletion navigation excludes physical ledger deletes and payment unlinks.
+            $match = "$confirmed AND $headerIdentity AND audit_scope.status = 'succeeded' AND audit_scope.screen_id = 'ciw.processos-compra-med' AND $main AND ".$field('operation')." = 'delete'";
+            $fallback = "NOT $confirmed AND audit_scope.screen_id = :purchaseAuditScreen AND audit_scope.status = 'succeeded' AND audit_scope.operation = 'delete' AND t.".$this->quote('event_type')." = 'procs_compra_med_progress.api.delete'";
+            if ($hasRecord) { $match .= ' AND '.$field('procCompraId').' = :purchaseAuditRecord'; $fallback .= ' AND audit_scope.record_id = :purchaseAuditParentRecord'; }
+        } else {
+            $paymentMatch = "$paymentIdentity AND audit_scope.screen_id = 'ciw.proc-compra-pagamentos' AND ".$field($column)." = :purchaseAuditRecord AND ".$field('resource')." IN ('purchase_payment_links','cta_corren_fornec_imp')";
+            $headerMatch = $payment ? 'FALSE' : "$headerIdentity AND audit_scope.screen_id = 'ciw.processos-compra-med' AND (($main) OR ".$field('resource')." = 'cta_corren_fornec_imp') AND (".$field('procCompraId').' = :purchaseAuditRecord OR '.$field('originProcCompraId').' = :purchaseAuditRecord)';
+            $itemMatch=$payment?'FALSE':$this->purchaseItemLogPredicate($field,$json,$sqlite,'procCompraId','originProcCompraId',':purchaseAuditRecord');
+            $expenseMatch=$payment?'FALSE':$this->purchaseExpenseLogPredicate($field,$json,$sqlite,'procCompraId',':purchaseAuditRecord',true);
+            $match = "$confirmed AND audit_scope.status = 'succeeded' AND (($paymentMatch) OR ($headerMatch) OR ($itemMatch) OR ($expenseMatch))";
+            $fallback = "NOT $confirmed AND audit_scope.screen_id = :purchaseAuditScreen AND COALESCE(audit_scope.operation, '') <> 'batch' AND audit_scope.record_id = :purchaseAuditParentRecord";
+            if (isset($scope['audit_operation'])) { $match .= ' AND '.$field('operation')." = 'delete'"; $fallback .= " AND audit_scope.status = 'succeeded' AND t.".$this->quote('event_type')." LIKE '%.delete'"; }
+        }
+        $qb->setParameter('purchaseAuditScreen', $scope['audit_screen_id'])->setParameter('purchaseAuditTenant', $this->permissions->getTenantId());
+        if ($hasRecord) { $qb->setParameter('purchaseAuditParentRecord', (string) $scope['audit_record_id']); }
+        $qb->andWhere('EXISTS (SELECT 1 FROM runtime_transaction audit_scope WHERE audit_scope.id = t.'.$this->quote('transaction_id').' AND audit_scope.tenant_id = :purchaseAuditTenant AND (('.$match.') OR ('.$fallback.')))');
+        return true;
+    }
+
+    /** SQL proof for the registered item transaction source; scalar IDs stay typed on both platforms. */
+    /** Shipment events have no collateral effects; match only confirmed native main CRUD. */
+    private function purchaseSampleLogPredicate(callable $field,string $json,bool $sqlite,string $actual,string $parameter,?string $onlyScreen=null): string
+    {
+        $typed=static function(string $name,bool $zero=false)use($field,$json,$sqlite):string {
+            $value=$field($name);$pattern=$zero?'^(0|[1-9][0-9]{0,9})$':'^[1-9][0-9]{0,9}$';
+            return $sqlite ? "json_type($json, '$.audit.$name') = 'integer' AND $value ".($zero?'>= 0':'> 0')." AND $value <= 2147483647"
+                : "jsonb_typeof($json #> '{audit,$name}') = 'number' AND $value ~ '$pattern' AND (length($value) < 10 OR $value <= '2147483647')";
+        };
+        $confirmed=$sqlite?"json_type($json, '$.audit.available') = 'true' AND json_type($json, '$.audit.version') = 'integer' AND ".$field('version')." = 1 AND ".$field('source')." = 'progress-transaction'":"$json #> '{audit,available}' = 'true'::jsonb AND $json #> '{audit,version}' = '1'::jsonb AND ".$field('source')." = 'progress-transaction'";
+        $attachmentScreens=['ciw.proc-compra-anexos','ciw.proc-compra-documentos'];$sources=[];
+        foreach (['ciw.proc-compra-amostras'=>['envios_amostras_repres','proc_compra_amostras_progress'],'ciw.proc-compra-anexos'=>['anexos_proc_compra','proc_compra_anexos_progress'],'ciw.proc-compra-documentos'=>['anexos_proc_compra','proc_compra_documentos_progress']] as $screen=>[$resource,$entity]) {
+            if ($onlyScreen!==null && $onlyScreen!==$screen && !(in_array($onlyScreen,$attachmentScreens,true)&&in_array($screen,$attachmentScreens,true))) { continue; }
+            // Header item0 is never a child of an item or visible under the old item-only audit scope.
+            $zero=$screen==='ciw.proc-compra-documentos'&&$onlyScreen!=='ciw.proc-compra-anexos';
+            $sources[]="(audit_scope.screen_id = '$screen' AND ".$field('resource')." = '$resource' AND t.".$this->quote('event_type')." = '$entity.api.' || ".$field('operation').' AND ('.$typed('itemProcCompraId',$zero).'))';
+        }
+        $source=$sources?'('.implode(' OR ',$sources).')':'FALSE';
+        $match="($confirmed) AND $source AND audit_scope.operation = 'entity.api.crud' AND audit_scope.status = 'succeeded' AND (".$typed('recordId').') AND ('.$typed('procCompraId').') AND '.$field('operation')." IN ('create','update','delete')";
+        if ($parameter!=='') { $match.=' AND '.$field($actual).' = '.$parameter; }
+        return $match;
+    }
+
+    /** Closed registered expense writers, typed expense/calculation identities, no fallback from unconfirmed audit. */
+    private function purchaseExpenseLogPredicate(callable $field,string $json,bool $sqlite,string $actual,string $parameter,bool $parent=false,bool $deletion=false): string
+    {
+        $typed=static function(string $name)use($field,$json,$sqlite):string{$v=$field($name);return $sqlite
+            ? "json_type($json, '$.audit.$name') = 'integer' AND $v > 0 AND $v <= 2147483647"
+            : "jsonb_typeof($json #> '{audit,$name}') = 'number' AND $v ~ '^[1-9][0-9]{0,9}$' AND (length($v) < 10 OR $v <= '2147483647')";};
+        $confirmed=$sqlite?"json_type($json, '$.audit.available') = 'true' AND json_type($json, '$.audit.version') = 'integer' AND ".$field('version')." = 1 AND ".$field('source')." = 'progress-transaction'":"$json #> '{audit,available}' = 'true'::jsonb AND $json #> '{audit,version}' = '1'::jsonb AND ".$field('source')." = 'progress-transaction'";
+        $event='t.'.$this->quote('event_type');
+        $manual="audit_scope.screen_id = 'ciw.proc-compra-despesas' AND $event = 'proc_compra_despesas_progress.api.' || ".$field('operation')." AND ".$field('operation')." IN ('create','update','delete')";
+        $generated="audit_scope.screen_id = 'ciw.proc-compra-gerar-despesas' AND $event = 'proc_compra_despesas_progress.api.create' AND ".$field('operation')." = 'create'";
+        $taxScope="audit_scope.screen_id = 'ciw.proc-compra-calcular-impostos' AND (".$typed('calculationId').")";
+        $taxExpense="($taxScope) AND $event = 'proc_compra_despesas_progress.api.' || ".$field('operation')." AND ".$field('operation')." IN ('create','update')";
+        $source=$deletion?"($manual) AND ".$field('operation')." = 'delete'":"(($manual) OR ($generated) OR ($taxExpense))";
+        $match=$field('resource')." = 'despesas_proc_compra' AND ($source)";
+        if($parent&&!$deletion){$match="(($match) OR (audit_scope.screen_id = 'ciw.proc-compra-gerar-despesas' AND $event = 'proc_compra_despesas_progress.api.process' AND ".$field('resource')." = 'procs_compra' AND ".$field('operation')." = 'generate_expenses' AND ".$field('recordId').' = '.$field('procCompraId').'))';}
+        if($parent&&!$deletion){
+            $taxRoot="($taxScope) AND $event = 'proc_compra_despesas_progress.api.process' AND ".$field('resource')." = 'procs_compra' AND ".$field('operation')." = 'calculate_taxes' AND ".$field('recordId').' = '.$field('procCompraId');
+            $taxHeader="($taxScope) AND $event = 'proc_compra_despesas_progress.api.create' AND ".$field('resource')." = 'calcs_imp_proc_compra' AND ".$field('operation')." = 'create' AND ".$field('recordId').' = '.$field('calculationId');
+            $match="(($match) OR ($taxRoot) OR ($taxHeader))";
+        }
+        $match="($confirmed) AND audit_scope.operation = 'entity.api.crud' AND audit_scope.status = 'succeeded' AND (".$typed('recordId').') AND ('.$typed('procCompraId').") AND ($match)";
+        if($parameter!==''){$match.=' AND '.$field($actual).' = '.$parameter;}
+        return $match;
+    }
+    private function applyPurchaseExpenseAuditScope(QueryBuilder $qb,array $scope): void
+    {
+        $sqlite=$this->connection->getDatabasePlatform() instanceof \Doctrine\DBAL\Platforms\SQLitePlatform;
+        $json='t.'.$this->quote('metadata');if(!$sqlite){$json='CAST('.$json.' AS jsonb)';}
+        $field=$sqlite?static fn(string $name):string=>"json_extract($json, '$.audit.$name')":static fn(string $name):string=>"($json #>> '{audit,$name}')";
+        $hasRecord=isset($scope['audit_record_id']);$match=$this->purchaseExpenseLogPredicate($field,$json,$sqlite,'recordId',$hasRecord?':expenseAuditRecord':'',false,isset($scope['audit_operation']));
+        if($hasRecord){$qb->setParameter('expenseAuditRecord',$sqlite?$scope['audit_record_id']:(string)$scope['audit_record_id'],$sqlite?\Doctrine\DBAL\ParameterType::INTEGER:\Doctrine\DBAL\ParameterType::STRING);}
+        $qb->setParameter('expenseAuditTenant',$this->permissions->getTenantId());
+        $qb->andWhere('EXISTS (SELECT 1 FROM runtime_transaction audit_scope WHERE audit_scope.id = t.'.$this->quote('transaction_id')." AND audit_scope.tenant_id = :expenseAuditTenant AND ($match))");
+    }
+
+    private function applyPurchaseSampleAuditScope(QueryBuilder $qb,array $scope): void
+    {
+        $sqlite=$this->connection->getDatabasePlatform() instanceof \Doctrine\DBAL\Platforms\SQLitePlatform;
+        $json='t.'.$this->quote('metadata');if(!$sqlite){$json='CAST('.$json.' AS jsonb)';}
+        $field=$sqlite?static fn(string $name):string=>"json_extract($json, '$.audit.$name')":static fn(string $name):string=>"($json #>> '{audit,$name}')";
+        $match=$this->purchaseSampleLogPredicate($field,$json,$sqlite,'recordId',isset($scope['audit_record_id'])?':sampleAuditRecord':'',$scope['audit_screen_id']);
+        if(isset($scope['audit_record_id'])){$qb->setParameter('sampleAuditRecord',$sqlite?$scope['audit_record_id']:(string)$scope['audit_record_id'],$sqlite?\Doctrine\DBAL\ParameterType::INTEGER:\Doctrine\DBAL\ParameterType::STRING);}
+        if(isset($scope['audit_operation'])){$match.=' AND '.$field('operation')." = 'delete'";}
+        $qb->setParameter('sampleAuditTenant',$this->permissions->getTenantId());
+        $qb->andWhere('EXISTS (SELECT 1 FROM runtime_transaction audit_scope WHERE audit_scope.id = t.'.$this->quote('transaction_id')." AND audit_scope.tenant_id = :sampleAuditTenant AND ($match))");
+    }
+
+    private function purchaseItemLogPredicate(callable $field,string $json,bool $sqlite,string $actual,string $origin,string $parameter): string
+    {
+        $typed=static function(string $name) use($field,$json,$sqlite):string { return $sqlite
+            ? "json_type($json, '$.audit.$name') = 'integer' AND ".$field($name).' > 0'
+            : "jsonb_typeof($json #> '{audit,$name}') = 'number' AND ".$field($name)." ~ '^[1-9][0-9]{0,9}$'"; };
+        $ident=$typed('originProcCompraId').' AND '.$typed('originItemProcCompraId').' AND '.$typed('recordId');
+        $main=$field('resource')." = 'itens_proc_compra' AND ".$typed('procCompraId').' AND '.$typed('itemProcCompraId').' AND '.$field('recordId').' = '.$field('itemProcCompraId').' AND '.$field('originItemProcCompraId').' = '.$field('itemProcCompraId').' AND '.$field('originProcCompraId').' = '.$field('procCompraId');
+        $resource="(($main) OR ".$field('resource')." IN ('cta_corren_fornec_imp','containers','itens_container','despesas_container','calcs_imp_container'))";
+        $match="audit_scope.screen_id = 'ciw.proc-compra-itens' AND $ident AND $resource";
+        if ($parameter!=='') { $match.=' AND ((('.$typed($actual).') AND '.$field($actual)." = $parameter) OR (".$field($origin)." = $parameter))"; }
+        return "((".$match.") OR (".$this->purchaseSampleLogPredicate($field,$json,$sqlite,$actual,$parameter)."))";
+    }
+
+    private function applyPurchaseItemAuditScope(QueryBuilder $qb,array $scope): void
+    {
+        $sqlite=$this->connection->getDatabasePlatform() instanceof \Doctrine\DBAL\Platforms\SQLitePlatform;
+        $json='t.'.$this->quote('metadata');if (!$sqlite) { $json='CAST('.$json.' AS jsonb)'; }
+        $field=$sqlite?static fn(string $name):string=>"json_extract($json, '$.audit.$name')":static fn(string $name):string=>"($json #>> '{audit,$name}')";
+        $confirmed=$sqlite?"json_type($json, '$.audit.available') = 'true' AND json_type($json, '$.audit.version') = 'integer' AND ".$field('version')." = 1 AND ".$field('source')." = 'progress-transaction'":"$json #> '{audit,available}' = 'true'::jsonb AND $json #> '{audit,version}' = '1'::jsonb AND ".$field('source')." = 'progress-transaction'";
+        $hasRecord=isset($scope['audit_record_id']);
+        $match=$this->purchaseItemLogPredicate($field,$json,$sqlite,'itemProcCompraId','originItemProcCompraId',$hasRecord?':itemAuditRecord':'');
+        if ($hasRecord) { $qb->setParameter('itemAuditRecord',$sqlite?$scope['audit_record_id']:(string)$scope['audit_record_id'],$sqlite?\Doctrine\DBAL\ParameterType::INTEGER:\Doctrine\DBAL\ParameterType::STRING); }
+        if (isset($scope['audit_operation'])) { $match.=' AND '.$field('resource')." = 'itens_proc_compra' AND ".$field('operation')." = 'delete' AND audit_scope.operation = 'entity.api.crud' AND t.".$this->quote('event_type')." = 'proc_compra_itens_progress.api.delete'"; }
+        if (isset($scope['audit_proc_compra_id'])) {
+            if (!$hasRecord) { $match.=' AND ('.$field('procCompraId').' = :itemAuditParent OR '.$field('originProcCompraId').' = :itemAuditParent)'; }
+            else { $match.=' AND (('.$field('itemProcCompraId').' = :itemAuditRecord AND '.$field('procCompraId').' = :itemAuditParent) OR ('.$field('originItemProcCompraId').' = :itemAuditRecord AND '.$field('originProcCompraId').' = :itemAuditParent))'; }
+            $qb->setParameter('itemAuditParent',$sqlite?$scope['audit_proc_compra_id']:(string)$scope['audit_proc_compra_id'],$sqlite?\Doctrine\DBAL\ParameterType::INTEGER:\Doctrine\DBAL\ParameterType::STRING);
+        }
+        $qb->setParameter('itemAuditTenant',$this->permissions->getTenantId());
+        $qb->andWhere('EXISTS (SELECT 1 FROM runtime_transaction audit_scope WHERE audit_scope.id = t.'.$this->quote('transaction_id')." AND audit_scope.tenant_id = :itemAuditTenant AND audit_scope.status = 'succeeded' AND ($confirmed) AND ($match))");
+    }
+
+    /** Related records are imported only by the closed container contract; parent tenant is always required. */
+    private function applyContainerAuditScope(QueryBuilder $qb, array $scope): bool
+    {
+        $resources = match ($scope['audit_screen_id']) {
+            'ciw.containers', 'ciw.container-painel' => ['containers','container_versions','versoes_item_custo_container','itens_container','despesas_container','calcs_imp_container','cta_corren_fornec_imp','pagtos_container','container_payment_links','nfs_container','cta_corren_desconto','anexos_container','pp_container_permissao','pp_container_saldo_repres','pp_it_container','item_container_custos','item_container_custo_despesas','item_container_custo_nfs','item_container_custo_pgtos','item_container_custo_descontos','cta_corren_custo_distr','item_custos'],
+            'ciw.container-pagamentos' => ['container_payment_links','containers','itens_container','despesas_container','calcs_imp_container','cta_corren_fornec_imp'],
+            'ciw.container-despesas' => ['despesas_container'],
+            'ciw.container-itens' => ['itens_container','item_container_custos','item_custos','cta_corren_custo_distr','cta_corren_fornec_imp'],
+            'ciw.container-versoes-custo' => ['container_versions','versoes_item_custo_container','item_container_custos','item_container_custo_despesas','item_container_custo_nfs','item_container_custo_pgtos','item_container_custo_descontos','item_custos','cta_corren_custo_distr'],
+            'ciw.container-custos-itens' => ['item_container_custos','item_custos','cta_corren_custo_distr'],
+            'ciw.container-anexos' => ['anexos_container'],
+            default => null,
+        };
+        if ($resources === null) { return false; }
+        $column = match ($scope['audit_screen_id']) {
+            'ciw.containers','ciw.container-painel' => 'containerId',
+            'ciw.container-pagamentos' => 'paymentKey',
+            'ciw.container-versoes-custo' => 'versionId',
+            'ciw.container-itens','ciw.container-custos-itens' => 'itemContainerId',
+            default => 'recordId',
+        };
+        $payment = $column === 'paymentKey';
+        $json = 't.'.$this->quote('metadata');
+        $sqlite = $this->connection->getDatabasePlatform() instanceof \Doctrine\DBAL\Platforms\SQLitePlatform;
+        if ($sqlite) {
+            $field = static fn ($key) => "json_extract($json, '$.audit.$key')";
+            $confirmed = "json_type($json, '$.audit.available') = 'true' AND json_type($json, '$.audit.version') = 'integer' AND ".$field('version')." = 1 AND ".$field('source')." = 'progress-transaction'";
+            $record = "json_type($json, '$.audit.$column') = '".($payment ? 'text' : 'integer')."' AND ".$field($column).' = :containerAuditRecord';
+            $qb->setParameter('containerAuditRecord', $scope['audit_record_id'], $payment ? \Doctrine\DBAL\ParameterType::STRING : \Doctrine\DBAL\ParameterType::INTEGER);
+        } else {
+            $json = 'CAST('.$json.' AS jsonb)';
+            $field = static fn ($key) => "($json #>> '{audit,$key}')";
+            $confirmed = "$json #> '{audit,available}' = 'true'::jsonb AND $json #> '{audit,version}' = '1'::jsonb AND ".$field('source')." = 'progress-transaction'";
+            $record = "jsonb_typeof($json #> '{audit,$column}') = '".($payment ? 'string' : 'number')."' AND ".$field($column).' = :containerAuditRecord';
+            $qb->setParameter('containerAuditRecord', (string) $scope['audit_record_id']);
+        }
+        $related = "COALESCE(($confirmed AND ".$field('scope')." = 'container-panel-v1'), FALSE)";
+        $known = implode(',', array_map(static fn ($resource) => "'".$resource."'", $resources));
+        $match = "$related AND audit_scope.status = 'succeeded' AND $record AND ".$field('resource')." IN ($known)";
+        // Attempts carry only validated request context, never inferred snapshots or confirmed audit flags.
+        if ($column === 'containerId') {
+            if ($sqlite) {
+                $attempt = "json_extract($json, '$.entityCode') IN ('container_processos_progress','container_alocacao_progress') AND json_extract($json, '$.containerContext.version') = 1 AND json_type($json, '$.containerContext.version') = 'integer' AND json_extract($json, '$.containerContext.source') = 'runtime-validated-context' AND json_type($json, '$.containerContext.containerId') = 'integer' AND json_extract($json, '$.containerContext.containerId') = :containerAuditRecord";
+            } else {
+                $attempt = "$json ->> 'entityCode' IN ('container_processos_progress','container_alocacao_progress') AND $json #> '{containerContext,version}' = '1'::jsonb AND $json #>> '{containerContext,source}' = 'runtime-validated-context' AND jsonb_typeof($json #> '{containerContext,containerId}') = 'number' AND $json #>> '{containerContext,containerId}' = :containerAuditRecord";
+            }
+            $match = "(($match) OR COALESCE(($attempt), FALSE))";
+        }
+        $fallback = "NOT $related AND audit_scope.screen_id = :containerAuditScreen AND COALESCE(audit_scope.operation, '') <> 'batch' AND audit_scope.record_id = :containerAuditParentRecord";
+        $qb->setParameter('containerAuditScreen', $scope['audit_screen_id'])->setParameter('containerAuditParentRecord', (string) $scope['audit_record_id'])->setParameter('containerAuditTenant', $this->permissions->getTenantId());
+        $qb->andWhere('EXISTS (SELECT 1 FROM runtime_transaction audit_scope WHERE audit_scope.id = t.'.$this->quote('transaction_id').' AND audit_scope.tenant_id = :containerAuditTenant AND (('.$match.') OR ('.$fallback.')))');
+        return true;
+    }
+
+    /** Enrich only authorized rows; parent lookup is bounded and scoped to the current tenant. */
+    private function withStoredAuditActors(array $definition, array $rows): array
+    {
+        if (!in_array($definition['entityCode'], ['runtime_transaction', 'runtime_transaction_log'], true)) {
+            return $rows;
+        }
+        $parentIds = [];
+        foreach ($rows as $index => $row) {
+            $column = $definition['entityCode'] === 'runtime_transaction' ? 'request_context' : 'metadata';
+            $context = $this->auditJsonObject($this->auditRowColumn($definition, $row, $column));
+            $actor = is_array($context['actor'] ?? null) ? $context['actor'] : [];
+            $rows[$index]['_storedAuditActor'] = $this->storedAuditActor($actor);
+            if ($definition['entityCode'] === 'runtime_transaction_log' && $rows[$index]['_storedAuditActor'] === []) {
+                $id = $this->auditRowColumn($definition, $row, 'transaction_id');
+                if ((is_int($id) && $id > 0) || (is_string($id) && preg_match('/\A[1-9][0-9]{0,17}\z/', $id))) {
+                    $parentIds[(string) $id] = (int) $id;
+                }
+            }
+        }
+        if ($parentIds !== []) {
+            $parents = $this->connection->fetchAllAssociative(
+                'SELECT id, request_context FROM runtime_transaction WHERE tenant_id = :tenant AND id IN (:ids)',
+                ['tenant' => $this->permissions->getTenantId(), 'ids' => array_slice(array_values($parentIds), 0, 500)],
+                ['ids' => ArrayParameterType::INTEGER],
+            );
+            $actors = [];
+            foreach ($parents as $parent) {
+                $context = $this->auditJsonObject($parent['request_context']);
+                $actors[(string) $parent['id']] = $this->storedAuditActor(is_array($context['actor'] ?? null) ? $context['actor'] : []);
+            }
+            foreach ($rows as $index => $row) {
+                if ($row['_storedAuditActor'] === []) {
+                    $id = $this->auditRowColumn($definition, $row, 'transaction_id');
+                    $rows[$index]['_storedAuditActor'] = $actors[(string) $id] ?? [];
+                }
+            }
+        }
+        return $rows;
+    }
+
+    private function auditRowColumn(array $definition, array $row, string $column): mixed
+    {
+        foreach ($definition['fields'] as $code => $field) {
+            if (($field['column'] ?? null) === $column) {
+                return $row[$code] ?? null;
+            }
+        }
+        return null;
+    }
+
+    private function auditJsonObject(mixed $value): array
+    {
+        $decoded = is_string($value) ? json_decode($value, true) : $value;
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function storedAuditActor(array $value): array
+    {
+        if (($value['source'] ?? null) !== 'authenticated-session' || ($value['version'] ?? null) !== 1) {
+            return [];
+        }
+        $actor = [];
+        foreach (['userId', 'username', 'displayName'] as $field) {
+            if (is_string($value[$field] ?? null) && trim($value[$field]) !== '') {
+                $actor[$field] = mb_substr($value[$field], 0, 160);
+            }
+        }
+        return $actor;
+    }
     private function get(array $definition, string|int $id): array
     {
         $row = $this->findRow($definition, $id);
-        $response = $this->formatRow($definition, $row);
+        $response = $this->formatRow($definition, $this->withStoredAuditActors($definition, [$row])[0]);
         $this->transactions->log($definition['entityCode'] . '.get', 'Registro consultado pelo runtime generico.', after: $response);
 
         return $response;
@@ -637,6 +1030,7 @@ class RuntimeEntityActionService
         if (!$includeDeleted) {
             $this->applySoftDeleteFilter($qb, $definition, 't');
         }
+        $this->applyRequiredAuditAccess($qb, $definition);
         $row = $qb->executeQuery()->fetchAssociative();
         if (!$row) {
             throw new RuntimeHttpException('RECORD_NOT_FOUND', 'Registro nao encontrado.', 404, [
@@ -646,6 +1040,15 @@ class RuntimeEntityActionService
         }
 
         return $row;
+    }
+
+    private function applyRequiredAuditAccess(QueryBuilder $query, array $definition): void
+    {
+        if (!in_array($definition['entityCode'] ?? '', ['runtime_transaction', 'runtime_transaction_log'], true)) { return; }
+        if (!$this->auditAccess) {
+            throw new RuntimeHttpException('AUDIT_ACCESS_POLICY_REQUIRED', 'A politica de acesso ao historico nao esta disponivel.', 503);
+        }
+        $this->auditAccess->applyForCurrentUser($query, $definition);
     }
 
     private function applySoftDeleteFilter(QueryBuilder $qb, array $definition, string $alias, array $payload = []): void
@@ -717,6 +1120,11 @@ class RuntimeEntityActionService
             }
         }
 
+        if (array_key_exists('_storedAuditActor', $row)) {
+            $actor = $row['_storedAuditActor'];
+            $result['actor_user_id'] = $actor['userId'] ?? null;
+            $result['actor_user_name'] = $actor['displayName'] ?? $actor['username'] ?? $actor['userId'] ?? null;
+        }
         $versionSource = (string) ($row['_runtime_updated_at'] ?? json_encode($result, JSON_UNESCAPED_UNICODE));
         $result['_runtime'] = [
             'version' => hash('sha256', $definition['entityCode'] . ':' . ($result[$definition['primaryKey']] ?? '') . ':' . $versionSource),
@@ -1020,6 +1428,10 @@ class RuntimeEntityActionService
 
     private function applySubscriberIsolation(QueryBuilder $qb, array $definition, string $alias): void
     {
+        if ($definition['entityCode'] === 'runtime_transaction_log') {
+            $qb->andWhere('EXISTS (SELECT 1 FROM runtime_transaction audit_parent WHERE audit_parent.id = ' . $alias . '.' . $this->quote('transaction_id') . ' AND audit_parent.tenant_id = :runtimeLogTenantId)');
+            $qb->setParameter('runtimeLogTenantId', $this->permissions->getTenantId());
+        }
         $config = is_array($definition['subscriberIsolation'] ?? null) ? $definition['subscriberIsolation'] : [];
         if (($config['enabled'] ?? false) !== true) {
             return;
@@ -1060,3 +1472,4 @@ class RuntimeEntityActionService
         return $placeholder;
     }
 }
+

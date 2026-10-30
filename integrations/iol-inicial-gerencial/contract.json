@@ -1,0 +1,91 @@
+{
+  "operation": "read",
+  "resources": {
+    "resumo": [
+      {
+        "field": "id",
+        "type": "integer"
+      },
+      {
+        "field": "competencia",
+        "type": "string"
+      },
+      {
+        "field": "data_referencia",
+        "type": "date"
+      },
+      {
+        "field": "meta_mensal",
+        "type": "decimal",
+        "format": "c2"
+      },
+      {
+        "field": "meta_quinzenal",
+        "type": "decimal",
+        "format": "c2"
+      },
+      {
+        "field": "faturamento_liquido",
+        "type": "decimal",
+        "format": "c2"
+      },
+      {
+        "field": "percentual_meta",
+        "type": "decimal"
+      },
+      {
+        "field": "percentual_loja_vendido",
+        "type": "decimal"
+      },
+      {
+        "field": "percentual_loja_ideal",
+        "type": "decimal"
+      },
+      {
+        "field": "dias_uteis_mes",
+        "type": "integer"
+      },
+      {
+        "field": "dias_uteis_passados",
+        "type": "integer"
+      },
+      {
+        "field": "dias_uteis_restantes",
+        "type": "integer"
+      },
+      {
+        "field": "pedidos_avaliacao",
+        "type": "integer"
+      },
+      {
+        "field": "pedidos_abertos",
+        "type": "integer"
+      }
+    ],
+    "vendedores": [
+      {
+        "field": "representante_id",
+        "type": "integer"
+      },
+      {
+        "field": "nome_abreviado",
+        "type": "string"
+      },
+      {
+        "field": "percentual_vendido",
+        "type": "decimal"
+      }
+    ]
+  },
+  "identity": "authenticated-session-same-IMA-login",
+  "businessWrites": false,
+  "navigationDestinations": 10,
+  "bundledResource": {
+    "name": "painel",
+    "responsePaths": {
+      "resumo": "data.resumo",
+      "vendedores": "data.vendedores"
+    },
+    "collectionCount": 1
+  }
+}

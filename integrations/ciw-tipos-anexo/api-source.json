@@ -1,0 +1,19 @@
+{
+  "code": "motor_progress_tipos_anexo",
+  "name": "Motor Progress — Tipos de anexo",
+  "providerType": "generic",
+  "responseContract": "sursum-programs",
+  "authMode": "header_static",
+  "baseUrl": "http://127.0.0.1:19910/med/web",
+  "status": "active",
+  "timeoutSeconds": 25,
+  "authHeaders": {"X-Tipos-Anexo-Token": "__RUNTIME_SECRET__"},
+  "operations": [
+    {"code":"read","name":"Consultar tipos de anexo","type":"list","method":"POST","path":"/SursumPrograms/tipos-anexo","bodyTemplate":{"operation":"read"},"itemsPath":"data"},
+    {"code":"get","name":"Obter tipo de anexo","type":"detail","method":"POST","path":"/SursumPrograms/tipos-anexo","bodyTemplate":{"operation":"get"},"itemPath":"data"},
+    {"code":"create","name":"Incluir tipo de anexo","type":"create","method":"POST","path":"/SursumPrograms/tipos-anexo","bodyTemplate":{"operation":"create"},"itemPath":"data"},
+    {"code":"update","name":"Alterar tipo de anexo","type":"update","method":"POST","path":"/SursumPrograms/tipos-anexo","bodyTemplate":{"operation":"update"},"itemPath":"data"},
+    {"code":"delete","name":"Excluir tipo de anexo","type":"delete","method":"POST","path":"/SursumPrograms/tipos-anexo","bodyTemplate":{"operation":"delete"}},
+    {"code":"batch","name":"Salvar alteracoes em lote","type":"batch","method":"POST","path":"/SursumPrograms/tipos-anexo","bodyTemplate":{"operation":"batch"},"itemsPath":"data"}
+  ]
+}

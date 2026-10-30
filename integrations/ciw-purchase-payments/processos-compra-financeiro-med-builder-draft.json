@@ -1,0 +1,202 @@
+{
+  "entityDraft": {
+    "code": "procs_compra_financeiro_med_progress",
+    "name": "Processos de Compra — Financeiro MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 107,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "procs_compra_financeiro_med_read",
+    "apiDetailOperationCode": "procs_compra_financeiro_med_get",
+    "fields": [
+      {
+        "code": "proc_compra_id",
+        "label": "Processo de compra",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "proc_compra_id",
+        "apiWritePath": "proc_compra_id",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "empresa_id",
+        "label": "Empresa CIW",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "empresa_id",
+        "apiWritePath": "empresa_id",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "fornecedor_id",
+        "label": "Fornecedor CIW",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "fornecedor_id",
+        "apiWritePath": "fornecedor_id",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "cod_proc_fornec",
+        "label": "Processo do fornecedor",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "cod_proc_fornec",
+        "apiWritePath": "cod_proc_fornec",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_registro",
+        "label": "Registro",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "dt_registro",
+        "apiWritePath": "dt_registro",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_situacao",
+        "label": "Situação",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "cod_situacao",
+        "apiWritePath": "cod_situacao",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "cd0107",
+    "programTitle": "Processos de Compra — Financeiro MED",
+    "module": "cadastros",
+    "builderEntityCode": "procs_compra_financeiro_med_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.processos-compra-financeiro-med",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "permissionPrefix": "procs_compra_financeiro_med_progress",
+    "subtitle": "Empresa MED. Consulta de processos e acesso aos pagamentos.",
+    "rowLinks": [
+      {
+        "id": "pagamentos",
+        "label": "Pagamentos",
+        "screenId": "ciw.proc-compra-pagamentos",
+        "parameters": [
+          {
+            "field": "proc_compra_id",
+            "sourceField": "proc_compra_id"
+          }
+        ],
+        "position": "start",
+        "icon": "dollar"
+      }
+    ],
+    "contextFields": [],
+    "crudOptions": {
+      "pageSize": 50,
+      "defaultSort": [
+        {
+          "field": "proc_compra_id",
+          "dir": "desc"
+        }
+      ],
+      "filterFields": [
+        "proc_compra_id",
+        "empresa_id",
+        "fornecedor_id",
+        "cod_proc_fornec",
+        "dt_registro",
+        "cod_situacao"
+      ],
+      "gridFields": [
+        {
+          "field": "proc_compra_id"
+        },
+        {
+          "field": "empresa_id"
+        },
+        {
+          "field": "fornecedor_id"
+        },
+        {
+          "field": "cod_proc_fornec"
+        },
+        {
+          "field": "dt_registro"
+        },
+        {
+          "field": "cod_situacao"
+        }
+      ]
+    }
+  }
+}

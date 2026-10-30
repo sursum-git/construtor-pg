@@ -1,0 +1,1 @@
+{"id":"ciw-cotacoes-bc","code":"cd0103","title":"Cotações Banco Central","subtitle":"Histórico e manutenção manual de cotações","type":"crud","screenId":"ciw.cotacoes-bc","moduleId":"ciw","permission":"hist_cotacoes_bc_progress.read"}

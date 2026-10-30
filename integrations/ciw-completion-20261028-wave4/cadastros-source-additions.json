@@ -1,0 +1,85 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "baselinePath": "D:\\opencode\\conversao-sc\\.runtime\\ciw-completion-20261028\\official-build7\\metadata-source-after.json",
+  "baselineSha256": "aa43f3cbd9382a1deb2f78f4db5670b4b542a43e6783095075f2cb1d6a1f7828",
+  "before": 140,
+  "after": 144,
+  "preserveActualAuthentication": true,
+  "replaceFromSanitizedDTO": false,
+  "operations": [
+    {
+      "op": "add",
+      "path": "/operations/-",
+      "value": {
+        "code": "item_custos_manual_read",
+        "name": "Custos manuais dos itens — read",
+        "type": "list",
+        "method": "POST",
+        "path": "http://127.0.0.1:19910/med/web/SursumPrograms/ciw-cadastros",
+        "headers": [],
+        "queryParams": [],
+        "requestContextFields": [],
+        "bodyTemplate": {
+          "resource": "item_custos_manual",
+          "operation": "read"
+        },
+        "itemsPath": "data",
+        "totalPath": "total"
+      }
+    },
+    {
+      "op": "add",
+      "path": "/operations/-",
+      "value": {
+        "code": "item_custos_manual_get",
+        "name": "Custos manuais dos itens — get",
+        "type": "detail",
+        "method": "POST",
+        "path": "http://127.0.0.1:19910/med/web/SursumPrograms/ciw-cadastros",
+        "headers": [],
+        "queryParams": [],
+        "requestContextFields": [],
+        "bodyTemplate": {
+          "resource": "item_custos_manual",
+          "operation": "get"
+        },
+        "itemPath": "data"
+      }
+    },
+    {
+      "op": "add",
+      "path": "/operations/-",
+      "value": {
+        "code": "item_container_amostra_read",
+        "name": "Itens de containers de amostra — read",
+        "type": "list",
+        "method": "POST",
+        "path": "/SursumPrograms/ciw-cadastros",
+        "bodyTemplate": {
+          "resource": "item_container_amostra",
+          "operation": "read"
+        },
+        "requestContextFields": [],
+        "itemsPath": "data",
+        "totalPath": "total"
+      }
+    },
+    {
+      "op": "add",
+      "path": "/operations/-",
+      "value": {
+        "code": "item_container_amostra_get",
+        "name": "Itens de containers de amostra — get",
+        "type": "detail",
+        "method": "POST",
+        "path": "/SursumPrograms/ciw-cadastros",
+        "bodyTemplate": {
+          "resource": "item_container_amostra",
+          "operation": "get"
+        },
+        "requestContextFields": [],
+        "itemPath": "data"
+      }
+    }
+  ]
+}

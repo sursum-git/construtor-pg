@@ -955,6 +955,12 @@
       optionLabel: "Sem exclusao",
       change: this.handleApiSourceOperationChange.bind(this)
     }).data("kendoDropDownList");
+    const batchOperationField = this.appendField(apiForm, "Operacao de lote transacional");
+    this.apiCatalogBatchOperationSelect = $("<input>").appendTo(batchOperationField).kendoDropDownList({
+      dataSource: [], dataTextField: "name", dataValueField: "code", optionLabel: "Sem gravacao em lote",
+      change: this.handleApiSourceOperationChange.bind(this)
+    }).data("kendoDropDownList");
+    $("<div class=\"program-builder-inline-hint\"></div>").text("Usada no modo Grade editavel em lote. Uma operacao deve salvar todas as linhas em transacao unica.").appendTo(apiForm);
     this.apiCatalogHint = $("<div class=\"program-builder-inline-hint\"></div>").appendTo(apiForm);
     this.apiCatalogHint.text("Entidades API usam um cadastro de metadados reutilizavel. Edite o contrato no cadastro e vincule as operacoes aqui.");
 
@@ -1093,11 +1099,13 @@
     this.apiCatalogCreateOperationSelect.setDataSource(new kendo.data.DataSource({ data: [] }));
     this.apiCatalogUpdateOperationSelect.setDataSource(new kendo.data.DataSource({ data: [] }));
     this.apiCatalogDeleteOperationSelect.setDataSource(new kendo.data.DataSource({ data: [] }));
+    this.apiCatalogBatchOperationSelect.setDataSource(new kendo.data.DataSource({ data: [] }));
     this.apiCatalogListOperationSelect.value("");
     this.apiCatalogDetailOperationSelect.value("");
     this.apiCatalogCreateOperationSelect.value("");
     this.apiCatalogUpdateOperationSelect.value("");
     this.apiCatalogDeleteOperationSelect.value("");
+    this.apiCatalogBatchOperationSelect.value("");
     if (!sourceCode) {
       this.resetInlineApiSourceFields();
       this.syncApiBindingState();
@@ -1131,16 +1139,23 @@
           return { code: item.code, name: item.code + " - " + item.name };
         })
       }));
+      this.apiCatalogBatchOperationSelect.setDataSource(new kendo.data.DataSource({
+        data: operations.filter(function(item) { return item.type === "batch"; }).map(function(item) {
+          return { code: item.code, name: item.code + " - " + item.name };
+        })
+      }));
       const defaultList = operations.find(function(item) { return item.type === "list"; });
       const defaultDetail = operations.find(function(item) { return item.type === "detail"; });
       const defaultCreate = operations.find(function(item) { return item.type === "create"; });
       const defaultUpdate = operations.find(function(item) { return item.type === "update"; });
       const defaultDelete = operations.find(function(item) { return item.type === "delete"; });
+      const defaultBatch = operations.find(function(item) { return item.type === "batch"; });
       this.apiCatalogListOperationSelect.value(defaultList ? defaultList.code : "");
       this.apiCatalogDetailOperationSelect.value(defaultDetail ? defaultDetail.code : "");
       this.apiCatalogCreateOperationSelect.value(defaultCreate ? defaultCreate.code : "");
       this.apiCatalogUpdateOperationSelect.value(defaultUpdate ? defaultUpdate.code : "");
       this.apiCatalogDeleteOperationSelect.value(defaultDelete ? defaultDelete.code : "");
+      this.apiCatalogBatchOperationSelect.value(defaultBatch ? defaultBatch.code : "");
       this.applyApiSourceToInlineEditor(apiSource);
       this.syncApiBindingState();
       this.syncProgramWriteFlagsForApi();
@@ -1320,9 +1335,10 @@
       this.allowDeleteInput.prop("checked", false);
       return;
     }
-    this.allowCreateInput.prop("checked", String(this.apiCatalogCreateOperationSelect.value() || "").trim() !== "");
-    this.allowUpdateInput.prop("checked", String(this.apiCatalogUpdateOperationSelect.value() || "").trim() !== "");
-    this.allowDeleteInput.prop("checked", String(this.apiCatalogDeleteOperationSelect.value() || "").trim() !== "");
+    const batchWrite = this.gridEditModeSelect && this.gridEditModeSelect.value() === "batch" && String(this.apiCatalogBatchOperationSelect.value() || "").trim() !== "";
+    this.allowCreateInput.prop("checked", batchWrite || String(this.apiCatalogCreateOperationSelect.value() || "").trim() !== "");
+    this.allowUpdateInput.prop("checked", batchWrite || String(this.apiCatalogUpdateOperationSelect.value() || "").trim() !== "");
+    if (!batchWrite) { this.allowDeleteInput.prop("checked", String(this.apiCatalogDeleteOperationSelect.value() || "").trim() !== ""); }
   };
 
   ProgramBuilder.prototype.handleLoadOdooModelFields = function() {
@@ -2107,6 +2123,7 @@
     this.apiSourceManagerGenericPanel = $("<div class=\"program-builder-subpanel\"></div>").appendTo(form);
     const operationsField = this.appendField(this.apiSourceManagerGenericPanel, "Operacoes (JSON array)");
     this.apiSourceManagerOperationsInput = $("<textarea rows=\"14\" class=\"program-builder-mini-textarea\"></textarea>").appendTo(operationsField);
+    $("<div class=\"program-builder-inline-hint\"></div>").text("Tipos de operacao: list, detail, create, update, delete, batch ou custom. Use batch com POST para gravar o lote em uma transacao no servidor.").appendTo(operationsField);
 
     this.apiSourceManagerOdooPanel = $("<div class=\"program-builder-subpanel\"></div>").appendTo(form);
     $("<div class=\"program-builder-versions-header\"><h3>Configuracao Odoo</h3><p>Use os dados da instancia, do banco e do modelo que sera consumido por XML-RPC ou JSON-RPC.</p></div>").appendTo(this.apiSourceManagerOdooPanel);
@@ -3227,6 +3244,7 @@
       dataSource: [
         { value: "crud", text: "CRUD" },
         { value: "master_detail", text: "Mestre-detalhe" },
+        { value: "process", text: "Processamento API" },
         { value: "analytics", text: "Analytics / BI" },
         { value: "report", text: "Relatorios" },
         { value: "special_document", text: "Documento especial" },
@@ -3239,6 +3257,13 @@
       change: this.syncProgramTypeState.bind(this)
     }).data("kendoDropDownList");
 
+    this.gridEditModeField = this.appendField(form, "Edicao do CRUD");
+    this.gridEditModeSelect = $("<input>").appendTo(this.gridEditModeField).kendoDropDownList({
+      dataSource: [{value: "form", text: "Formulario por registro"}, {value: "batch", text: "Grade editavel em lote"}],
+      dataTextField: "text", dataValueField: "value", value: "form",
+      change: () => { this.syncProgramWriteFlagsForApi(); this.syncProgramTypeState(); }
+    }).data("kendoDropDownList");
+    $("<div class=\"program-builder-inline-hint\"></div>").text("O modo em lote exige entidade API com operacao de lote transacional vinculada. As permissoes de incluir, alterar e excluir continuam individuais.").appendTo(this.gridEditModeField);
     const splitGovernanceA = $("<div class=\"program-builder-split\"></div>").appendTo(form);
     const programOriginField = this.appendField(splitGovernanceA, "Origem", this.programFieldTechnicalProperties("programOrigin"));
     this.programOriginSelect = $("<input>").appendTo(programOriginField).kendoDropDownList({
@@ -4878,6 +4903,7 @@
   };
 
   ProgramBuilder.prototype.collectAnalyticsConfig = function() {
+    if (this.analyticsApiDashboardConfig) return {apiDashboard:global.CrudUtils.clone(this.analyticsApiDashboardConfig)};
     return {
       executionMode: String(this.analyticsExecutionModeSelect.val() || "live"),
       limit: Number(this.analyticsLimitInput.val() || 1000),
@@ -5624,6 +5650,7 @@
   };
 
   ProgramBuilder.prototype.populateAnalyticsProgramConfig = function(config) {
+    this.analyticsApiDashboardConfig = config && (config.apiDashboard || (config.datasets && config.dashboard && config)) ? global.CrudUtils.clone(config.apiDashboard || config) : null;
     const value = Object.assign({}, this.defaultAnalyticsConfig(), config || {});
     const views = Object.assign({}, this.defaultAnalyticsConfig().views, value.views || {});
     this.analyticsExecutionModeSelect.val(value.executionMode || "live");
@@ -5917,11 +5944,13 @@
     const reportSourceType = String(this.reportSourceTypeSelect && this.reportSourceTypeSelect.val ? this.reportSourceTypeSelect.val() || "operational" : "operational");
     const specialSourceType = String(this.specialDocumentSourceTypeSelect && this.specialDocumentSourceTypeSelect.val ? this.specialDocumentSourceTypeSelect.val() || "operational" : "operational");
     const regulatedSourceType = String(this.regulatedDocumentSourceTypeSelect && this.regulatedDocumentSourceTypeSelect.val ? this.regulatedDocumentSourceTypeSelect.val() || "operational" : "operational");
-    const usesEntity = isCrud || isMasterDetail || isAnalytics || (isReport && reportSourceType !== "analytic") || (isSpecialDocument && specialSourceType !== "analytic") || (isRegulatedDocument && regulatedSourceType !== "analytic");
+    const usesEntity = isCrud || pageType === "process" || isMasterDetail || isAnalytics || (isReport && reportSourceType !== "analytic") || (isSpecialDocument && specialSourceType !== "analytic") || (isRegulatedDocument && regulatedSourceType !== "analytic");
     const entity = usesEntity ? this.findEntitySummary(String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "")) : null;
     const apiEntity = !!(entity && entity.entityType === "api");
     const sameLoadedApi = isCrud && apiEntity && this.state.currentEntityCode === String(this.builderEntitySelect && this.builderEntitySelect.value ? this.builderEntitySelect.value() || "" : "");
-    const readOnlyApi = apiEntity && sameLoadedApi
+    const batchWrite = isCrud && apiEntity && this.gridEditModeSelect && this.gridEditModeSelect.value() === "batch" && String(this.apiCatalogBatchOperationSelect.value() || "").trim() !== "";
+    if (this.gridEditModeField) { this.gridEditModeField.toggle(isCrud); }
+    const readOnlyApi = apiEntity && sameLoadedApi && !batchWrite
       ? !String(this.apiCatalogCreateOperationSelect.value() || "").trim() && !String(this.apiCatalogUpdateOperationSelect.value() || "").trim() && !String(this.apiCatalogDeleteOperationSelect.value() || "").trim()
       : false;
 
@@ -5954,7 +5983,7 @@
       this.allowUpdateInput.prop("checked", false);
       this.allowDeleteInput.prop("checked", false);
     }
-    if (isAnalytics && entity && entity.entityType && entity.entityType !== "persistence") {
+    if (isAnalytics && entity && entity.entityType && !["persistence","api"].includes(entity.entityType)) {
       this.previewFooter.text("Analytics v1 aceita somente entidades persistence como fonte interna.");
     }
     if (isReport && reportSourceType !== "analytic" && entity && entity.entityType && entity.entityType !== "persistence") {
@@ -5983,9 +6012,9 @@
       this.allowUpdateInput.prop("checked", false).prop("disabled", true);
       this.allowDeleteInput.prop("checked", false).prop("disabled", true);
     } else if (apiEntity && sameLoadedApi) {
-      this.allowCreateInput.prop("disabled", String(this.apiCatalogCreateOperationSelect.value() || "").trim() === "");
-      this.allowUpdateInput.prop("disabled", String(this.apiCatalogUpdateOperationSelect.value() || "").trim() === "");
-      this.allowDeleteInput.prop("disabled", String(this.apiCatalogDeleteOperationSelect.value() || "").trim() === "");
+      this.allowCreateInput.prop("disabled", !batchWrite && String(this.apiCatalogCreateOperationSelect.value() || "").trim() === "");
+      this.allowUpdateInput.prop("disabled", !batchWrite && String(this.apiCatalogUpdateOperationSelect.value() || "").trim() === "");
+      this.allowDeleteInput.prop("disabled", !batchWrite && String(this.apiCatalogDeleteOperationSelect.value() || "").trim() === "");
     } else {
       this.allowCreateInput.prop("disabled", !isCrud && !isMasterDetail);
       this.allowUpdateInput.prop("disabled", !isCrud && !isMasterDetail);
@@ -6500,6 +6529,8 @@
         return { value: item.code, text: item.code + " - " + item.name };
       }), () => this.builderEntitySelect.value(), (value) => { this.builderEntitySelect.value(value); this.handleProgramEntityChange(false); }, this.programFieldTechnicalProperties("baseEntity"));
       if (pageType === "crud") {
+        this.appendPropertySelect(panel, "Edicao do CRUD", [{value:"form",text:"Formulario por registro"},{value:"batch",text:"Grade editavel em lote"}],
+          () => this.gridEditModeSelect.value(), (value) => { this.gridEditModeSelect.value(value); this.syncProgramTypeState(); });
         this.appendPropertyCheckbox(panel, "Permite incluir", () => this.allowCreateInput.is(":checked"), (checked) => this.allowCreateInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Programa", "Permite incluir", "Habilita a acao create no CRUD quando o runtime possui endpoint compativel."));
         this.appendPropertyCheckbox(panel, "Permite alterar", () => this.allowUpdateInput.is(":checked"), (checked) => this.allowUpdateInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Programa", "Permite alterar", "Habilita a acao update no CRUD quando o runtime possui endpoint compativel."));
         this.appendPropertyCheckbox(panel, "Permite excluir", () => this.allowDeleteInput.is(":checked"), (checked) => this.allowDeleteInput.prop("checked", checked).trigger("change"), this.buildTechnicalProperties("Programa", "Permite excluir", "Habilita a acao delete no CRUD quando o runtime possui endpoint compativel."));
@@ -8027,7 +8058,7 @@
 
     if (!entity) {
       diagnostics.push({ level: "error", title: "Entidade base nao encontrada", message: "Selecione uma entidade valida para gerar a camada analytics." });
-    } else if (String(entity.entityType || "") !== "persistence") {
+    } else if (!["persistence","api"].includes(String(entity.entityType || ""))) {
       diagnostics.push({ level: "error", title: "Fonte invalida para v1", message: "Analytics v1 aceita somente entidade `persistence` como fonte interna." });
     }
 
@@ -9216,6 +9247,7 @@
     this.apiCatalogCreateOperationSelect.value("");
     this.apiCatalogUpdateOperationSelect.value("");
     this.apiCatalogDeleteOperationSelect.value("");
+    this.apiCatalogBatchOperationSelect.value("");
     const apiSource = item.apiSource || {};
     this.apiBaseUrlInput.value(apiSource.baseUrl || "");
     this.apiTimeoutInput.value(apiSource.timeoutSeconds != null ? String(apiSource.timeoutSeconds) : "20");
@@ -9261,11 +9293,17 @@
             return { code: entry.code, name: entry.code + " - " + entry.name };
           })
         }));
+        this.apiCatalogBatchOperationSelect.setDataSource(new kendo.data.DataSource({
+          data: operations.filter(function(entry) { return entry.type === "batch"; }).map(function(entry) {
+            return { code: entry.code, name: entry.code + " - " + entry.name };
+          })
+        }));
         this.apiCatalogListOperationSelect.value(item.apiListOperationCode || "");
         this.apiCatalogDetailOperationSelect.value(item.apiDetailOperationCode || "");
         this.apiCatalogCreateOperationSelect.value(item.apiCreateOperationCode || "");
         this.apiCatalogUpdateOperationSelect.value(item.apiUpdateOperationCode || "");
         this.apiCatalogDeleteOperationSelect.value(item.apiDeleteOperationCode || "");
+        this.apiCatalogBatchOperationSelect.value(item.apiBatchOperationCode || "");
         this.applyApiSourceToInlineEditor(sourceDefinition);
         this.syncApiBindingState();
         this.syncProgramWriteFlagsForApi();
@@ -9276,6 +9314,7 @@
       this.apiCatalogCreateOperationSelect.setDataSource(new kendo.data.DataSource({ data: [] }));
       this.apiCatalogUpdateOperationSelect.setDataSource(new kendo.data.DataSource({ data: [] }));
       this.apiCatalogDeleteOperationSelect.setDataSource(new kendo.data.DataSource({ data: [] }));
+      this.apiCatalogBatchOperationSelect.setDataSource(new kendo.data.DataSource({ data: [] }));
       this.syncApiBindingState();
     }
     this.entityCreateTableInput.prop("checked", true);
@@ -10201,6 +10240,7 @@
       apiCreateOperationCode: entityType === "api" ? String(this.apiCatalogCreateOperationSelect.value() || "").trim() : "",
       apiUpdateOperationCode: entityType === "api" ? String(this.apiCatalogUpdateOperationSelect.value() || "").trim() : "",
       apiDeleteOperationCode: entityType === "api" ? String(this.apiCatalogDeleteOperationSelect.value() || "").trim() : "",
+      apiBatchOperationCode: entityType === "api" ? String(this.apiCatalogBatchOperationSelect.value() || "").trim() : "",
       apiSource: entityType === "api" ? {
         baseUrl: this.apiBaseUrlInput.value(),
         timeoutSeconds: this.apiTimeoutInput.value(),
@@ -10566,7 +10606,7 @@
       if (entity && entity.entityType !== "persistence") {
         this.previewFooter.text("Mestre-detalhe aceita somente entidade mestre persistence.");
       }
-    } else if (pageType === "analytics" && entity && entity.entityType !== "persistence") {
+    } else if (pageType === "analytics" && entity && !["persistence","api"].includes(entity.entityType)) {
       this.previewFooter.text("Analytics v1 aceita somente entidades persistence como fonte interna.");
     } else if (entity && entity.entityType === "api") {
       if (this.state.currentEntityCode === entityCode) {
@@ -10761,6 +10801,7 @@
     this.iconInput.value(version.icon || "file");
     this.permissionPrefixInput.value(version.permissionPrefix || "");
     this.pageTypeSelect.value(version.pageType || "crud");
+    this.gridEditModeSelect.value(version.gridEditMode || "form");
     this.programOriginSelect.value(version.programOrigin || "standard");
     this.ownerScopeSelect.value(version.ownerScope || "system");
     this.customizationPolicySelect.value(version.customizationPolicy || "overlay_only");
@@ -10810,6 +10851,7 @@
     this.iconInput.value("file");
     this.permissionPrefixInput.value("");
     this.pageTypeSelect.value("crud");
+    this.gridEditModeSelect.value("form");
     this.programOriginSelect.value("standard");
     this.ownerScopeSelect.value("system");
     this.customizationPolicySelect.value("overlay_only");
@@ -10902,11 +10944,13 @@
     this.apiCatalogCreateOperationSelect.setDataSource(new kendo.data.DataSource({ data: [] }));
     this.apiCatalogUpdateOperationSelect.setDataSource(new kendo.data.DataSource({ data: [] }));
     this.apiCatalogDeleteOperationSelect.setDataSource(new kendo.data.DataSource({ data: [] }));
+    this.apiCatalogBatchOperationSelect.setDataSource(new kendo.data.DataSource({ data: [] }));
     this.apiCatalogListOperationSelect.value("");
     this.apiCatalogDetailOperationSelect.value("");
     this.apiCatalogCreateOperationSelect.value("");
     this.apiCatalogUpdateOperationSelect.value("");
     this.apiCatalogDeleteOperationSelect.value("");
+    this.apiCatalogBatchOperationSelect.value("");
     this.resetInlineApiSourceFields();
     this.renderFieldRows([]);
     this.renderUniqueKeyRows([]);
@@ -10932,7 +10976,7 @@
     const current = this.state.currentVersion || {};
     const editableCurrent = current.status === "draft";
     const pageType = String(this.pageTypeSelect.value() || "crud");
-    const usesEntity = pageType === "crud"
+    const usesEntity = pageType === "crud" || pageType === "process"
       || pageType === "master_detail"
       || pageType === "analytics"
       || (pageType === "report" && String(this.reportSourceTypeSelect && this.reportSourceTypeSelect.val ? this.reportSourceTypeSelect.val() || "operational" : "operational") !== "analytic")
@@ -10945,6 +10989,12 @@
       module: String(this.moduleInput.value() || ""),
       screenId: this.screenIdInput.value(),
       pageType: pageType,
+      processOptions: pageType === "process" ? (current.processOptions || (current.builderConfig || {}).processOptions || null) : null,
+      formOptions: pageType === "crud" ? (current.formOptions || (current.builderConfig || {}).formOptions || null) : null,
+      crudOptions: pageType === "crud" ? (current.crudOptions || (current.builderConfig || {}).crudOptions || null) : null,
+      rowLinks: pageType === "crud" ? (current.rowLinks || (current.builderConfig || {}).rowLinks || []) : [],
+      contextFields: (pageType === "crud" || pageType === "process") ? (current.contextFields || (current.builderConfig || {}).contextFields || []) : [],
+      gridEditMode: pageType === "crud" ? String(this.gridEditModeSelect && this.gridEditModeSelect.value() || "form") : "form",
       builderEntityCode: usesEntity ? this.builderEntitySelect.value() : "",
       version: this.versionInput.value(),
       subtitle: this.subtitleInput.value(),
@@ -10983,7 +11033,7 @@
     this.state.versions = [];
     this.versionsGrid.dataSource.data([]);
     this.resetProgramForm();
-    if (["crud", "master_detail", "analytics", "report", "special_document", "regulated_document"].indexOf(String(this.pageTypeSelect.value() || "crud")) >= 0) {
+    if (["crud", "process", "master_detail", "analytics", "report", "special_document", "regulated_document"].indexOf(String(this.pageTypeSelect.value() || "crud")) >= 0) {
       this.builderEntitySelect.value(this.state.currentEntityCode || "");
       this.handleProgramEntityChange(true);
     }
@@ -11007,7 +11057,7 @@
 
   ProgramBuilder.prototype.requestPreview = function(notifyOnSuccess) {
     const payload = this.collectProgramPayload();
-    const usesEntity = payload.pageType === "crud"
+    const usesEntity = payload.pageType === "crud" || payload.pageType === "process"
       || payload.pageType === "master_detail"
       || payload.pageType === "analytics"
       || (payload.pageType === "report" && String(payload.reportConfig && payload.reportConfig.sourceType || "operational") !== "analytic")
@@ -11155,6 +11205,15 @@
           analyticsConfig.views && analyticsConfig.views.dashboard !== false ? { id: "dashboard", type: "dashboard", datasetId: "principal" } : null
         ].filter(Boolean)
       };
+      if (analyticsConfig.apiDashboard) {
+        const dashboard = analyticsConfig.apiDashboard;
+        preview.analytics.datasets = global.CrudUtils.clone(dashboard.datasets);
+        preview.analytics.views = [global.CrudUtils.clone(dashboard.dashboard)];
+        preview.analytics.navigation = global.CrudUtils.clone(dashboard.navigation || {});
+        preview.analytics.navigationHosts = global.CrudUtils.clone(dashboard.navigationHosts || []);
+        preview.analytics.presentation = {mode:"dashboard"};
+        preview.permissions.materialize = false;
+      }
     } else if (payload.pageType === "report") {
       const reportConfig = Object.assign({}, this.defaultReportConfig(), payload.reportConfig || {});
       if (reportConfig.sourceType !== "analytic") {
@@ -11266,7 +11325,7 @@
     this.updatePreviewMeta({
       status: this.state.currentVersion && this.state.currentVersion.status || "draft",
       version: payload.version,
-      builderEntityCode: payload.pageType === "crud" || payload.pageType === "master_detail" || payload.pageType === "analytics" || payload.pageType === "report" || payload.pageType === "special_document" || payload.pageType === "regulated_document" ? payload.builderEntityCode : "",
+      builderEntityCode: payload.pageType === "crud" || payload.pageType === "process" || payload.pageType === "master_detail" || payload.pageType === "analytics" || payload.pageType === "report" || payload.pageType === "special_document" || payload.pageType === "regulated_document" ? payload.builderEntityCode : "",
       screenId: payload.screenId
     });
     this.previewFooter.text("Resumo local. O JSON completo aparece quando os campos obrigatorios permitem gerar preview no backend.");

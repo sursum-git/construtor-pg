@@ -1,0 +1,22 @@
+{
+  "homeGroupId": "ciw-compras",
+  "homeGroupTitle": "Compras",
+  "homeLinksFile": "home-links.json",
+  "preserveExistingLinks": true,
+  "linkedPages": [
+    {
+      "screenId": "ciw.proc-compra-pagamentos",
+      "contextField": "proc_compra_id"
+    }
+  ],
+  "deferredDestinations": [
+    "grid_itens_proc_compra",
+    "grid_anexos_proc_compra"
+  ],
+  "financialQueryUnchanged": {
+    "screenId": "ciw.processos-compra-financeiro-med",
+    "programCode": "cd0107"
+  },
+  "supplierEntry": "integer-validated-by-api",
+  "rowStampTransport": "closed-runtime-branch-root-update-delete"
+}

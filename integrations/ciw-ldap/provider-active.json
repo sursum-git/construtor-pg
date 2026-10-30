@@ -1,0 +1,20 @@
+{
+  "providerCode": "ldap",
+  "targetAccount": "tadeu.parreiras",
+  "enabled": true,
+  "config": {
+    "host": "192.168.0.61",
+    "port": 389,
+    "baseDn": "DC=ima,DC=com,DC=br",
+    "usernameAttribute": "sAMAccountName",
+    "userDnPattern": "IMA\\{username}",
+    "encryption": "none",
+    "displayNameAttribute": "displayName",
+    "emailAttribute": "mail",
+    "groupsAttribute": "memberOf",
+    "permissions": [],
+    "tenantId": "default"
+  },
+  "transportAuthorization": "Usuario confirmou explicitamente LDAP389 semTLS em20/10/2026, apos informado sobre senha semcriptografia.",
+  "humanLoginValidated": false
+}

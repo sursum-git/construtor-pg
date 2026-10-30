@@ -837,6 +837,8 @@ class SeedRuntimeMetadataCommand extends Command
         $this->seedPedidoVendaMasterDetailData();
 
         $this->entityManager->flush();
+        // Reload inverse collections before signing a newly seeded database.
+        $this->entityManager->clear();
         $this->integrity->backfillAll();
         $this->entityManager->flush();
 

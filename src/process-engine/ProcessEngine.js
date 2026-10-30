@@ -17,6 +17,7 @@
       this.fieldWidgets = {};
       this.fieldInputs = {};
       this.isProcessing = false;
+      this.destroyed = false;
       this.statusTimer = null;
       this.eventSource = null;
       this.eventFallbackTimer = null;
@@ -38,17 +39,36 @@
         this.definition = this.normalizeDefinition(definition);
         this.validator.validate(this.definition, { securityPolicy: this.securityPolicy });
         this.applyDefinitionSecurity(this.definition);
+        this.initializeNavigationContext();
+        return this.prepareApiCompany().then(() => {
         this.render();
+        if (this.apiCompanySelection) { this.apiCompanySelection.render(this.options.apiCompanyHost || $("<div></div>").prependTo(this.root)); }
         if (typeof this.options.onLastUpdated === "function") {
           this.options.onLastUpdated(new Date());
         }
         global.CrudUtils.completeRenderGate(this.root);
         return this;
+        });
       }).catch((error) => {
         this.renderError(error);
         global.CrudUtils.failRenderGate(this.root);
         throw error;
       });
+    }
+
+    async prepareApiCompany() {
+      if (!this.definition.apiCompany) { return; }
+      if (!global.ApiCompanySelection) { throw new Error("Componente Empresa API indisponível. Atualize a aplicação."); }
+      this.apiCompanySelection = global.ApiCompanySelection.forDefinition(this.definition, this.httpClient, {
+        beforeChange: () => {
+          if (this.isProcessing) { global.CrudUtils.showMessage("Aguarde o processamento antes de trocar a Empresa API.", "warning"); return false; }
+          return global.CrudUtils.confirm("Trocar a Empresa API e limpar os parâmetros atuais?", {title:"Empresa API",confirmText:"Trocar empresa",cancelText:"Continuar editando"});
+        },
+        onChange: () => { this.stopJobPolling(); this.stopJobEvents(); this.clearResult(); this.render(); this.apiCompanySelection.render(this.options.apiCompanyHost || $("<div></div>").prependTo(this.root)); },
+        onInvalid: () => global.CrudUtils.showMessage("A Empresa API mudou. Selecione novamente antes de processar.", "warning")
+      });
+      await this.apiCompanySelection.load();
+      this.httpClient = this.apiCompanySelection.client(this.httpClient);
     }
 
     loadConfig() {
@@ -191,6 +211,8 @@
       this.renderParameters(screen);
       this.renderProcessingPanel(screen);
       this.renderResultPanel(screen);
+      this.bindLookupParameterChanges();
+      this.optionsPromise=this.loadParameterOptions();
     }
 
     renderHeader(screen) {
@@ -215,14 +237,17 @@
       this.processButton = $("<button type=\"button\"></button>")
         .text(this.getProcessActionLabel())
         .appendTo(actions);
+      this.renderContextLogsButton(actions);
       this.processButton.kendoButton({
         icon: this.getProcessActionIcon(),
+        enable: this.definition.permissions.process !== false,
         themeColor: "primary",
         click: () => this.execute()
       });
     }
 
     renderParameterField(form, field) {
+      if (Object.prototype.hasOwnProperty.call(this.contextValues || {}, field.name)) { field = Object.assign({},field,{defaultValue:this.contextValues[field.name],readonly:true}); }
       const wrapper = $("<div class=\"process-field\"></div>")
         .attr("data-process-field", field.name)
         .appendTo(form);
@@ -252,11 +277,70 @@
         input.prop("readonly", true);
       }
       this.initializeFieldWidget(field, input);
+      const widget = this.fieldWidgets[field.name];
+      if (field.readonly && widget) { if (typeof widget.readonly === "function") { widget.readonly(true); } else if (typeof widget.enable === "function") { widget.enable(false); } }
       this.fieldInputs[field.name] = input;
+    }
+
+    bindLookupParameterChanges() {
+      const fields=global.CrudUtils.ensureArray(this.definition.process.parameters.fields);
+      const names=new Set();fields.forEach(field=>(field.optionsSource && field.optionsSource.parameterFields || []).forEach(name=>names.add(name)));
+      names.forEach(name=>{const widget=this.fieldWidgets[name];if(widget){widget.bind('change',()=>{this.optionsPromise=this.loadParameterOptions();});}});
+    }
+
+    lookupParametersMatch(parameters) {
+      const fields=global.CrudUtils.ensureArray(this.definition.process.parameters.fields);
+      for(const field of fields) {
+        const names=field.optionsSource && field.optionsSource.parameterFields;if(!names){continue;}
+        if(this.optionsLoading || this.optionsFailed){return false;}
+        const confirmed=this.lookupParameterValues && this.lookupParameterValues[field.field || field.name || field.id];
+        if(!confirmed){return false;}
+        for(const name of names) {
+          const parameter=fields.find(item=>(item.field || item.name || item.id)===name);
+          if(parameters[name]!==confirmed[name] || this.getFieldValue(this.normalizeField(parameter))!==confirmed[name]){return false;}
+        }
+      }
+      return true;
+    }
+
+    loadParameterOptions() {
+      if(this.destroyed) {return Promise.resolve(false);}
+      const generation=this.optionsGeneration=(this.optionsGeneration || 0)+1;
+      const fields=global.CrudUtils.ensureArray(this.definition.process.parameters.fields).filter(field=>field.optionsSource);
+      this.optionsLoading=fields.length>0;this.optionsFailed=false;
+      const enableButton=()=>{const button=this.processButton && this.processButton.data('kendoButton');if(button){button.enable(!this.destroyed && !this.optionsLoading && !this.optionsFailed && !this.isProcessing && this.definition.permissions.process!==false);}};
+      enableButton();
+      const tasks=fields.map(field=>{
+        const source=field.optionsSource,endpoint=this.definition.api[source.endpointId],widget=this.fieldWidgets[field.field || field.name || field.id];
+        if(!endpoint || endpoint.method!=='POST' || !endpoint.url || source.endpointId!=='options.'+(field.field || field.name || field.id) || !widget){return Promise.reject(global.CrudUtils.makeError('PROCESS_OPTIONS_INVALID','Consulta de selecao indisponivel.'));}
+        widget.enable(false);
+        const requestData={context:Object.assign({},this.contextValues)};
+        if(source.parameterFields) {
+          requestData.parameters={};
+          try { source.parameterFields.forEach(name=>{const parameter=this.definition.process.parameters.fields.find(item=>(item.field || item.name || item.id)===name),value=this.getFieldValue(this.normalizeField(parameter));if(!parameter.options.some(option=>option.value===value)){throw global.CrudUtils.makeError('PROCESS_OPTIONS_INVALID','Parametro fora do enum.');}requestData.parameters[name]=value;}); }
+          catch(error) { return Promise.reject(error); }
+        }
+        return Promise.resolve(this.httpClient.request({url:endpoint.url,method:'POST',data:requestData})).then(response=>{
+          if(this.destroyed || generation!==this.optionsGeneration) {return;}
+          const rows=response && response.data;if(!Array.isArray(rows) || rows.length>5000){throw global.CrudUtils.makeError('PROCESS_OPTIONS_INVALID','Resposta da selecao invalida.');}
+          const ids=new Set();const data=rows.map(row=>{if(!row || !Number.isInteger(row.value) || row.value<1 || row.value>2147483647 || ids.has(row.value) || typeof row.text!=='string' || row.text.length>4000){throw global.CrudUtils.makeError('PROCESS_OPTIONS_INVALID','Opcao de selecao invalida.');}ids.add(row.value);return {value:row.value,text:row.text};});
+          if(source.parameterFields){
+            const previous=widget.value();widget.dataSource.data(data);widget.value(previous.filter(id=>ids.has(Number(id))));
+            this.lookupParameterValues=this.lookupParameterValues || {};this.lookupParameterValues[field.field || field.name || field.id]=Object.assign({},requestData.parameters);
+          }else{widget.dataSource.data(data);}
+          widget.enable(!field.readonly);
+        });
+      });
+      return Promise.all(tasks).then(()=>{if(this.destroyed || generation!==this.optionsGeneration){return false;}this.optionsLoading=false;enableButton();return true;}).catch(error=>{if(this.destroyed || generation!==this.optionsGeneration){return false;}this.optionsLoading=false;this.optionsFailed=true;fields.forEach(field=>{const w=this.fieldWidgets[field.field || field.name || field.id];if(w){w.enable(false);}});enableButton();this.renderProcessError(error);return false;});
     }
 
     initializeFieldWidget(field, input) {
       const type = field.type;
+      if (type === 'array' && field.itemType==='integer' && field.editor==='multiselect' && $.fn.kendoMultiSelect) {
+        input.kendoMultiSelect({dataTextField:'text',dataValueField:'value',filter:'contains',autoClose:false,dataSource:this.normalizeOptions(field.options || []),value:field.defaultValue || []});
+        this.fieldWidgets[field.name]=input.data('kendoMultiSelect');return;
+      }
+
       if (type === "date" && $.fn.kendoDatePicker) {
         input.kendoDatePicker({
           format: field.format || "dd/MM/yyyy",
@@ -326,10 +410,12 @@
     }
 
     execute() {
-      if (this.isProcessing) {
+      if (this.destroyed || this.isProcessing || this.isConfirming || this.optionsLoading || this.optionsFailed) {
         return Promise.resolve(false);
       }
-      const parameters = this.collectParameters();
+      if (this.definition.permissions.process === false) { global.CrudUtils.showMessage("Sem permissao para executar o processo.", "warning"); return Promise.resolve(false); }
+      let parameters;
+      try {parameters=this.collectParameters();}catch(error){global.CrudUtils.showMessage(global.CrudUtils.unwrapError(error,'Selecao invalida.').message,'warning');return Promise.resolve(false);}
       if (!parameters.valid) {
         global.CrudUtils.showMessage(parameters.message, "warning");
         return Promise.resolve(false);
@@ -341,6 +427,20 @@
         return Promise.resolve(false);
       }
 
+      const confirmation = this.definition.process.actions && this.definition.process.actions.process && this.definition.process.actions.process.confirmation;
+      if (confirmation) {
+        this.isConfirming = true;
+        return global.CrudUtils.confirm(confirmation.message, {title:'Confirmar processamento',confirmText:confirmation.confirmText || 'Confirmar',themeColor:'warning'}).then((confirmed)=>{
+          this.isConfirming = false;
+          return confirmed ? this.sendProcessRequest(endpoint,parameters) : false;
+        }).catch((error)=>{this.isConfirming=false;this.renderProcessError(error);return null;});
+      }
+      return this.sendProcessRequest(endpoint,parameters);
+    }
+
+    sendProcessRequest(endpoint, parameters) {
+      if (!this.lookupParametersMatch(parameters.values)) {return Promise.resolve(false);}
+      if (this.destroyed || this.isProcessing) { return Promise.resolve(false); }
       this.setProcessing(true, this.definition.process.wait.message || "Processando...");
       this.clearResult();
 
@@ -363,6 +463,7 @@
     }
 
     handleProcessResponse(response, parameters) {
+      if (response && (response.ok === false || response.success === false || String(response.status).toLowerCase() === "failed")) { throw global.CrudUtils.makeError("PROCESS_FAILED", response.error && response.error.message || response.message || "Processamento falhou."); }
       const result = response && response.result;
       const job = this.normalizeJob(response && (response.job || response.asyncJob || response.runtimeJob));
       const waitConfig = response && response.wait || this.definition.process.wait || {};
@@ -551,10 +652,10 @@
       let missing = "";
 
       fields.forEach((field) => {
-        const value = this.getFieldValue(field);
+        const value = Object.prototype.hasOwnProperty.call(this.contextValues || {}, field.name) ? this.contextValues[field.name] : this.getFieldValue(field);
         values[field.name] = value;
         this.setFieldInvalid(field, false);
-        if (!missing && field.required && (value == null || value === "")) {
+        if (!missing && field.required && (value == null || value === "" || Array.isArray(value) && value.length===0)) {
           missing = field.label;
           this.setFieldInvalid(field, true);
         }
@@ -577,6 +678,11 @@
         value = input.prop("checked");
       } else {
         value = input ? input.val() : null;
+      }
+      if (field.type==='array') {
+        if (!Array.isArray(value) || value.length>100) { throw global.CrudUtils.makeError('PROCESS_COLLECTION_INVALID','Selecione ate100IDs inteiros.'); }
+        const ids=value.map(id=>{if(!/^[1-9][0-9]{0,9}$/.test(String(id)) || Number(id)>2147483647) { throw global.CrudUtils.makeError('PROCESS_COLLECTION_INVALID','ID de selecao invalido.'); }return Number(id);});
+        if(new Set(ids).size!==ids.length) {throw global.CrudUtils.makeError('PROCESS_COLLECTION_INVALID','IDs repetidos.');}return ids;
       }
       if (value instanceof Date) {
         return kendo.toString(value, field.type === "datetime" ? "yyyy-MM-ddTHH:mm:ss" : "yyyy-MM-dd");
@@ -718,7 +824,7 @@
         return sourceColumns.map(function(column) {
           return {
             field: column.field,
-            title: column.title || column.label || column.field,
+            title: global.CrudUtils.escapeHtml(column.title || column.label || column.field),
             width: column.width,
             format: column.format
           };
@@ -744,7 +850,7 @@
       if (this.processButton) {
         const widget = this.processButton.data("kendoButton");
         if (widget) {
-          widget.enable(!this.isProcessing);
+          widget.enable(!this.isProcessing && !this.optionsLoading && !this.optionsFailed && this.definition.permissions.process!==false);
         }
       }
       if (!this.statusPanel) {
@@ -830,6 +936,34 @@
       return null;
     }
 
+    getContextLogsConfig() {
+      const logs = this.definition.logs || {};
+      const field = logs.contextField;
+      if (logs.enabled !== true || logs.mode !== "recordEvents" || ["admin.transacoes", "admin.logs-transacoes"].includes(this.getScreenId()) ||
+          !/^[A-Za-z_][A-Za-z0-9_.:-]{0,159}$/.test(logs.screenId || "") || !/^[a-z][a-z0-9_]*$/.test(field || "") ||
+          !global.CrudUtils.ensureArray(this.definition.contextFields).some(item => item.field === field) ||
+          !Number.isInteger(this.contextValues[field]) || this.contextValues[field] < 1 || this.contextValues[field] > 2147483647 || !global.CrudEngine) {
+        return null;
+      }
+      return logs;
+    }
+
+    renderContextLogsButton(container) {
+      const logs = this.getContextLogsConfig();
+      if (!logs) { return; }
+      const button = $("<button type=\"button\" class=\"process-log-button\"></button>").text(logs.title || "Logs").appendTo(container);
+      button.kendoButton({ icon: "list-unordered" });
+      button.on("click", () => {
+        const current = this.getContextLogsConfig();
+        if (!current || this.destroyed) { return; }
+        // Reuse the existing Kendo audit window without initializing another CRUD or executing a process.
+        const viewer = Object.create(global.CrudEngine.prototype);
+        viewer.definition = { screenId: current.screenId, dataModel: { primaryKey: current.contextField }, logs: current };
+        viewer.securityPolicy = this.securityPolicy;
+        viewer.openLogsWindow({ [current.contextField]: this.contextValues[current.contextField] }, current);
+      });
+    }
+
     normalizeField(field) {
       const source = field || {};
       const name = String(source.field || source.name || source.id || "").trim();
@@ -880,7 +1014,20 @@
       return FINAL_STATUSES.indexOf(String(status || "").toLowerCase()) >= 0;
     }
 
+    initializeNavigationContext() {
+      this.contextValues = {};
+      const supplied = this.options.contextValues || {};
+      global.CrudUtils.ensureArray(this.definition.contextFields).forEach((item)=>{
+        const raw=supplied[item.field];
+        if (raw == null || raw === '') { if (item.required) { throw global.CrudUtils.makeError('PROCESS_CONTEXT_REQUIRED','Informe o contexto de '+item.field+'.'); } return; }
+        if (!['string','number'].includes(typeof raw) || !/^[1-9][0-9]{0,9}$/.test(String(raw)) || Number(raw)>2147483647) { throw global.CrudUtils.makeError('PROCESS_CONTEXT_INVALID','Contexto invalido: '+item.field+'.'); }
+        this.contextValues[item.field]=Number(raw);
+      });
+    }
+
     buildContextPayload() {
+      if (global.CrudUtils.ensureArray(this.definition.contextFields).length) { return Object.assign({},this.contextValues); }
+
       return Object.assign({
         screenId: this.getScreenId(),
         programId: this.definition.program && (this.definition.program.id || this.definition.program.code) || "",
@@ -941,6 +1088,8 @@
     }
 
     destroy() {
+      if (this.apiCompanySelection) { this.apiCompanySelection.destroy(); }
+      this.destroyed = true;
       this.stopJobPolling();
       this.stopJobEvents();
       if (this.resultGrid && typeof this.resultGrid.destroy === "function") {

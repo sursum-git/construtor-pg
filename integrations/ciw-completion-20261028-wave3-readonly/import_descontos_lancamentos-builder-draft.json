@@ -1,0 +1,219 @@
+{
+  "entityDraft": {
+    "code": "descontos_importacao_lancamentos_progress",
+    "name": "Utilização do desconto de importação",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1046,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "import_descontos_lancamentos_read",
+    "apiDetailOperationCode": "import_descontos_lancamentos_get",
+    "fields": [
+      {
+        "code": "record_key",
+        "label": "Chave da linha",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "record_key",
+        "apiWritePath": "record_key",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "length": 2048,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cta_corren_desconto_id",
+        "label": "Lançamento",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "cta_corren_desconto_id",
+        "apiWritePath": "cta_corren_desconto_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "desconto_importacao_id",
+        "label": "Desconto",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "desconto_importacao_id",
+        "apiWritePath": "desconto_importacao_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "container_id",
+        "label": "Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "valor_utilizado",
+        "label": "Valor utilizado USD",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "valor_utilizado",
+        "apiWritePath": "valor_utilizado",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "data",
+        "label": "Data",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "data",
+        "apiWritePath": "data",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_usuario",
+        "label": "Data original (cod_usuario)",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "cod_usuario",
+        "apiWritePath": "cod_usuario",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1046",
+    "programTitle": "Utilização do desconto de importação",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "descontos_importacao_lancamentos_progress",
+    "screenId": "ciw.descontos-importacao-lancamentos",
+    "version": "1.0.0",
+    "subtitle": "Lançamentos vinculados ao desconto selecionado; somente leitura.",
+    "permissionPrefix": "descontos_importacao_lancamentos_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "desconto_importacao_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "cta_corren_desconto_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "desconto_importacao_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "container_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "valor_utilizado",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "data",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "cod_usuario",
+          "hidden": false,
+          "width": 160
+        }
+      ],
+      "filterFields": [
+        "cta_corren_desconto_id",
+        "desconto_importacao_id",
+        "container_id",
+        "valor_utilizado",
+        "data"
+      ],
+      "defaultSort": [
+        {
+          "field": "desconto_importacao_id",
+          "dir": "desc"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "1.0",
+  "pageType": "crud",
+  "screenId": "ciw.empresas",
+  "program": {
+    "id": "cd0090",
+    "module": "cadastros",
+    "entity": "empresas_progress",
+    "title": "Empresas",
+    "logs": {
+      "enabled": true,
+      "mode": "deletions",
+      "documentId": "runtime.transaction-events",
+      "screenId": "ciw.empresas",
+      "requiresRecord": false,
+      "title": "Logs Exclusão"
+    }
+  },
+  "crud": {
+    "form": {
+      "logs": {
+        "enabled": true,
+        "mode": "transactions",
+        "documentId": "runtime.transactions",
+        "screenId": "ciw.empresas",
+        "requiresRecord": true,
+        "title": "Logs"
+      }
+    }
+  }
+}

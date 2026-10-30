@@ -1,0 +1,516 @@
+{
+  "entityDraft": {
+    "code": "container_pagamentos_progress",
+    "name": "Pagamentos do Container",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1006,
+    "apiSourceCode": "motor_progress_container_financeiro",
+    "apiListOperationCode": "pagamentos_read",
+    "apiDetailOperationCode": "pagamentos_get",
+    "fields": [
+      {
+        "code": "container_id",
+        "label": "Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 10,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "pagamento_key",
+        "label": "Identificador",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": true,
+        "readonlyField": true,
+        "apiJsonPath": "pagamento_key",
+        "apiWritePath": "pagamento_key",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 20,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "num_id_tit_ap",
+        "label": "ID título",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "num_id_tit_ap",
+        "apiWritePath": "num_id_tit_ap",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 30,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_estab",
+        "label": "Estabelecimento",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_estab",
+        "apiWritePath": "cod_estab",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 40,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_empresa",
+        "label": "Empresa",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_empresa",
+        "apiWritePath": "cod_empresa",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 50,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_espec_docto",
+        "label": "Espécie",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_espec_docto",
+        "apiWritePath": "cod_espec_docto",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 60,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_ser_docto",
+        "label": "Série",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_ser_docto",
+        "apiWritePath": "cod_ser_docto",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 70,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cdn_fornecedor",
+        "label": "Fornecedor",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cdn_fornecedor",
+        "apiWritePath": "cdn_fornecedor",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 80,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_tit_ap",
+        "label": "Título",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_tit_ap",
+        "apiWritePath": "cod_tit_ap",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 90,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_parcela",
+        "label": "Parcela",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_parcela",
+        "apiWritePath": "cod_parcela",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 100,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dat_emis_docto",
+        "label": "Emissão",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dat_emis_docto",
+        "apiWritePath": "dat_emis_docto",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 110,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dat_vencto_tit_ap",
+        "label": "Vencimento",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dat_vencto_tit_ap",
+        "apiWritePath": "dat_vencto_tit_ap",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 120,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_indic_econ",
+        "label": "Indicador econômico",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_indic_econ",
+        "apiWritePath": "cod_indic_econ",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 130,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "val_origin_tit_ap",
+        "label": "Valor original",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "val_origin_tit_ap",
+        "apiWritePath": "val_origin_tit_ap",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 140,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "valor_real",
+        "label": "Valor em reais",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "valor_real",
+        "apiWritePath": "valor_real",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 150,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "valor_dolar",
+        "label": "Valor em dólar",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "valor_dolar",
+        "apiWritePath": "valor_dolar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 160,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "valor_real_origem",
+        "label": "Origem do valor em reais",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "valor_real_origem",
+        "apiWritePath": "valor_real_origem",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 170,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "valor_dolar_origem",
+        "label": "Origem do valor em dólar",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "valor_dolar_origem",
+        "apiWritePath": "valor_dolar_origem",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 180,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "valor_real_registros",
+        "label": "Registros de valor em reais",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "valor_real_registros",
+        "apiWritePath": "valor_real_registros",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 190,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "valor_dolar_registros",
+        "label": "Registros de valor em dólar",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "valor_dolar_registros",
+        "apiWritePath": "valor_dolar_registros",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 200,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "data_inicio_filtro",
+        "label": "Data inicial do filtro",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "data_inicio_filtro",
+        "apiWritePath": "data_inicio_filtro",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 210,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "data_inicio_origem",
+        "label": "Origem da data inicial",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "data_inicio_origem",
+        "apiWritePath": "data_inicio_origem",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 220,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1006",
+    "programTitle": "Pagamentos do Container",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "container_pagamentos_progress",
+    "screenId": "ciw.container-pagamentos",
+    "version": "1.0.1",
+    "subtitle": "Pagamentos do Container",
+    "permissionPrefix": "container_pagamentos_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "container_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "cod_tit_ap",
+          "hidden": false,
+          "width": 155
+        },
+        {
+          "field": "cod_parcela",
+          "hidden": false,
+          "width": 155
+        },
+        {
+          "field": "cod_estab",
+          "hidden": false,
+          "width": 155
+        },
+        {
+          "field": "cod_espec_docto",
+          "hidden": false,
+          "width": 155
+        },
+        {
+          "field": "cdn_fornecedor",
+          "hidden": false,
+          "width": 155
+        },
+        {
+          "field": "dat_emis_docto",
+          "hidden": false,
+          "width": 155
+        },
+        {
+          "field": "dat_vencto_tit_ap",
+          "hidden": false,
+          "width": 155
+        },
+        {
+          "field": "valor_real",
+          "hidden": false,
+          "width": 155
+        },
+        {
+          "field": "valor_dolar",
+          "hidden": false,
+          "width": 155
+        },
+        {
+          "field": "valor_real_origem",
+          "hidden": false,
+          "width": 200
+        },
+        {
+          "field": "valor_dolar_origem",
+          "hidden": false,
+          "width": 200
+        }
+      ],
+      "filterFields": [
+        "cod_tit_ap",
+        "cod_espec_docto",
+        "dat_emis_docto",
+        "dat_vencto_tit_ap",
+        "cdn_fornecedor"
+      ],
+      "defaultSort": [
+        {
+          "field": "dat_emis_docto",
+          "dir": "desc"
+        }
+      ]
+    },
+    "changeSummary": "Ajusta titulo e subtitulo da consulta financeira do container."
+  }
+}

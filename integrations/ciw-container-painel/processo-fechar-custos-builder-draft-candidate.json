@@ -1,0 +1,162 @@
+{
+  "entityDraft": {
+    "code": "container_processos_progress",
+    "name": "Processos do Container",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1015,
+    "apiSourceCode": "motor_progress_container_processos",
+    "apiListOperationCode": "painel_read",
+    "apiDetailOperationCode": "painel_get",
+    "fields": [
+      {
+        "code": "container_id",
+        "label": "Nr.Container",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": true,
+        "readonlyField": true,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 10,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "tipo_versao_id",
+        "label": "Tipo de versão (ID)",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "apiJsonPath": "tipo_versao_id",
+        "apiWritePath": "tipo_versao_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 20,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "descricao",
+        "label": "Descrição da versão",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "apiJsonPath": "descricao",
+        "apiWritePath": "descricao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 30,
+        "options": {
+          "readonly": false,
+          "writable": true
+        },
+        "length": 8000
+      },
+      {
+        "code": "expected_latest_version_id",
+        "label": "ID da última versão esperada",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "apiJsonPath": "expected_latest_version_id",
+        "apiWritePath": "expected_latest_version_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 40,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "versao_id",
+        "label": "ID da versão de custo a fechar",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "apiJsonPath": "versao_id",
+        "apiWritePath": "versao_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 50,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "log_priorizar_custo_previsto",
+        "label": "Priorizar custo previsto?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "apiJsonPath": "log_priorizar_custo_previsto",
+        "apiWritePath": "log_priorizar_custo_previsto",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 60,
+        "options": {
+          "readonly": false,
+          "writable": true
+        },
+        "defaultValue": false
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1016",
+    "programTitle": "Fechar Custos do Container",
+    "module": "operacional",
+    "pageType": "process",
+    "builderEntityCode": "container_processos_progress",
+    "screenId": "ciw.container-fechar-custos",
+    "version": "1.0.0",
+    "subtitle": "Informe a versão e o ID positivo da última versão esperada.",
+    "permissionPrefix": "container_fechar_custos_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "contextFields": [
+      {
+        "field": "container_id",
+        "required": true,
+        "readonly": true
+      }
+    ],
+    "processOptions": {
+      "operationCode": "fechar_custos",
+      "parameterFields": [
+        "versao_id",
+        "expected_latest_version_id",
+        "log_priorizar_custo_previsto"
+      ],
+      "confirmation": {
+        "message": "Grava os custos dos itens deste container a partir da versão informada. Esta ação altera registros de custo. Confirma o fechamento?",
+        "confirmText": "Fechar custos"
+      }
+    },
+    "changeSummary": "Processo nativo com permissão própria, contexto fixo e confirmação; abrir não executa."
+  }
+}

@@ -1,0 +1,499 @@
+{
+  "entityDraft": {
+    "code": "container_despesas_progress",
+    "name": "Despesas do Container",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1003,
+    "apiSourceCode": "motor_progress_container_despesas",
+    "apiListOperationCode": "despesas_read",
+    "apiDetailOperationCode": "despesas_get",
+    "fields": [
+      {
+        "code": "despesa_container_id",
+        "label": "Despesa do container",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": true,
+        "readonlyField": true,
+        "apiJsonPath": "despesa_container_id",
+        "apiWritePath": "despesa_container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 10,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "despesa_id",
+        "label": "Despesa",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "despesa_id",
+        "apiWritePath": "values.despesa_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 20,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "vl_prev",
+        "label": "Valor previsto",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "vl_prev",
+        "apiWritePath": "values.vl_prev",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 30,
+        "options": {
+          "readonly": false,
+          "writable": true
+        },
+        "scale": 2
+      },
+      {
+        "code": "container_id",
+        "label": "Nr.Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 40,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "calc_imp_container_id",
+        "label": "Cálculo de imposto",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "calc_imp_container_id",
+        "apiWritePath": "calc_imp_container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 50,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_base_imp",
+        "label": "Base de impostos",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "vl_base_imp",
+        "apiWritePath": "values.vl_base_imp",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 60,
+        "options": {
+          "readonly": false,
+          "writable": true
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_negociado",
+        "label": "Valor negociado",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "vl_negociado",
+        "apiWritePath": "values.vl_negociado",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 70,
+        "options": {
+          "readonly": false,
+          "writable": true
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_proforma",
+        "label": "Valor pró-forma",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_proforma",
+        "apiWritePath": "vl_proforma",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 80,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "cta_corren_custo_distr_id",
+        "label": "Distribuição de custo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cta_corren_custo_distr_id",
+        "apiWritePath": "cta_corren_custo_distr_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 90,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "log_utilizado",
+        "label": "Utilizado?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "log_utilizado",
+        "apiWritePath": "log_utilizado",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 100,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "log_manual",
+        "label": "Manual?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "log_manual",
+        "apiWritePath": "values.log_manual",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 110,
+        "options": {
+          "readonly": false,
+          "writable": true
+        }
+      },
+      {
+        "code": "perc_calc",
+        "label": "Percentual de cálculo",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "apiJsonPath": "perc_calc",
+        "apiWritePath": "values.perc_calc",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 120,
+        "options": {
+          "readonly": false,
+          "writable": true
+        },
+        "scale": 2
+      },
+      {
+        "code": "memoria_calculo",
+        "label": "memoria calculo",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "memoria_calculo",
+        "apiWritePath": "memoria_calculo",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "position": 130,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "item_container_id",
+        "label": "Item do container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "item_container_id",
+        "apiWritePath": "item_container_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 140,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "descricao",
+        "label": "Descrição",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "descricao",
+        "apiWritePath": "descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 150,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "ordem",
+        "label": "Ordem",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "ordem",
+        "apiWritePath": "ordem",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 160,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "empresa_id",
+        "label": "Empresa",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "empresa_id",
+        "apiWritePath": "empresa_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 170,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "log_custo",
+        "label": "Despesa de custo?",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "log_custo",
+        "apiWritePath": "log_custo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 180,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_distr",
+        "label": "Valor distribuído",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_distr",
+        "apiWritePath": "vl_distr",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 190,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "vl_a_distr",
+        "label": "Valor a distribuir",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_a_distr",
+        "apiWritePath": "vl_a_distr",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 200,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      }
+    ],
+    "apiCreateOperationCode": "despesas_create",
+    "apiUpdateOperationCode": "despesas_update",
+    "apiDeleteOperationCode": "despesas_delete"
+  },
+  "programDraft": {
+    "programCode": "op1003",
+    "programTitle": "Despesas do Container",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "container_despesas_progress",
+    "screenId": "ciw.container-despesas",
+    "version": "1.0.1",
+    "subtitle": "Despesas do Container",
+    "permissionPrefix": "container_despesas_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": true,
+    "allowUpdate": true,
+    "allowDelete": true,
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "container_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "despesa_container_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "despesa_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "descricao",
+          "hidden": false,
+          "width": 280
+        },
+        {
+          "field": "vl_prev",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_negociado",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_distr",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_a_distr",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_base_imp",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_proforma",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "perc_calc",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "log_custo",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "log_manual",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "log_utilizado",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "calc_imp_container_id",
+          "hidden": false,
+          "width": 160
+        }
+      ],
+      "filterFields": [
+        "despesa_container_id",
+        "descricao"
+      ],
+      "defaultSort": [
+        {
+          "field": "ordem",
+          "dir": "asc"
+        }
+      ]
+    },
+    "changeSummary": "Manutenção individual contextual; regras manuais/percentuais e sincronização fiscal no serviço central. Lotes homogêneos ABL não são o batch misto do Builder e continuam fora da UI."
+  }
+}

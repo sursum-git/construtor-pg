@@ -1,0 +1,170 @@
+{
+  "entityDraft": {
+    "code": "container_despesas_selecao_progress",
+    "name": "Selecao de despesas do container MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1047,
+    "apiSourceCode": "motor_progress_container_processos",
+    "apiListOperationCode": "painel_read",
+    "apiDetailOperationCode": "painel_get",
+    "fields": [
+      {
+        "code": "container_id",
+        "label": "Container MED",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": true,
+        "readonlyField": true,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 10,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "ordem_campo",
+        "label": "Ordenar despesas por",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "apiJsonPath": "ordem_campo",
+        "apiWritePath": "ordem_campo",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 20,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "editor": "dropdown",
+          "defaultValue": "ordem",
+          "options": [
+            {
+              "value": "ordem",
+              "text": "Ordem"
+            },
+            {
+              "value": "despesa_id",
+              "text": "Despesa"
+            },
+            {
+              "value": "log_calculada",
+              "text": "Calculada"
+            },
+            {
+              "value": "perc_calculo",
+              "text": "Percentual"
+            }
+          ]
+        }
+      },
+      {
+        "code": "ordem_direcao",
+        "label": "Direcao",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "apiJsonPath": "ordem_direcao",
+        "apiWritePath": "ordem_direcao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 30,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "editor": "dropdown",
+          "defaultValue": "asc",
+          "options": [
+            {
+              "value": "asc",
+              "text": "Crescente"
+            },
+            {
+              "value": "desc",
+              "text": "Decrescente"
+            }
+          ]
+        }
+      },
+      {
+        "code": "despesa_ids",
+        "label": "Despesas prioritarias",
+        "dataType": "json",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "apiJsonPath": "despesa_ids",
+        "apiWritePath": "despesa_ids",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 40,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "api": {
+            "collection": {
+              "itemType": "integer"
+            },
+            "optionsSource": {
+              "operationCode": "despesas_selecao_opcoes",
+              "valueField": "despesa_id",
+              "textField": "label",
+              "parameterFields": [
+                "ordem_campo",
+                "ordem_direcao"
+              ]
+            }
+          }
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1047",
+    "programTitle": "Gerar e selecionar despesas do container MED",
+    "module": "operacional",
+    "pageType": "process",
+    "builderEntityCode": "container_despesas_selecao_progress",
+    "screenId": "ciw.container-selecionar-despesas",
+    "version": "1.0.0",
+    "subtitle": "Defaults de todas as despesas ativas; selecao limita as calculadas.",
+    "permissionPrefix": "container_despesas_selecao_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "contextFields": [
+      {
+        "field": "container_id",
+        "required": true,
+        "readonly": true
+      }
+    ],
+    "processOptions": {
+      "operationCode": "selecionar_despesas",
+      "parameterFields": [
+        "ordem_campo",
+        "ordem_direcao",
+        "despesa_ids"
+      ],
+      "confirmation": {
+        "message": "Sincronizar os defaults de TODAS as despesas ativas nao tributarias, inclusive as nao selecionadas, marcar somente as selecionadas e calcular despesas/impostos deste container? Se nao houver calculadas na selecao, todas as nao manuais serao avaliadas.",
+        "confirmText": "Gerar despesas"
+      }
+    },
+    "changeSummary": "Selecao ativa cons_selec_despesas; ordem fechada e validada no servidor, rotinas centrais e transacao unica."
+  }
+}

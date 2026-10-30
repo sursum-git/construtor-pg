@@ -1,0 +1,114 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "proc_compra_despesas_read",
+      "name": "Despesas do processo — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_despesas",
+        "operation": "read"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "proc_compra_despesas_get",
+      "name": "Despesas do processo — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_despesas",
+        "operation": "get"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_despesas_create",
+      "name": "Despesas do processo — create",
+      "type": "create",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_despesas",
+        "operation": "create"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_despesas_update",
+      "name": "Despesas do processo — update",
+      "type": "update",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_despesas",
+        "operation": "update"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_despesas_delete",
+      "name": "Despesas do processo — delete",
+      "type": "delete",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_despesas",
+        "operation": "delete"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "proc_compra_despesas_opcoes_despesa",
+      "name": "Despesas do processo — options",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_despesas",
+        "operation": "options",
+        "lookup": "despesa"
+      },
+      "itemsPath": "data",
+      "totalPath": "total"
+    },
+    {
+      "code": "proc_compra_despesas_generate",
+      "name": "Despesas do processo — generate",
+      "type": "custom",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_despesas",
+        "operation": "generate"
+      },
+      "itemPath": "data",
+      "allowProcess": true
+    }
+  ]
+}

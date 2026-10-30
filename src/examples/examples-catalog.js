@@ -641,6 +641,13 @@
       page: pagePath + "manual-documentos.html"
     },
     {
+      id: "processamento-opcoes-dependentes",
+      category: "Processamento",
+      title: "Opções dependentes de parâmetros",
+      summary: "Dois enums fechados recarregam a seleção; contexto protegido, resposta antiga descartada e confirmação nativa.",
+      page: pagePath + "processamento-opcoes-dependentes.html"
+    },
+    {
       id: "processamento-parametros",
       engine: "process",
       category: "Processamento",

@@ -1,0 +1,68 @@
+{
+  "code": "iol_gerencial_vendedores_progress",
+  "name": "IOL Gerencial — Vendedores",
+  "entityType": "api",
+  "createPhysicalTable": false,
+  "structureType": "main",
+  "structureModuleCode": "operacional",
+  "structureBaseNumber": 1013,
+  "apiSourceCode": "motor_progress_iol_gerencial",
+  "apiListOperationCode": "read_vendedores",
+  "fields": [
+    {
+      "code": "representante_id",
+      "label": "Representante",
+      "dataType": "integer",
+      "primaryKey": true,
+      "required": true,
+      "readonlyField": true,
+      "apiJsonPath": "representante_id",
+      "apiWritePath": "representante_id",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 0,
+      "options": {
+        "readonly": true,
+        "writable": false
+      }
+    },
+    {
+      "code": "nome_abreviado",
+      "label": "Vendedor",
+      "dataType": "string",
+      "primaryKey": false,
+      "required": false,
+      "readonlyField": true,
+      "apiJsonPath": "nome_abreviado",
+      "apiWritePath": "nome_abreviado",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 1,
+      "options": {
+        "readonly": true,
+        "writable": false
+      },
+      "length": 120
+    },
+    {
+      "code": "percentual_vendido",
+      "label": "Vendido",
+      "dataType": "decimal",
+      "primaryKey": false,
+      "required": false,
+      "readonlyField": true,
+      "apiJsonPath": "percentual_vendido",
+      "apiWritePath": "percentual_vendido",
+      "apiShowInGrid": true,
+      "apiShowInForm": true,
+      "apiShowInFilter": false,
+      "position": 2,
+      "options": {
+        "readonly": true,
+        "writable": false
+      }
+    }
+  ]
+}

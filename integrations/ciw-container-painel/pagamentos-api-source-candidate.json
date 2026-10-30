@@ -1,0 +1,90 @@
+{
+  "providerType": "generic",
+  "code": "motor_progress_container_pagamentos",
+  "name": "Motor Progress — Associação de Pagamentos do Container",
+  "status": "active",
+  "baseUrl": "http://127.0.0.1:19910/med/web",
+  "authMode": "header_static",
+  "authHeaders": {
+    "X-Containers-Token": "__RUNTIME_SECRET__"
+  },
+  "timeoutSeconds": 25,
+  "responseContract": "sursum-programs",
+  "operations": [
+    {
+      "code": "pagamentos_read",
+      "name": "Pagamentos — pagamentos_read",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-financeiro",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "pagamentos"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "pagamentos_get",
+      "name": "Pagamentos — pagamentos_get",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-financeiro",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "pagamentos"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "pagamentos_create",
+      "name": "Pagamentos — pagamentos_create",
+      "method": "POST",
+      "type": "create",
+      "path": "/SursumPrograms/containers-pagamentos",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "create",
+        "resource": "container-pagamentos"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "pagamentos_delete",
+      "name": "Pagamentos — pagamentos_delete",
+      "method": "POST",
+      "type": "delete",
+      "path": "/SursumPrograms/containers-pagamentos",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "delete",
+        "resource": "container-pagamentos"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "pagamentos_disponiveis",
+      "name": "Pagamentos — pagamentos_disponiveis",
+      "method": "POST",
+      "type": "custom",
+      "path": "/SursumPrograms/containers-pagamentos",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "pagamentos-disponiveis"
+      },
+      "itemsPath": "data"
+    }
+  ]
+}

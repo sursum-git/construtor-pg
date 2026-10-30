@@ -1,0 +1,295 @@
+{
+  "providerType": "generic",
+  "code": "motor_progress_ciw_cadastros",
+  "name": "Cadastros CIW — Progress",
+  "status": "active",
+  "baseUrl": "http://127.0.0.1:19910/med/web",
+  "authHeaders": {
+    "X-Ciw-Cadastros-Token": "__RUNTIME_SECRET__"
+  },
+  "authMode": "header_static",
+  "timeoutSeconds": 25,
+  "responseContract": "sursum-programs",
+  "operations": [
+    {
+      "code": "coloracoes_read",
+      "name": "coloracoes read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "coloracoes"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "coloracoes_get",
+      "name": "coloracoes get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "coloracoes"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "coloracoes_create",
+      "name": "coloracoes create",
+      "type": "create",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "create",
+        "resource": "coloracoes"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "coloracoes_update",
+      "name": "coloracoes update",
+      "type": "update",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "update",
+        "resource": "coloracoes"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "coloracoes_delete",
+      "name": "coloracoes delete",
+      "type": "delete",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "delete",
+        "resource": "coloracoes"
+      }
+    },
+    {
+      "code": "coloracoes_batch",
+      "name": "coloracoes batch",
+      "type": "batch",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "batch",
+        "resource": "coloracoes"
+      }
+    },
+    {
+      "code": "situacoes_container_read",
+      "name": "situacoes_container read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "situacoes_container"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "situacoes_container_get",
+      "name": "situacoes_container get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "situacoes_container"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "situacoes_container_create",
+      "name": "situacoes_container create",
+      "type": "create",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "create",
+        "resource": "situacoes_container"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "situacoes_container_update",
+      "name": "situacoes_container update",
+      "type": "update",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "update",
+        "resource": "situacoes_container"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "situacoes_container_delete",
+      "name": "situacoes_container delete",
+      "type": "delete",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "delete",
+        "resource": "situacoes_container"
+      }
+    },
+    {
+      "code": "situacoes_container_batch",
+      "name": "situacoes_container batch",
+      "type": "batch",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "batch",
+        "resource": "situacoes_container"
+      }
+    },
+    {
+      "code": "tipos_versao_custo_read",
+      "name": "tipos_versao_custo read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "tipos_versao_custo"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "tipos_versao_custo_get",
+      "name": "tipos_versao_custo get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "tipos_versao_custo"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "tipos_versao_custo_create",
+      "name": "tipos_versao_custo create",
+      "type": "create",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "create",
+        "resource": "tipos_versao_custo"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "tipos_versao_custo_update",
+      "name": "tipos_versao_custo update",
+      "type": "update",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "update",
+        "resource": "tipos_versao_custo"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "tipos_versao_custo_delete",
+      "name": "tipos_versao_custo delete",
+      "type": "delete",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "delete",
+        "resource": "tipos_versao_custo"
+      }
+    },
+    {
+      "code": "tipos_versao_custo_batch",
+      "name": "tipos_versao_custo batch",
+      "type": "batch",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "batch",
+        "resource": "tipos_versao_custo"
+      }
+    },
+    {
+      "code": "motivos_desconto_read",
+      "name": "motivos_desconto read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "motivos_desconto"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "motivos_desconto_get",
+      "name": "motivos_desconto get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "motivos_desconto"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "motivos_desconto_create",
+      "name": "motivos_desconto create",
+      "type": "create",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "create",
+        "resource": "motivos_desconto"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "motivos_desconto_update",
+      "name": "motivos_desconto update",
+      "type": "update",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "update",
+        "resource": "motivos_desconto"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "motivos_desconto_delete",
+      "name": "motivos_desconto delete",
+      "type": "delete",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "delete",
+        "resource": "motivos_desconto"
+      }
+    },
+    {
+      "code": "motivos_desconto_batch",
+      "name": "motivos_desconto batch",
+      "type": "batch",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "batch",
+        "resource": "motivos_desconto"
+      }
+    }
+  ]
+}

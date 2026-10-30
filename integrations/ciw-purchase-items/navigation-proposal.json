@@ -1,0 +1,14 @@
+{
+  "parentScreen": "ciw.processos-compra-med",
+  "parentVersion": "1.0.2",
+  "childScreen": "ciw.proc-compra-itens",
+  "context": "proc_compra_id",
+  "homeChange": false,
+  "preservePayments": true,
+  "deferred": [
+    "form_itens_proc_compra_amostra",
+    "grid_anexos_proc_compra"
+  ],
+  "dateSuggestions": "server-on-save-when-inputs-change",
+  "virtualCalcGm": "not-persisted"
+}

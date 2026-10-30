@@ -1,0 +1,694 @@
+{
+  "entityDraft": {
+    "code": "procs_compra_med_progress",
+    "name": "Processos de Compra — MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 108,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "procs_compra_med_read",
+    "apiDetailOperationCode": "procs_compra_med_get",
+    "apiCreateOperationCode": "procs_compra_med_create",
+    "apiUpdateOperationCode": "procs_compra_med_update",
+    "apiDeleteOperationCode": "procs_compra_med_delete",
+    "fields": [
+      {
+        "code": "proc_compra_id",
+        "label": "Pedido",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "proc_compra_id",
+        "apiWritePath": "proc_compra_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "empresa_id",
+        "label": "Empresa MED",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "empresa_id",
+        "apiWritePath": "values.empresa_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "qt_container",
+        "label": "Quantidade de containers",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "qt_container",
+        "apiWritePath": "values.qt_container",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "cod_situacao",
+        "label": "Situação",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 30,
+        "apiJsonPath": "cod_situacao",
+        "apiWritePath": "values.cod_situacao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "editor": "dropdown",
+          "defaultValue": 1,
+          "options": [
+            {
+              "value": 1,
+              "text": "Aberto"
+            },
+            {
+              "value": 2,
+              "text": "Fechado"
+            },
+            {
+              "value": 3,
+              "text": "Cancelado"
+            }
+          ]
+        }
+      },
+      {
+        "code": "cod_proc_fornec",
+        "label": "Processo Fornec.",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 40,
+        "apiJsonPath": "cod_proc_fornec",
+        "apiWritePath": "values.cod_proc_fornec",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": ""
+        },
+        "length": 100
+      },
+      {
+        "code": "qt_dias_translado",
+        "label": "Qt.Dias Translado",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 50,
+        "apiJsonPath": "qt_dias_translado",
+        "apiWritePath": "values.qt_dias_translado",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "defaultValue": 0,
+          "min": 0,
+          "max": 9999
+        }
+      },
+      {
+        "code": "cotacao_prevista",
+        "label": "Cotação prevista",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "cotacao_prevista",
+        "apiWritePath": "values.cotacao_prevista",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "precision": 20,
+        "scale": 2
+      },
+      {
+        "code": "observacao",
+        "label": "Observação",
+        "dataType": "text",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 70,
+        "apiJsonPath": "observacao",
+        "apiWritePath": "values.observacao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "editor": "textarea",
+          "defaultValue": ""
+        },
+        "length": 16000
+      },
+      {
+        "code": "dt_registro",
+        "label": "Dt Registro",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 80,
+        "apiJsonPath": "dt_registro",
+        "apiWritePath": "values.dt_registro",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "fornecedor_id",
+        "label": "Fornecedor (código ERP)",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 90,
+        "apiJsonPath": "fornecedor_id",
+        "apiWritePath": "values.fornecedor_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "decimals": 0,
+          "format": "n0",
+          "defaultValue": 0,
+          "min": 0,
+          "max": 2147483647
+        }
+      },
+      {
+        "code": "dt_limite",
+        "label": "Dt.Limite",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 100,
+        "apiJsonPath": "dt_limite",
+        "apiWritePath": "values.dt_limite",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": null
+        }
+      },
+      {
+        "code": "log_facilid_contato_fornec",
+        "label": "Facilidade Contato Fornec?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 110,
+        "apiJsonPath": "log_facilid_contato_fornec",
+        "apiWritePath": "values.log_facilid_contato_fornec",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": true
+        }
+      },
+      {
+        "code": "log_considerar_previsao",
+        "label": "Integra Cta.Corren.Fornec.?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 120,
+        "apiJsonPath": "log_considerar_previsao",
+        "apiWritePath": "values.log_considerar_previsao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": true
+        }
+      },
+      {
+        "code": "nr_container_original",
+        "label": "Container Original",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": false,
+        "position": 130,
+        "apiJsonPath": "nr_container_original",
+        "apiWritePath": "values.nr_container_original",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "defaultValue": ""
+        },
+        "length": 20
+      },
+      {
+        "code": "row_stamp",
+        "label": "Controle de concorrência",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 140,
+        "apiJsonPath": "row_stamp",
+        "apiWritePath": "row_stamp",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "cd0108",
+    "programTitle": "Processos de Compra — MED",
+    "module": "cadastros",
+    "builderEntityCode": "procs_compra_med_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.processos-compra-med",
+    "version": "1.0.8",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": true,
+    "allowUpdate": true,
+    "allowDelete": true,
+    "permissionPrefix": "procs_compra_med_progress",
+    "subtitle": "Empresa MED. Pedido de importação, itens, pagamentos, anexos e despesas.",
+    "rowLinks": [
+      {
+        "id": "anexos",
+        "label": "Anexos",
+        "screenId": "ciw.proc-compra-documentos",
+        "parameters": [
+          {
+            "field": "proc_compra_id",
+            "sourceField": "proc_compra_id"
+          }
+        ],
+        "position": "end"
+      },
+      {
+        "id": "despesas",
+        "label": "Despesas",
+        "screenId": "ciw.proc-compra-despesas",
+        "parameters": [
+          {
+            "field": "proc_compra_id",
+            "sourceField": "proc_compra_id"
+          }
+        ],
+        "position": "end"
+      },
+      {
+        "id": "gerar_despesas",
+        "label": "Gerar despesas",
+        "screenId": "ciw.proc-compra-gerar-despesas",
+        "parameters": [
+          {
+            "field": "proc_compra_id",
+            "sourceField": "proc_compra_id"
+          }
+        ],
+        "position": "end"
+      },
+      {
+        "id": "resumo",
+        "label": "Resumo",
+        "screenId": "ciw.proc-compra-resumo",
+        "parameters": [
+          {
+            "field": "proc_compra_id",
+            "sourceField": "proc_compra_id"
+          }
+        ],
+        "position": "end"
+      },
+      {
+        "id": "calcular_impostos",
+        "label": "Calcular impostos",
+        "screenId": "ciw.proc-compra-calcular-impostos",
+        "parameters": [
+          {
+            "field": "proc_compra_id",
+            "sourceField": "proc_compra_id"
+          }
+        ],
+        "position": "end"
+      },
+      {
+        "id": "alertas",
+        "label": "Alertas",
+        "screenId": "ciw.proc-compra-alertas",
+        "parameters": [
+          {
+            "field": "proc_compra_id",
+            "sourceField": "proc_compra_id"
+          }
+        ],
+        "position": "end"
+      },
+      {
+        "id": "quantidades",
+        "label": "Quantidades",
+        "screenId": "ciw.proc-compra-quantidades",
+        "parameters": [
+          {
+            "field": "proc_compra_id",
+            "sourceField": "proc_compra_id"
+          }
+        ],
+        "position": "end"
+      }
+    ],
+    "contextFields": [],
+    "crudOptions": {
+      "pageSize": 50,
+      "defaultSort": [
+        {
+          "field": "proc_compra_id",
+          "dir": "desc"
+        }
+      ],
+      "gridFields": [
+        {
+          "field": "proc_compra_id"
+        },
+        {
+          "field": "empresa_id"
+        },
+        {
+          "field": "cod_situacao"
+        },
+        {
+          "field": "cod_proc_fornec"
+        },
+        {
+          "field": "qt_dias_translado"
+        },
+        {
+          "field": "dt_registro"
+        },
+        {
+          "field": "fornecedor_id"
+        },
+        {
+          "field": "dt_limite"
+        },
+        {
+          "field": "log_facilid_contato_fornec"
+        }
+      ],
+      "filterFields": [
+        "proc_compra_id",
+        "empresa_id",
+        "cod_situacao",
+        "cod_proc_fornec",
+        "qt_dias_translado",
+        "dt_registro",
+        "fornecedor_id",
+        "dt_limite",
+        "log_facilid_contato_fornec"
+      ]
+    },
+    "formOptions": {
+      "mode": "popup",
+      "tabs": [
+        {
+          "id": "principal",
+          "title": "Principal",
+          "sections": [
+            {
+              "id": "principal",
+              "title": "Pedido de importação",
+              "columns": 2,
+              "fields": [
+                "proc_compra_id",
+                "cod_situacao",
+                "empresa_id",
+                "dt_registro",
+                "cod_proc_fornec",
+                "nr_container_original",
+                "qt_dias_translado",
+                "fornecedor_id",
+                "dt_limite",
+                "log_facilid_contato_fornec",
+                "log_considerar_previsao"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "observacao",
+          "title": "Observação",
+          "sections": [
+            {
+              "id": "observacao",
+              "title": "Observação",
+              "columns": 1,
+              "fields": [
+                "observacao"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "itens",
+          "title": "Itens",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.proc-compra-itens",
+            "engine": "crud",
+            "hideHeader": false,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "proc_compra_id",
+                "sourceField": "proc_compra_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "pagamentos",
+          "title": "Pagamentos",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.proc-compra-pagamentos",
+            "engine": "crud",
+            "hideHeader": true,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "proc_compra_id",
+                "sourceField": "proc_compra_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "anexos",
+          "title": "Anexos",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.proc-compra-documentos",
+            "engine": "crud",
+            "hideHeader": false,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "proc_compra_id",
+                "sourceField": "proc_compra_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "despesas",
+          "title": "Despesas",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.proc-compra-despesas",
+            "engine": "crud",
+            "hideHeader": false,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "proc_compra_id",
+                "sourceField": "proc_compra_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "gerar_despesas",
+          "title": "Gerar despesas",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.proc-compra-gerar-despesas",
+            "engine": "process",
+            "hideHeader": false,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "proc_compra_id",
+                "sourceField": "proc_compra_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "resumo",
+          "title": "Resumo",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.proc-compra-resumo",
+            "engine": "crud",
+            "hideHeader": false,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "proc_compra_id",
+                "sourceField": "proc_compra_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "calcular_impostos",
+          "title": "Calcular impostos",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.proc-compra-calcular-impostos",
+            "engine": "process",
+            "hideHeader": false,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "proc_compra_id",
+                "sourceField": "proc_compra_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "alertas",
+          "title": "Alertas",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.proc-compra-alertas",
+            "engine": "crud",
+            "hideHeader": false,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "proc_compra_id",
+                "sourceField": "proc_compra_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        },
+        {
+          "id": "quantidades",
+          "title": "Quantidades",
+          "type": "linkedPage",
+          "linkedPage": {
+            "screenId": "ciw.proc-compra-quantidades",
+            "engine": "crud",
+            "hideHeader": false,
+            "requireRecord": true,
+            "filters": [
+              {
+                "field": "proc_compra_id",
+                "sourceField": "proc_compra_id",
+                "operator": "eq"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

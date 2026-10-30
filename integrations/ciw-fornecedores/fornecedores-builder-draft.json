@@ -1,0 +1,101 @@
+{
+  "entityDraft": {
+    "code": "fornecedores_consulta_progress",
+    "name": "Fornecedores",
+    "entityType": "api",
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 99,
+    "createPhysicalTable": false,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "fornecedores_read",
+    "apiDetailOperationCode": "fornecedores_get",
+    "fields": [
+      {
+        "code": "cod_emitente",
+        "label": "Código",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": true,
+        "position": 10,
+        "readonlyField": true,
+        "apiJsonPath": "cod_emitente",
+        "apiWritePath": "cod_emitente",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "nome_abrev",
+        "label": "Nome abreviado",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "position": 20,
+        "readonlyField": true,
+        "apiJsonPath": "nome_abrev",
+        "apiWritePath": "nome_abrev",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "nome_emit",
+        "label": "Nome",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "position": 30,
+        "readonlyField": true,
+        "apiJsonPath": "nome_emit",
+        "apiWritePath": "nome_emit",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "cd0099",
+    "programTitle": "Fornecedores",
+    "module": "cadastros",
+    "builderEntityCode": "fornecedores_consulta_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.fornecedores",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "permissionPrefix": "fornecedores_consulta_progress",
+    "subtitle": "Consulta do cadastro comum",
+    "crudOptions": {
+      "pageSize": 30,
+      "filterFields": [
+        "cod_emitente",
+        "nome_abrev",
+        "nome_emit"
+      ],
+      "defaultSort": [
+        {
+          "field": "cod_emitente",
+          "dir": "asc"
+        }
+      ]
+    }
+  }
+}

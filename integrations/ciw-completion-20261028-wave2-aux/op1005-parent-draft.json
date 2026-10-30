@@ -1,0 +1,221 @@
+{
+  "programCode": "op1005",
+  "programTitle": "Versões de Custo do Container",
+  "module": "operacional",
+  "pageType": "crud",
+  "builderEntityCode": "container_versoes_custo_progress",
+  "screenId": "ciw.container-versoes-custo",
+  "version": "1.0.2",
+  "subtitle": "Versões de Custo do Container",
+  "icon": null,
+  "permissionPrefix": "container_versoes_custo_progress",
+  "gridEditMode": "form",
+  "crudOptions": {
+    "pageSize": 30,
+    "gridFields": [
+      {
+        "field": "versao_id",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "dt_hr_versao",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "descricao",
+        "hidden": false,
+        "width": 280
+      },
+      {
+        "field": "situacao_descricao",
+        "hidden": false,
+        "width": 280
+      },
+      {
+        "field": "cod_usuario",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "vl_dolar_compra",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "vl_dolar_medio",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "vl_dolar_di",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "vl_desconto_utiliz_dolar",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "vl_desconto_utiliz_real",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "tipo_versao_id",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "desc_sit_container",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "vl_cotacao",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "data_ref_cotacao",
+        "hidden": false,
+        "width": 160
+      },
+      {
+        "field": "perc_fixo_container",
+        "hidden": false,
+        "width": 160
+      }
+    ],
+    "filterFields": [
+      "versao_id",
+      "dt_hr_versao",
+      "descricao",
+      "ind_sit_versao"
+    ],
+    "defaultSort": [
+      {
+        "field": "versao_id",
+        "dir": "asc"
+      }
+    ]
+  },
+  "processOptions": null,
+  "formOptions": null,
+  "rowLinks": [
+    {
+      "id": "itens_historicos",
+      "label": "Itens desta versão",
+      "screenId": "ciw.container-versao-itens-historico",
+      "parameters": [
+        {
+          "field": "container_id",
+          "sourceField": "container_id"
+        },
+        {
+          "field": "versao_id",
+          "sourceField": "versao_id"
+        }
+      ],
+      "position": "end"
+    },
+    {
+      "id": "payments_historicos",
+      "label": "Pagamentos históricos da versão",
+      "screenId": "ciw.container-versao-pagamentos-historico",
+      "parameters": [
+        {
+          "field": "container_id",
+          "sourceField": "container_id"
+        },
+        {
+          "field": "versao_id",
+          "sourceField": "versao_id"
+        }
+      ],
+      "position": "end"
+    },
+    {
+      "id": "nfs_historicos",
+      "label": "NFs históricas da versão",
+      "screenId": "ciw.container-versao-nfs-historico",
+      "parameters": [
+        {
+          "field": "container_id",
+          "sourceField": "container_id"
+        },
+        {
+          "field": "versao_id",
+          "sourceField": "versao_id"
+        }
+      ],
+      "position": "end"
+    },
+    {
+      "id": "discounts_historicos",
+      "label": "Descontos históricos da versão",
+      "screenId": "ciw.container-versao-descontos-historico",
+      "parameters": [
+        {
+          "field": "container_id",
+          "sourceField": "container_id"
+        },
+        {
+          "field": "versao_id",
+          "sourceField": "versao_id"
+        }
+      ],
+      "position": "end"
+    },
+    {
+      "id": "expenses_historicos",
+      "label": "Despesas históricas da versão",
+      "screenId": "ciw.container-versao-despesas-historico",
+      "parameters": [
+        {
+          "field": "container_id",
+          "sourceField": "container_id"
+        },
+        {
+          "field": "versao_id",
+          "sourceField": "versao_id"
+        }
+      ],
+      "position": "end"
+    }
+  ],
+  "contextFields": [
+    {
+      "field": "container_id",
+      "filter": true,
+      "createDefault": true,
+      "readonly": true,
+      "required": true
+    }
+  ],
+  "allowCreate": false,
+  "allowUpdate": false,
+  "allowDelete": false,
+  "changeSummary": null,
+  "programOrigin": "standard",
+  "ownerScope": "system",
+  "customizationPolicy": "overlay_only",
+  "subscriberId": null,
+  "baseProgramCode": null,
+  "baseProgramVersionId": null,
+  "upgradeFrozen": false,
+  "frozenReason": null,
+  "publicationPolicy": {
+    "allowedDatabaseEnvironments": []
+  },
+  "analyticsConfig": null,
+  "reportConfig": null,
+  "specialDocumentConfig": null,
+  "regulatedDocumentConfig": null,
+  "masterDetailConfig": null,
+  "customMode": null,
+  "customEntryUrl": null,
+  "customFrameTitle": null
+}

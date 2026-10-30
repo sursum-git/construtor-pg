@@ -1,0 +1,181 @@
+{
+  "providerType": "generic",
+  "code": "motor_progress_despesas",
+  "status": "active",
+  "baseUrl": "http://127.0.0.1:19910/med/web",
+  "authHeaders": {
+    "X-Despesas-Token": "__RUNTIME_SECRET__"
+  },
+  "authMode": "header_static",
+  "timeoutSeconds": 25,
+  "responseContract": "sursum-programs",
+  "operations": [
+    {
+      "method": "POST",
+      "type": "list",
+      "itemsPath": "data",
+      "path": "/SursumPrograms/despesas",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "despesas"
+      },
+      "code": "despesas_read",
+      "name": "despesas read"
+    },
+    {
+      "itemPath": "data",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/despesas",
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "despesas"
+      },
+      "code": "despesas_get",
+      "name": "despesas get"
+    },
+    {
+      "itemPath": "data",
+      "method": "POST",
+      "type": "create",
+      "path": "/SursumPrograms/despesas",
+      "bodyTemplate": {
+        "operation": "create",
+        "resource": "despesas"
+      },
+      "code": "despesas_create",
+      "name": "despesas create"
+    },
+    {
+      "itemPath": "data",
+      "method": "POST",
+      "type": "update",
+      "path": "/SursumPrograms/despesas",
+      "bodyTemplate": {
+        "operation": "update",
+        "resource": "despesas"
+      },
+      "code": "despesas_update",
+      "name": "despesas update"
+    },
+    {
+      "method": "POST",
+      "type": "delete",
+      "path": "/SursumPrograms/despesas",
+      "bodyTemplate": {
+        "operation": "delete",
+        "resource": "despesas"
+      },
+      "code": "despesas_delete",
+      "name": "despesas delete"
+    },
+    {
+      "method": "POST",
+      "type": "list",
+      "itemsPath": "data",
+      "path": "/SursumPrograms/despesas",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "empresas_despesa"
+      },
+      "code": "empresas_despesa_read",
+      "name": "empresas_despesa read"
+    },
+    {
+      "itemPath": "data",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/despesas",
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "empresas_despesa"
+      },
+      "code": "empresas_despesa_get",
+      "name": "empresas_despesa get"
+    },
+    {
+      "itemPath": "data",
+      "method": "POST",
+      "type": "create",
+      "path": "/SursumPrograms/despesas",
+      "bodyTemplate": {
+        "operation": "create",
+        "resource": "empresas_despesa"
+      },
+      "code": "empresas_despesa_create",
+      "name": "empresas_despesa create"
+    },
+    {
+      "itemPath": "data",
+      "method": "POST",
+      "type": "update",
+      "path": "/SursumPrograms/despesas",
+      "bodyTemplate": {
+        "operation": "update",
+        "resource": "empresas_despesa"
+      },
+      "code": "empresas_despesa_update",
+      "name": "empresas_despesa update"
+    },
+    {
+      "method": "POST",
+      "type": "delete",
+      "path": "/SursumPrograms/despesas",
+      "bodyTemplate": {
+        "operation": "delete",
+        "resource": "empresas_despesa"
+      },
+      "code": "empresas_despesa_delete",
+      "name": "empresas_despesa delete"
+    },
+    {
+      "method": "POST",
+      "type": "custom",
+      "itemsPath": "data",
+      "path": "/SursumPrograms/despesas",
+      "bodyTemplate": {
+        "operation": "opcoes_despesas",
+        "resource": "despesas"
+      },
+      "code": "opcoes_despesas",
+      "name": "opcoes_despesas"
+    },
+    {
+      "method": "POST",
+      "type": "custom",
+      "itemsPath": "data",
+      "path": "/SursumPrograms/despesas",
+      "bodyTemplate": {
+        "operation": "opcoes_impostos",
+        "resource": "despesas"
+      },
+      "code": "opcoes_impostos",
+      "name": "opcoes_impostos"
+    },
+    {
+      "method": "POST",
+      "type": "custom",
+      "itemsPath": "data",
+      "path": "/SursumPrograms/despesas",
+      "bodyTemplate": {
+        "operation": "opcoes_empresas",
+        "resource": "despesas"
+      },
+      "code": "opcoes_empresas",
+      "name": "opcoes_empresas"
+    },
+    {
+      "method": "POST",
+      "type": "custom",
+      "itemsPath": "data",
+      "path": "/SursumPrograms/despesas",
+      "bodyTemplate": {
+        "operation": "opcoes_custo",
+        "resource": "despesas"
+      },
+      "code": "opcoes_custo",
+      "name": "opcoes_custo"
+    }
+  ],
+  "name": "Motor Progress — Despesas"
+}

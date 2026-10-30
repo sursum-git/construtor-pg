@@ -1,0 +1,580 @@
+{
+  "entityDraft": {
+    "code": "descontos_importacao_geral_progress",
+    "name": "Descontos de importação — consulta geral",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1045,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "import_descontos_geral_read",
+    "apiDetailOperationCode": "import_descontos_geral_get",
+    "fields": [
+      {
+        "code": "record_key",
+        "label": "Chave da linha",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "record_key",
+        "apiWritePath": "record_key",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "length": 2048,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "desconto_importacao_id",
+        "label": "Desconto",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "desconto_importacao_id",
+        "apiWritePath": "desconto_importacao_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "motivo_desconto_id",
+        "label": "Motivo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "motivo_desconto_id",
+        "apiWritePath": "motivo_desconto_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "descricao",
+        "label": "Descrição",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "descricao",
+        "apiWritePath": "descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 4000
+      },
+      {
+        "code": "log_credito",
+        "label": "Crédito",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "log_credito",
+        "apiWritePath": "log_credito",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_dolar",
+        "label": "Valor USD",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "vl_dolar",
+        "apiWritePath": "vl_dolar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_real",
+        "label": "Valor BRL",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "vl_real",
+        "apiWritePath": "vl_real",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_cotacao_dolar",
+        "label": "Cotação USD",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 70,
+        "apiJsonPath": "vl_cotacao_dolar",
+        "apiWritePath": "vl_cotacao_dolar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "item_container_id",
+        "label": "Item do container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 80,
+        "apiJsonPath": "item_container_id",
+        "apiWritePath": "item_container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_tipo",
+        "label": "Tipo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 90,
+        "apiJsonPath": "cod_tipo",
+        "apiWritePath": "cod_tipo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 1,
+              "label": "Avulso"
+            },
+            {
+              "value": 2,
+              "label": "Vinculado ao item do Container"
+            }
+          ]
+        }
+      },
+      {
+        "code": "fornecedor_id",
+        "label": "Fornecedor",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 100,
+        "apiJsonPath": "fornecedor_id",
+        "apiWritePath": "fornecedor_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_real_autorizado",
+        "label": "Autorizado BRL",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 110,
+        "apiJsonPath": "vl_real_autorizado",
+        "apiWritePath": "vl_real_autorizado",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_dolar_autorizado",
+        "label": "Autorizado USD",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 120,
+        "apiJsonPath": "vl_dolar_autorizado",
+        "apiWritePath": "vl_dolar_autorizado",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "dt_autorizacao",
+        "label": "Data da autorização",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 130,
+        "apiJsonPath": "dt_autorizacao",
+        "apiWritePath": "dt_autorizacao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_utiliz",
+        "label": "Utilizado USD",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 140,
+        "apiJsonPath": "vl_utiliz",
+        "apiWritePath": "vl_utiliz",
+        "apiShowInGrid": true,
+        "apiShowInForm": false,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_utiliz_detalhe",
+        "label": "Utilizado USD — soma do detalhe",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 150,
+        "apiJsonPath": "vl_utiliz_detalhe",
+        "apiWritePath": "vl_utiliz_detalhe",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_saldo",
+        "label": "Saldo USD",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 160,
+        "apiJsonPath": "vl_saldo",
+        "apiWritePath": "vl_saldo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "item_codigo_erp_atual",
+        "label": "Código ERP atual do item",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 170,
+        "apiJsonPath": "item_codigo_erp_atual",
+        "apiWritePath": "item_codigo_erp_atual",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "item_descricao_atual",
+        "label": "Descrição atual do item",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 180,
+        "apiJsonPath": "item_descricao_atual",
+        "apiWritePath": "item_descricao_atual",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "fornecedor_nome_abrev_atual",
+        "label": "Nome atual do fornecedor",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 190,
+        "apiJsonPath": "fornecedor_nome_abrev_atual",
+        "apiWritePath": "fornecedor_nome_abrev_atual",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "motivo_descricao_atual",
+        "label": "Descrição atual do motivo",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 200,
+        "apiJsonPath": "motivo_descricao_atual",
+        "apiWritePath": "motivo_descricao_atual",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1045",
+    "programTitle": "Descontos de importação — consulta geral",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "descontos_importacao_geral_progress",
+    "screenId": "ciw.descontos-importacao-geral",
+    "version": "1.0.0",
+    "subtitle": "Consulta global da origem; detalhe preserva soma desconhecida.",
+    "permissionPrefix": "descontos_importacao_geral_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "rowLinks": [
+      {
+        "id": "utilizacao_desconto",
+        "label": "Utilização do desconto",
+        "screenId": "ciw.descontos-importacao-lancamentos",
+        "parameters": [
+          {
+            "field": "desconto_importacao_id",
+            "sourceField": "desconto_importacao_id"
+          }
+        ],
+        "position": "end"
+      }
+    ],
+    "contextFields": [],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "desconto_importacao_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "motivo_desconto_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "descricao",
+          "hidden": false,
+          "width": 320
+        },
+        {
+          "field": "log_credito",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_dolar",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_real",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_cotacao_dolar",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "item_container_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "cod_tipo",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "fornecedor_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_real_autorizado",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_dolar_autorizado",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "dt_autorizacao",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_utiliz",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_utiliz_detalhe",
+          "hidden": true,
+          "width": 160
+        },
+        {
+          "field": "vl_saldo",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "item_codigo_erp_atual",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "item_descricao_atual",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "fornecedor_nome_abrev_atual",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "motivo_descricao_atual",
+          "hidden": false,
+          "width": 160
+        }
+      ],
+      "filterFields": [
+        "desconto_importacao_id",
+        "motivo_desconto_id",
+        "descricao",
+        "log_credito",
+        "vl_dolar",
+        "vl_real",
+        "vl_cotacao_dolar",
+        "item_container_id",
+        "cod_tipo",
+        "fornecedor_id",
+        "vl_real_autorizado",
+        "vl_dolar_autorizado",
+        "dt_autorizacao",
+        "vl_utiliz",
+        "vl_utiliz_detalhe",
+        "vl_saldo",
+        "item_codigo_erp_atual",
+        "item_descricao_atual",
+        "fornecedor_nome_abrev_atual",
+        "motivo_descricao_atual"
+      ],
+      "defaultSort": [
+        {
+          "field": "desconto_importacao_id",
+          "dir": "desc"
+        }
+      ]
+    }
+  }
+}

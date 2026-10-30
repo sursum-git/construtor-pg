@@ -1,0 +1,97 @@
+{
+  "entityDraft": {
+    "code": "motivos_desconto_progress",
+    "name": "Motivos de desconto Progress",
+    "entityType": "api",
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 97,
+    "createPhysicalTable": false,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "motivos_desconto_read",
+    "apiDetailOperationCode": "motivos_desconto_get",
+    "apiCreateOperationCode": "motivos_desconto_create",
+    "apiUpdateOperationCode": "motivos_desconto_update",
+    "apiDeleteOperationCode": "motivos_desconto_delete",
+    "apiBatchOperationCode": "motivos_desconto_batch",
+    "fields": [
+      {
+        "code": "motivo_desconto_id",
+        "label": "ID",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "position": 10,
+        "readonlyField": true,
+        "apiJsonPath": "motivo_desconto_id",
+        "apiWritePath": "motivo_desconto_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "descricao",
+        "label": "Descrição",
+        "dataType": "string",
+        "required": false,
+        "position": 20,
+        "apiJsonPath": "descricao",
+        "apiWritePath": "descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "defaultValue": ""
+        },
+        "length": 100
+      },
+      {
+        "code": "log_considerar_custo",
+        "label": "Considerar no custo",
+        "dataType": "integer",
+        "required": false,
+        "position": 30,
+        "apiJsonPath": "log_considerar_custo",
+        "apiWritePath": "log_considerar_custo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "defaultValue": 0,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 0,
+              "text": "Não"
+            },
+            {
+              "value": 1,
+              "text": "Sim"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "cd0097",
+    "programTitle": "Motivos de desconto",
+    "module": "cadastros",
+    "builderEntityCode": "motivos_desconto_progress",
+    "pageType": "crud",
+    "gridEditMode": "batch",
+    "screenId": "ciw.motivos-desconto",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": true,
+    "allowUpdate": true,
+    "allowDelete": true,
+    "permissionPrefix": "motivos_desconto_progress",
+    "subtitle": "Cadastro CIW integrado ao Progress"
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "providerType": "generic",
+  "code": "motor_progress_container_itens",
+  "name": "Motor Progress — Manutenção e Alocação de Itens do Container",
+  "status": "active",
+  "baseUrl": "http://127.0.0.1:19910/med/web",
+  "authMode": "header_static",
+  "authHeaders": {
+    "X-Containers-Token": "__RUNTIME_SECRET__"
+  },
+  "timeoutSeconds": 25,
+  "responseContract": "sursum-programs",
+  "operations": [
+    {
+      "code": "itens_read",
+      "name": "Itens do Container — read",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-painel",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "itens"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "itens_get",
+      "name": "Itens do Container — get",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-painel",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "itens"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "itens_create",
+      "name": "Itens do Container — create",
+      "method": "POST",
+      "type": "create",
+      "path": "/SursumPrograms/containers-itens",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "create",
+        "resource": "container-itens"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "itens_update",
+      "name": "Itens do Container — update",
+      "method": "POST",
+      "type": "update",
+      "path": "/SursumPrograms/containers-itens",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "update",
+        "resource": "container-itens"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "itens_delete",
+      "name": "Itens do Container — delete",
+      "method": "POST",
+      "type": "delete",
+      "path": "/SursumPrograms/containers-itens",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "delete",
+        "resource": "container-itens"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "itens_disponiveis",
+      "name": "Itens do Container — disponiveis",
+      "method": "POST",
+      "type": "custom",
+      "path": "/SursumPrograms/containers-itens",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "itens-disponiveis"
+      },
+      "itemsPath": "data"
+    }
+  ]
+}

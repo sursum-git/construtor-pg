@@ -1,0 +1,14 @@
+{
+  "childScreen": "ciw.proc-compra-anexos",
+  "programCode": "op1019",
+  "childVersion": "1.0.0",
+  "itemVersion": "1.0.2",
+  "itemTabs": 7,
+  "sourceBefore": 73,
+  "sourceAfter": 79,
+  "homeChanged": false,
+  "physicalSnapshotFields": 7,
+  "actualOwnerInAudit": true,
+  "legacyStoredParentPreserved": true,
+  "newUploadMaxBytes": 20971520
+}

@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Processamento com opções dependentes</title>
+<link rel="stylesheet" href="../../kendo/styles/default-urban.css"><link rel="stylesheet" href="../../src/styles/crud-engine.css"><link rel="stylesheet" href="../../src/styles/process-engine.css"><link rel="stylesheet" href="../../src/styles/examples-guide.css">
+</head><body data-example-id="processamento-opcoes-dependentes">
+<main class="example-page-shell"><header class="example-page-header"><div><p class="example-kicker">Exemplo local</p><h1>Processamento com opções dependentes</h1><p>Escolha a ordenação, aguarde a lista e selecione as prioridades. O contexto é protegido.</p></div></header>
+<p>Os dois seletores recarregam as opções. Uma resposta antiga não substitui a seleção atual; enquanto a lista carrega, a execução fica suspensa.</p>
+<p>Confirmar simula somente o envio de uma seleção fictícia. Não calcula despesas, impostos nem grava dados de negócio.</p>
+<div id="dependent-options-process" class="crud-app-shell"></div>
+<p id="dependent-options-status" role="status"></p><details><summary>Último envio local</summary><pre id="dependent-options-payload"></pre></details>
+</main>
+<script src="../../vendor/jquery/jquery-4.0.0.min.js"></script><script src="../../kendo/js/kendo.all.min.js"></script><script src="../../kendo/kendo-license.js"></script><script src="../../kendo/js/cultures/kendo.culture.pt-BR.min.js"></script><script src="../../kendo/js/messages/kendo.messages.pt-BR.min.js"></script>
+<script src="../../src/crud-engine/CrudUtils.js"></script><script src="../../src/crud-engine/CrudConfigLoader.js"></script><script src="../../src/process-engine/ProcessDefinitionLoader.js"></script><script src="../../src/process-engine/ProcessDefinitionValidator.js"></script><script src="../../src/process-engine/ProcessEngine.js"></script>
+<script src="../../src/examples/process-dependent-options-example.js"></script>
+</body></html>

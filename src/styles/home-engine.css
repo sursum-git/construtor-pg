@@ -577,7 +577,7 @@
 
 .home-main {
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: min(var(--home-sidebar-width, 280px), 45vw) minmax(0, 1fr);
   min-height: 0;
   transition: grid-template-columns 0.16s ease;
 }
@@ -827,7 +827,7 @@
   }
 
   .home-main {
-    grid-template-columns: min(280px, 72vw) minmax(0, 1fr);
+    grid-template-columns: min(var(--home-sidebar-width, 280px), 72vw) minmax(0, 1fr);
   }
 
   .home-sidebar-collapsed .home-main {

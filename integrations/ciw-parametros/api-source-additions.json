@@ -1,0 +1,64 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "im_param_read",
+      "name": "Parâmetros IMA — read",
+      "type": "list",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "im_param"
+      },
+      "itemsPath": "data"
+    },
+    {
+      "code": "im_param_get",
+      "name": "Parâmetros IMA — get",
+      "type": "detail",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "im_param"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "im_param_create",
+      "name": "Parâmetros IMA — create",
+      "type": "create",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "create",
+        "resource": "im_param"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "im_param_update",
+      "name": "Parâmetros IMA — update",
+      "type": "update",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "update",
+        "resource": "im_param"
+      },
+      "itemPath": "data"
+    },
+    {
+      "code": "im_param_delete",
+      "name": "Parâmetros IMA — delete",
+      "type": "delete",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "delete",
+        "resource": "im_param"
+      }
+    }
+  ]
+}

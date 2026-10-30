@@ -1,0 +1,578 @@
+{
+  "entityDraft": {
+    "code": "proc_compra_quantidades_periodo_med_progress",
+    "name": "Quantidades Importadas por Período — MED",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureModuleCode": "operacional",
+    "structureType": "main",
+    "structureBaseNumber": 1030,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "proc_compra_quantidades_periodo_read",
+    "apiDetailOperationCode": "proc_compra_quantidades_periodo_get",
+    "apiCreateOperationCode": "",
+    "apiUpdateOperationCode": "",
+    "apiDeleteOperationCode": "",
+    "fields": [
+      {
+        "code": "record_key",
+        "label": "Chave da linha",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": false,
+        "readonlyField": true,
+        "position": 0,
+        "apiJsonPath": "record_key",
+        "apiWritePath": "record_key",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 2048
+      },
+      {
+        "code": "row_key",
+        "label": "Identidade da projeção",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 10,
+        "apiJsonPath": "row_key",
+        "apiWritePath": "row_key",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 64
+      },
+      {
+        "code": "empresa_id",
+        "label": "Empresa MED",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 20,
+        "apiJsonPath": "empresa_id",
+        "apiWritePath": "empresa_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "cod_situacao",
+        "label": "Situação do processo",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 30,
+        "apiJsonPath": "cod_situacao",
+        "apiWritePath": "cod_situacao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0",
+          "options": [
+            {
+              "value": 1,
+              "text": "Aberto"
+            },
+            {
+              "value": 2,
+              "text": "Suspenso"
+            },
+            {
+              "value": 3,
+              "text": "Fechado"
+            }
+          ]
+        }
+      },
+      {
+        "code": "pedido_fornec",
+        "label": "Pedido fornecedor",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 40,
+        "apiJsonPath": "pedido_fornec",
+        "apiWritePath": "pedido_fornec",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 512
+      },
+      {
+        "code": "vl_negociado",
+        "label": "Preço negociado",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 50,
+        "apiJsonPath": "vl_negociado",
+        "apiWritePath": "vl_negociado",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 4,
+          "format": "n4"
+        }
+      },
+      {
+        "code": "qt_comprada",
+        "label": "Qt. comprada original",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 60,
+        "apiJsonPath": "qt_comprada",
+        "apiWritePath": "qt_comprada",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2"
+        }
+      },
+      {
+        "code": "qt_confirmada_embarque",
+        "label": "Qt. confirmada embarque",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 70,
+        "apiJsonPath": "qt_confirmada_embarque",
+        "apiWritePath": "qt_confirmada_embarque",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2"
+        }
+      },
+      {
+        "code": "qt_recbto_fisico",
+        "label": "Qt. recebimento físico",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 80,
+        "apiJsonPath": "qt_recbto_fisico",
+        "apiWritePath": "qt_recbto_fisico",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2"
+        }
+      },
+      {
+        "code": "qt_rec_final",
+        "label": "Qt. recebida final",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 90,
+        "apiJsonPath": "qt_rec_final",
+        "apiWritePath": "qt_rec_final",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2"
+        }
+      },
+      {
+        "code": "vl_rec_final",
+        "label": "Valor recebido final",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 100,
+        "apiJsonPath": "vl_rec_final",
+        "apiWritePath": "vl_rec_final",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2"
+        }
+      },
+      {
+        "code": "qt_comprada_final",
+        "label": "Qt. comprada final",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 110,
+        "apiJsonPath": "qt_comprada_final",
+        "apiWritePath": "qt_comprada_final",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2"
+        }
+      },
+      {
+        "code": "vl_comprada_final",
+        "label": "Valor comprado final",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 120,
+        "apiJsonPath": "vl_comprada_final",
+        "apiWritePath": "vl_comprada_final",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 2,
+          "format": "n2"
+        }
+      },
+      {
+        "code": "nr_container",
+        "label": "Container",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 130,
+        "apiJsonPath": "nr_container",
+        "apiWritePath": "nr_container",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 512
+      },
+      {
+        "code": "situacao_container",
+        "label": "Código situação container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 140,
+        "apiJsonPath": "situacao_container",
+        "apiWritePath": "situacao_container",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0"
+        }
+      },
+      {
+        "code": "dt_registro",
+        "label": "Data do processo",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 150,
+        "apiJsonPath": "dt_registro",
+        "apiWritePath": "dt_registro",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_recebimento",
+        "label": "Recebimento container",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 160,
+        "apiJsonPath": "dt_recebimento",
+        "apiWritePath": "dt_recebimento",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_prev_chegada",
+        "label": "Previsão de chegada",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 170,
+        "apiJsonPath": "dt_prev_chegada",
+        "apiWritePath": "dt_prev_chegada",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "codigo_erp",
+        "label": "Código ERP",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 180,
+        "apiJsonPath": "codigo_erp",
+        "apiWritePath": "codigo_erp",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 512
+      },
+      {
+        "code": "desc_item_fornec",
+        "label": "Descrição do item",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 190,
+        "apiJsonPath": "desc_item_fornec",
+        "apiWritePath": "desc_item_fornec",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 512
+      },
+      {
+        "code": "desc_situacao_container",
+        "label": "Situação do container",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "position": 200,
+        "apiJsonPath": "desc_situacao_container",
+        "apiWritePath": "desc_situacao_container",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "length": 512
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1030",
+    "programTitle": "Quantidades Importadas por Período — MED",
+    "module": "operacional",
+    "builderEntityCode": "proc_compra_quantidades_periodo_med_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.quantidades-importadas-periodo-med",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "permissionPrefix": "proc_compra_quantidades_periodo_med_progress",
+    "subtitle": "MED. Regra de períodos original do Scriptcase. Para datas, use Igual ou Entre.",
+    "rowLinks": [],
+    "contextFields": [],
+    "crudOptions": {
+      "defaultSort": [
+        {
+          "field": "pedido_fornec",
+          "dir": "asc"
+        },
+        {
+          "field": "codigo_erp",
+          "dir": "asc"
+        }
+      ],
+      "gridFields": [
+        {
+          "field": "cod_situacao"
+        },
+        {
+          "field": "pedido_fornec"
+        },
+        {
+          "field": "vl_negociado"
+        },
+        {
+          "field": "qt_comprada"
+        },
+        {
+          "field": "qt_rec_final"
+        },
+        {
+          "field": "vl_rec_final"
+        },
+        {
+          "field": "qt_comprada_final"
+        },
+        {
+          "field": "vl_comprada_final"
+        },
+        {
+          "field": "nr_container"
+        },
+        {
+          "field": "dt_registro"
+        },
+        {
+          "field": "dt_recebimento"
+        },
+        {
+          "field": "dt_prev_chegada"
+        },
+        {
+          "field": "codigo_erp"
+        },
+        {
+          "field": "desc_item_fornec"
+        },
+        {
+          "field": "desc_situacao_container"
+        }
+      ],
+      "filterFields": [
+        "dt_registro",
+        "dt_recebimento",
+        "dt_prev_chegada",
+        "pedido_fornec",
+        "codigo_erp",
+        "desc_item_fornec",
+        "nr_container",
+        "cod_situacao"
+      ]
+    },
+    "formOptions": {
+      "mode": "popup",
+      "tabs": [
+        {
+          "id": "origem",
+          "title": "Origem",
+          "sections": [
+            {
+              "id": "registro",
+              "title": "Projeção da consulta original — MED",
+              "columns": 2,
+              "fields": [
+                "empresa_id",
+                "cod_situacao",
+                "pedido_fornec",
+                "nr_container",
+                "situacao_container",
+                "dt_registro",
+                "dt_recebimento",
+                "dt_prev_chegada",
+                "codigo_erp",
+                "desc_item_fornec",
+                "desc_situacao_container"
+              ]
+            }
+          ]
+        },
+        {
+          "id": "quantidades",
+          "title": "Quantidades e valores",
+          "sections": [
+            {
+              "id": "valores",
+              "title": "Quantidades e valores — linhas distintas da consulta original",
+              "columns": 2,
+              "fields": [
+                "vl_negociado",
+                "qt_comprada",
+                "qt_confirmada_embarque",
+                "qt_recbto_fisico",
+                "qt_rec_final",
+                "vl_rec_final",
+                "qt_comprada_final",
+                "vl_comprada_final"
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

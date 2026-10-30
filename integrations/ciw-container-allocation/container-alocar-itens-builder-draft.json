@@ -1,0 +1,100 @@
+{
+  "entityDraft": {
+    "code": "container_alocacao_progress",
+    "name": "Alocação de itens do container",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1025,
+    "apiSourceCode": "motor_progress_container_alocacao",
+    "apiListOperationCode": "painel_read",
+    "apiDetailOperationCode": "painel_get",
+    "fields": [
+      {
+        "code": "container_id",
+        "label": "Nr.Container",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": true,
+        "readonlyField": true,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 10,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "decimals": 0,
+          "format": "n0",
+          "min": 1,
+          "max": 2147483647
+        }
+      },
+      {
+        "code": "item_ids",
+        "label": "Itens dos processos de compra",
+        "dataType": "json",
+        "primaryKey": false,
+        "required": true,
+        "readonlyField": false,
+        "position": 20,
+        "apiJsonPath": "item_ids",
+        "apiWritePath": "item_ids",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": false,
+          "writable": true,
+          "api": {
+            "collection": {
+              "itemType": "integer"
+            },
+            "optionsSource": {
+              "operationCode": "itens_alocacao_disponiveis",
+              "valueField": "item_proc_compra_id",
+              "textField": "label"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1025",
+    "programTitle": "Alocar itens ao container",
+    "module": "operacional",
+    "pageType": "process",
+    "builderEntityCode": "container_alocacao_progress",
+    "screenId": "ciw.container-alocar-itens",
+    "version": "1.0.0",
+    "subtitle": "Selecione até 25 itens. Será alocado o saldo disponível integral de cada item; itens já vinculados serão preservados. As regras fiscais e financeiras e os logs são aplicados em uma única transação.",
+    "permissionPrefix": "op1025",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "contextFields": [
+      {
+        "field": "container_id",
+        "required": true,
+        "readonly": true
+      }
+    ],
+    "processOptions": {
+      "operationCode": "allocate",
+      "parameterFields": [
+        "item_ids"
+      ],
+      "confirmation": {
+        "message": "Alocar o saldo disponível dos itens selecionados neste container? Impostos e efeitos financeiros serão recalculados pelas rotinas existentes. Se algum item falhar, todo o lote será cancelado. As alterações serão registradas com usuário e valores anteriores e atuais.",
+        "confirmText": "Alocar itens"
+      }
+    },
+    "changeSummary": "Seleção múltipla nativa, saldo validado sob bloqueio, manutenção compartilhada e transação única com logs completos."
+  }
+}

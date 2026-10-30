@@ -1,0 +1,556 @@
+{
+  "entityDraft": {
+    "code": "container_versoes_custo_progress",
+    "name": "Versões de Custo do Container",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1005,
+    "apiSourceCode": "motor_progress_container_painel",
+    "apiListOperationCode": "versoes_read",
+    "apiDetailOperationCode": "versoes_get",
+    "fields": [
+      {
+        "code": "versao_id",
+        "label": "Versão",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": true,
+        "readonlyField": true,
+        "apiJsonPath": "versao_id",
+        "apiWritePath": "versao_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 10,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_hr_versao",
+        "label": "Data/hora da versão",
+        "dataType": "datetime",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dt_hr_versao",
+        "apiWritePath": "dt_hr_versao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 20,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_usuario",
+        "label": "Usuário",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_usuario",
+        "apiWritePath": "cod_usuario",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 30,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "descricao",
+        "label": "Descrição",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "descricao",
+        "apiWritePath": "descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 40,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "ind_sit_versao",
+        "label": "Código da situação",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "ind_sit_versao",
+        "apiWritePath": "ind_sit_versao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 50,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_dolar_compra",
+        "label": "Vl Dolar Compra",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_dolar_compra",
+        "apiWritePath": "vl_dolar_compra",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 60,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_desconto_utiliz_dolar",
+        "label": "Desconto utilizado (US$)",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_desconto_utiliz_dolar",
+        "apiWritePath": "vl_desconto_utiliz_dolar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 70,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_desconto_utiliz_real",
+        "label": "Desconto utilizado (R$)",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_desconto_utiliz_real",
+        "apiWritePath": "vl_desconto_utiliz_real",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 80,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "tipo_versao_id",
+        "label": "Tipo da versão",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "tipo_versao_id",
+        "apiWritePath": "tipo_versao_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 90,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "container_id",
+        "label": "Nr.Container",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 100,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_dolar_medio",
+        "label": "Dólar médio",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_dolar_medio",
+        "apiWritePath": "vl_dolar_medio",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 110,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "vl_dolar_di",
+        "label": "vl dolar di",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_dolar_di",
+        "apiWritePath": "vl_dolar_di",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 120,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "usuario_id",
+        "label": "ID do usuário",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "usuario_id",
+        "apiWritePath": "usuario_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 130,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "log_gerar_saldo_a_pagar",
+        "label": "log gerar saldo a pagar",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "log_gerar_saldo_a_pagar",
+        "apiWritePath": "log_gerar_saldo_a_pagar",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 140,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "log_gerar_distr_custo",
+        "label": "log gerar distr custo",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "log_gerar_distr_custo",
+        "apiWritePath": "log_gerar_distr_custo",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 150,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "situacao_container_id",
+        "label": "Código Sit.Acompanhamento",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "situacao_container_id",
+        "apiWritePath": "situacao_container_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 160,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "desc_sit_container",
+        "label": "Situação do container na versão",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "desc_sit_container",
+        "apiWritePath": "desc_sit_container",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 170,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_tipo_cotacao",
+        "label": "Tipo de cotação",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_tipo_cotacao",
+        "apiWritePath": "cod_tipo_cotacao",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 180,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_cotacao",
+        "label": "Cotação",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_cotacao",
+        "apiWritePath": "vl_cotacao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 190,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "data_ref_cotacao",
+        "label": "Referência da cotação",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "data_ref_cotacao",
+        "apiWritePath": "data_ref_cotacao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 200,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "perc_fixo_container",
+        "label": "Percentual fixo do container",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "perc_fixo_container",
+        "apiWritePath": "perc_fixo_container",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 210,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 2
+      },
+      {
+        "code": "hist_dolar",
+        "label": "Histórico do dólar",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "hist_dolar",
+        "apiWritePath": "hist_dolar",
+        "apiShowInGrid": false,
+        "apiShowInForm": false,
+        "apiShowInFilter": false,
+        "position": 220,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "situacao_descricao",
+        "label": "Situação da versão",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "situacao_descricao",
+        "apiWritePath": "situacao_descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 230,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1005",
+    "programTitle": "Versões de Custo do Container",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "container_versoes_custo_progress",
+    "screenId": "ciw.container-versoes-custo",
+    "version": "1.0.0",
+    "subtitle": "Versões de Custo do Container",
+    "permissionPrefix": "container_versoes_custo_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "container_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "versao_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "dt_hr_versao",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "descricao",
+          "hidden": false,
+          "width": 280
+        },
+        {
+          "field": "situacao_descricao",
+          "hidden": false,
+          "width": 280
+        },
+        {
+          "field": "cod_usuario",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_dolar_compra",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_dolar_medio",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_dolar_di",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_desconto_utiliz_dolar",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_desconto_utiliz_real",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "tipo_versao_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "desc_sit_container",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_cotacao",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "data_ref_cotacao",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "perc_fixo_container",
+          "hidden": false,
+          "width": 160
+        }
+      ],
+      "filterFields": [
+        "versao_id",
+        "dt_hr_versao",
+        "descricao",
+        "ind_sit_versao"
+      ],
+      "defaultSort": [
+        {
+          "field": "versao_id",
+          "dir": "asc"
+        }
+      ]
+    }
+  }
+}

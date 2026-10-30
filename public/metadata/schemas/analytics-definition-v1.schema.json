@@ -3,58 +3,157 @@
   "$id": "https://construtor-pg.local/metadata/schemas/analytics-definition-v1.schema.json",
   "title": "Analytics Definition v1",
   "type": "object",
-  "required": ["schemaVersion", "pageType", "screenId", "program", "analytics"],
+  "required": [
+    "schemaVersion",
+    "pageType",
+    "screenId",
+    "program",
+    "analytics"
+  ],
   "properties": {
-    "schemaVersion": { "type": "string" },
-    "pageType": { "const": "analytics" },
-    "screenId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
+    "schemaVersion": {
+      "type": "string"
+    },
+    "pageType": {
+      "const": "analytics"
+    },
+    "screenId": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]+$"
+    },
     "program": {
       "type": "object",
-      "required": ["id", "title"],
+      "required": [
+        "id",
+        "title"
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "module": { "type": "string" },
-        "title": { "type": "string" },
-        "version": { "type": "string" },
-        "subtitle": { "type": "string" },
-        "icon": { "type": "string" },
-        "permission": { "type": ["string", "boolean", "null"] }
+        "id": {
+          "type": "string"
+        },
+        "module": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "subtitle": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string"
+        },
+        "permission": {
+          "type": [
+            "string",
+            "boolean",
+            "null"
+          ]
+        }
       },
       "additionalProperties": true
     },
-    "permissions": { "type": "object" },
+    "permissions": {
+      "type": "object"
+    },
     "dataSource": {
       "type": "object",
       "properties": {
-        "api": { "$ref": "#/$defs/endpointMap" }
+        "api": {
+          "$ref": "#/$defs/endpointMap"
+        }
       },
       "additionalProperties": true
     },
-    "api": { "$ref": "#/$defs/endpointMap" },
+    "api": {
+      "$ref": "#/$defs/endpointMap"
+    },
     "analytics": {
       "type": "object",
-      "required": ["datasets", "views"],
+      "required": [
+        "datasets",
+        "views"
+      ],
       "properties": {
-        "version": { "type": "string" },
-        "endpoints": { "$ref": "#/$defs/endpointMap" },
-        "audit": { "$ref": "#/$defs/auditPolicy" },
+        "version": {
+          "type": "string"
+        },
+        "endpoints": {
+          "$ref": "#/$defs/endpointMap"
+        },
+        "audit": {
+          "$ref": "#/$defs/auditPolicy"
+        },
         "semanticPipelines": {
           "type": "array",
-          "items": { "$ref": "#/$defs/semanticPipeline" }
+          "items": {
+            "$ref": "#/$defs/semanticPipeline"
+          }
         },
         "ingestionPipelines": {
           "type": "array",
-          "items": { "$ref": "#/$defs/ingestionPipelineStub" }
+          "items": {
+            "$ref": "#/$defs/ingestionPipelineStub"
+          }
         },
         "datasets": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/dataset" }
+          "items": {
+            "$ref": "#/$defs/dataset"
+          }
         },
         "views": {
           "type": "array",
           "minItems": 1,
-          "items": { "$ref": "#/$defs/view" }
+          "items": {
+            "$ref": "#/$defs/view"
+          }
+        },
+        "presentation": {
+          "type": "object",
+          "required": [
+            "mode"
+          ],
+          "properties": {
+            "mode": {
+              "const": "dashboard"
+            }
+          },
+          "additionalProperties": false
+        },
+        "navigationHosts": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9.-]+$"
+          }
+        },
+        "navigation": {
+          "type": "object",
+          "maxProperties": 50,
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "label",
+              "url"
+            ],
+            "properties": {
+              "label": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "url": {
+                "type": "string",
+                "pattern": "^https://"
+              }
+            },
+            "additionalProperties": false
+          }
         }
       },
       "additionalProperties": false
@@ -65,13 +164,28 @@
       "type": "object",
       "additionalProperties": {
         "oneOf": [
-          { "type": "string" },
+          {
+            "type": "string"
+          },
           {
             "type": "object",
             "properties": {
-              "endpointId": { "type": "string" },
-              "actionId": { "type": "string" },
-              "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] }
+              "endpointId": {
+                "type": "string"
+              },
+              "actionId": {
+                "type": "string"
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "GET",
+                  "POST",
+                  "PUT",
+                  "PATCH",
+                  "DELETE"
+                ]
+              }
             },
             "additionalProperties": false
           }
@@ -80,28 +194,76 @@
     },
     "dataset": {
       "type": "object",
-      "required": ["id", "source"],
+      "required": [
+        "id",
+        "source"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
-        "title": { "type": "string" },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "title": {
+          "type": "string"
+        },
         "source": {
           "oneOf": [
             {
               "type": "object",
-              "required": ["type", "entityCode"],
+              "required": [
+                "type",
+                "entityCode"
+              ],
               "properties": {
-                "type": { "enum": ["entity", "persistence"] },
-                "entityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }
+                "type": {
+                  "enum": [
+                    "entity",
+                    "persistence"
+                  ]
+                },
+                "entityCode": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                }
               },
               "additionalProperties": false
             },
             {
               "type": "object",
-              "required": ["type", "pipelineId", "publishedDatasetId"],
+              "required": [
+                "type",
+                "pipelineId",
+                "publishedDatasetId"
+              ],
               "properties": {
-                "type": { "const": "pipeline_published" },
-                "pipelineId": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-                "publishedDatasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" }
+                "type": {
+                  "const": "pipeline_published"
+                },
+                "pipelineId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                },
+                "publishedDatasetId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9_.:-]+$"
+                }
+              },
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "required": [
+                "type",
+                "entityCode"
+              ],
+              "properties": {
+                "type": {
+                  "const": "api"
+                },
+                "entityCode": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+                }
               },
               "additionalProperties": false
             }
@@ -111,32 +273,101 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["id", "entityCode", "localField", "foreignField"],
+            "required": [
+              "id",
+              "entityCode",
+              "localField",
+              "foreignField"
+            ],
             "properties": {
-              "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-              "type": { "enum": ["left", "inner"] },
-              "source": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-              "entityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-              "localField": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-              "foreignField": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" }
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "type": {
+                "enum": [
+                  "left",
+                  "inner"
+                ]
+              },
+              "source": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "entityCode": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "localField": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "foreignField": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              }
             },
             "additionalProperties": false
           }
         },
-        "fields": { "type": "array", "items": { "$ref": "#/$defs/fieldRef" } },
-        "dimensions": { "type": "array", "items": { "$ref": "#/$defs/fieldRef" } },
-        "measures": { "type": "array", "items": { "$ref": "#/$defs/measure" } },
-        "parameters": { "type": "array", "items": { "$ref": "#/$defs/parameter" } },
-        "filters": { "$ref": "#/$defs/filterGroup" },
-        "defaultSort": { "type": "array", "items": { "$ref": "#/$defs/sort" } },
-        "limit": { "type": "integer", "minimum": 1, "maximum": 5000 },
-        "executionMode": { "enum": ["live", "cached", "auto"] },
-        "allowLiveFallback": { "type": "boolean" },
-        "audit": { "$ref": "#/$defs/auditPolicy" },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fieldRef"
+          }
+        },
+        "dimensions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/fieldRef"
+          }
+        },
+        "measures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/measure"
+          }
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/parameter"
+          }
+        },
+        "filters": {
+          "$ref": "#/$defs/filterGroup"
+        },
+        "defaultSort": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sort"
+          }
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5000
+        },
+        "executionMode": {
+          "enum": [
+            "live",
+            "cached",
+            "auto"
+          ]
+        },
+        "allowLiveFallback": {
+          "type": "boolean"
+        },
+        "audit": {
+          "$ref": "#/$defs/auditPolicy"
+        },
         "cache": {
           "type": "object",
           "properties": {
-            "ttlSeconds": { "type": "integer", "minimum": 0 }
+            "ttlSeconds": {
+              "type": "integer",
+              "minimum": 0
+            }
           },
           "additionalProperties": false
         }
@@ -145,17 +376,36 @@
     },
     "fieldRef": {
       "oneOf": [
-        { "type": "string" },
+        {
+          "type": "string"
+        },
         {
           "type": "object",
-          "required": ["field"],
+          "required": [
+            "field"
+          ],
           "properties": {
-            "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-            "source": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-            "field": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)?$" },
-            "label": { "type": "string" },
-            "type": { "type": "string" },
-            "format": { "type": "string" }
+            "id": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            },
+            "source": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            },
+            "field": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)?$"
+            },
+            "label": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            },
+            "format": {
+              "type": "string"
+            }
           },
           "additionalProperties": false
         }
@@ -163,42 +413,96 @@
     },
     "measure": {
       "type": "object",
-      "required": ["id", "aggregate"],
+      "required": [
+        "id",
+        "aggregate"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-        "source": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-        "field": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)?$" },
-        "label": { "type": "string" },
-        "aggregate": { "enum": ["count", "sum", "avg", "min", "max", "distinct_count"] },
-        "format": { "type": "string" }
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "field": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)?$"
+        },
+        "label": {
+          "type": "string"
+        },
+        "aggregate": {
+          "enum": [
+            "count",
+            "sum",
+            "avg",
+            "min",
+            "max",
+            "distinct_count"
+          ]
+        },
+        "format": {
+          "type": "string"
+        }
       },
       "additionalProperties": false
     },
     "parameter": {
       "type": "object",
-      "required": ["id", "field"],
+      "required": [
+        "id",
+        "field"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-        "source": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-        "field": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)?$" },
-        "label": { "type": "string" },
-        "type": { "type": "string" },
-        "operator": { "$ref": "#/$defs/operator" },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "source": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "field": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)?$"
+        },
+        "label": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "operator": {
+          "$ref": "#/$defs/operator"
+        },
         "defaultValue": {},
-        "options": { "type": "array" }
+        "options": {
+          "type": "array"
+        }
       },
       "additionalProperties": false
     },
     "filterGroup": {
       "type": "object",
       "properties": {
-        "logic": { "enum": ["and", "or"] },
+        "logic": {
+          "enum": [
+            "and",
+            "or"
+          ]
+        },
         "filters": {
           "type": "array",
           "items": {
             "oneOf": [
-              { "$ref": "#/$defs/filterGroup" },
-              { "$ref": "#/$defs/filter" }
+              {
+                "$ref": "#/$defs/filterGroup"
+              },
+              {
+                "$ref": "#/$defs/filter"
+              }
             ]
           }
         }
@@ -207,137 +511,381 @@
     },
     "filter": {
       "type": "object",
-      "required": ["field", "operator"],
+      "required": [
+        "field",
+        "operator"
+      ],
       "properties": {
-        "source": { "type": "string" },
-        "field": { "type": "string" },
-        "operator": { "$ref": "#/$defs/operator" },
+        "source": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "operator": {
+          "$ref": "#/$defs/operator"
+        },
         "value": {}
       },
       "additionalProperties": false
     },
     "operator": {
-      "enum": ["eq", "neq", "contains", "notcontains", "startswith", "endswith", "in", "between", "range", "gte", "lte", "gt", "lt", "isnull", "isnotnull", "relative_date", "relativedate"]
+      "enum": [
+        "eq",
+        "neq",
+        "contains",
+        "notcontains",
+        "startswith",
+        "endswith",
+        "in",
+        "between",
+        "range",
+        "gte",
+        "lte",
+        "gt",
+        "lt",
+        "isnull",
+        "isnotnull",
+        "relative_date",
+        "relativedate"
+      ]
     },
     "sort": {
       "type": "object",
-      "required": ["field"],
+      "required": [
+        "field"
+      ],
       "properties": {
-        "field": { "type": "string" },
-        "dir": { "enum": ["asc", "desc"] }
+        "field": {
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "asc",
+            "desc"
+          ]
+        }
       },
       "additionalProperties": false
     },
     "auditPolicy": {
       "type": "object",
       "properties": {
-        "enabled": { "type": "boolean" },
-        "includeCacheHits": { "type": "boolean" }
+        "enabled": {
+          "type": "boolean"
+        },
+        "includeCacheHits": {
+          "type": "boolean"
+        }
       },
       "additionalProperties": false
     },
     "view": {
       "type": "object",
-      "required": ["id", "type", "datasetId"],
+      "required": [
+        "id",
+        "type",
+        "datasetId"
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "type": { "enum": ["grid", "pivot", "chart", "kpi", "dashboard"] },
-        "title": { "type": "string" },
-        "datasetId": { "type": "string" },
-        "categoryField": { "type": "string" },
-        "valueField": { "type": "string" },
-        "seriesType": { "type": "string" },
-        "valueFormat": { "type": "string" },
-        "tiles": { "type": "array" }
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "grid",
+            "pivot",
+            "chart",
+            "kpi",
+            "dashboard"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "datasetId": {
+          "type": "string"
+        },
+        "categoryField": {
+          "type": "string"
+        },
+        "valueField": {
+          "type": "string"
+        },
+        "seriesType": {
+          "type": "string"
+        },
+        "valueFormat": {
+          "type": "string"
+        },
+        "tiles": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/dashboardTile"
+          }
+        }
       },
       "additionalProperties": true
     },
     "semanticPipeline": {
       "type": "object",
-      "required": ["id", "title", "steps", "publishConfig"],
+      "required": [
+        "id",
+        "title",
+        "steps",
+        "publishConfig"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-        "title": { "type": "string" },
-        "enabled": { "type": "boolean" },
-        "sourceEntityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-        "sourceDatasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
-        "sourcePipelineId": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "sourceEntityCode": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "sourceDatasetId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "sourcePipelineId": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
         "steps": {
           "type": "array",
-          "items": { "$ref": "#/$defs/pipelineStep" }
+          "items": {
+            "$ref": "#/$defs/pipelineStep"
+          }
         },
         "publishConfig": {
           "type": "object",
-          "required": ["publishedDatasetId"],
+          "required": [
+            "publishedDatasetId"
+          ],
           "properties": {
-            "publishedDatasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
-            "title": { "type": "string" },
-            "visibility": { "enum": ["internal", "shared"] },
-            "compatibilityMode": { "enum": ["warn", "block"] }
+            "publishedDatasetId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.:-]+$"
+            },
+            "title": {
+              "type": "string"
+            },
+            "visibility": {
+              "enum": [
+                "internal",
+                "shared"
+              ]
+            },
+            "compatibilityMode": {
+              "enum": [
+                "warn",
+                "block"
+              ]
+            }
           },
           "additionalProperties": false
         },
-        "schedule": { "type": "object", "additionalProperties": true },
-        "retention": { "type": "object", "additionalProperties": true }
+        "schedule": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "retention": {
+          "type": "object",
+          "additionalProperties": true
+        }
       },
       "additionalProperties": false
     },
     "pipelineStep": {
       "type": "object",
-      "required": ["id", "type"],
+      "required": [
+        "id",
+        "type"
+      ],
       "properties": {
-        "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-        "type": { "enum": ["source", "select", "filter", "having", "join", "derive", "group", "sort", "limit", "union", "union_all", "intersect", "except", "publish"] },
-        "sourceEntityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-        "sourceDatasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
-        "sourcePipelineId": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-        "publishedDatasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
-        "title": { "type": "string" },
-        "field": { "type": "string" },
-        "operation": { "type": "string" },
-        "targetField": { "type": "string" },
-        "sourceField": { "type": "string" },
-        "separator": { "type": "string" },
-        "bucket": { "enum": ["year", "quarter", "month", "week", "day"] },
-        "joinType": { "enum": ["left", "inner"] },
-        "localField": { "type": "string" },
-        "foreignField": { "type": "string" },
-        "datasetId": { "type": "string", "pattern": "^[A-Za-z0-9_.:-]+$" },
-        "entityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-        "defaultLabel": { "type": "string" },
-        "dir": { "enum": ["asc", "desc"] },
-        "take": { "type": "integer", "minimum": 0, "maximum": 5000 },
-        "skip": { "type": "integer", "minimum": 0, "maximum": 5000 },
-        "limit": { "type": "integer", "minimum": 0, "maximum": 5000 },
-        "start": { "type": "integer", "minimum": 0, "maximum": 5000 },
-        "length": { "type": "integer", "minimum": 0, "maximum": 5000 },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "type": {
+          "enum": [
+            "source",
+            "select",
+            "filter",
+            "having",
+            "join",
+            "derive",
+            "group",
+            "sort",
+            "limit",
+            "union",
+            "union_all",
+            "intersect",
+            "except",
+            "publish"
+          ]
+        },
+        "sourceEntityCode": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "sourceDatasetId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "sourcePipelineId": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "publishedDatasetId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "field": {
+          "type": "string"
+        },
+        "operation": {
+          "type": "string"
+        },
+        "targetField": {
+          "type": "string"
+        },
+        "sourceField": {
+          "type": "string"
+        },
+        "separator": {
+          "type": "string"
+        },
+        "bucket": {
+          "enum": [
+            "year",
+            "quarter",
+            "month",
+            "week",
+            "day"
+          ]
+        },
+        "joinType": {
+          "enum": [
+            "left",
+            "inner"
+          ]
+        },
+        "localField": {
+          "type": "string"
+        },
+        "foreignField": {
+          "type": "string"
+        },
+        "datasetId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.:-]+$"
+        },
+        "entityCode": {
+          "type": "string",
+          "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+        },
+        "defaultLabel": {
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "asc",
+            "desc"
+          ]
+        },
+        "take": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000
+        },
+        "skip": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000
+        },
+        "start": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 5000
+        },
         "fields": {
           "type": "array",
           "items": {
             "oneOf": [
-              { "$ref": "#/$defs/fieldRef" },
+              {
+                "$ref": "#/$defs/fieldRef"
+              },
               {
                 "type": "object",
-                "required": ["sourceField", "targetField"],
+                "required": [
+                  "sourceField",
+                  "targetField"
+                ],
                 "properties": {
-                  "sourceField": { "type": "string" },
-                  "targetField": { "type": "string" },
-                  "label": { "type": "string" },
-                  "type": { "type": "string" }
+                  "sourceField": {
+                    "type": "string"
+                  },
+                  "targetField": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  }
                 },
                 "additionalProperties": false
               }
             ]
           }
         },
-        "filters": { "$ref": "#/$defs/filterGroup" },
+        "filters": {
+          "$ref": "#/$defs/filterGroup"
+        },
         "join": {
           "type": "object",
           "properties": {
-            "entityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-            "localField": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-            "foreignField": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-            "type": { "enum": ["left", "inner"] }
+            "entityCode": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            },
+            "localField": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            },
+            "foreignField": {
+              "type": "string",
+              "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+            },
+            "type": {
+              "enum": [
+                "left",
+                "inner"
+              ]
+            }
           },
           "additionalProperties": false
         },
@@ -346,10 +894,24 @@
           "items": {
             "type": "object",
             "properties": {
-              "entityCode": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-              "localField": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-              "foreignField": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-              "type": { "enum": ["left", "inner"] }
+              "entityCode": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "localField": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "foreignField": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "type": {
+                "enum": [
+                  "left",
+                  "inner"
+                ]
+              }
             },
             "additionalProperties": false
           }
@@ -358,14 +920,47 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["id", "function"],
+            "required": [
+              "id",
+              "function"
+            ],
             "properties": {
-              "id": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
-              "label": { "type": "string" },
-              "function": { "enum": ["concat", "date_part", "coalesce", "bucket_number", "map_value", "add", "subtract", "multiply", "divide", "upper", "lower", "trim", "substring", "length", "date_bucket"] },
-              "type": { "type": "string" },
-              "args": { "type": "array" },
-              "options": { "type": "object", "additionalProperties": true }
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+              },
+              "label": {
+                "type": "string"
+              },
+              "function": {
+                "enum": [
+                  "concat",
+                  "date_part",
+                  "coalesce",
+                  "bucket_number",
+                  "map_value",
+                  "add",
+                  "subtract",
+                  "multiply",
+                  "divide",
+                  "upper",
+                  "lower",
+                  "trim",
+                  "substring",
+                  "length",
+                  "date_bucket"
+                ]
+              },
+              "type": {
+                "type": "string"
+              },
+              "args": {
+                "type": "array"
+              },
+              "options": {
+                "type": "object",
+                "additionalProperties": true
+              }
             },
             "additionalProperties": false
           }
@@ -375,11 +970,19 @@
           "items": {
             "type": "object",
             "properties": {
-              "from": { "type": "number" },
-              "to": { "type": "number" },
-              "label": { "type": "string" }
+              "from": {
+                "type": "number"
+              },
+              "to": {
+                "type": "number"
+              },
+              "label": {
+                "type": "string"
+              }
             },
-            "required": ["label"],
+            "required": [
+              "label"
+            ],
             "additionalProperties": false
           }
         },
@@ -388,32 +991,143 @@
           "items": {
             "type": "object",
             "properties": {
-              "value": { "type": "string" },
-              "label": { "type": "string" }
+              "value": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              }
             },
-            "required": ["value", "label"],
+            "required": [
+              "value",
+              "label"
+            ],
             "additionalProperties": false
           }
         },
         "group": {
           "type": "object",
           "properties": {
-            "dimensions": { "type": "array", "items": { "$ref": "#/$defs/fieldRef" } },
-            "measures": { "type": "array", "items": { "$ref": "#/$defs/measure" } }
+            "dimensions": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/fieldRef"
+              }
+            },
+            "measures": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/measure"
+              }
+            }
           },
           "additionalProperties": false
         },
-        "sort": { "type": "array", "items": { "$ref": "#/$defs/sort" } }
+        "sort": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sort"
+          }
+        }
       },
       "additionalProperties": false
     },
     "ingestionPipelineStub": {
       "type": "object",
-      "required": ["id", "title", "reserved"],
+      "required": [
+        "id",
+        "title",
+        "reserved"
+      ],
       "properties": {
-        "id": { "type": "string" },
-        "title": { "type": "string" },
-        "reserved": { "const": true }
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "reserved": {
+          "const": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "dashboardTile": {
+      "type": "object",
+      "required": [
+        "id",
+        "type"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "kpi",
+            "chart",
+            "progress",
+            "list",
+            "links",
+            "group"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "datasetId": {
+          "type": "string"
+        },
+        "valueField": {
+          "type": "string"
+        },
+        "labelField": {
+          "type": "string"
+        },
+        "labelCase": {
+          "enum": ["none", "title"]
+        },
+        "categoryField": {
+          "type": "string"
+        },
+        "seriesType": {
+          "type": "string"
+        },
+        "format": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "navigationId": {
+          "type": "string"
+        },
+        "collapsed": {
+          "type": "boolean"
+        },
+        "children": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "$ref": "#/$defs/dashboardTile"
+          }
+        },
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "required": [
+              "navigationId"
+            ],
+            "properties": {
+              "navigationId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
       },
       "additionalProperties": false
     }

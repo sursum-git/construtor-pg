@@ -1,0 +1,479 @@
+{
+  "entityDraft": {
+    "code": "container_custo_resumo_progress",
+    "name": "Resumo do Container",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1009,
+    "apiSourceCode": "motor_progress_container_custos",
+    "apiListOperationCode": "resumo_read",
+    "apiDetailOperationCode": "resumo_get",
+    "fields": [
+      {
+        "code": "container_id",
+        "label": "Container",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": true,
+        "readonlyField": true,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 10,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "moeda",
+        "label": "Moeda",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "moeda",
+        "apiWritePath": "moeda",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 20,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_total_prev",
+        "label": "Custo total previsto",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_total_prev",
+        "apiWritePath": "vl_total_prev",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 30,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "vl_total_real",
+        "label": "Custo total realizado",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_total_real",
+        "apiWritePath": "vl_total_real",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 40,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "dolar_medio",
+        "label": "Dólar médio",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dolar_medio",
+        "apiWritePath": "dolar_medio",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 50,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "cotacao_saldo",
+        "label": "Cotação do saldo",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cotacao_saldo",
+        "apiWritePath": "cotacao_saldo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 60,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "vl_saldo_dolar",
+        "label": "Saldo em dólar",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_saldo_dolar",
+        "apiWritePath": "vl_saldo_dolar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 70,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "pagamentos_real",
+        "label": "Pagamentos em reais",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "pagamentos_real",
+        "apiWritePath": "pagamentos_real",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 80,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "pagamentos_dolar",
+        "label": "Pagamentos em dólar",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "pagamentos_dolar",
+        "apiWritePath": "pagamentos_dolar",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 90,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "vendas_prev_real",
+        "label": "Vendas previstas em reais",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vendas_prev_real",
+        "apiWritePath": "vendas_prev_real",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 100,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "vendas_realizadas_real",
+        "label": "Vendas realizadas em reais",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vendas_realizadas_real",
+        "apiWritePath": "vendas_realizadas_real",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 110,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "cotacao_venda",
+        "label": "Cotação da venda",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cotacao_venda",
+        "apiWritePath": "cotacao_venda",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 120,
+        "options": {
+          "readonly": true,
+          "writable": false
+        },
+        "scale": 5
+      },
+      {
+        "code": "actual_complete",
+        "label": "Realizado completo?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "actual_complete",
+        "apiWritePath": "actual_complete",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 130,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "calculation_source",
+        "label": "Origem do cálculo",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "calculation_source",
+        "apiWritePath": "calculation_source",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 140,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "calculation_warning",
+        "label": "Avisos do cálculo",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "calculation_warning",
+        "apiWritePath": "calculation_warning",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 150,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "quotation_date",
+        "label": "Data da cotação utilizada",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "quotation_date",
+        "apiWritePath": "quotation_date",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 160,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "quotation_latest_date",
+        "label": "Última data de cotação cadastrada",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "quotation_latest_date",
+        "apiWritePath": "quotation_latest_date",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 170,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "quotation_warning",
+        "label": "Aviso da cotação",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "quotation_warning",
+        "apiWritePath": "quotation_warning",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 180,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1009",
+    "programTitle": "Resumo do Container",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "container_custo_resumo_progress",
+    "screenId": "ciw.container-resumo",
+    "version": "1.0.0",
+    "subtitle": "Resumo do Container",
+    "permissionPrefix": "container_custo_resumo_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "rowLinks": [],
+    "contextFields": [
+      {
+        "field": "container_id",
+        "filter": true,
+        "createDefault": true,
+        "readonly": true,
+        "required": true
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "container_id",
+          "hidden": true,
+          "width": 170
+        },
+        {
+          "field": "moeda",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "vl_total_prev",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "vl_total_real",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "dolar_medio",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "cotacao_saldo",
+          "hidden": true,
+          "width": 170
+        },
+        {
+          "field": "vl_saldo_dolar",
+          "hidden": true,
+          "width": 170
+        },
+        {
+          "field": "pagamentos_real",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "pagamentos_dolar",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "vendas_prev_real",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "vendas_realizadas_real",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "cotacao_venda",
+          "hidden": true,
+          "width": 170
+        },
+        {
+          "field": "actual_complete",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "calculation_source",
+          "hidden": true,
+          "width": 170
+        },
+        {
+          "field": "calculation_warning",
+          "hidden": false,
+          "width": 300
+        },
+        {
+          "field": "quotation_date",
+          "hidden": true,
+          "width": 170
+        },
+        {
+          "field": "quotation_latest_date",
+          "hidden": true,
+          "width": 170
+        },
+        {
+          "field": "quotation_warning",
+          "hidden": true,
+          "width": 170
+        }
+      ],
+      "filterFields": [],
+      "defaultSort": [
+        {
+          "field": "container_id",
+          "dir": "asc"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "entityDraft": {
+    "code": "fornecedores_estrangeiros_consulta_progress",
+    "name": "Fornecedores estrangeiros",
+    "entityType": "api",
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 100,
+    "createPhysicalTable": false,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "fornecedores_estrangeiros_read",
+    "apiDetailOperationCode": "fornecedores_estrangeiros_get",
+    "fields": [
+      {
+        "code": "cod_emitente",
+        "label": "Código",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": true,
+        "position": 10,
+        "readonlyField": true,
+        "apiJsonPath": "cod_emitente",
+        "apiWritePath": "cod_emitente",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "nome_abrev",
+        "label": "Nome abreviado",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "position": 20,
+        "readonlyField": true,
+        "apiJsonPath": "nome_abrev",
+        "apiWritePath": "nome_abrev",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "nome_emit",
+        "label": "Nome",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "position": 30,
+        "readonlyField": true,
+        "apiJsonPath": "nome_emit",
+        "apiWritePath": "nome_emit",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "data_implant",
+        "label": "Data de implantação",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "position": 40,
+        "readonlyField": true,
+        "apiJsonPath": "data_implant",
+        "apiWritePath": "data_implant",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "cd0100",
+    "programTitle": "Fornecedores estrangeiros",
+    "module": "cadastros",
+    "builderEntityCode": "fornecedores_estrangeiros_consulta_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.fornecedores-estrangeiros",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "permissionPrefix": "fornecedores_estrangeiros_consulta_progress",
+    "subtitle": "Consulta do cadastro comum",
+    "crudOptions": {
+      "pageSize": 30,
+      "filterFields": [
+        "cod_emitente",
+        "nome_abrev",
+        "nome_emit",
+        "data_implant"
+      ],
+      "defaultSort": [
+        {
+          "field": "cod_emitente",
+          "dir": "asc"
+        }
+      ]
+    }
+  }
+}

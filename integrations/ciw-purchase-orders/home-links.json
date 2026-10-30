@@ -1,0 +1,12 @@
+[
+  {
+    "id": "ciw-processos-compra-med",
+    "code": "cd0108",
+    "title": "Processos de Compra — MED",
+    "subtitle": "Empresa MED. Cadastro do pedido de importação e pagamentos vinculados.",
+    "type": "crud",
+    "screenId": "ciw.processos-compra-med",
+    "moduleId": "ciw",
+    "permission": "procs_compra_med_progress.read"
+  }
+]

@@ -1,0 +1,89 @@
+{
+  "providerType": "generic",
+  "code": "motor_progress_container_despesas",
+  "name": "Motor Progress — Manutenção de Despesas do Container",
+  "status": "active",
+  "baseUrl": "http://127.0.0.1:19910/med/web",
+  "authMode": "header_static",
+  "authHeaders": {
+    "X-Containers-Token": "__RUNTIME_SECRET__"
+  },
+  "timeoutSeconds": 25,
+  "responseContract": "sursum-programs",
+  "operations": [
+    {
+      "code": "despesas_read",
+      "name": "Despesas do Container — Consultar",
+      "method": "POST",
+      "type": "list",
+      "path": "/SursumPrograms/containers-painel",
+      "itemsPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "read",
+        "resource": "despesas"
+      }
+    },
+    {
+      "code": "despesas_get",
+      "name": "Despesas do Container — Detalhar",
+      "method": "POST",
+      "type": "detail",
+      "path": "/SursumPrograms/containers-painel",
+      "itemPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "get",
+        "resource": "despesas"
+      }
+    },
+    {
+      "code": "despesas_create",
+      "name": "container-despesas — create",
+      "method": "POST",
+      "type": "create",
+      "path": "/SursumPrograms/containers-despesas",
+      "itemPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "create",
+        "resource": "container-despesas"
+      }
+    },
+    {
+      "code": "despesas_update",
+      "name": "container-despesas — update",
+      "method": "POST",
+      "type": "update",
+      "path": "/SursumPrograms/containers-despesas",
+      "itemPath": "data",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "update",
+        "resource": "container-despesas"
+      }
+    },
+    {
+      "code": "despesas_delete",
+      "name": "container-despesas — delete",
+      "method": "POST",
+      "type": "delete",
+      "path": "/SursumPrograms/containers-despesas",
+      "requestContextFields": [
+        "container_id"
+      ],
+      "bodyTemplate": {
+        "operation": "delete",
+        "resource": "container-despesas"
+      }
+    }
+  ]
+}

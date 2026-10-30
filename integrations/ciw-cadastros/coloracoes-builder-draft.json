@@ -1,0 +1,86 @@
+{
+  "entityDraft": {
+    "code": "coloracoes_progress",
+    "name": "Colorações Progress",
+    "entityType": "api",
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 94,
+    "createPhysicalTable": false,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "coloracoes_read",
+    "apiDetailOperationCode": "coloracoes_get",
+    "apiCreateOperationCode": "coloracoes_create",
+    "apiUpdateOperationCode": "coloracoes_update",
+    "apiDeleteOperationCode": "coloracoes_delete",
+    "apiBatchOperationCode": "coloracoes_batch",
+    "fields": [
+      {
+        "code": "coloracao_id",
+        "label": "ID",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": false,
+        "position": 10,
+        "readonlyField": true,
+        "apiJsonPath": "coloracao_id",
+        "apiWritePath": "coloracao_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "descricao",
+        "label": "Descrição",
+        "dataType": "string",
+        "required": false,
+        "position": 20,
+        "apiJsonPath": "descricao",
+        "apiWritePath": "descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "defaultValue": ""
+        },
+        "length": 50
+      },
+      {
+        "code": "log_inativo",
+        "label": "Inativo",
+        "dataType": "boolean",
+        "required": false,
+        "position": 30,
+        "apiJsonPath": "log_inativo",
+        "apiWritePath": "log_inativo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "options": {
+          "defaultValue": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "cd0094",
+    "programTitle": "Colorações",
+    "module": "cadastros",
+    "builderEntityCode": "coloracoes_progress",
+    "pageType": "crud",
+    "gridEditMode": "batch",
+    "screenId": "ciw.coloracoes",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": true,
+    "allowUpdate": true,
+    "allowDelete": true,
+    "permissionPrefix": "coloracoes_progress",
+    "subtitle": "Cadastro CIW integrado ao Progress"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "target": "D:/opencode/construtor-pg/integrations/ciw-container-painel/versoes-builder-draft.json",
+  "baselineSha256": "ae250835b4a80fee30bb472d12a8b233f7b6282c3cf3cce070dd62bdaefef93e",
+  "operations": [
+    {
+      "op": "test",
+      "path": "/programDraft/rowLinks",
+      "value": []
+    },
+    {
+      "op": "replace",
+      "path": "/programDraft/version",
+      "value": "1.0.1"
+    },
+    {
+      "op": "add",
+      "path": "/programDraft/rowLinks/-",
+      "value": {
+        "id": "itens_historicos",
+        "label": "Itens desta versão",
+        "screenId": "ciw.container-versao-itens-historico",
+        "parameters": [
+          {
+            "field": "container_id",
+            "sourceField": "container_id"
+          },
+          {
+            "field": "versao_id",
+            "sourceField": "versao_id"
+          }
+        ],
+        "position": "end"
+      }
+    }
+  ]
+}

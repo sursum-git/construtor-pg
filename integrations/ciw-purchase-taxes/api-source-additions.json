@@ -1,0 +1,21 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "proc_compra_despesas_calculate_taxes",
+      "name": "Calcular impostos do processo MED",
+      "type": "custom",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "requestContextFields": [
+        "proc_compra_id"
+      ],
+      "bodyTemplate": {
+        "resource": "proc_compra_despesas",
+        "operation": "calculate_taxes"
+      },
+      "itemPath": "data",
+      "allowProcess": true
+    }
+  ]
+}

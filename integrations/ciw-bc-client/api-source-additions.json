@@ -1,0 +1,19 @@
+{
+  "sourceCode": "motor_progress_ciw_cadastros",
+  "operations": [
+    {
+      "code": "hist_cotacoes_bc_import",
+      "name": "Cotações BC — Buscar cotação",
+      "type": "custom",
+      "method": "POST",
+      "path": "/SursumPrograms/ciw-cadastros",
+      "bodyTemplate": {
+        "operation": "import-bc",
+        "resource": "hist_cotacoes_bc"
+      },
+      "itemPath": "data",
+      "allowProcess": true,
+      "requestContextFields": []
+    }
+  ]
+}

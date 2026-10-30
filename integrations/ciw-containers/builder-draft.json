@@ -1,0 +1,647 @@
+{
+  "entityDraft": {
+    "code": "containers_progress",
+    "name": "Containers",
+    "entityType": "api",
+    "createPhysicalTable": false,
+    "structureType": "main",
+    "structureModuleCode": "operacional",
+    "structureBaseNumber": 1000,
+    "apiSourceCode": "motor_progress_containers",
+    "apiListOperationCode": "read",
+    "apiDetailOperationCode": "get",
+    "fields": [
+      {
+        "code": "container_id",
+        "label": "Nr.Container",
+        "dataType": "integer",
+        "primaryKey": true,
+        "required": true,
+        "readonlyField": true,
+        "apiJsonPath": "container_id",
+        "apiWritePath": "container_id",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 10,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_estabel",
+        "label": "Cod Estabel",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_estabel",
+        "apiWritePath": "cod_estabel",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 20,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_emit_forn",
+        "label": "Cod.Fornecedor",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_emit_forn",
+        "apiWritePath": "cod_emit_forn",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 30,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "nome_ab_forn",
+        "label": "Nome Abrev",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "nome_ab_forn",
+        "apiWritePath": "nome_ab_forn",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 40,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_recebimento",
+        "label": "Dt.Recebimento",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dt_recebimento",
+        "apiWritePath": "dt_recebimento",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 50,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_prev_chegada",
+        "label": "Dt.Prev.Chegada",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dt_prev_chegada",
+        "apiWritePath": "dt_prev_chegada",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 60,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "situacao",
+        "label": "Situação ERP",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "situacao",
+        "apiWritePath": "situacao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 70,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 1,
+              "text": "Aberto"
+            },
+            {
+              "value": 2,
+              "text": "Suspenso"
+            },
+            {
+              "value": 3,
+              "text": "Fechado"
+            }
+          ]
+        }
+      },
+      {
+        "code": "vl_dolar_compra",
+        "label": "Vl Dolar Compra",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_dolar_compra",
+        "apiWritePath": "vl_dolar_compra",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 80,
+        "scale": 5,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "vl_dolar_venda",
+        "label": "Vl Dolar Venda",
+        "dataType": "decimal",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "vl_dolar_venda",
+        "apiWritePath": "vl_dolar_venda",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 90,
+        "scale": 5,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "situacao_container_id",
+        "label": "Código Sit.Acompanhamento",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "situacao_container_id",
+        "apiWritePath": "situacao_container_id",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 100,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_prev_embarque",
+        "label": "Dt Prev Embarque",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dt_prev_embarque",
+        "apiWritePath": "dt_prev_embarque",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 110,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_real_embarque",
+        "label": "Dt Real Embarque",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dt_real_embarque",
+        "apiWritePath": "dt_real_embarque",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 120,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "num_pedido",
+        "label": "Num Pedido",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "num_pedido",
+        "apiWritePath": "num_pedido",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 130,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "dt_compra",
+        "label": "Dt Compra",
+        "dataType": "date",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "dt_compra",
+        "apiWritePath": "dt_compra",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 140,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "exclusivo",
+        "label": "Exclusivo?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "exclusivo",
+        "apiWritePath": "exclusivo",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 150,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "ind_dt_embarque",
+        "label": "Ind Dt Embarque",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "ind_dt_embarque",
+        "apiWritePath": "ind_dt_embarque",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 160,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 1,
+              "text": "Previsão Inicial"
+            },
+            {
+              "value": 2,
+              "text": "Após Informação do Fornecedor"
+            },
+            {
+              "value": 3,
+              "text": "Confirmada Pelo Agente de Cargas"
+            }
+          ]
+        }
+      },
+      {
+        "code": "ind_dt_prev_chegada",
+        "label": "Ind Dt Prev Chegada",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "ind_dt_prev_chegada",
+        "apiWritePath": "ind_dt_prev_chegada",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 170,
+        "options": {
+          "readonly": true,
+          "writable": false,
+          "editor": "dropdown",
+          "options": [
+            {
+              "value": 1,
+              "text": "Previsão Inicial"
+            },
+            {
+              "value": 3,
+              "text": "Data Confirmada pelo Agente de Cargas"
+            }
+          ]
+        }
+      },
+      {
+        "code": "log_pagto_final",
+        "label": "Pagto Final Efetuado?",
+        "dataType": "boolean",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "log_pagto_final",
+        "apiWritePath": "log_pagto_final",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 180,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_agente_cargas",
+        "label": "Código Agente de Cargas",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_agente_cargas",
+        "apiWritePath": "cod_agente_cargas",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 190,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cod_armador",
+        "label": "Código Armador",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "cod_armador",
+        "apiWritePath": "cod_armador",
+        "apiShowInGrid": false,
+        "apiShowInForm": true,
+        "apiShowInFilter": true,
+        "position": 200,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "situacao_container_descricao",
+        "label": "Sit.Acompanhamento",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "situacao_container_descricao",
+        "apiWritePath": "situacao_container_descricao",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 210,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "agente_cargas_nome",
+        "label": "Agente de Cargas",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "agente_cargas_nome",
+        "apiWritePath": "agente_cargas_nome",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 220,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "armador_nome",
+        "label": "Cod Armador",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "readonlyField": true,
+        "apiJsonPath": "armador_nome",
+        "apiWritePath": "armador_nome",
+        "apiShowInGrid": true,
+        "apiShowInForm": true,
+        "apiShowInFilter": false,
+        "position": 230,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "op1000",
+    "programTitle": "Containers",
+    "module": "operacional",
+    "pageType": "crud",
+    "builderEntityCode": "containers_progress",
+    "screenId": "ciw.containers",
+    "version": "1.0.2",
+    "subtitle": "Consulta de containers",
+    "permissionPrefix": "containers_progress",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "gridEditMode": "form",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "rowLinks": [
+      {
+        "id": "painel_container",
+        "label": "Painel do Container",
+        "screenId": "ciw.container-painel",
+        "parameters": [
+          {
+            "field": "container_id",
+            "sourceField": "container_id"
+          }
+        ],
+        "position": "start"
+      }
+    ],
+    "crudOptions": {
+      "pageSize": 30,
+      "gridFields": [
+        {
+          "field": "container_id",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "cod_estabel",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "cod_emit_forn",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "nome_ab_forn",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "dt_recebimento",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "dt_prev_chegada",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "situacao",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_dolar_compra",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "vl_dolar_venda",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "situacao_container_descricao",
+          "hidden": false,
+          "width": 160
+        },
+        {
+          "field": "dt_prev_embarque",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "dt_real_embarque",
+          "hidden": false,
+          "width": 170
+        },
+        {
+          "field": "num_pedido",
+          "hidden": true,
+          "width": 160
+        },
+        {
+          "field": "dt_compra",
+          "hidden": true,
+          "width": 170
+        },
+        {
+          "field": "exclusivo",
+          "hidden": true,
+          "width": 160
+        },
+        {
+          "field": "ind_dt_embarque",
+          "hidden": true,
+          "width": 160
+        },
+        {
+          "field": "ind_dt_prev_chegada",
+          "hidden": true,
+          "width": 160
+        },
+        {
+          "field": "log_pagto_final",
+          "hidden": true,
+          "width": 160
+        },
+        {
+          "field": "agente_cargas_nome",
+          "hidden": true,
+          "width": 160
+        },
+        {
+          "field": "armador_nome",
+          "hidden": true,
+          "width": 160
+        }
+      ],
+      "filterFields": [
+        "container_id",
+        "log_pagto_final",
+        "cod_emit_forn",
+        "cod_agente_cargas",
+        "cod_armador",
+        "dt_prev_embarque",
+        "dt_real_embarque",
+        "dt_prev_chegada",
+        "dt_recebimento",
+        "situacao",
+        "situacao_container_id"
+      ],
+      "defaultSort": [
+        {
+          "field": "situacao",
+          "dir": "asc"
+        },
+        {
+          "field": "situacao_container_id",
+          "dir": "asc"
+        },
+        {
+          "field": "container_id",
+          "dir": "asc"
+        }
+      ],
+      "defaultGroup": [
+        {
+          "field": "situacao",
+          "dir": "asc"
+        },
+        {
+          "field": "situacao_container_id",
+          "dir": "asc"
+        }
+      ]
+    },
+    "changeSummary": "Exibe o link Painel do Container no início da consulta, após as ações e antes das colunas de dados."
+  }
+}

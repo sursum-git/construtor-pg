@@ -43,8 +43,8 @@
       this.validateAppLogo(definition.app || {}, errors);
       this.validateCurrentSubscriber(definition.currentSubscriber || definition.currentTenant || definition.tenant || definition.subscriber, errors);
       this.validateSubscriberList(definition.availableSubscribers || definition.subscribers || definition.tenants, "availableSubscribers", errors, false);
-      if (!Array.isArray(definition.programs) || !definition.programs.length) {
-        errors.push("programs deve informar ao menos um programa.");
+      if (!Array.isArray(definition.programs)) {
+        errors.push("programs precisa ser uma lista.");
       }
     }
 
@@ -144,6 +144,17 @@
           errors.push("layout.sidebar." + property + " precisa ser booleano.");
         }
       });
+      ["width", "maxWidth"].forEach(function(property) {
+        if (sidebar[property] != null && (typeof sidebar[property] !== "number" || !Number.isFinite(sidebar[property]) || sidebar[property] < 160 || sidebar[property] > 1200)) {
+          errors.push("layout.sidebar." + property + " precisa ser numero entre 160 e 1200 pixels.");
+        }
+      });
+      if (sidebar.autoWidth != null && typeof sidebar.autoWidth !== "boolean") {
+        errors.push("layout.sidebar.autoWidth precisa ser booleano.");
+      }
+      if (typeof sidebar.maxWidth === "number" && sidebar.maxWidth < (sidebar.width == null ? 280 : sidebar.width)) {
+        errors.push("layout.sidebar.maxWidth nao pode ser menor que width.");
+      }
       ["showSidebarToggle", "showRefresh", "showThemeSwitch", "showFavoriteToggle", "showCurrentSubscriber", "showUserMenu"].forEach(function(property) {
         if (appbar[property] != null && typeof appbar[property] !== "boolean") {
           errors.push("layout.appbar." + property + " precisa ser booleano.");
@@ -582,7 +593,11 @@
       }
 
       const groups = definition.navigation && definition.navigation.groups;
-      if (!Array.isArray(groups) || !groups.length) {
+      if (!Array.isArray(groups)) {
+        errors.push("navigation.groups precisa ser uma lista.");
+        return;
+      }
+      if (!groups.length && global.CrudUtils.ensureArray(definition.programs).length) {
         errors.push("navigation.groups deve informar ao menos um grupo.");
         return;
       }
@@ -727,7 +742,9 @@
       const pattern = new RegExp(this.securityPolicy.blockedKeyPattern, "i");
       Object.keys(value).forEach((key) => {
         const currentPath = path ? path + "." + key : key;
-        if (pattern.test(key)) {
+        const isIdentityPasswordFlag = (path === "currentUser" || path === "user") &&
+          key === "forcePasswordChange" && typeof value[key] === "boolean";
+        if (pattern.test(key) && !isIdentityPasswordFlag) {
           errors.push(currentPath + " nao deve existir no JSON da pagina inicial. Segredos e tokens devem ficar no backend.");
         }
         this.validateSensitiveKeys(value[key], currentPath, errors);

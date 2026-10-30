@@ -1,0 +1,28 @@
+
+import assert from 'node:assert/strict';import path from 'node:path';import {chromium} from 'playwright';
+const browser=await chromium.launch({headless:true,channel:'msedge'});
+try{
+ const page=await browser.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.setContent('<div id="root"></div>');
+ for(const file of ['vendor/jquery/jquery-4.0.0.min.js','kendo/js/kendo.all.min.js','src/crud-engine/CrudUtils.js','src/crud-engine/CrudConfigLoader.js','src/process-engine/ProcessDefinitionLoader.js','src/process-engine/ProcessDefinitionValidator.js','src/process-engine/ProcessEngine.js','src/crud-engine/CrudKendoFormRenderer.js','src/crud-engine/CrudEngine.js','src/crud-engine/CrudDefinitionValidator.js'])await page.addScriptTag({path:path.resolve(file)});
+ const result=await page.evaluate(async()=>{
+  const calls=[],notices=[];CrudUtils.showMessage=m=>notices.push(m);
+  const definition={schemaVersion:'1.0',pageType:'process',screenId:'ciw.process',program:{id:'op1100',title:'Impostos'},permissions:{read:true,process:true},dataModel:{primaryKey:'container_id',fields:{container_id:{type:'integer'}}},contextFields:[{field:'container_id',required:true,readonly:true}],dataSource:{api:{process:{url:'/run',method:'POST'}}},process:{parameters:{fields:[{field:'container_id',label:'Container',type:'integer',required:true,readonly:true},{field:'quantidade',label:'Quantidade',type:'integer',defaultValue:3,required:true}]},actions:{process:{confirmation:{message:'Atualiza impostos e despesas deste container.'}}},wait:{mode:'none'},result:{type:'message'}}};
+  const client={request:async req=>{if(req.url==='/run'){calls.push(req.data);return {ok:true,status:'succeeded',result:{type:'message',message:'Confirmado.'}};}return definition;}};
+  const make=(ctx,def=definition)=>new ProcessEngine({root:'#root',definition:def,config:{},contextValues:ctx,httpClient:client});
+  const engine=await make({container_id:'17'}).init();const initial={calls:calls.length,context:engine.fieldWidgets.container_id.value(),readonly:engine.fieldInputs.container_id.prop('readonly')};
+  engine.fieldWidgets.container_id.value(999);const canceled=engine.execute();await Promise.resolve();const beforeCancel=calls.length;$('.crud-confirm-content button').filter((_,b)=>$(b).text()==='Cancelar').trigger('click');await canceled;
+  const confirmed=engine.execute();await Promise.resolve();const beforeConfirm=calls.length;$('.crud-confirm-content button').filter((_,b)=>$(b).text()==='Confirmar').trigger('click');await confirmed;
+  const accepted={calls:calls.length,payload:calls[0],text:engine.resultContent.text()};engine.destroy();
+  let missing=false;try{await make({}).init();}catch{missing=true;}
+  let invalid=false;try{await make({container_id:'1e2'}).init();}catch{invalid=true;}
+  const deniedDef=CrudUtils.clone(definition);deniedDef.permissions.process=false;const denied=await make({container_id:'17'},deniedDef).init();await denied.execute();const deniedCalls=calls.length;denied.destroy();
+  const failed=await make({container_id:'17'}).init();failed.httpClient={request:async()=>({ok:false,status:'failed',message:'Recusado.'})};const failure=failed.execute();await Promise.resolve();$('.crud-confirm-content button').filter((_,b)=>$(b).text()==='Confirmar').trigger('click');await failure;const failedText=failed.resultContent.text();failed.destroy();
+  const parent={screenId:'ciw.parent',dataModel:{primaryKey:'container_id',fields:{container_id:{type:'integer',label:'Container'}}},form:{id:'parent',layout:'tabs',tabs:[{id:'impostos',title:'Impostos',type:'linkedPage',linkedPage:{engine:'process',screenId:'ciw.process',filters:[{field:'container_id',sourceField:'container_id',operator:'eq'}]}}]}};
+  const validation=[];new CrudDefinitionValidator().validateLinkedPageFormTab(parent,parent.form.tabs[0],validation);
+  const form=new CrudKendoFormRenderer({definition:parent,httpClient:client,config:{}});form.open('view',{container_id:17});await new Promise(r=>setTimeout(r,30));const child=Object.values(form.linkedPageEngines)[0]?.engine;const linked={isProcess:child instanceof ProcessEngine,context:child?.contextValues?.container_id,calls:calls.length};form.close(true);
+  const abandoned=await make({container_id:'17'}).init();const pending=abandoned.execute();await Promise.resolve();const duplicate=await abandoned.execute();abandoned.destroy();$('.crud-confirm-content button').filter((_,b)=>$(b).text()==='Confirmar').trigger('click');await pending;const abandonedCalls=calls.length;
+  return {abandonedCalls,duplicate,initial,beforeCancel,beforeConfirm,accepted,missing,invalid,deniedCalls,failedText,linked,validation};
+ });
+ assert.equal(result.abandonedCalls,1);assert.equal(result.duplicate,false);assert.equal(result.initial.calls,0);assert.equal(result.initial.context,17);assert.equal(result.initial.readonly,true);assert.equal(result.beforeCancel,0);assert.equal(result.beforeConfirm,0);assert.equal(result.accepted.calls,1);assert.deepEqual(result.accepted.payload.parameters,{container_id:17,quantidade:3});assert.deepEqual(result.accepted.payload.context,{container_id:17});assert.match(result.accepted.text,/Confirmado/);assert.equal(result.missing,true);assert.equal(result.invalid,true);assert.equal(result.deniedCalls,1);assert.match(result.failedText,/Recusado/);assert.equal(result.linked.isProcess,true);assert.equal(result.linked.context,17);assert.equal(result.linked.calls,1);assert.deepEqual(result.validation,[]);assert.deepEqual(errors,[]);
+ console.log('PASS: opening process/linked tab does not execute; fixed context, real Kendo confirmation/cancel, permission and failed result respected.');
+}finally{await browser.close();}

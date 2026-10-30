@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.0",
+  "pageType": "crud",
+  "screenId": "ciw.tipos-anexo",
+  "program": {
+    "id": "tipos-anexo",
+    "module": "cadastros",
+    "entity": "tipos_anexo_progress",
+    "title": "Tipos de anexo",
+    "logs": {
+      "enabled": true,
+      "mode": "deletions",
+      "documentId": "runtime.transaction-events",
+      "screenId": "ciw.tipos-anexo",
+      "requiresRecord": false,
+      "title": "Logs Exclusão"
+    }
+  },
+  "crud": {
+    "form": {
+      "logs": {
+        "enabled": true,
+        "mode": "recordEvents",
+        "documentId": "runtime.transaction-events",
+        "screenId": "ciw.tipos-anexo",
+        "requiresRecord": true,
+        "title": "Logs"
+      }
+    },
+    "grid": {
+      "editing": {
+        "mode": "batch"
+      }
+    }
+  }
+}

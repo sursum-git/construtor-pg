@@ -199,3 +199,7 @@ Na proxima chamada da propria sessao, o runtime retorna `SESSION_REVOKED` e inva
 - `GET /api/runtime/screens/{screenId}/documents/{documentId}`
 
 O API Platform expõe os cadastros administrativos em `/api`.
+
+## Entidades API em lote
+
+Consulte [o contrato de edição em lote](docs/api-entity-batch.md) para configurar fonte, vínculo, modo do programa, publicação, autorização por operação e transação externa única.

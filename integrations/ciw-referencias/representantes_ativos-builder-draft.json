@@ -1,0 +1,119 @@
+{
+  "entityDraft": {
+    "code": "representantes_ativos_consulta_progress",
+    "name": "Representantes ativos",
+    "entityType": "api",
+    "structureModuleCode": "cadastros",
+    "structureType": "main",
+    "structureBaseNumber": 102,
+    "createPhysicalTable": false,
+    "apiSourceCode": "motor_progress_ciw_cadastros",
+    "apiListOperationCode": "representantes_ativos_read",
+    "apiDetailOperationCode": "representantes_ativos_get",
+    "fields": [
+      {
+        "code": "representante_key",
+        "label": "Identificador técnico",
+        "dataType": "string",
+        "primaryKey": true,
+        "required": true,
+        "position": 10,
+        "readonlyField": true,
+        "apiJsonPath": "representante_key",
+        "apiWritePath": "representante_key",
+        "apiShowInForm": false,
+        "apiShowInGrid": false,
+        "apiShowInFilter": false,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "cdn_repres",
+        "label": "Código",
+        "dataType": "integer",
+        "primaryKey": false,
+        "required": false,
+        "position": 20,
+        "readonlyField": true,
+        "apiJsonPath": "cdn_repres",
+        "apiWritePath": "cdn_repres",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "nom_pessoa",
+        "label": "Nome",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "position": 30,
+        "readonlyField": true,
+        "apiJsonPath": "nom_pessoa",
+        "apiWritePath": "nom_pessoa",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      },
+      {
+        "code": "nom_abrev",
+        "label": "Nome abreviado",
+        "dataType": "string",
+        "primaryKey": false,
+        "required": false,
+        "position": 40,
+        "readonlyField": true,
+        "apiJsonPath": "nom_abrev",
+        "apiWritePath": "nom_abrev",
+        "apiShowInForm": true,
+        "apiShowInGrid": true,
+        "apiShowInFilter": true,
+        "options": {
+          "readonly": true,
+          "writable": false
+        }
+      }
+    ]
+  },
+  "programDraft": {
+    "programCode": "cd0102",
+    "programTitle": "Representantes ativos",
+    "module": "cadastros",
+    "builderEntityCode": "representantes_ativos_consulta_progress",
+    "pageType": "crud",
+    "gridEditMode": "form",
+    "screenId": "ciw.representantes-ativos",
+    "version": "1.0.0",
+    "programOrigin": "standard",
+    "ownerScope": "system",
+    "allowCreate": false,
+    "allowUpdate": false,
+    "allowDelete": false,
+    "permissionPrefix": "representantes_ativos_consulta_progress",
+    "subtitle": "Consulta de referência ERP",
+    "crudOptions": {
+      "pageSize": 30,
+      "filterFields": [
+        "cdn_repres",
+        "nom_pessoa",
+        "nom_abrev"
+      ],
+      "defaultSort": [
+        {
+          "field": "cdn_repres",
+          "dir": "asc"
+        }
+      ]
+    }
+  }
+}

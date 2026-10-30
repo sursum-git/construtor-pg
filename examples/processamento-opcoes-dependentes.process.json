@@ -1,0 +1,223 @@
+{
+  "schemaVersion": "1.0",
+  "pageType": "process",
+  "screenId": "demo.process-dependent-options",
+  "program": {
+    "id": "demo-process-dependent-options",
+    "module": "operacional",
+    "entity": "demo_dependent_options",
+    "title": "Prioridades fictícias",
+    "version": "1.0.0",
+    "subtitle": "Exemplo local; nenhuma regra comercial é executada.",
+    "icon": "check",
+    "permission": "read"
+  },
+  "permissions": {
+    "read": true,
+    "process": true
+  },
+  "contextFields": [
+    {
+      "field": "container_id",
+      "required": true,
+      "readonly": true
+    }
+  ],
+  "dataModel": {
+    "primaryKey": "container_id",
+    "fields": {
+      "container_id": {
+        "label": "Container MED",
+        "type": "integer",
+        "nullable": false,
+        "readonly": true,
+        "editable": false,
+        "validation": {
+          "required": true
+        }
+      },
+      "ordem_campo": {
+        "label": "Ordenar despesas por",
+        "type": "text",
+        "nullable": false,
+        "editor": "dropdown",
+        "defaultValue": "ordem",
+        "options": [
+          {
+            "value": "ordem",
+            "text": "Ordem"
+          },
+          {
+            "value": "despesa_id",
+            "text": "Despesa"
+          },
+          {
+            "value": "log_calculada",
+            "text": "Calculada"
+          },
+          {
+            "value": "perc_calculo",
+            "text": "Percentual"
+          }
+        ],
+        "validation": {
+          "required": true
+        }
+      },
+      "ordem_direcao": {
+        "label": "Direcao",
+        "type": "text",
+        "nullable": false,
+        "editor": "dropdown",
+        "defaultValue": "asc",
+        "options": [
+          {
+            "value": "asc",
+            "text": "Crescente"
+          },
+          {
+            "value": "desc",
+            "text": "Decrescente"
+          }
+        ],
+        "validation": {
+          "required": true
+        }
+      },
+      "despesa_ids": {
+        "label": "Despesas prioritarias",
+        "type": "array",
+        "nullable": false,
+        "itemType": "integer",
+        "editor": "multiselect",
+        "defaultValue": [],
+        "optionsSource": {
+          "endpointId": "options.despesa_ids",
+          "parameterFields": [
+            "ordem_campo",
+            "ordem_direcao"
+          ]
+        },
+        "validation": {
+          "required": true
+        }
+      }
+    }
+  },
+  "runtime": {
+    "entityCode": "container_despesas_selecao_progress",
+    "programId": "op1047",
+    "mode": "api-process"
+  },
+  "dataSource": {
+    "api": {
+      "process": {
+        "endpointId": "process",
+        "method": "POST"
+      },
+      "options.despesa_ids": {
+        "endpointId": "options.despesa_ids",
+        "method": "POST"
+      }
+    }
+  },
+  "process": {
+    "parameters": {
+      "title": "Parametros",
+      "fields": [
+        {
+          "id": "ordem_campo",
+          "field": "ordem_campo",
+          "label": "Ordenar despesas por",
+          "type": "dropdown",
+          "required": true,
+          "readonly": false,
+          "editor": "dropdown",
+          "defaultValue": "ordem",
+          "options": [
+            {
+              "value": "ordem",
+              "text": "Ordem"
+            },
+            {
+              "value": "despesa_id",
+              "text": "Despesa"
+            },
+            {
+              "value": "log_calculada",
+              "text": "Calculada"
+            },
+            {
+              "value": "perc_calculo",
+              "text": "Percentual"
+            }
+          ]
+        },
+        {
+          "id": "ordem_direcao",
+          "field": "ordem_direcao",
+          "label": "Direcao",
+          "type": "dropdown",
+          "required": true,
+          "readonly": false,
+          "editor": "dropdown",
+          "defaultValue": "asc",
+          "options": [
+            {
+              "value": "asc",
+              "text": "Crescente"
+            },
+            {
+              "value": "desc",
+              "text": "Decrescente"
+            }
+          ]
+        },
+        {
+          "id": "despesa_ids",
+          "field": "despesa_ids",
+          "label": "Despesas prioritarias",
+          "type": "array",
+          "required": true,
+          "readonly": false,
+          "itemType": "integer",
+          "editor": "multiselect",
+          "defaultValue": [],
+          "optionsSource": {
+            "endpointId": "options.despesa_ids",
+            "parameterFields": [
+              "ordem_campo",
+              "ordem_direcao"
+            ]
+          }
+        },
+        {
+          "id": "container_id",
+          "field": "container_id",
+          "label": "Container MED",
+          "type": "integer",
+          "required": true,
+          "readonly": true
+        }
+      ]
+    },
+    "actions": {
+      "process": {
+        "label": "Confirmar exemplo",
+        "icon": "play",
+        "permission": "process",
+        "confirmation": {
+          "message": "Confirmar a seleção somente nesta demonstração local?",
+          "confirmText": "Confirmar exemplo"
+        }
+      }
+    },
+    "wait": {
+      "mode": "none",
+      "message": "Processando..."
+    },
+    "result": {
+      "type": "message"
+    }
+  }
+}
