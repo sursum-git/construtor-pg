@@ -1,0 +1,37 @@
+<?php
+
+namespace App\Tests\Email;
+
+use App\Email\EmailAnalyticsRepository;
+use PHPUnit\Framework\TestCase;
+
+final class EmailAnalyticsRepositoryTest extends TestCase
+{
+    public function testNormalizesSesEventFromJsonBeforeLegacyCode(): void
+    {
+        self::assertSame('DELIVERY', EmailAnalyticsRepository::normalizeEvent([
+            'cod_tipo' => 'send',
+            'json_evento' => '{"eventType":"Delivery"}',
+        ]));
+    }
+
+    public function testGroupsFailureEventsInSummary(): void
+    {
+        $repository = new EmailAnalyticsRepository(static fn (): array => [
+            ['cod_tipo' => 'SEND', 'json_evento' => null],
+            ['cod_tipo' => 'BOUNCE', 'json_evento' => null],
+            ['cod_tipo' => 'REJECT', 'json_evento' => null],
+            ['cod_tipo' => 'Rendering Failure', 'json_evento' => null],
+        ]);
+
+        self::assertSame(['sent' => 1, 'failures' => 3], $repository->summary());
+    }
+
+    public function testRejectsSortOutsideThePublishedColumns(): void
+    {
+        $repository = new EmailAnalyticsRepository(static fn (): array => []);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $repository->search(['sort' => 'json_evento; drop table notificacoes']);
+    }
+}
