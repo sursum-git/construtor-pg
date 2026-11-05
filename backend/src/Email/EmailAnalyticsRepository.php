@@ -59,11 +59,18 @@ final class EmailAnalyticsRepository
     }
 
     /** @return array{sent:int, delivery:int, failures:int, delay:int, complaint:int, open:int, click:int} */
-    public function summary(): array
+    public function summary(array $criteria = []): array
     {
         if ($this->connection instanceof \PDO) {
             $event = "UPPER(REPLACE(REPLACE(COALESCE((json_evento::jsonb->>'Message')::jsonb->>'eventType', (json_evento::jsonb->>'Message')::jsonb->>'notificationType', json_evento::jsonb->>'eventType', json_evento::jsonb->>'notificationType', cod_tipo), ' ', '_'), '-', '_'))";
-            $statement = $this->connection->query("SELECT COUNT(*) FILTER (WHERE {$event} IN ('SEND', 'DELIVERY', 'BOUNCE', 'REJECT', 'RENDERING_FAILURE', 'DELIVERY_DELAY')) AS sent, COUNT(*) FILTER (WHERE {$event} = 'DELIVERY') AS delivery, COUNT(*) FILTER (WHERE {$event} IN ('BOUNCE', 'REJECT', 'RENDERING_FAILURE')) AS failures, COUNT(*) FILTER (WHERE {$event} = 'DELIVERY_DELAY') AS delay, COUNT(*) FILTER (WHERE {$event} = 'COMPLAINT') AS complaint, COUNT(*) FILTER (WHERE {$event} = 'OPEN') AS open, COUNT(*) FILTER (WHERE {$event} = 'CLICK') AS click FROM notificacoes WHERE dt_hr_evento >= CURRENT_DATE");
+            $date = (string) ($criteria['date'] ?? date('Y-m-d'));
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) throw new \InvalidArgumentException('Data inválida.');
+            $where = ['dt_hr_evento >= ?::date', "dt_hr_evento < (?::date + INTERVAL '1 day')"];
+            $params = [$date, $date];
+            $text = trim((string) ($criteria['text'] ?? ''));
+            if ($text !== '') { $where[] = '(COALESCE(titulo, \'\') ILIKE ? OR COALESCE(json_evento, \'\') ILIKE ?)'; $params[] = '%' . $text . '%'; $params[] = '%' . $text . '%'; }
+            $statement = $this->connection->prepare("SELECT COUNT(*) FILTER (WHERE {$event} IN ('SEND', 'DELIVERY', 'BOUNCE', 'REJECT', 'RENDERING_FAILURE', 'DELIVERY_DELAY')) AS sent, COUNT(*) FILTER (WHERE {$event} = 'DELIVERY') AS delivery, COUNT(*) FILTER (WHERE {$event} IN ('BOUNCE', 'REJECT', 'RENDERING_FAILURE')) AS failures, COUNT(*) FILTER (WHERE {$event} = 'DELIVERY_DELAY') AS delay, COUNT(*) FILTER (WHERE {$event} = 'COMPLAINT') AS complaint, COUNT(*) FILTER (WHERE {$event} = 'OPEN') AS open, COUNT(*) FILTER (WHERE {$event} = 'CLICK') AS click FROM notificacoes WHERE " . implode(' AND ', $where));
+            $statement->execute($params);
             $summary = $statement->fetch(\PDO::FETCH_ASSOC) ?: [];
             return array_map('intval', ['sent' => $summary['sent'] ?? 0, 'delivery' => $summary['delivery'] ?? 0, 'failures' => $summary['failures'] ?? 0, 'delay' => $summary['delay'] ?? 0, 'complaint' => $summary['complaint'] ?? 0, 'open' => $summary['open'] ?? 0, 'click' => $summary['click'] ?? 0]);
         }

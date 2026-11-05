@@ -16,6 +16,7 @@ const selectedDate = await page.locator("#email-date-filter").inputValue();
 await page.waitForSelector("#grid .k-master-row", { timeout: 30000 });
 const rows = await page.locator("#grid .k-master-row").count();
 const date = await page.locator("#grid .k-master-row td").first().textContent();
+const gridHeaders = await page.locator("#grid th").allTextContents();
 await page.locator("#grid .k-master-row").first().dblclick();
 await page.waitForSelector("#email-event-detail", { timeout: 10000 });
 const detailVisible = await page.locator("#email-event-detail").isVisible();
@@ -24,6 +25,7 @@ await browser.close();
 
 if (errors.length) throw new Error("Erros no console: " + errors.join(" | "));
 if (rows < 1) throw new Error("Grid inicial de e-mails nao trouxe registros do dia.");
+if (gridHeaders.some((header) => header.includes("ID AWS"))) throw new Error("ID AWS deve aparecer somente no detalhe do evento.");
 if (!/^\d{2}\/\d{2}\/\d{4}$/.test(selectedDate)) throw new Error("Filtro de data nao iniciou no formato brasileiro.");
 if (!/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}:\d{2}$/.test(date?.trim() ?? "")) throw new Error("Data do grid nao esta em formato brasileiro.");
 if (!detailVisible) throw new Error("Duplo clique nao abriu o detalhe do evento.");

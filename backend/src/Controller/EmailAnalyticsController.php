@@ -10,7 +10,7 @@ use Symfony\Component\Routing\Attribute\Route;
 final class EmailAnalyticsController
 {
     #[Route('/email-analytics/summary', methods: ['GET'])]
-    public function summary(): JsonResponse { return new JsonResponse(EmailAnalyticsRepository::fromEnvironment()->summary()); }
+    public function summary(Request $request): JsonResponse { return new JsonResponse(EmailAnalyticsRepository::fromEnvironment()->summary(['date' => $request->query->get('date'), 'text' => $request->query->get('text')])); }
 
     #[Route('/email-analytics/records', methods: ['GET'])]
     public function records(Request $request): JsonResponse
