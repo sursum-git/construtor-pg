@@ -21,6 +21,7 @@ services:
         exclude:
             - '../src/Attachments/AttachmentStorageBroker.php'
             - '../src/Attachments/AttachmentPolicyViolation.php'
+            - '../src/Runtime/RuntimeItemCostManualSchema.php'
 
     App\Runtime\RuntimeBusinessRuleRegistry:
         arguments:
