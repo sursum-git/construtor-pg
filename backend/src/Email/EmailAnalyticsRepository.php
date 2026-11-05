@@ -96,10 +96,14 @@ final class EmailAnalyticsRepository
         $types = array_values(array_filter(array_map('strtoupper', (array) ($criteria['types'] ?? []))));
         $page = max(1, (int) ($criteria['page'] ?? 1));
         $pageSize = min(100, max(1, (int) ($criteria['pageSize'] ?? 20)));
-        $where = ['dt_hr_evento >= CURRENT_DATE'];
-        $params = [];
+        $date = (string) ($criteria['date'] ?? date('Y-m-d'));
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) throw new \InvalidArgumentException('Data inválida.');
+        $where = ['dt_hr_evento >= ?::date', "dt_hr_evento < (?::date + INTERVAL '1 day')"];
+        $params = [$date, $date];
+        $text = trim((string) ($criteria['text'] ?? ''));
+        if ($text !== '') { $where[] = '(COALESCE(titulo, \'\') ILIKE ? OR COALESCE(json_evento, \'\') ILIKE ?)'; $params[] = '%' . $text . '%'; $params[] = '%' . $text . '%'; }
         $event = "UPPER(REPLACE(REPLACE(COALESCE((json_evento::jsonb->>'Message')::jsonb->>'eventType', (json_evento::jsonb->>'Message')::jsonb->>'notificationType', json_evento::jsonb->>'eventType', json_evento::jsonb->>'notificationType', cod_tipo), ' ', '_'), '-', '_'))";
-        if ($types) { $where[] = $event . ' IN (' . implode(',', array_fill(0, count($types), '?')) . ')'; $params = $types; }
+        if ($types) { $where[] = $event . ' IN (' . implode(',', array_fill(0, count($types), '?')) . ')'; $params = array_merge($params, $types); }
         $sql = 'SELECT COUNT(*) OVER() AS total_records, id, cod_tipo, dt_hr_evento, mensagem_id_email, mensagem_id_aws, remetente, destinatario, titulo, json_evento FROM notificacoes WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . $sort . ' DESC LIMIT ' . $pageSize . ' OFFSET ' . (($page - 1) * $pageSize);
         $statement = $this->connection->prepare($sql); $statement->execute($params);
         return array_map(static function (array $row): array {
