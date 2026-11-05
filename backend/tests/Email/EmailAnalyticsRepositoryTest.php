@@ -25,7 +25,7 @@ final class EmailAnalyticsRepositoryTest extends TestCase
             ['cod_tipo' => 'Rendering Failure', 'json_evento' => null],
         ]);
 
-        self::assertSame(['sent' => 1, 'delivery' => 1, 'failures' => 3, 'delay' => 0, 'complaint' => 0, 'open' => 0, 'click' => 0], $repository->summary());
+        self::assertSame(['sent' => 5, 'delivery' => 1, 'failures' => 3, 'delay' => 0, 'complaint' => 0, 'open' => 0, 'click' => 0], $repository->summary());
     }
 
     public function testRejectsSortOutsideThePublishedColumns(): void

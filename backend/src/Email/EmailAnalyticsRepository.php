@@ -63,7 +63,7 @@ final class EmailAnalyticsRepository
     {
         if ($this->connection instanceof \PDO) {
             $event = "UPPER(REPLACE(REPLACE(COALESCE((json_evento::jsonb->>'Message')::jsonb->>'eventType', (json_evento::jsonb->>'Message')::jsonb->>'notificationType', json_evento::jsonb->>'eventType', json_evento::jsonb->>'notificationType', cod_tipo), ' ', '_'), '-', '_'))";
-            $statement = $this->connection->query("SELECT COUNT(*) FILTER (WHERE {$event} = 'SEND') AS sent, COUNT(*) FILTER (WHERE {$event} = 'DELIVERY') AS delivery, COUNT(*) FILTER (WHERE {$event} IN ('BOUNCE', 'REJECT', 'RENDERING_FAILURE')) AS failures, COUNT(*) FILTER (WHERE {$event} = 'DELIVERY_DELAY') AS delay, COUNT(*) FILTER (WHERE {$event} = 'COMPLAINT') AS complaint, COUNT(*) FILTER (WHERE {$event} = 'OPEN') AS open, COUNT(*) FILTER (WHERE {$event} = 'CLICK') AS click FROM notificacoes WHERE dt_hr_evento >= CURRENT_DATE");
+            $statement = $this->connection->query("SELECT COUNT(*) FILTER (WHERE {$event} IN ('SEND', 'DELIVERY', 'BOUNCE', 'REJECT', 'RENDERING_FAILURE', 'DELIVERY_DELAY')) AS sent, COUNT(*) FILTER (WHERE {$event} = 'DELIVERY') AS delivery, COUNT(*) FILTER (WHERE {$event} IN ('BOUNCE', 'REJECT', 'RENDERING_FAILURE')) AS failures, COUNT(*) FILTER (WHERE {$event} = 'DELIVERY_DELAY') AS delay, COUNT(*) FILTER (WHERE {$event} = 'COMPLAINT') AS complaint, COUNT(*) FILTER (WHERE {$event} = 'OPEN') AS open, COUNT(*) FILTER (WHERE {$event} = 'CLICK') AS click FROM notificacoes WHERE dt_hr_evento >= CURRENT_DATE");
             $summary = $statement->fetch(\PDO::FETCH_ASSOC) ?: [];
             return array_map('intval', ['sent' => $summary['sent'] ?? 0, 'delivery' => $summary['delivery'] ?? 0, 'failures' => $summary['failures'] ?? 0, 'delay' => $summary['delay'] ?? 0, 'complaint' => $summary['complaint'] ?? 0, 'open' => $summary['open'] ?? 0, 'click' => $summary['click'] ?? 0]);
         }
@@ -76,7 +76,7 @@ final class EmailAnalyticsRepository
         $summary = ['sent' => 0, 'delivery' => 0, 'failures' => 0, 'delay' => 0, 'complaint' => 0, 'open' => 0, 'click' => 0];
         foreach ($rows as $row) {
             $event = self::normalizeEvent($row);
-            if ($event === 'SEND') $summary['sent']++;
+            if (in_array($event, ['SEND', 'DELIVERY', 'BOUNCE', 'REJECT', 'RENDERING_FAILURE', 'DELIVERY_DELAY'], true)) $summary['sent']++;
             if ($event === 'DELIVERY') $summary['delivery']++;
             if (in_array($event, self::FAILURE_EVENTS, true)) $summary['failures']++;
             if ($event === 'DELIVERY_DELAY') $summary['delay']++;
