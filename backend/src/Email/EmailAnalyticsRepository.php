@@ -37,7 +37,7 @@ final class EmailAnalyticsRepository
         return strtoupper(str_replace([' ', '-'], '_', trim((string) $value)));
     }
 
-    /** @param array<string, mixed> $row @return array{status:string, reason:string, occurred_at:string} */
+    /** @param array<string, mixed> $row @return array{status:string, reason:string, classification:string, occurred_at:string} */
     public static function eventDetail(array $row): array
     {
         $payload = is_string($row['json_evento'] ?? null) ? json_decode($row['json_evento'], true) : null;
@@ -49,13 +49,15 @@ final class EmailAnalyticsRepository
         if ($type === 'BOUNCE') {
             $bounce = is_array($message['bounce'] ?? null) ? $message['bounce'] : [];
             $reason = trim(implode(' / ', array_filter([(string) ($bounce['bounceType'] ?? ''), (string) ($bounce['bounceSubType'] ?? '')])));
-            return ['status' => 'Falha na entrega', 'reason' => $reason ?: 'Sem motivo informado pela AWS.', 'occurred_at' => (string) ($bounce['timestamp'] ?? '')];
+            $bounceType = strtoupper((string) ($bounce['bounceType'] ?? ''));
+            $classification = $bounceType === 'PERMANENT' ? 'Permanente — tratar cadastro' : ($bounceType === 'TRANSIENT' ? 'Transitória — tentar novo envio' : 'Analisar motivo da falha');
+            return ['status' => 'Falha na entrega', 'reason' => $reason ?: 'Sem motivo informado pela AWS.', 'classification' => $classification, 'occurred_at' => (string) ($bounce['timestamp'] ?? '')];
         }
         if ($type === 'DELIVERY') {
             $delivery = is_array($message['delivery'] ?? null) ? $message['delivery'] : [];
-            return ['status' => 'Entregue', 'reason' => (string) ($delivery['smtpResponse'] ?? 'Entrega confirmada pela AWS.'), 'occurred_at' => (string) ($delivery['timestamp'] ?? '')];
+            return ['status' => 'Entregue', 'reason' => (string) ($delivery['smtpResponse'] ?? 'Entrega confirmada pela AWS.'), 'classification' => 'Entregue', 'occurred_at' => (string) ($delivery['timestamp'] ?? '')];
         }
-        return ['status' => $type ?: 'Evento recebido', 'reason' => 'Sem detalhe adicional para este evento.', 'occurred_at' => ''];
+        return ['status' => $type ?: 'Evento recebido', 'reason' => 'Sem detalhe adicional para este evento.', 'classification' => 'Sem ação necessária', 'occurred_at' => ''];
     }
 
     /** @return array{sent:int, delivery:int, failures:int, delay:int, complaint:int, open:int, click:int} */
@@ -116,7 +118,7 @@ final class EmailAnalyticsRepository
         return array_map(static function (array $row): array {
             $detail = self::eventDetail($row);
             unset($row['json_evento']);
-            return $row + ['detail_status' => $detail['status'], 'detail_reason' => $detail['reason'], 'detail_occurred_at' => $detail['occurred_at']];
+            return $row + ['detail_status' => $detail['status'], 'detail_reason' => $detail['reason'], 'detail_classification' => $detail['classification'], 'detail_occurred_at' => $detail['occurred_at']];
         }, $statement->fetchAll(\PDO::FETCH_ASSOC));
     }
 }

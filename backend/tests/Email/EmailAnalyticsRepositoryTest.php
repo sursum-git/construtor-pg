@@ -47,5 +47,6 @@ final class EmailAnalyticsRepositoryTest extends TestCase
 
         self::assertSame('Falha na entrega', $detail['status']);
         self::assertSame('Permanent / General', $detail['reason']);
+        self::assertSame('Permanente — tratar cadastro', $detail['classification']);
     }
 }
