@@ -70,7 +70,7 @@ final class EmailAnalyticsRepository
             $where = ['dt_hr_evento >= ?::date', "dt_hr_evento < (?::date + INTERVAL '1 day')"];
             $params = [$date, $date];
             $text = trim((string) ($criteria['text'] ?? ''));
-            if ($text !== '') { $where[] = '(COALESCE(titulo, \'\') ILIKE ? OR COALESCE(json_evento, \'\') ILIKE ?)'; $params[] = '%' . $text . '%'; $params[] = '%' . $text . '%'; }
+            if ($text !== '') { $where[] = 'COALESCE(titulo, \'\') ILIKE ?'; $params[] = '%' . $text . '%'; }
             $statement = $this->connection->prepare("SELECT COUNT(*) FILTER (WHERE {$event} IN ('SEND', 'DELIVERY', 'BOUNCE', 'REJECT', 'RENDERING_FAILURE', 'DELIVERY_DELAY')) AS sent, COUNT(*) FILTER (WHERE {$event} = 'DELIVERY') AS delivery, COUNT(*) FILTER (WHERE {$event} IN ('BOUNCE', 'REJECT', 'RENDERING_FAILURE')) AS failures, COUNT(*) FILTER (WHERE {$event} = 'DELIVERY_DELAY') AS delay, COUNT(*) FILTER (WHERE {$event} = 'COMPLAINT') AS complaint, COUNT(*) FILTER (WHERE {$event} = 'OPEN') AS open, COUNT(*) FILTER (WHERE {$event} = 'CLICK') AS click FROM notificacoes WHERE " . implode(' AND ', $where));
             $statement->execute($params);
             $summary = $statement->fetch(\PDO::FETCH_ASSOC) ?: [];
@@ -110,7 +110,7 @@ final class EmailAnalyticsRepository
         $where = ['dt_hr_evento >= ?::date', "dt_hr_evento < (?::date + INTERVAL '1 day')"];
         $params = [$date, $date];
         $text = trim((string) ($criteria['text'] ?? ''));
-        if ($text !== '') { $where[] = '(COALESCE(titulo, \'\') ILIKE ? OR COALESCE(json_evento, \'\') ILIKE ?)'; $params[] = '%' . $text . '%'; $params[] = '%' . $text . '%'; }
+        if ($text !== '') { $where[] = 'COALESCE(titulo, \'\') ILIKE ?'; $params[] = '%' . $text . '%'; }
         $event = "UPPER(REPLACE(REPLACE(COALESCE((json_evento::jsonb->>'Message')::jsonb->>'eventType', (json_evento::jsonb->>'Message')::jsonb->>'notificationType', json_evento::jsonb->>'eventType', json_evento::jsonb->>'notificationType', cod_tipo), ' ', '_'), '-', '_'))";
         if ($types) { $where[] = $event . ' IN (' . implode(',', array_fill(0, count($types), '?')) . ')'; $params = array_merge($params, $types); }
         $sql = 'SELECT COUNT(*) OVER() AS total_records, id, cod_tipo, dt_hr_evento, mensagem_id_email, mensagem_id_aws, remetente, destinatario, titulo, json_evento FROM notificacoes WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . $sort . ' DESC LIMIT ' . $pageSize . ' OFFSET ' . (($page - 1) * $pageSize);
