@@ -35,6 +35,27 @@ final class EmailAnalyticsRepository
         return strtoupper(str_replace([' ', '-'], '_', trim((string) $value)));
     }
 
+    /** @param array<string, mixed> $row @return array{status:string, reason:string, occurred_at:string} */
+    public static function eventDetail(array $row): array
+    {
+        $payload = is_string($row['json_evento'] ?? null) ? json_decode($row['json_evento'], true) : null;
+        $message = is_array($payload) ? ($payload['Message'] ?? $payload) : [];
+        if (is_string($message)) $message = json_decode($message, true);
+        if (!is_array($message)) $message = [];
+        $type = strtoupper((string) ($message['notificationType'] ?? self::normalizeEvent($row)));
+
+        if ($type === 'BOUNCE') {
+            $bounce = is_array($message['bounce'] ?? null) ? $message['bounce'] : [];
+            $reason = trim(implode(' / ', array_filter([(string) ($bounce['bounceType'] ?? ''), (string) ($bounce['bounceSubType'] ?? '')])));
+            return ['status' => 'Falha na entrega', 'reason' => $reason ?: 'Sem motivo informado pela AWS.', 'occurred_at' => (string) ($bounce['timestamp'] ?? '')];
+        }
+        if ($type === 'DELIVERY') {
+            $delivery = is_array($message['delivery'] ?? null) ? $message['delivery'] : [];
+            return ['status' => 'Entregue', 'reason' => (string) ($delivery['smtpResponse'] ?? 'Entrega confirmada pela AWS.'), 'occurred_at' => (string) ($delivery['timestamp'] ?? '')];
+        }
+        return ['status' => $type ?: 'Evento recebido', 'reason' => 'Sem detalhe adicional para este evento.', 'occurred_at' => ''];
+    }
+
     /** @return array{sent:int, failures:int} */
     public function summary(): array
     {
@@ -71,8 +92,12 @@ final class EmailAnalyticsRepository
         $where = ['dt_hr_evento >= CURRENT_DATE'];
         $params = [];
         if ($types) { $where[] = 'UPPER(cod_tipo) IN (' . implode(',', array_fill(0, count($types), '?')) . ')'; $params = $types; }
-        $sql = 'SELECT id, cod_tipo, dt_hr_evento, mensagem_id_email, mensagem_id_aws, remetente, destinatario, titulo FROM notificacoes WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . $sort . ' DESC LIMIT ' . $pageSize . ' OFFSET ' . (($page - 1) * $pageSize);
+        $sql = 'SELECT id, cod_tipo, dt_hr_evento, mensagem_id_email, mensagem_id_aws, remetente, destinatario, titulo, json_evento FROM notificacoes WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . $sort . ' DESC LIMIT ' . $pageSize . ' OFFSET ' . (($page - 1) * $pageSize);
         $statement = $this->connection->prepare($sql); $statement->execute($params);
-        return $statement->fetchAll(\PDO::FETCH_ASSOC);
+        return array_map(static function (array $row): array {
+            $detail = self::eventDetail($row);
+            unset($row['json_evento']);
+            return $row + ['detail_status' => $detail['status'], 'detail_reason' => $detail['reason'], 'detail_occurred_at' => $detail['occurred_at']];
+        }, $statement->fetchAll(\PDO::FETCH_ASSOC));
     }
 }

@@ -34,4 +34,17 @@ final class EmailAnalyticsRepositoryTest extends TestCase
         $this->expectException(\InvalidArgumentException::class);
         $repository->search(['sort' => 'json_evento; drop table notificacoes']);
     }
+
+    public function testExtractsFailureReasonFromSnsSesBounce(): void
+    {
+        $detail = EmailAnalyticsRepository::eventDetail([
+            'json_evento' => json_encode(['Message' => json_encode([
+                'notificationType' => 'Bounce',
+                'bounce' => ['bounceType' => 'Permanent', 'bounceSubType' => 'General'],
+            ])]),
+        ]);
+
+        self::assertSame('Falha na entrega', $detail['status']);
+        self::assertSame('Permanent / General', $detail['reason']);
+    }
 }
