@@ -19,12 +19,13 @@ final class EmailAnalyticsRepositoryTest extends TestCase
     {
         $repository = new EmailAnalyticsRepository(static fn (): array => [
             ['cod_tipo' => 'SEND', 'json_evento' => null],
+            ['cod_tipo' => 'DELIVERY', 'json_evento' => null],
             ['cod_tipo' => 'BOUNCE', 'json_evento' => null],
             ['cod_tipo' => 'REJECT', 'json_evento' => null],
             ['cod_tipo' => 'Rendering Failure', 'json_evento' => null],
         ]);
 
-        self::assertSame(['sent' => 1, 'failures' => 3], $repository->summary());
+        self::assertSame(['sent' => 1, 'delivery' => 1, 'failures' => 3, 'delay' => 0, 'complaint' => 0, 'open' => 0, 'click' => 0], $repository->summary());
     }
 
     public function testRejectsSortOutsideThePublishedColumns(): void

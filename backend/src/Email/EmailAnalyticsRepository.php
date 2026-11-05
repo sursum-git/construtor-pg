@@ -31,7 +31,9 @@ final class EmailAnalyticsRepository
     public static function normalizeEvent(array $row): string
     {
         $payload = is_string($row['json_evento'] ?? null) ? json_decode($row['json_evento'], true) : null;
-        $value = is_array($payload) ? ($payload['eventType'] ?? $payload['notificationType'] ?? $row['cod_tipo'] ?? '') : ($row['cod_tipo'] ?? '');
+        $message = is_array($payload) ? ($payload['Message'] ?? $payload) : [];
+        if (is_string($message)) $message = json_decode($message, true);
+        $value = is_array($message) ? ($message['eventType'] ?? $message['notificationType'] ?? $payload['eventType'] ?? $payload['notificationType'] ?? $row['cod_tipo'] ?? '') : ($row['cod_tipo'] ?? '');
         return strtoupper(str_replace([' ', '-'], '_', trim((string) $value)));
     }
 
@@ -56,26 +58,31 @@ final class EmailAnalyticsRepository
         return ['status' => $type ?: 'Evento recebido', 'reason' => 'Sem detalhe adicional para este evento.', 'occurred_at' => ''];
     }
 
-    /** @return array{sent:int, failures:int} */
+    /** @return array{sent:int, delivery:int, failures:int, delay:int, complaint:int, open:int, click:int} */
     public function summary(): array
     {
         if ($this->connection instanceof \PDO) {
-            $event = "UPPER(REPLACE(REPLACE(COALESCE(json_evento::jsonb->>'eventType', json_evento::jsonb->>'notificationType', cod_tipo), ' ', '_'), '-', '_'))";
-            $statement = $this->connection->query("SELECT COUNT(*) FILTER (WHERE {$event} = 'SEND') AS sent, COUNT(*) FILTER (WHERE {$event} IN ('BOUNCE', 'REJECT', 'RENDERING_FAILURE')) AS failures FROM notificacoes WHERE dt_hr_evento >= CURRENT_DATE");
+            $event = "UPPER(REPLACE(REPLACE(COALESCE((json_evento::jsonb->>'Message')::jsonb->>'eventType', (json_evento::jsonb->>'Message')::jsonb->>'notificationType', json_evento::jsonb->>'eventType', json_evento::jsonb->>'notificationType', cod_tipo), ' ', '_'), '-', '_'))";
+            $statement = $this->connection->query("SELECT COUNT(*) FILTER (WHERE {$event} = 'SEND') AS sent, COUNT(*) FILTER (WHERE {$event} = 'DELIVERY') AS delivery, COUNT(*) FILTER (WHERE {$event} IN ('BOUNCE', 'REJECT', 'RENDERING_FAILURE')) AS failures, COUNT(*) FILTER (WHERE {$event} = 'DELIVERY_DELAY') AS delay, COUNT(*) FILTER (WHERE {$event} = 'COMPLAINT') AS complaint, COUNT(*) FILTER (WHERE {$event} = 'OPEN') AS open, COUNT(*) FILTER (WHERE {$event} = 'CLICK') AS click FROM notificacoes WHERE dt_hr_evento >= CURRENT_DATE");
             $summary = $statement->fetch(\PDO::FETCH_ASSOC) ?: [];
-            return ['sent' => (int) ($summary['sent'] ?? 0), 'failures' => (int) ($summary['failures'] ?? 0)];
+            return array_map('intval', ['sent' => $summary['sent'] ?? 0, 'delivery' => $summary['delivery'] ?? 0, 'failures' => $summary['failures'] ?? 0, 'delay' => $summary['delay'] ?? 0, 'complaint' => $summary['complaint'] ?? 0, 'open' => $summary['open'] ?? 0, 'click' => $summary['click'] ?? 0]);
         }
         return $this->summarize(($this->rows)());
     }
 
-    /** @param array<int, array<string, mixed>> $rows @return array{sent:int, failures:int} */
+    /** @param array<int, array<string, mixed>> $rows @return array{sent:int, delivery:int, failures:int, delay:int, complaint:int, open:int, click:int} */
     private function summarize(array $rows): array
     {
-        $summary = ['sent' => 0, 'failures' => 0];
+        $summary = ['sent' => 0, 'delivery' => 0, 'failures' => 0, 'delay' => 0, 'complaint' => 0, 'open' => 0, 'click' => 0];
         foreach ($rows as $row) {
             $event = self::normalizeEvent($row);
             if ($event === 'SEND') $summary['sent']++;
+            if ($event === 'DELIVERY') $summary['delivery']++;
             if (in_array($event, self::FAILURE_EVENTS, true)) $summary['failures']++;
+            if ($event === 'DELIVERY_DELAY') $summary['delay']++;
+            if ($event === 'COMPLAINT') $summary['complaint']++;
+            if ($event === 'OPEN') $summary['open']++;
+            if ($event === 'CLICK') $summary['click']++;
         }
         return $summary;
     }
@@ -91,8 +98,9 @@ final class EmailAnalyticsRepository
         $pageSize = min(100, max(1, (int) ($criteria['pageSize'] ?? 20)));
         $where = ['dt_hr_evento >= CURRENT_DATE'];
         $params = [];
-        if ($types) { $where[] = 'UPPER(cod_tipo) IN (' . implode(',', array_fill(0, count($types), '?')) . ')'; $params = $types; }
-        $sql = 'SELECT id, cod_tipo, dt_hr_evento, mensagem_id_email, mensagem_id_aws, remetente, destinatario, titulo, json_evento FROM notificacoes WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . $sort . ' DESC LIMIT ' . $pageSize . ' OFFSET ' . (($page - 1) * $pageSize);
+        $event = "UPPER(REPLACE(REPLACE(COALESCE((json_evento::jsonb->>'Message')::jsonb->>'eventType', (json_evento::jsonb->>'Message')::jsonb->>'notificationType', json_evento::jsonb->>'eventType', json_evento::jsonb->>'notificationType', cod_tipo), ' ', '_'), '-', '_'))";
+        if ($types) { $where[] = $event . ' IN (' . implode(',', array_fill(0, count($types), '?')) . ')'; $params = $types; }
+        $sql = 'SELECT COUNT(*) OVER() AS total_records, id, cod_tipo, dt_hr_evento, mensagem_id_email, mensagem_id_aws, remetente, destinatario, titulo, json_evento FROM notificacoes WHERE ' . implode(' AND ', $where) . ' ORDER BY ' . $sort . ' DESC LIMIT ' . $pageSize . ' OFFSET ' . (($page - 1) * $pageSize);
         $statement = $this->connection->prepare($sql); $statement->execute($params);
         return array_map(static function (array $row): array {
             $detail = self::eventDetail($row);

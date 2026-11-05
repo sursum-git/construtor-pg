@@ -17,6 +17,8 @@ final class EmailAnalyticsController
     {
         $types = array_filter(explode(',', (string) $request->query->get('types', '')));
         $data = EmailAnalyticsRepository::fromEnvironment()->search(['types'=>$types,'page'=>$request->query->getInt('page',1),'pageSize'=>$request->query->getInt('pageSize',20),'sort'=>$request->query->get('sort','dt_hr_evento')]);
-        return new JsonResponse(['data'=>$data,'total'=>count($data)]);
+        $total = (int) ($data[0]['total_records'] ?? 0);
+        foreach ($data as &$row) unset($row['total_records']);
+        return new JsonResponse(['data'=>$data,'total'=>$total]);
     }
 }
