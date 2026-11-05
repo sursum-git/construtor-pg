@@ -39,8 +39,10 @@ final class EmailAnalyticsRepository
     public function summary(): array
     {
         if ($this->connection instanceof \PDO) {
-            $rows = $this->connection->query('SELECT cod_tipo, json_evento FROM notificacoes WHERE dt_hr_evento >= CURRENT_DATE')->fetchAll(\PDO::FETCH_ASSOC);
-            return $this->summarize($rows);
+            $event = "UPPER(REPLACE(REPLACE(COALESCE(json_evento::jsonb->>'eventType', json_evento::jsonb->>'notificationType', cod_tipo), ' ', '_'), '-', '_'))";
+            $statement = $this->connection->query("SELECT COUNT(*) FILTER (WHERE {$event} = 'SEND') AS sent, COUNT(*) FILTER (WHERE {$event} IN ('BOUNCE', 'REJECT', 'RENDERING_FAILURE')) AS failures FROM notificacoes WHERE dt_hr_evento >= CURRENT_DATE");
+            $summary = $statement->fetch(\PDO::FETCH_ASSOC) ?: [];
+            return ['sent' => (int) ($summary['sent'] ?? 0), 'failures' => (int) ($summary['failures'] ?? 0)];
         }
         return $this->summarize(($this->rows)());
     }
