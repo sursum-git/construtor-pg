@@ -3647,9 +3647,15 @@ class ProgramBuilderService
         $value = $this->closedObject($value, ['operationCode', 'parameterFields', 'confirmation'], 'processOptions');
         $fields = []; foreach ($entity->getFields() as $field) { $fields[$field->getCode()] = $field; }
         if (!is_array($value['parameterFields'] ?? null) || !array_is_list($value['parameterFields']) || count($value['parameterFields']) > 30) { $fail(); }
+        $operation = null;
+        foreach ($entity->getMetadata()['apiSource']['operations'] ?? [] as $candidate) { if (($candidate['code'] ?? null) === ($value['operationCode'] ?? null)) { $operation = $candidate; } }
+        $nfLink = $operation !== null && \App\Runtime\RuntimeContainerNfLinkParameters::isOperation($operation);
+        if ($nfLink && $value['parameterFields'] !== \App\Runtime\RuntimeContainerNfLinkParameters::FIELDS) {
+            $fail();
+        }
         $seen = [];
         foreach ($value['parameterFields'] as $name) {
-            if (!is_string($name) || !isset($fields[$name]) || isset($seen[$name]) || (!in_array($fields[$name]->getDataType(), ['string','text','integer','decimal','boolean','date','datetime'], true) && !($fields[$name]->getDataType()==='json' && ($fields[$name]->getOptions()['api']['collection'] ?? null)===['itemType'=>'integer'])) || in_array($name, ['operation','resource','context','parameters','runtime','_runtime'], true)) { $fail(); }
+            if (!is_string($name) || !isset($fields[$name]) || isset($seen[$name]) || (!in_array($fields[$name]->getDataType(), ['string','text','integer','decimal','boolean','date','datetime'], true) && !($fields[$name]->getDataType()==='json' && (($fields[$name]->getOptions()['api']['collection'] ?? null)===['itemType'=>'integer'] || ($nfLink && $name === 'nfs')))) || in_array($name, ['operation','resource','context','parameters','runtime','_runtime'], true)) { $fail(); }
             $source=$fields[$name]->getOptions()['api']['optionsSource'] ?? null;
             if($source){
                 $lookup=null;foreach($entity->getMetadata()['apiSource']['operations'] ?? [] as $candidate){if(($candidate['code'] ?? null)===($source['operationCode'] ?? null)){$lookup=$candidate;}}
@@ -3664,8 +3670,6 @@ class ProgramBuilderService
             $contextCodes[] = $context['field'];
         }
         if (!$seen && !$contextCodes) { $fail(); }
-        $operation = null;
-        foreach ($entity->getMetadata()['apiSource']['operations'] ?? [] as $candidate) { if (($candidate['code'] ?? null) === ($value['operationCode'] ?? null)) { $operation = $candidate; } }
         if (($entity->getMetadata()['apiSource']['responseContract'] ?? null) !== 'sursum-programs' || !$operation || ($operation['allowProcess'] ?? false) !== true || ($operation['type'] ?? null) !== 'custom' || ($operation['method'] ?? null) !== 'POST' || !is_string($operation['path'] ?? null) || $operation['path'] === '') { $fail(); }
         $declared = $operation['requestContextFields'] ?? []; $expected = $contextCodes;
         sort($declared); sort($expected); if ($declared !== $expected) { $fail(); }
@@ -4998,7 +5002,7 @@ class ProgramBuilderService
                     'columns' => $gridColumns,
                     'rowActions' => $this->rowActions($config),
                     'rowLinks' => $config['rowLinks'] ?? [],
-                    'bulkActions' => ['enabled' => false, 'actions' => []],
+                    'bulkActions' => $this->nfGridBulkActions($config),
                     'print' => ['enabled' => false, 'options' => []],
                 ],
                 'form' => [
@@ -6093,6 +6097,16 @@ class ProgramBuilderService
             }
         }
         if ($apiEntity && !$odooEntity && \App\Runtime\RuntimePurchaseAttachmentAudit::supports(['entityCode'=>$version->getBuilderEntityCode()])) { $handlers['attachments.download']='attachments.download'; }
+        if ($apiEntity && !$odooEntity) {
+            $nfOperation = $this->nfGridOperation(
+                $version->getScreenId(),
+                $this->entities->findOneBy(['code' => $version->getBuilderEntityCode()])
+            );
+            if ($nfOperation !== null) {
+                $handlers[$nfOperation] = 'entity.api.crud';
+                $handlers['nfLinkSnapshot'] = 'entity.api.crud';
+            }
+        }
         $activeEndpointIds = [];
         foreach ($handlers as $endpointId => $handler) {
             if (in_array($endpointId, ['create', 'update', 'delete'], true)) {
@@ -6287,6 +6301,9 @@ class ProgramBuilderService
     {
         $generatedEndpointIds = [
             'attachments.download',
+            'nfLinkSnapshot',
+            'associar_nfs',
+            'desassociar_nfs',
             'read',
             'get',
             'batch',
@@ -6364,6 +6381,8 @@ class ProgramBuilderService
         }
 
         if ($version->getPageType() === 'process' && $endpointId === 'run') { return $prefix . '.process'; }
+        if ($endpointId === 'nfLinkSnapshot') { return 'container_nfs_progress.read'; }
+        if (in_array($endpointId, ['associar_nfs', 'desassociar_nfs'], true)) { return $prefix . '.process'; }
         if (str_starts_with($endpointId, 'options.')) { return $prefix . '.read'; }
         return match ($endpointId) {
             'read', 'get', 'batch', 'attachments.download' => $prefix . '.read',
@@ -6401,6 +6420,24 @@ class ProgramBuilderService
 
     private function endpointConfig(BuilderProgramVersion $version, string $endpointId, string $handler): array
     {
+        if ($endpointId === 'nfLinkSnapshot') {
+            return ['entityCode' => 'container_nfs_progress', 'operation' => 'read',
+                'traceability' => $this->runtimeEndpointTraceability($version, 'container_nfs_progress')];
+        }
+        if (in_array($endpointId, ['associar_nfs', 'desassociar_nfs'], true)) {
+            return [
+                'entityCode' => $version->getBuilderEntityCode(),
+                'operation' => 'process',
+                'allowProcess' => true,
+                'processOptions' => ['operationCode' => $endpointId,
+                    'parameterFields' => \App\Runtime\RuntimeContainerNfLinkParameters::FIELDS],
+                'contextFields' => $version->getBuilderConfig()['contextFields'] ?? [],
+                'permissionPrefix' => $version->getPermissionPrefix(),
+                'actionId' => $endpointId,
+                'programId' => $version->getProgramCode(),
+                'traceability' => $this->runtimeEndpointTraceability($version, $version->getBuilderEntityCode()),
+            ];
+        }
         if (in_array($handler, ['attachments.download','entity.crud', 'entity.api.readonly', 'entity.api.crud', 'entity.api.odoo.readonly'], true)) {
             return [
                 'entityCode' => $version->getBuilderEntityCode(),
@@ -6513,6 +6550,40 @@ class ProgramBuilderService
         return [];
     }
 
+    private function nfGridOperation(string $screenId, ?BuilderEntity $entity): ?string
+    {
+        $expected = match ($screenId) {
+            'ciw.container-nfs-disponiveis-med' => ['container_nfs_disponiveis_med_progress', 'associar_nfs'],
+            'ciw.container-nfs' => ['container_nfs_progress', 'desassociar_nfs'],
+            default => null,
+        };
+        if ($expected === null || $entity?->getCode() !== $expected[0] || !$this->isApiEntity($entity)) {
+            return null;
+        }
+        foreach ($entity->getMetadata()['apiSource']['operations'] ?? [] as $operation) {
+            if (($operation['code'] ?? null) === $expected[1]
+                && \App\Runtime\RuntimeContainerNfLinkParameters::isOperation($operation)
+                && ($operation['allowProcess'] ?? false) === true) {
+                return $expected[1];
+            }
+        }
+        return null;
+    }
+
+    private function nfGridBulkActions(array $config): array
+    {
+        $operation = $this->nfGridOperation($config['screenId'], $config['_entity']);
+        if ($operation === null) {
+            return ['enabled' => false, 'actions' => []];
+        }
+        return ['enabled' => true, 'actions' => [[
+            'id' => $operation,
+            'action' => $operation,
+            'endpointId' => $operation,
+            'label' => $operation === 'associar_nfs' ? 'Associar NFs' : 'Desassociar NFs',
+        ]]];
+    }
+
     private function crudApiMap(array $config): array
     {
         $api = [
@@ -6520,6 +6591,12 @@ class ProgramBuilderService
         ];
         if (!$this->isApiEntity($config['_entity']) || $this->apiEntityHasDetailEndpoint($config['_entity'])) {
             $api['get'] = ['endpointId' => 'get', 'method' => 'POST'];
+        }
+        $nfOperation = $this->nfGridOperation($config['screenId'], $config['_entity']);
+        if ($nfOperation !== null) {
+            foreach ([$nfOperation, 'nfLinkSnapshot'] as $id) {
+                $api[$id] = ['endpointId' => $id, 'method' => 'POST'];
+            }
         }
         if ($config['allowCreate']) {
             $api['create'] = ['endpointId' => 'create', 'method' => 'POST'];

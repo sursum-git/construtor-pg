@@ -326,20 +326,27 @@ class RuntimeApiEntityActionService
 
         }
 
-        $requestData = [];
+        if (RuntimeContainerNfLinkParameters::isOperation($operation)) {
+            if ($names !== RuntimeContainerNfLinkParameters::FIELDS || $contextCodes !== ['container_id']) {
+                $invalid('Selecao de notas exige chave completa e contexto do container.');
+            }
+            $requestData = RuntimeContainerNfLinkParameters::normalize($parameters);
+        } else {
+            $requestData = [];
 
-        foreach ($names as $name) {
+            foreach ($names as $name) {
 
-            if (!is_string($name) || !isset($definition['fields'][$name]) || in_array($name, ['operation','resource','context','parameters','runtime','_runtime'], true)) { $invalid(); }
+                if (!is_string($name) || !isset($definition['fields'][$name]) || in_array($name, ['operation','resource','context','parameters','runtime','_runtime'], true)) { $invalid(); }
 
-            if (array_key_exists($name, $context)) { continue; }
+                if (array_key_exists($name, $context)) { continue; }
 
-            $field = $definition['fields'][$name];
+                $field = $definition['fields'][$name];
 
-            if (!array_key_exists($name, $parameters)) { if ($field['required']) { $invalid('Informe ' . $field['label'] . '.'); } continue; }
+                if (!array_key_exists($name, $parameters)) { if ($field['required']) { $invalid('Informe ' . $field['label'] . '.'); } continue; }
 
-            $requestData[$name] = $this->normalizeProcessValue($field, $parameters[$name]);
+                $requestData[$name] = $this->normalizeProcessValue($field, $parameters[$name]);
 
+            }
         }
 
         $requestData += $context;
@@ -904,6 +911,14 @@ class RuntimeApiEntityActionService
         ]);
 
 
+
+        $stamp = $response['body']['nf_stamp'] ?? null;
+        if ($definition['entityCode'] === 'container_nfs_progress'
+            && ($definition['apiSource']['listEndpoint']['bodyTemplate']['resource'] ?? null) === 'nfs'
+            && isset($context['container_id'])
+            && is_string($stamp) && preg_match('/\A[0-9a-f]{64}\z/i', $stamp) === 1) {
+            return ['data' => array_values($paged), 'total' => $total, 'nf_stamp' => $stamp];
+        }
 
         return [
 

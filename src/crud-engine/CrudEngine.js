@@ -1,6 +1,49 @@
 (function(global, $) {
   "use strict";
 
+  const textFields = { documento: 60, serie: 20, estab: 20, nat_operacao: 60 };
+
+  function buildNfSelection(containerId, linkedNotesResponse, selection) {
+      if (!Number.isInteger(containerId) || containerId < 1 || containerId > 2147483647) {
+          throw new Error('Container inválido.');
+      }
+      const stamp = linkedNotesResponse?.nf_stamp;
+      if (typeof stamp !== 'string' || !/^[a-f0-9]{64}$/i.test(stamp)) {
+          throw new Error('Atualize a consulta de NFs vinculadas antes de continuar.');
+      }
+      if (!Array.isArray(selection) || selection.length < 1 || selection.length > 100) {
+          throw new Error('Selecione de 1 a 100 notas fiscais.');
+      }
+
+      const seen = new Set();
+      const nfs = selection.map((row) => {
+          if (!row || (row.container_id !== undefined && Number(row.container_id) !== containerId)) {
+              throw new Error('A seleção não corresponde ao container atual.');
+          }
+          const key = {};
+          for (const [field, maximum] of Object.entries(textFields)) {
+              const value = row[field];
+              if (typeof value !== 'string' || !value.trim() || [...value].length > maximum ||
+                  /[\x00-\x1f\x7f]/.test(value)) {
+                  throw new Error('Chave incompleta ou inválida: ' + field);
+              }
+              key[field] = value;
+          }
+          if (!Number.isInteger(row.cod_emitente) || row.cod_emitente < 1 || row.cod_emitente > 2147483647) {
+              throw new Error('Emitente da nota inválido.');
+          }
+          key.cod_emitente = row.cod_emitente;
+          const identity = JSON.stringify(Object.values(key));
+          if (seen.has(identity)) {
+              throw new Error('A seleção contém uma nota repetida.');
+          }
+          seen.add(identity);
+          return key;
+      });
+
+      return { context: { container_id: containerId }, parameters: { nfs, expected_nf_stamp: stamp } };
+  }
+
   class CrudEngine {
     constructor(options) {
       this.options = options || {};
@@ -1760,7 +1803,62 @@
       }
     }
 
+    async executeNfBulkAction(action) {
+      if (this.nfBulkActionPending) { return; }
+      const rows = this.gridRenderer ? this.gridRenderer.getSelectedDataItems().map((row) =>
+        typeof row.toJSON === "function" ? row.toJSON() : { ...row }) : [];
+      if (!rows.length) {
+        global.CrudUtils.showMessage("Selecione ao menos uma nota fiscal.", "warning");
+        return;
+      }
+      const endpoint = this.resolveActionEndpoint(action);
+      const stampEndpoint = this.resolveActionEndpoint("nfLinkSnapshot");
+      const containerId = this.contextValues?.container_id;
+      if (!endpoint?.url || !stampEndpoint?.url || !Number.isInteger(containerId)) {
+        global.CrudUtils.showMessage("Configuração de vínculo de NFs incompleta.", "error");
+        return;
+      }
+
+      this.nfBulkActionPending = true;
+      try {
+        const snapshot = await this.httpClient.request({
+          url: stampEndpoint.url,
+          method: stampEndpoint.method || "POST",
+          data: { context: { container_id: containerId }, runtime: stampEndpoint.runtime || null }
+        });
+        const payload = buildNfSelection(containerId, snapshot, rows);
+        const message = this.getBulkActionConfirmMessage(action, rows.length)
+          || "Confirma a alteração dos vínculos das notas selecionadas?";
+        if (!await global.CrudUtils.confirm(message, { title: "Confirmar vínculo de NFs", confirmText: "Aplicar" })) {
+          return;
+        }
+        if (this.contextValues?.container_id !== containerId) {
+          throw new Error("O container mudou. Selecione as notas novamente.");
+        }
+        await this.httpClient.request({
+          url: endpoint.url,
+          method: endpoint.method || "POST",
+          data: { ...payload, runtime: endpoint.runtime || null }
+        });
+        global.CrudUtils.showMessage(action.successMessage || "Vínculos atualizados.", "success");
+        this.gridRenderer?.clearSelection();
+        this.gridRenderer?.refresh();
+        this.updateLastUpdated();
+      } catch (error) {
+        if (!this.handleBackendValidation(error)) {
+          global.CrudUtils.showMessage(global.CrudUtils.unwrapError(error, "Falha ao alterar vínculos de NFs.").message, "error");
+        }
+      } finally {
+        this.nfBulkActionPending = false;
+      }
+    }
+
     executeBulkAction(action) {
+      const screen = global.CrudUtils.getDefinitionScreenId(this.definition);
+      if ((screen === "ciw.container-nfs-disponiveis-med" && action.id === "associar_nfs") ||
+          (screen === "ciw.container-nfs" && action.id === "desassociar_nfs")) {
+        return this.executeNfBulkAction(action);
+      }
       const selectedIds = this.gridRenderer ? this.gridRenderer.getSelectedIds() : [];
       if (!selectedIds.length) {
         global.CrudUtils.showMessage("Selecione ao menos um registro.", "warning");
