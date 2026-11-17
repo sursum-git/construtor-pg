@@ -60,7 +60,7 @@ class RuntimeApiEntityActionService
 
         $definition = $this->resolveDefinition($entityCode);
         if (RuntimeExpenseTaxRelationsRead::supports($definition)) { RuntimeExpenseTaxRelationsRead::operation($operation); }
-        if (RuntimeContainerNfAvailableRead::supports($definition) && !in_array($operation,["read","get"],true)) { throw new RuntimeHttpException("CONTAINER_NF_READ_ONLY","NFs disponiveis permitem somente consulta.",405); }
+        if (RuntimeContainerNfAvailableRead::supports($definition) && !in_array($operation,["read","get"],true) && !($operation === 'process' && ($config['actionId'] ?? null) === 'associar_nfs' && ($config['allowProcess'] ?? false) === true)) { throw new RuntimeHttpException("CONTAINER_NF_READ_ONLY","NFs disponiveis permitem somente consulta.",405); }
 
         if (RuntimePurchaseContextAudit::supports($definition) && in_array($operation,['create','update','delete','get','download'],true)) {
 
@@ -305,6 +305,17 @@ class RuntimeApiEntityActionService
         if (($definition['apiSource']['responseContract'] ?? null) !== 'sursum-programs' || !$operation || ($operation['allowProcess'] ?? false) !== true || ($operation['type'] ?? null) !== 'custom' || ($operation['method'] ?? null) !== 'POST' || !is_string($operation['path'] ?? null) || $operation['path'] === '') { $invalid('Processo exige operacao custom POST cadastrada.'); }
 
         $endpoint = $this->findOperation($definition, $operation['code']);
+        $nfLink = RuntimeContainerNfLinkParameters::isOperation($operation);
+        $nfActor = null;
+        if ($nfLink) {
+            $expectedEntity = $operation['code'] === 'associar_nfs'
+                ? 'container_nfs_disponiveis_med_progress' : 'container_nfs_progress';
+            if ($definition['entityCode'] !== $expectedEntity
+                || ($definition['apiBinding']['sourceCode'] ?? null) !== 'motor_progress_container_financeiro') {
+                $invalid('Vinculo de NF exige a fonte financeira e a grade correspondente.');
+            }
+            $nfActor = $this->attachmentActor();
+        }
 
         $context = ApiRequestContext::resolve($definition, $endpoint, ['context' => $payload['context'] ?? []]);
 
@@ -382,7 +393,7 @@ class RuntimeApiEntityActionService
             $this->transactions->bindRecordId($context['proc_compra_id']);
         }
 
-        if (RuntimeContainerAudit::supports($definition)) { $this->transactions->bindRecordId($context['container_id'] ?? null); }
+        if ($nfLink || RuntimeContainerAudit::supports($definition)) { $this->transactions->bindRecordId($context['container_id'] ?? null); }
 
         if (!is_array($endpoint['bodyTemplate'] ?? [] ) || ($endpoint['bodyTemplate'] ?? []) !== [] && array_is_list($endpoint['bodyTemplate']) || array_intersect(array_keys($endpoint['bodyTemplate'] ?? []), array_keys($requestData))) { $invalid('Parametros nao podem substituir o template estatico da operacao.'); }
 
@@ -413,6 +424,7 @@ class RuntimeApiEntityActionService
             }
 
             $response = $this->requestEndpoint($definition, $endpoint, $definition['apiSource']['authHeaders'] ?? [], [], $requestData);
+            if ($nfLink && ($response['body']['committed'] ?? null) !== true) { throw new RuntimeHttpException('NF_LINK_UNCONFIRMED', 'Vinculo nao confirmado. Consulte a transacao antes de repetir.', 502); }
             if ($expenseDefaults && ($response['body']['committed']??null)!==true) { throw new RuntimeHttpException('CONTAINER_SELECTION_UNCONFIRMED','Selecao nao confirmada. Consulte a transacao antes de repetir.',502); }
             if ($containerTaxOnly && ($response['body']['committed'] ?? null) !== true) { throw new RuntimeHttpException('CONTAINER_TAX_UNCONFIRMED','Calculo fiscal nao confirmado. Consulte a transacao antes de repetir.',502); }
             if ($allocationProcess && ($response['body']['committed'] ?? null) !== true) { throw new RuntimeHttpException('CONTAINER_ALLOCATION_UNCONFIRMED', 'Alocacao nao confirmada. Consulte a transacao antes de repetir.', 502); }
@@ -426,13 +438,18 @@ class RuntimeApiEntityActionService
 
             } catch (RuntimeHttpException $error) {
 
-                if (!$allocationProcess && !RuntimeContainerAudit::supports($definition) && !RuntimeCiwCotacaoAudit::isImportEndpoint($definition, $endpoint) && !($expenseGeneration && ($response['body']['committed']??null)===true)) { throw $error; }
+                if (!$nfLink && !$allocationProcess && !RuntimeContainerAudit::supports($definition) && !RuntimeCiwCotacaoAudit::isImportEndpoint($definition, $endpoint) && !($expenseGeneration && ($response['body']['committed']??null)===true)) { throw $error; }
 
                 $result = ['type'=>'message','message'=>'Processo confirmado; resposta de apresentacao indisponivel. Nao repita o processo; consulte os logs da transacao.'];
 
             }
 
             $audit = null;
+            if ($nfLink) {
+                $audit = RuntimeContainerNfLinkAudit::inspect(
+                    $response['body'], $requestData, $endpoint['bodyTemplate']['operation'], $nfActor
+                );
+            }
             if ($allocationProcess) {
                 $audit = RuntimeContainerAllocationAudit::inspect($definition, $endpoint, $response['body'], $context, $requestData['item_ids'], $allocationActor);
             }
